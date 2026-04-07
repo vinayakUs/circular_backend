@@ -31,17 +31,24 @@ CREATE TABLE IF NOT EXISTS circulars (
     detected_at TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    es_indexed_at TIMESTAMPTZ,
+    es_chunk_count INT,
+    es_index_name VARCHAR(100),
     UNIQUE (source, circular_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_circulars_status ON circulars(status);
 CREATE INDEX IF NOT EXISTS idx_circulars_source ON circulars(source);
 CREATE INDEX IF NOT EXISTS idx_circulars_issue_date ON circulars(issue_date DESC);
+CREATE INDEX IF NOT EXISTS idx_circulars_es_pending ON circulars(status, es_indexed_at) WHERE file_path IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS scraper_checkpoints (
     source VARCHAR(20) PRIMARY KEY,
     last_run_date DATE NOT NULL,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    es_bloom_filter BYTEA,
+    es_last_run_at TIMESTAMPTZ,
+    es_records_processed INT DEFAULT 0
 );
 """
 
@@ -65,9 +72,9 @@ class CircularRecord:
     detected_at: datetime
     created_at: datetime
     updated_at: datetime
-    es_indexed_at: datetime | None
-    es_chunk_count: int | None
-    es_index_name: str | None
+    es_indexed_at: datetime | None = None
+    es_chunk_count: int | None = None
+    es_index_name: str | None = None
 
 
 class CircularRepository:
@@ -80,6 +87,97 @@ class CircularRepository:
         self._records_by_key: dict[tuple[str, str], CircularRecord] = {}
         self._records_by_id: dict[UUID, CircularRecord] = {}
         self._checkpoints: dict[str, date] = {}
+
+    def list_pending_es_records(self, limit: int = 100) -> list[CircularRecord]:
+        if self.db_pool is not None:
+            return self._list_pending_es_records_db(limit)
+
+        pending = [
+            record
+            for record in self._records_by_id.values()
+            if record.status == "FETCHED"
+            and record.file_path is not None
+            and record.es_indexed_at is None
+        ]
+        pending.sort(key=lambda record: (record.issue_date, record.created_at, record.id))
+        return pending[:limit]
+
+    def get_source_counts(
+        self, sources: list[str] | tuple[str, ...]
+    ) -> dict[str, int]:
+        normalized_sources = tuple(source.upper() for source in sources)
+        if self.db_pool is not None:
+            return self._get_source_counts_db(normalized_sources)
+
+        counts = {source: 0 for source in normalized_sources}
+        for record in self._records_by_id.values():
+            if record.source in counts:
+                counts[record.source] += 1
+        return counts
+
+    def mark_es_indexed(
+        self, record_id: UUID, chunk_count: int, index_name: str
+    ) -> None:
+        if self.db_pool is not None:
+            self._mark_es_indexed_db(record_id, chunk_count, index_name)
+            return
+
+        record = self._records_by_id[record_id]
+        updated = replace(
+            record,
+            es_indexed_at=datetime.now(timezone.utc),
+            es_chunk_count=chunk_count,
+            es_index_name=index_name,
+            updated_at=datetime.now(timezone.utc),
+        )
+        self._store_record(updated)
+        self.logger.info(
+            "Circular ES metadata updated record_id=%s chunk_count=%s index_name=%s",
+            record_id,
+            chunk_count,
+            index_name,
+        )
+
+    def clear_es_index_state(self, record_id: UUID) -> None:
+        if self.db_pool is not None:
+            self._clear_es_index_state_db(record_id)
+            return
+
+        record = self._records_by_id[record_id]
+        updated = replace(
+            record,
+            es_indexed_at=None,
+            es_chunk_count=None,
+            es_index_name=None,
+            updated_at=datetime.now(timezone.utc),
+        )
+        self._store_record(updated)
+        self.logger.info("Cleared ES metadata record_id=%s", record_id)
+
+    def clear_all_es_index_state(self) -> None:
+        if self.db_pool is not None:
+            self._clear_all_es_index_state_db()
+            return
+
+        now = datetime.now(timezone.utc)
+        for record in list(self._records_by_id.values()):
+            self._store_record(
+                replace(
+                    record,
+                    es_indexed_at=None,
+                    es_chunk_count=None,
+                    es_index_name=None,
+                    updated_at=now,
+                )
+            )
+        self.logger.info("Cleared ES metadata for all circular records")
+
+    def reset_bloom_state(self) -> None:
+        if self.db_pool is not None:
+            self._reset_bloom_state_db()
+            return
+
+        self.logger.info("Reset bloom/checkpoint state for all sources")
 
     def upsert_circular(self, circular: Circular) -> tuple[UUID, bool]:
         if self.db_pool is not None:
@@ -129,6 +227,9 @@ class CircularRepository:
             detected_at=circular.detected_at,
             created_at=now,
             updated_at=now,
+            es_indexed_at=None,
+            es_chunk_count=None,
+            es_index_name=None,
         )
         self._store_record(record)
         self.logger.info(
@@ -223,7 +324,8 @@ class CircularRepository:
                     """
                     SELECT id, source, circular_id, full_reference, department, title,
                            issue_date, effective_date, url, pdf_url, status, file_path,
-                           content_hash, error_message, detected_at, created_at, updated_at
+                           content_hash, error_message, detected_at, created_at, updated_at,
+                           es_indexed_at, es_chunk_count, es_index_name
                     FROM circulars
                     WHERE source = %s AND circular_id = %s
                     """,
@@ -234,6 +336,25 @@ class CircularRepository:
         key = self._build_key(source, circular_id)
         return self._records_by_key.get(key)
 
+    def get_record_by_id(self, record_id: UUID) -> CircularRecord | None:
+        if self.db_pool is not None:
+            self._ensure_schema()
+            with self.db_pool.connection() as conn:
+                row = conn.execute(
+                    """
+                    SELECT id, source, circular_id, full_reference, department, title,
+                           issue_date, effective_date, url, pdf_url, status, file_path,
+                           content_hash, error_message, detected_at, created_at, updated_at,
+                           es_indexed_at, es_chunk_count, es_index_name
+                    FROM circulars
+                    WHERE id = %s
+                    """,
+                    (record_id,),
+                ).fetchone()
+            return self._row_to_record(row)
+
+        return self._records_by_id.get(record_id)
+
     def list_records(self) -> list[CircularRecord]:
         if self.db_pool is not None:
             self._ensure_schema()
@@ -242,7 +363,8 @@ class CircularRepository:
                     """
                     SELECT id, source, circular_id, full_reference, department, title,
                            issue_date, effective_date, url, pdf_url, status, file_path,
-                           content_hash, error_message, detected_at, created_at, updated_at
+                           content_hash, error_message, detected_at, created_at, updated_at,
+                           es_indexed_at, es_chunk_count, es_index_name
                     FROM circulars
                     ORDER BY source, circular_id
                     """
@@ -451,3 +573,111 @@ class CircularRepository:
             es_chunk_count=row[18] if len(row) > 18 else None,
             es_index_name=row[19] if len(row) > 19 else None,
         )
+
+    def _list_pending_es_records_db(self, limit: int) -> list[CircularRecord]:
+        self._ensure_schema()
+        with self.db_pool.connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT id, source, circular_id, full_reference, department, title,
+                       issue_date, effective_date, url, pdf_url, status, file_path,
+                       content_hash, error_message, detected_at, created_at, updated_at,
+                       es_indexed_at, es_chunk_count, es_index_name
+                FROM circulars
+                WHERE status = 'FETCHED'
+                  AND file_path IS NOT NULL
+                  AND es_indexed_at IS NULL
+                ORDER BY issue_date ASC, created_at ASC, id ASC
+                LIMIT %s
+                """,
+                (limit,),
+            ).fetchall()
+        return [record for row in rows if (record := self._row_to_record(row))]
+
+    def _get_source_counts_db(self, sources: tuple[str, ...]) -> dict[str, int]:
+        self._ensure_schema()
+        counts = {source: 0 for source in sources}
+        if not sources:
+            return counts
+
+        with self.db_pool.connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT source, COUNT(*)
+                FROM circulars
+                WHERE source = ANY(%s)
+                GROUP BY source
+                """,
+                (list(sources),),
+            ).fetchall()
+
+        for source, count in rows:
+            counts[source] = count
+        return counts
+
+    def _mark_es_indexed_db(
+        self, record_id: UUID, chunk_count: int, index_name: str
+    ) -> None:
+        self._ensure_schema()
+        with self.db_pool.connection() as conn:
+            conn.execute(
+                """
+                UPDATE circulars
+                SET es_indexed_at = NOW(),
+                    es_chunk_count = %s,
+                    es_index_name = %s,
+                    updated_at = NOW()
+                WHERE id = %s
+                """,
+                (chunk_count, index_name, record_id),
+            )
+        self.logger.info(
+            "Circular ES metadata updated record_id=%s chunk_count=%s index_name=%s",
+            record_id,
+            chunk_count,
+            index_name,
+        )
+
+    def _clear_es_index_state_db(self, record_id: UUID) -> None:
+        self._ensure_schema()
+        with self.db_pool.connection() as conn:
+            conn.execute(
+                """
+                UPDATE circulars
+                SET es_indexed_at = NULL,
+                    es_chunk_count = NULL,
+                    es_index_name = NULL,
+                    updated_at = NOW()
+                WHERE id = %s
+                """,
+                (record_id,),
+            )
+        self.logger.info("Cleared ES metadata record_id=%s", record_id)
+
+    def _clear_all_es_index_state_db(self) -> None:
+        self._ensure_schema()
+        with self.db_pool.connection() as conn:
+            conn.execute(
+                """
+                UPDATE circulars
+                SET es_indexed_at = NULL,
+                    es_chunk_count = NULL,
+                    es_index_name = NULL,
+                    updated_at = NOW()
+                """
+            )
+        self.logger.info("Cleared ES metadata for all circular records")
+
+    def _reset_bloom_state_db(self) -> None:
+        self._ensure_schema()
+        with self.db_pool.connection() as conn:
+            conn.execute(
+                """
+                UPDATE scraper_checkpoints
+                SET es_bloom_filter = NULL,
+                    es_last_run_at = NULL,
+                    es_records_processed = 0,
+                    updated_at = NOW()
+                """
+            )
+        self.logger.info("Reset bloom/checkpoint state for all sources")

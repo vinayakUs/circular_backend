@@ -55,3 +55,24 @@ Example values:
 - `NSE`
 - `NSE,SEBI`
 - `NSE,SEBI,BSE`
+
+## Run Elasticsearch Indexer
+
+The indexer reads `FETCHED` circulars from Postgres, extracts text from local PDFs, and indexes chunked documents into Elasticsearch.
+
+```bash
+run-indexer --setup-index
+run-indexer
+run-indexer --batch-size 100
+run-indexer --record-id <circular-record-uuid>
+```
+
+Additional `.env` settings:
+- `ELASTICSEARCH_URL`
+- `ELASTICSEARCH_USERNAME`
+- `ELASTICSEARCH_PASSWORD`
+- `ELASTICSEARCH_INDEX_NAME`
+- `ES_INDEXER_BATCH_SIZE`
+- `ES_CHUNK_SIZE`
+- `ES_CHUNK_OVERLAP`
+- `ES_REQUEST_TIMEOUT_SECONDS`

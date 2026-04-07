@@ -9,10 +9,13 @@ dependencies = [
     "python-dotenv==1.0.1",
     "psycopg[binary]==3.2.9",
     "psycopg-pool==3.2.2",
+    "elasticsearch>=8.0.0",
+    "pypdf>=5.0.0",
 ]
 
 [project.scripts]
 run-scrapper = "ingestion.scrapper.runner:main"
+run-indexer = "ingestion.indexer.runner:main"
 
 [build-system]
 requires = ["setuptools>=68", "wheel"]
@@ -24,6 +27,7 @@ packages = [
     "app",
     "db",
     "ingestion",
+    "ingestion.indexer",
     "ingestion.repository",
     "ingestion.scrapper",
     "ingestion.scrapper.sources",

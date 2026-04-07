@@ -1,5 +1,10 @@
 import os
 
+from dotenv import load_dotenv
+
+
+load_dotenv()
+
 
 def _parse_scraper_sources(raw_value: str | None) -> tuple[str, ...]:
     if raw_value is None:
@@ -27,8 +32,18 @@ class Config:
         os.getenv("SEBI_DETAIL_RETRY_BACKOFF_SECONDS", "2")
     )
     SCRAPER_DEFAULT_LOOKBACK_DAYS = int(
-        os.getenv("SCRAPER_DEFAULT_LOOKBACK_DAYS", "60") # default to 7 days if no data in db fetching historical data
+        os.getenv("SCRAPER_DEFAULT_LOOKBACK_DAYS", "30") # default to 7 days if no data in db fetching historical data
     ) 
     SCRAPER_ENABLED_SOURCES = _parse_scraper_sources(
         os.getenv("SCRAPER_ENABLED_SOURCES")
     )
+    ELASTICSEARCH_URL = os.getenv("ELASTICSEARCH_URL", "http://localhost:9200")
+    ELASTICSEARCH_USERNAME = os.getenv("ELASTICSEARCH_USERNAME")
+    ELASTICSEARCH_PASSWORD = os.getenv("ELASTICSEARCH_PASSWORD")
+    ELASTICSEARCH_INDEX_NAME = os.getenv(
+        "ELASTICSEARCH_INDEX_NAME", "circulars_chunks"
+    )
+    ES_INDEXER_BATCH_SIZE = int(os.getenv("ES_INDEXER_BATCH_SIZE", "50"))
+    ES_CHUNK_SIZE = int(os.getenv("ES_CHUNK_SIZE", "1200"))
+    ES_CHUNK_OVERLAP = int(os.getenv("ES_CHUNK_OVERLAP", "200"))
+    ES_REQUEST_TIMEOUT_SECONDS = int(os.getenv("ES_REQUEST_TIMEOUT_SECONDS", "30"))
