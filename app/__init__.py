@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, request
 
 from db import get_db_client
 from ingestion.repository import CircularRepository
@@ -24,5 +24,6 @@ def create_app() -> Flask:
             "sebi": sebi_count,
             "total": nse_count + sebi_count,
         }
+    
 
     return app
