@@ -14,7 +14,7 @@ class Config:
     FLASK_ENV = os.getenv("FLASK_ENV", "development")
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
     DATABASE_URL = os.getenv(
-        "DATABASE_URL", "postgresql://admin:password@localhost:5432/circular_backend"
+        "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/circular_backend"
     )
     DB_MIN_SIZE = int(os.getenv("DB_MIN_SIZE", "1"))
     DB_MAX_SIZE = int(os.getenv("DB_MAX_SIZE", "5"))
@@ -27,7 +27,7 @@ class Config:
         os.getenv("SEBI_DETAIL_RETRY_BACKOFF_SECONDS", "2")
     )
     SCRAPER_DEFAULT_LOOKBACK_DAYS = int(
-        os.getenv("SCRAPER_DEFAULT_LOOKBACK_DAYS", "111") # default to 7 days if no data in db fetching historical data
+        os.getenv("SCRAPER_DEFAULT_LOOKBACK_DAYS", "60") # default to 7 days if no data in db fetching historical data
     ) 
     SCRAPER_ENABLED_SOURCES = _parse_scraper_sources(
         os.getenv("SCRAPER_ENABLED_SOURCES")

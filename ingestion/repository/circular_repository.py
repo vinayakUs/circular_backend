@@ -65,6 +65,9 @@ class CircularRecord:
     detected_at: datetime
     created_at: datetime
     updated_at: datetime
+    es_indexed_at: datetime | None
+    es_chunk_count: int | None
+    es_index_name: str | None
 
 
 class CircularRepository:
@@ -444,4 +447,7 @@ class CircularRepository:
             detected_at=row[14],
             created_at=row[15],
             updated_at=row[16],
+            es_indexed_at=row[17] if len(row) > 17 else None,
+            es_chunk_count=row[18] if len(row) > 18 else None,
+            es_index_name=row[19] if len(row) > 19 else None,
         )
