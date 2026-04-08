@@ -2,6 +2,8 @@ from flask import Flask, request
 
 from db import get_db_client
 from ingestion.repository import CircularRepository
+from ingestion.indexer.es_provider import get_es_client
+es_client = get_es_client()
 
 
 def create_app() -> Flask:
