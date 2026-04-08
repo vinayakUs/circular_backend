@@ -104,6 +104,22 @@ class ElasticsearchClient:
         failed_count = len(errors)
         return success_count, failed_count
 
+    def search(self, query: str, size: int = 10) -> list[dict[str, Any]]:
+        response = self.client.search(
+            index=self.index_name,
+            query={"match": {"chunk_text": {"query": query}}},
+            size=size,
+        )
+        hits = response.get("hits", {}).get("hits", [])
+        return [
+            {
+                "_id": hit.get("_id"),
+                "_score": hit.get("_score"),
+                "_source": hit.get("_source", {}),
+            }
+            for hit in hits
+        ]
+
     def delete_documents_for_record(self, circular_db_id: str) -> None:
         self.client.delete_by_query(
             index=self.index_name,

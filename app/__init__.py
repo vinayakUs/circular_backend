@@ -1,9 +1,8 @@
 from flask import Flask, request
 
 from db import get_db_client
-from ingestion.repository import CircularRepository
 from ingestion.indexer.es_provider import get_es_client
-es_client = get_es_client()
+from ingestion.repository import CircularRepository
 
 
 def create_app() -> Flask:
@@ -26,6 +25,14 @@ def create_app() -> Flask:
             "sebi": sebi_count,
             "total": nse_count + sebi_count,
         }
-    
+
+    @app.get("/api/circulars/search")
+    def search_circulars():
+        query = request.args.get("q", "").strip()
+        if not query:
+            return {"error": "Query parameter 'q' is required."}, 400
+
+        results = get_es_client().search(query)
+        return {"query": query, "results": results}
 
     return app

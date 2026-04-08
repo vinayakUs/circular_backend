@@ -34,5 +34,48 @@ class GetEsClientTestCase(unittest.TestCase):
         self.assertIs(first_client, second_client)
 
 
+class ElasticsearchClientTestCase(unittest.TestCase):
+    def test_search_returns_normalized_hits(self) -> None:
+        raw_client = unittest.mock.Mock()
+        raw_client.search.return_value = {
+            "hits": {
+                "hits": [
+                    {
+                        "_id": "chunk-1",
+                        "_score": 2.5,
+                        "_source": {"title": "Circular 1", "chunk_text": "query text"},
+                        "ignored_field": "value",
+                    }
+                ]
+            }
+        }
+        client = ElasticsearchClient(
+            url="http://localhost:9200",
+            index_name="circulars_chunks",
+            client=raw_client,
+        )
+
+        results = client.search("query text")
+
+        raw_client.search.assert_called_once_with(
+            index="circulars_chunks",
+            query={"match": {"chunk_text": {"query": "query text"}}},
+            size=10,
+        )
+        self.assertEqual(
+            results,
+            [
+                {
+                    "_id": "chunk-1",
+                    "_score": 2.5,
+                    "_source": {
+                        "title": "Circular 1",
+                        "chunk_text": "query text",
+                    },
+                }
+            ],
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

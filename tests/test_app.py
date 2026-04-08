@@ -37,6 +37,59 @@ class AppTestCase(unittest.TestCase):
         )
         repository.get_source_counts.assert_called_once_with(("NSE", "SEBI"))
 
+    @patch("app.get_es_client")
+    def test_search_endpoint_returns_es_results(self, get_es_client) -> None:
+        es_client = get_es_client.return_value
+        es_client.search.return_value = [
+            {
+                "_id": "chunk-1",
+                "_score": 1.23,
+                "_source": {
+                    "title": "SEBI circular",
+                    "chunk_text": "margin framework update",
+                },
+            }
+        ]
+
+        response = self.client.get("/api/circulars/search?q=margin")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.get_json(),
+            {
+                "query": "margin",
+                "results": [
+                    {
+                        "_id": "chunk-1",
+                        "_score": 1.23,
+                        "_source": {
+                            "title": "SEBI circular",
+                            "chunk_text": "margin framework update",
+                        },
+                    }
+                ],
+            },
+        )
+        es_client.search.assert_called_once_with("margin")
+
+    def test_search_endpoint_requires_q(self) -> None:
+        response = self.client.get("/api/circulars/search")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.get_json(),
+            {"error": "Query parameter 'q' is required."},
+        )
+
+    def test_search_endpoint_rejects_blank_q(self) -> None:
+        response = self.client.get("/api/circulars/search?q=   ")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.get_json(),
+            {"error": "Query parameter 'q' is required."},
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
