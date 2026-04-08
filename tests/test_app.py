@@ -1,6 +1,8 @@
 import unittest
 from unittest.mock import patch
 
+from elastic_transport import ConnectionTimeout
+
 from app import create_app
 
 
@@ -68,6 +70,24 @@ class AppTestCase(unittest.TestCase):
                         },
                     }
                 ],
+            },
+        )
+        es_client.search.assert_called_once_with("margin")
+
+    @patch("app.get_es_client")
+    def test_search_endpoint_handles_es_timeout(self, get_es_client) -> None:
+        es_client = get_es_client.return_value
+        es_client.search.side_effect = ConnectionTimeout("timed out")
+
+        response = self.client.get("/api/circulars/search?q=margin")
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(
+            response.get_json(),
+            {
+                "error": "Search service is temporarily unavailable.",
+                "query": "margin",
+                "results": [],
             },
         )
         es_client.search.assert_called_once_with("margin")

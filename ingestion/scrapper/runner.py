@@ -15,7 +15,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--sources",
-        help="Comma-separated list of source names to run, e.g. NSE or NSE.",
+        help="Comma-separated list of source names to run, e.g. NSE or SEBI.",
     )
     return parser
 

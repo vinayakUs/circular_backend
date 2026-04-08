@@ -37,9 +37,13 @@ class Config:
     SCRAPER_ENABLED_SOURCES = _parse_scraper_sources(
         os.getenv("SCRAPER_ENABLED_SOURCES")
     )
-    ELASTICSEARCH_URL = os.getenv("ELASTICSEARCH_URL", "http://localhost:9200")
-    ELASTICSEARCH_USERNAME = os.getenv("ELASTICSEARCH_USERNAME")
-    ELASTICSEARCH_PASSWORD = os.getenv("ELASTICSEARCH_PASSWORD")
+    ELASTICSEARCH_URL = os.getenv(
+        "ELASTICSEARCH_URL", "https://es-eb59a8.es.us-central1.gcp.cloud.es.io"
+    )
+    ELASTICSEARCH_USERNAME = os.getenv("ELASTICSEARCH_USERNAME", "elastic")
+    ELASTICSEARCH_PASSWORD = os.getenv(
+        "ELASTICSEARCH_PASSWORD", "H9QWD2laWoDp3yVLWnz3MNcJ"
+    )
     ELASTICSEARCH_INDEX_NAME = os.getenv(
         "ELASTICSEARCH_INDEX_NAME", "circulars_chunks"
     )

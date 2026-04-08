@@ -4,6 +4,11 @@ from db import get_db_client
 from ingestion.indexer.es_provider import get_es_client
 from ingestion.repository import CircularRepository
 
+try:
+    from elastic_transport import ConnectionTimeout
+except ImportError:  # pragma: no cover - dependency is installed in runtime
+    ConnectionTimeout = TimeoutError
+
 
 def create_app() -> Flask:
     app = Flask(__name__)
@@ -32,7 +37,15 @@ def create_app() -> Flask:
         if not query:
             return {"error": "Query parameter 'q' is required."}, 400
 
-        results = get_es_client().search(query)
+        try:
+            results = get_es_client().search(query)
+        except ConnectionTimeout:
+            return {
+                "error": "Search service is temporarily unavailable.",
+                "query": query,
+                "results": [],
+            }, 503
+
         return {"query": query, "results": results}
 
     return app

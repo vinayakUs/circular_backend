@@ -1,0 +1,60 @@
+<main class="search-page">
+  <section class="search-panel">
+    <h1>Search Circulars</h1>
+
+    <form class="search-shell" role="search">
+      <label class="search-label" for="circular-search">Search circulars</label>
+      <input id="circular-search" type="search" [(ngModel)]="searchQuery" name="circularSearch"
+        placeholder="Search circulars" aria-label="Search circulars" />
+      <button (click)="search()" type="button" aria-label="Search">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            d="M10.5 4a6.5 6.5 0 1 0 4.02 11.61l4.43 4.42 1.06-1.06-4.42-4.43A6.5 6.5 0 0 0 10.5 4Zm0 1.5a5 5 0 1 1 0 10 5 5 0 0 1 0-10Z" />
+        </svg>
+      </button>
+    </form>
+
+    <div class="exchange-row" aria-label="Exchange filters">
+      @for (exchange of exchanges; track exchange) {
+        <button
+          type="button"
+          class="exchange-chip"
+          [class.active]="exchange === selectedExchange"
+          (click)="selectExchange(exchange)">
+          {{ exchange }}
+        </button>
+      }
+    </div>
+
+    <p>Search Results for <i>{{ searchQuery }}</i></p>
+
+
+    <section>
+      
+      @for (item of searchResults; track $index) {
+        <a class="search-result-card mt-3" href="/circulars/6e02f1fc-04cc-41fe-9a83-bd88a17b7921">
+        <div class="result-meta-row">
+          <span class="result-source-badge">NSE</span>
+          <span class="result-circular-id">circular-641-2024</span>
+          <span class="result-date">26 Sept 2024</span>
+        </div>
+
+        <h3 class="result-title">
+          Revised List of Approved Securities, Approved Commodities and Approved Banks
+        </h3>
+
+        <p class="result-copy">
+          <mark>ADF</mark> Foods Limited 9 ADORWELD INE045A01017 Ador Welding Limited 10 ADSL INE102I01027 Allied
+          Digital Services Limited 11 AGARIND INE204E01012 Agarwal
+        </p>
+      </a>
+      }
+      
+    </section>
+  </section>
+
+  <section class="search-panel">
+
+
+  </section>
+</main>
