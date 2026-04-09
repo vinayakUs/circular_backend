@@ -1,3 +1,8 @@
+from dataclasses import dataclass
+from datetime import date
+from typing import Any
+from uuid import UUID
+
 from flask import Flask, request
 
 from db import get_db_client
@@ -46,6 +51,6 @@ def create_app() -> Flask:
                 "results": [],
             }, 503
 
-        return {"query": query, "results": results}
+        return {"query": query, "results": [result.to_dict(query=query) for result in results]}
 
     return app

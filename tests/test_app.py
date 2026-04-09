@@ -1,9 +1,11 @@
 import unittest
+from datetime import date, datetime
 from unittest.mock import patch
 
 from elastic_transport import ConnectionTimeout
 
 from app import create_app
+from ingestion.indexer.dto import IndexDocument, SearchHit
 
 
 class AppTestCase(unittest.TestCase):
@@ -43,14 +45,28 @@ class AppTestCase(unittest.TestCase):
     def test_search_endpoint_returns_es_results(self, get_es_client) -> None:
         es_client = get_es_client.return_value
         es_client.search.return_value = [
-            {
-                "_id": "chunk-1",
-                "_score": 1.23,
-                "_source": {
-                    "title": "SEBI circular",
-                    "chunk_text": "margin framework update",
-                },
-            }
+            SearchHit(
+                es_id="chunk-1",
+                score=1.23,
+                document=IndexDocument(
+                    chunk_id="chunk-1",
+                    circular_db_id="db-1",
+                    circular_id="circular-1",
+                    source="SEBI",
+                    title="SEBI circular",
+                    department="Markets",
+                    issue_date=date(2024, 1, 2),
+                    effective_date=None,
+                    full_reference="SEBI/HO/MRD/2024/1",
+                    url="https://example.com/circular-1",
+                    pdf_url="https://example.com/circular-1.pdf",
+                    file_path="/tmp/circular-1.pdf",
+                    content_hash="hash-1",
+                    chunk_index=0,
+                    chunk_text="margin framework update",
+                    indexed_at=datetime(2024, 1, 2, 3, 4, 5),
+                ),
+            )
         ]
 
         response = self.client.get("/api/circulars/search?q=margin")
@@ -62,11 +78,25 @@ class AppTestCase(unittest.TestCase):
                 "query": "margin",
                 "results": [
                     {
-                        "_id": "chunk-1",
-                        "_score": 1.23,
-                        "_source": {
+                        "id": "chunk-1",
+                        "score": 1.23,
+                        "document": {
+                            "chunk_id": "chunk-1",
+                            "circular_db_id": "db-1",
+                            "circular_id": "circular-1",
+                            "source": "SEBI",
                             "title": "SEBI circular",
+                            "department": "Markets",
+                            "issue_date": "2024-01-02",
+                            "effective_date": None,
+                            "full_reference": "SEBI/HO/MRD/2024/1",
+                            "url": "https://example.com/circular-1",
+                            "pdf_url": "https://example.com/circular-1.pdf",
+                            "file_path": "/tmp/circular-1.pdf",
+                            "content_hash": "hash-1",
+                            "chunk_index": 0,
                             "chunk_text": "margin framework update",
+                            "indexed_at": "2024-01-02T03:04:05",
                         },
                     }
                 ],

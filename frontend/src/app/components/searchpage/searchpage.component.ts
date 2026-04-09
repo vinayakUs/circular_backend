@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { IndexSearchResult, IndexService } from '../../services/index.service';
+import {  IndexService, SearchIndexItem, SearchIndexRespose } from '../../services/index.service';
 
 @Component({
   selector: 'app-searchpage',
@@ -10,10 +10,10 @@ import { IndexSearchResult, IndexService } from '../../services/index.service';
   styleUrl: './searchpage.component.css'
 })
 export class SearchpageComponent {
-  searchQuery = 'adf';
+  searchQuery = 'sebi';
   readonly exchanges = ['All', 'NSE', 'SEBI'];
   selectedExchange = 'All';
-  searchResults: IndexSearchResult[] = [];
+  searchResults: SearchIndexItem[] = [];
 
   constructor(private indexService: IndexService) { }
 
@@ -25,9 +25,9 @@ export class SearchpageComponent {
         console.log('result');
 
     this.indexService.getSearchResult(this.searchQuery).subscribe({
-      next: (result:IndexSearchResult[]) => {
-        this.searchResults =result;
-        console.log(result);
+      next: (result:SearchIndexRespose) => {
+        this.searchResults =  result.results;
+        console.log('result',result);
       }
     });
 

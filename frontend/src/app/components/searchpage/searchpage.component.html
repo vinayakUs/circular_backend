@@ -34,18 +34,17 @@
       @for (item of searchResults; track $index) {
         <a class="search-result-card mt-3" href="/circulars/6e02f1fc-04cc-41fe-9a83-bd88a17b7921">
         <div class="result-meta-row">
-          <span class="result-source-badge">NSE</span>
-          <span class="result-circular-id">circular-641-2024</span>
-          <span class="result-date">26 Sept 2024</span>
+          <span class="result-source-badge">{{ item.document.source }}</span>
+          <span class="result-circular-id">{{item.document.circular_id}}</span>
+          <span class="result-date">{{item.document.issue_date}}</span>
         </div>
 
         <h3 class="result-title">
-          Revised List of Approved Securities, Approved Commodities and Approved Banks
+          {{item.document.title}}
         </h3>
 
         <p class="result-copy">
-          <mark>ADF</mark> Foods Limited 9 ADORWELD INE045A01017 Ador Welding Limited 10 ADSL INE102I01027 Allied
-          Digital Services Limited 11 AGARIND INE204E01012 Agarwal
+          {{item.document.chunk_text}}
         </p>
       </a>
       }

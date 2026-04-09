@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ingestion.indexer.dto import IndexDocument
+from ingestion.indexer.dto import IndexDocument, SearchHit
 
 
 DEFAULT_INDEX_MAPPING: dict[str, Any] = {
@@ -104,7 +104,7 @@ class ElasticsearchClient:
         failed_count = len(errors)
         return success_count, failed_count
 
-    def search(self, query: str, size: int = 10) -> list[dict[str, Any]]:
+    def search(self, query: str, size: int = 10) -> list[SearchHit]:
         response = self.client.search(
             index=self.index_name,
             query={"match": {"chunk_text": {"query": query}}},
@@ -112,11 +112,11 @@ class ElasticsearchClient:
         )
         hits = response.get("hits", {}).get("hits", [])
         return [
-            {
-                "_id": hit.get("_id"),
-                "_score": hit.get("_score"),
-                "_source": hit.get("_source", {}),
-            }
+            SearchHit(
+                es_id=hit.get("_id"),
+                score=hit.get("_score"),
+                document=IndexDocument.from_es_source(hit.get("_source", {})),
+            )
             for hit in hits
         ]
 
