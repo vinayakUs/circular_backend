@@ -4,6 +4,11 @@ body {
   min-height: 100%;
 }
 
+html {
+  scrollbar-gutter: stable;
+  overflow-y: scroll;
+}
+
 body {
   font-family: 'Inter', sans-serif;
 }
