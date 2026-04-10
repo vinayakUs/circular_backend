@@ -38,12 +38,17 @@ def create_app() -> Flask:
 
     @app.get("/api/circulars/search")
     def search_circulars():
+
         query = request.args.get("q", "").strip()
+        raw_exchange = request.args.get("exchange", "")
+        raw_exchange = [ex.strip().upper() for ex in raw_exchange.split(",") if ex]
+
         if not query:
             return {"error": "Query parameter 'q' is required."}, 400
 
         try:
-            results = get_es_client().search(query)
+            exchange = {"source":raw_exchange}
+            results = get_es_client().search(query,exchange)
         except ConnectionTimeout:
             return {
                 "error": "Search service is temporarily unavailable.",

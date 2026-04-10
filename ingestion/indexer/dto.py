@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime
+from email.mime import text
+from email.mime import text
 from typing import Any
+
+from utils import multi_snippet, highlight
 
 
 @dataclass(slots=True)
@@ -89,17 +93,20 @@ class SearchHit:
         return {
             "id": self.es_id,
             "score": self.score,
-            "preview"
+            "preview": self.build_preview(query),
             "document": self.document.to_es_body(),
         }
     
     def build_preview(self, query: str) -> str:
-
         text = self.document.chunk_text or ""
         if not text:
             return ""
 
-        query_lower = query.lower()
-        text_lower = text.lower()
+        snippets = multi_snippet(text, query)
+        if snippets:
+            # highlight the query terms in the snippets
+            highlighted = [highlight(s, query) for s in snippets]
+            return f"<div class='preview'>{' ... '.join(highlighted)}</div>"
 
-        pass
+        fallback = text[:200] + ("..." if len(text) > 200 else "")
+        return f"<div class='preview'>{highlight(fallback, query)}</div>"

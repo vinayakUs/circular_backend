@@ -26,13 +26,39 @@
       }
     </div>
 
-    <p>Search Results for <i>{{ searchQuery }}</i></p>
+    <div class="d-flex justify-content-between align-items-center mb-2">
+  
+  <p class="mb-0 small">
+   Search Results for <i>{{ searchQuery }}</i>
+  </p>
+
+  <div class="d-flex align-items-center gap-2 small">
+    <span class="text-muted">Sort by:</span>
+    <a href="#" class="fw-semibold text-primary text-decoration-none">Most Relevant</a>
+    <span>|</span>
+    <a href="#" class="text-muted text-decoration-none">Newest first</a>
+  </div>
+
+</div>
 
 
-    <section>
+@if (this.isSearching()) {
+<!-- 
+  <div class="spinner-border text-primary" role="status">
+    <span class="visually-hidden">Loading...</span>
+  </div> -->
+
+<!-- <div class="d-flex justify-content-center align-items-center search-result-card mt-3" style="height: 200px;">
+  <div class="spinner-border text-primary" role="status">
+
+  </div>
+</div> -->
+}
+@else {
+  <section>
       
       @for (item of searchResults; track $index) {
-        <a class="search-result-card mt-3" href="/circulars/6e02f1fc-04cc-41fe-9a83-bd88a17b7921">
+        <a class="search-result-card mt-3" href="/circulars/{{item.document.circular_id}}">
         <div class="result-meta-row">
           <span class="result-source-badge">{{ item.document.source }}</span>
           <span class="result-circular-id">{{item.document.circular_id}}</span>
@@ -40,20 +66,18 @@
         </div>
 
         <h3 class="result-title">
-          {{item.document.title}}
+          <div>{{item.document.title}}</div>
         </h3>
 
-        <p class="result-copy">
-          {{item.document.chunk_text}}
+        <p class="result-copy" [innerHTML]="item.preview">
         </p>
       </a>
       }
       
     </section>
-  </section>
-
-  <section class="search-panel">
+}
 
 
   </section>
+
 </main>

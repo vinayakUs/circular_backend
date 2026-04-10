@@ -104,10 +104,18 @@ class ElasticsearchClient:
         failed_count = len(errors)
         return success_count, failed_count
 
-    def search(self, query: str, size: int = 10) -> list[SearchHit]:
+    def search(self, query: str, metadata: dict[str, Any], size: int = 40) -> list[SearchHit]:
+
+        q={
+                "bool":{
+                    "must": [{"match": {"chunk_text": {"query": query}}}],
+                    "filter": [{"terms": {f"{key}": value}} for key, value in metadata.items()],
+                }
+            }
+
         response = self.client.search(
             index=self.index_name,
-            query={"match": {"chunk_text": {"query": query}}},
+            query=q,
             size=size,
         )
         hits = response.get("hits", {}).get("hits", [])

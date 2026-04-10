@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
@@ -12,6 +12,7 @@ export interface SearchIndexItem {
   id: string;
   score: number;
   document: CircularDocument;
+  preview: string;
 }
 
 export interface CircularDocument {
@@ -41,9 +42,15 @@ export class IndexService {
 
   constructor(private http: HttpClient) { }
 
-  public getSearchResult(keyword: string): Observable<SearchIndexRespose> {
+  public getSearchResult(keyword: string, exchange: string[]): Observable<SearchIndexRespose> {
+
+    let params = new HttpParams()
+    .set('q', keyword)
+    .set('exchange', exchange.join(','));
+
+
     return this.http.get<SearchIndexRespose>(`api/circulars/search`,
-      { params: { q: keyword } }
+      { params }
     ).pipe(
       tap((x) => console.log('Search results:', x))
     );
