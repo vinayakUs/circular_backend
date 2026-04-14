@@ -3,10 +3,10 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from ingestion.repository import CircularRepository
 from ingestion.scrapper.base import IScraper, ScrapeDetectionResult
 from ingestion.scrapper.dto import Circular
 from ingestion.scrapper.orchestrator import ScraperOrchestrator
+from tests.fakes import FakeCircularRepository
 
 
 class StubScraper(IScraper):
@@ -53,7 +53,7 @@ class OrchestratorTestCase(unittest.TestCase):
         )
 
     def test_orchestrator_uses_repository_checkpoint(self) -> None:
-        repository = CircularRepository()
+        repository = FakeCircularRepository()
         repository.set_checkpoint("TEST", date(2026, 4, 4))
         scraper = StubScraper([self.build_circular()])
 
@@ -70,7 +70,7 @@ class OrchestratorTestCase(unittest.TestCase):
         self.assertEqual(repository.get_checkpoint("TEST"), date(2026, 4, 6))
 
     def test_orchestrator_skips_duplicate_fetched_circulars(self) -> None:
-        repository = CircularRepository()
+        repository = FakeCircularRepository()
         circular = self.build_circular()
         record_id, _created = repository.upsert_circular(circular)
         repository.update_file_path(record_id, "existing.pdf", "hash")
@@ -96,7 +96,7 @@ class OrchestratorTestCase(unittest.TestCase):
         self.assertEqual(record.file_path, "existing.pdf")
 
     def test_orchestrator_saves_file_and_status_for_new_circular(self) -> None:
-        repository = CircularRepository()
+        repository = FakeCircularRepository()
         scraper = StubScraper([self.build_circular()])
 
         with TemporaryDirectory() as temp_dir:
@@ -116,7 +116,7 @@ class OrchestratorTestCase(unittest.TestCase):
             self.assertEqual(len(record.content_hash), 64)
 
     def test_orchestrator_sanitizes_filename_but_not_record_id(self) -> None:
-        repository = CircularRepository()
+        repository = FakeCircularRepository()
         circular = Circular(
             source="SEBI",
             circular_id="HO/(68)2026-IMD-POD-2/I/5780/2026",
@@ -146,7 +146,7 @@ class OrchestratorTestCase(unittest.TestCase):
     def test_orchestrator_persists_failed_placeholders_and_advances_checkpoint_safely(
         self,
     ) -> None:
-        repository = CircularRepository()
+        repository = FakeCircularRepository()
         repository.set_checkpoint("SEBI", date(2026, 4, 10))
         successful = Circular(
             source="SEBI",
@@ -198,7 +198,7 @@ class OrchestratorTestCase(unittest.TestCase):
         self.assertEqual(repository.get_checkpoint("SEBI"), date(2026, 4, 11))
 
     def test_run_only_executes_enabled_sources(self) -> None:
-        repository = CircularRepository()
+        repository = FakeCircularRepository()
         enabled_scraper = StubScraper([self.build_circular()])
         disabled_scraper = StubScraper([self.build_circular()])
         enabled_scraper.source_name = "NSE"

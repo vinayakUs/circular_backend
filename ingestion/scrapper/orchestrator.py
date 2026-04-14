@@ -31,6 +31,10 @@ class ScraperOrchestrator:
         enabled_sources: list[str] | tuple[str, ...] | None = None,
     ) -> None:
         self.logger = logging.getLogger(__name__)
+        if circular_repository is None and db_pool is None:
+            raise ValueError(
+                "ScraperOrchestrator requires circular_repository or db_pool"
+            )
         self.db_pool = db_pool
         self.redis_client = redis_client
         self.storage_path = Path(storage_path)

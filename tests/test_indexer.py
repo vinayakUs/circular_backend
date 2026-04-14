@@ -5,15 +5,15 @@ import unittest
 from unittest.mock import Mock
 
 from ingestion.indexer import ElasticsearchIndexer, FixedSizeChunker
-from ingestion.repository import CircularRepository
 from ingestion.scrapper.dto import Circular
+from tests.fakes import FakeCircularRepository
 
 
 class IndexerRepositoryTestCase(unittest.TestCase):
     def setUp(self) -> None:
-        self.repository = CircularRepository()
+        self.repository = FakeCircularRepository()
 
-    def _insert_fetched_record(self) -> tuple[str, CircularRepository]:
+    def _insert_fetched_record(self) -> tuple[str, FakeCircularRepository]:
         circular = Circular(
             source="NSE",
             circular_id="FAOP73629",
@@ -68,8 +68,8 @@ class ChunkerTestCase(unittest.TestCase):
 
 
 class IndexerWorkflowTestCase(unittest.TestCase):
-    def _build_repository_with_file(self, temp_dir: str) -> tuple[CircularRepository, Path]:
-        repository = CircularRepository()
+    def _build_repository_with_file(self, temp_dir: str) -> tuple[FakeCircularRepository, Path]:
+        repository = FakeCircularRepository()
         circular = Circular(
             source="NSE",
             circular_id="FAOP73629",
