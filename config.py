@@ -32,7 +32,7 @@ class Config:
         os.getenv("SEBI_DETAIL_RETRY_BACKOFF_SECONDS", "2")
     )
     SCRAPER_DEFAULT_LOOKBACK_DAYS = int(
-        os.getenv("SCRAPER_DEFAULT_LOOKBACK_DAYS", "30") # default to 7 days if no data in db fetching historical data
+        os.getenv("SCRAPER_DEFAULT_LOOKBACK_DAYS", "11") # default to 7 days if no data in db fetching historical data
     ) 
     SCRAPER_ENABLED_SOURCES = _parse_scraper_sources(
         os.getenv("SCRAPER_ENABLED_SOURCES")

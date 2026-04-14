@@ -4,7 +4,7 @@ from tempfile import TemporaryDirectory
 import unittest
 
 from ingestion.repository import CircularRepository
-from ingestion.scrapper.base import IScraper
+from ingestion.scrapper.base import IScraper, ScrapeDetectionResult
 from ingestion.scrapper.dto import Circular
 from ingestion.scrapper.orchestrator import ScraperOrchestrator
 
@@ -12,13 +12,24 @@ from ingestion.scrapper.orchestrator import ScraperOrchestrator
 class StubScraper(IScraper):
     source_name = "TEST"
 
-    def __init__(self, circulars: list[Circular]) -> None:
+    def __init__(
+        self,
+        circulars: list[Circular],
+        failed_circulars: list[Circular] | None = None,
+        has_incomplete_items: bool = False,
+    ) -> None:
         self.circulars = circulars
+        self.failed_circulars = failed_circulars or []
+        self.has_incomplete_items = has_incomplete_items
         self.detect_calls: list[tuple[date, date]] = []
 
-    def detect_new(self, from_date: date, to_date: date) -> list[Circular]:
+    def detect_new(self, from_date: date, to_date: date) -> ScrapeDetectionResult:
         self.detect_calls.append((from_date, to_date))
-        return list(self.circulars)
+        return ScrapeDetectionResult(
+            circulars=list(self.circulars),
+            failed_circulars=list(self.failed_circulars),
+            has_incomplete_items=self.has_incomplete_items,
+        )
 
     def get_pdf_download_url(self, circular_id: str) -> str:
         return f"https://example.com/{circular_id}.pdf"
@@ -38,6 +49,7 @@ class OrchestratorTestCase(unittest.TestCase):
             issue_date=date(2026, 4, 6),
             url="https://example.com/circular",
             pdf_url="https://example.com/circular.pdf",
+            source_item_key="TEST::ABC123",
         )
 
     def test_orchestrator_uses_repository_checkpoint(self) -> None:
@@ -130,6 +142,60 @@ class OrchestratorTestCase(unittest.TestCase):
             self.assertIsNotNone(record)
             assert record is not None
             self.assertIn("HO_(68)2026-IMD-POD-2_I_5780_2026.pdf", record.file_path)
+
+    def test_orchestrator_persists_failed_placeholders_and_advances_checkpoint_safely(
+        self,
+    ) -> None:
+        repository = CircularRepository()
+        repository.set_checkpoint("SEBI", date(2026, 4, 10))
+        successful = Circular(
+            source="SEBI",
+            circular_id="HO/RECOVERED/2026",
+            full_reference="HO/RECOVERED/2026",
+            department="",
+            title="Recovered circular",
+            issue_date=date(2026, 4, 13),
+            url="https://www.sebi.gov.in/legal/circulars/apr-2026/recovered.html",
+            pdf_url="https://www.sebi.gov.in/sebi_data/attachdocs/apr-2026/recovered.pdf",
+            source_item_key="https://www.sebi.gov.in/legal/circulars/apr-2026/recovered.html",
+        )
+        failed = Circular(
+            source="SEBI",
+            circular_id="SEBI_PENDING::MISSED.HTML",
+            full_reference="SEBI_PENDING::MISSED.HTML",
+            department="",
+            title="Missed circular",
+            issue_date=date(2026, 4, 12),
+            url="https://www.sebi.gov.in/legal/circulars/apr-2026/missed.html",
+            pdf_url="",
+            source_item_key="https://www.sebi.gov.in/legal/circulars/apr-2026/missed.html",
+            error_message="SEBI detail fetch failed: timed out",
+        )
+        scraper = StubScraper(
+            [successful], failed_circulars=[failed], has_incomplete_items=True
+        )
+        scraper.source_name = "SEBI"
+
+        with TemporaryDirectory() as temp_dir:
+            orchestrator = ScraperOrchestrator(
+                storage_path=temp_dir,
+                circular_repository=repository,
+            )
+            orchestrator._fetch_pdf_bytes = lambda pdf_url, circular: b"pdf-bytes"  # type: ignore[method-assign]
+
+            orchestrator._scrape_source(scraper, date(2026, 4, 14))
+
+        failed_record = repository.get_record("SEBI", "SEBI_PENDING::MISSED.HTML")
+        self.assertIsNotNone(failed_record)
+        assert failed_record is not None
+        self.assertEqual(failed_record.status, "FAILED")
+        self.assertEqual(failed_record.error_message, "SEBI detail fetch failed: timed out")
+
+        successful_record = repository.get_record("SEBI", "HO/RECOVERED/2026")
+        self.assertIsNotNone(successful_record)
+        assert successful_record is not None
+        self.assertEqual(successful_record.status, "FETCHED")
+        self.assertEqual(repository.get_checkpoint("SEBI"), date(2026, 4, 11))
 
     def test_run_only_executes_enabled_sources(self) -> None:
         repository = CircularRepository()

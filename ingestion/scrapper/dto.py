@@ -16,6 +16,8 @@ class Circular:
     effective_date: date | None = None
     url: str = ""
     pdf_url: str = ""
+    source_item_key: str = ""
+    error_message: str | None = None
     detected_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     def to_db_row(self) -> dict:
@@ -29,6 +31,8 @@ class Circular:
             "effective_date": self.effective_date,
             "url": self.url,
             "pdf_url": self.pdf_url,
+            "source_item_key": self.source_item_key,
+            "error_message": self.error_message,
             "detected_at": self.detected_at,
         }
 

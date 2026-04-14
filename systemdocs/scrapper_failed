@@ -1,0 +1,308 @@
+There’s one important implementation detail here: in SEBI, the real circular_id is only known after the detail page is fetched and parsed. If you want to fail “by id,” we need to decide whether your test trigger should match the SEBI detail URL before parsing, or match the parsed circular number after parsing.
+
+
+Asked 1 question
+Plan
+
+
+Open
+
+Force a Single SEBI Circular to Fail by Parsed ID for Testing
+Summary
+Add a temporary hardcoded branch in SEBIScraper.detect_new() that checks the parsed circular.circular_id and converts that one item into a failed placeholder.
+
+This is the smallest code change for manual testing because it reuses the existing SEBI failure path:
+
+the item lands in failed_circulars
+the orchestrator persists it as FAILED
+checkpoint advancement uses the failed item’s issue_date
+Implementation Changes
+In sebi.py, add a test constant near the top of SEBIScraper, for example:
+FORCE_FAIL_CIRCULAR_ID = "HO/38/12/12(1)2026-MIRSD-SEC-FATF/I/7934/2026"
+In detect_new(), keep the current flow until after:
+detail page fetch succeeds
+_parse_detail_page(...) returns a Circular
+Immediately after circular = self._parse_detail_page(...) and after the existing if circular is None branch, add:
+if circular.circular_id == self.FORCE_FAIL_CIRCULAR_ID:
+append self._build_failed_circular(...) to failed_circulars
+use the same issue_date, title, and detail_url
+set the error message to something explicit like "SEBI test failure forced for circular_id=<id>"
+skipped_count += 1
+continue
+Do not raise an exception for this test hook.
+Converting it into a failed placeholder exercises the exact persistence/checkpoint path you care about.
+Exact Behavior
+When the chosen SEBI circular is encountered:
+its detail page is fetched and parsed normally
+the code recognizes the matching parsed ID
+instead of appending the successful Circular to circulars, it appends a failed placeholder to failed_circulars
+The failed placeholder should use:
+source="SEBI"
+source_item_key=detail_url
+circular_id from _build_failed_circular_id(detail_url) as today
+title from the listing row
+issue_date from the listing row
+url=detail_url
+pdf_url=""
+error_message="SEBI test failure forced for circular_id=<id>"
+On orchestrator run, that placeholder becomes a FAILED DB record with the same error message.
+Test / Manual Verification
+Pick a real SEBI circular ID that appears in your test window.
+Run the scraper/orchestrator for a date range that includes it.
+Verify in DB:
+a FAILED row exists for that SEBI item path
+error_message contains the forced-failure text
+checkpoint advances only to issue_date - 1 day if that failed item is the earliest failure
+Optional unit test:
+patch _fetch_listing_page and _fetch_detail_page so one parsed circular matches FORCE_FAIL_CIRCULAR_ID
+assert detect_new() returns that item in failed_circulars, not circulars
+Assumptions
+You want a temporary manual-testing hook, not a permanent config-driven test seam.
+You want to simulate the SEBI “detail succeeded but we intentionally mark this circular as failed” path by parsed circular ID.
+After testing, remove the hardcoded branch and constant so production behavior returns to normal.
+give code
+1:21 AM
+
+
+Add this temporary hook in sebi.py.
+
+Near the class constants:
+
+class SEBIScraper(IScraper):
+    source_name = "SEBI"
+    FORCE_FAIL_CIRCULAR_ID = "HO/38/12/12(1)2026-MIRSD-SEC-FATF/I/7934/2026"
+Then inside detect_new(), after the circular is None block and before circulars.append(circular):
+
+            circular = self._parse_detail_page(detail_url, issue_date, title, detail_html)
+            if circular is None:
+                skipped_count += 1
+                failed_circulars.append(
+                    self._build_failed_circular(
+                        issue_date,
+                        title,
+                        detail_url,
+                        "SEBI detail parse failed: missing circular number or PDF url",
+                    )
+                )
+                self.logger.warning(
+                    "Skipping SEBI detail page due to missing circular number or PDF url detail_url=%s",
+                    detail_url,
+                )
+                continue
+
+            if circular.circular_id == self.FORCE_FAIL_CIRCULAR_ID:
+                skipped_count += 1
+                failed_circulars.append(
+                    self._build_failed_circular(
+                        issue_date,
+                        title,
+                        detail_url,
+                        f"SEBI test failure forced for circular_id={circular.circular_id}",
+                    )
+                )
+                self.logger.warning(
+                    "Forced SEBI failure for testing circular_id=%s detail_url=%s",
+                    circular.circular_id,
+                    detail_url,
+                )
+                continue
+
+            circulars.append(circular)
+If you want to force by URL instead, use:
+
+FORCE_FAIL_DETAIL_URL = "https://www.sebi.gov.in/legal/circulars/mar-2026/clarification_100565.html"
+and check:
+
+if detail_url == self.FORCE_FAIL_DETAIL_URL:
+For cleanup after testing, remove the constant and this if block.
+
+
+1:21 AM
+give complete code flow like lets say in one batch of 5 and 1 is failed what will be scappeer vaues will it be update if 1 is failed and next time what happends how is impodency maintained
+1:58 AM
+
+
+
+Current flow with 5 SEBI items in one run, where 4 succeed and 1 fails, looks like this.
+
+SEBI scraper output:
+
+circulars: 4 successful Circular objects
+failed_circulars: 1 failed placeholder Circular
+has_incomplete_items: True
+Example shape from SEBIScraper.detect_new():
+
+ScrapeDetectionResult(
+    circulars=[c1, c2, c3, c4],
+    failed_circulars=[failed_c5],
+    has_incomplete_items=True,
+)
+What the orchestrator does:
+
+For the 4 in circulars
+
+upsert_circular(circular)
+if already FETCHED with same pdf_url, skip
+else mark DISCOVERED
+download PDF
+save file path/hash
+mark FETCHED
+For the 1 in failed_circulars
+
+upsert_circular(failed_c5)
+mark status FAILED
+save error_message
+So yes, records are still updated even if 1 fails.
+The run is partial, not all-or-nothing.
+
+Checkpoint update:
+
+before this run, say checkpoint = 2026-04-10
+failed item issue date = 2026-04-12
+safe checkpoint = 2026-04-11
+So after the run:
+
+the 4 successful records are saved
+the failed one is saved as FAILED
+checkpoint becomes 2026-04-11, not today
+This is the key part: progress is preserved, but we do not move past the failed item’s boundary.
+
+Next run what happens:
+
+next run starts again from checkpoint 2026-04-11
+SEBI listing returns overlapping items again, including the failed one from 2026-04-12
+scraper sees that item again
+if it succeeds this time, it returns in circulars
+repository upsert_circular(...) matches the old failed row using source_item_key
+same row is updated, not duplicated
+orchestrator marks it DISCOVERED, downloads PDF, then FETCHED
+How idempotency is maintained:
+
+normal identity is not only circular_id
+we also store source_item_key
+for SEBI this is the stable detail URL
+failed placeholder and later successful retry use the same source_item_key
+repository upsert first matches by source_item_key, so recovery updates the same row
+That means:
+
+failed row today + success tomorrow = one record evolving over time
+not two separate records
+Lifecycle of that failed item:
+
+First run:
+
+row inserted
+status='FAILED'
+source_item_key=detail_url
+error_message='...'
+Retry run succeeds:
+
+same row found by source_item_key
+real circular_id and pdf_url filled in
+status changes FAILED -> DISCOVERED -> FETCHED
+error_message cleared on successful status update path if implemented that way, or replaced during status transitions
+If the item keeps failing:
+
+same row is updated again
+status stays FAILED
+checkpoint stays before that failed boundary
+item keeps getting retried because the overlap remains
+So in short:
+
+one failed out of 5 does not block saving the other 4
+checkpoint advances only up to the safe point before the earliest failure
+retry finds the same failed row again using source_item_key
+that is what preserves idempotency
+If you want, I can draw this as a tiny table with “run 1 DB state” and “run 2 DB state” for the same 5-item example.
+
+
+1:58 AM
+
+
+
+
+what is the use of this and code behind this             record_id, _created = self.circular_repository.upsert_circular(circular)
+2:17 AM
+
+
+
+That line means: “store this circular in the repository if it’s new, or update the existing row if we’ve seen it before.”
+
+record_id, _created = self.circular_repository.upsert_circular(circular)
+What it returns:
+
+record_id: the DB/internal ID of the row representing that circular
+_created: True if a new row was inserted, False if an existing row was updated
+What it is used for:
+
+gives the orchestrator the canonical row to work with
+makes sure metadata is persisted before fetch/download logic
+lets later calls use record_id:
+update_status(record_id, "DISCOVERED")
+update_file_path(record_id, ...)
+update_status(record_id, "FETCHED")
+update_status(record_id, "FAILED", ...)
+So without this line, the orchestrator would not know which record to mark as fetched/failed.
+
+Code behind it:
+in circular_repository.py (line 186)
+
+In-memory flow:
+
+build keys from the incoming Circular
+circular_id
+source_item_key
+try to find an existing record
+first by source_item_key
+then by (source, circular_id)
+if found:
+update fields like title, issue_date, url, pdf_url
+return existing id, False
+if not found:
+create a new CircularRecord
+initial status is "DISCOVERED"
+return new id, True
+The important lines are:
+circular_repository.py (line 196)
+
+existing = self._records_by_source_item_key.get(
+    self._build_source_item_key(circular.source, source_item_key)
+)
+if existing is None:
+    existing = self._records_by_key.get(key)
+If existing row found:
+circular_repository.py (line 202)
+
+if existing is not None:
+    updated = replace(existing, ...)
+    self._store_record(updated)
+    return updated.id, False
+If not found:
+circular_repository.py (line 226)
+
+record = CircularRecord(
+    id=uuid4(),
+    ...
+    status="DISCOVERED",
+)
+self._store_record(record)
+return record.id, True
+In DB-backed flow:
+circular_repository.py (line 456)
+
+It does the same idea with SQL:
+
+SELECT id FROM circulars ...
+if found: UPDATE circulars SET ...
+else: INSERT INTO circulars ...
+So the use of this line is:
+
+identify or create the persistent row for this circular
+return its ID
+allow the orchestrator to continue status/file updates on the right record
+If you want, I can explain it with one concrete example:
+
+first run inserts
+second run updates same row
+third run skips download because it is already FETCHED.
+

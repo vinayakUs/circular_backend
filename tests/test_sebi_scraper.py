@@ -125,11 +125,13 @@ class SEBIScraperTestCase(unittest.TestCase):
         fetch_listing_page.side_effect = [LISTING_PAGE_ONE, LISTING_PAGE_TWO]
         fetch_detail_page.return_value = DETAIL_PAGE
 
-        circulars = self.scraper.detect_new(date(2026, 3, 24), date(2026, 3, 25))
+        result = self.scraper.detect_new(date(2026, 3, 24), date(2026, 3, 25))
 
-        self.assertEqual(len(circulars), 2)
+        self.assertFalse(result.has_incomplete_items)
+        self.assertEqual(result.failed_circulars, [])
+        self.assertEqual(len(result.circulars), 2)
         self.assertEqual(
-            [circular.title for circular in circulars],
+            [circular.title for circular in result.circulars],
             ["Clarification regarding eligibility", "Other circular"],
         )
         self.assertEqual(fetch_listing_page.call_count, 2)
@@ -147,10 +149,38 @@ class SEBIScraperTestCase(unittest.TestCase):
         fetch_listing_page.return_value = LISTING_PAGE_ONE
         fetch_detail_page.side_effect = TimeoutError("timed out")
 
-        circulars = self.scraper.detect_new(date(2026, 3, 24), date(2026, 3, 25))
+        result = self.scraper.detect_new(date(2026, 3, 24), date(2026, 3, 25))
 
-        self.assertEqual(circulars, [])
+        self.assertTrue(result.has_incomplete_items)
+        self.assertEqual(result.circulars, [])
+        self.assertEqual(len(result.failed_circulars), 2)
+        self.assertEqual(
+            result.failed_circulars[0].source_item_key,
+            "https://www.sebi.gov.in/legal/circulars/mar-2026/clarification_100565.html",
+        )
+        self.assertEqual(
+            result.failed_circulars[0].error_message,
+            "SEBI detail fetch failed: timed out",
+        )
         self.assertEqual(fetch_detail_page.call_count, 2)
+
+    @patch.object(SEBIScraper, "_fetch_detail_page")
+    @patch.object(SEBIScraper, "_fetch_listing_page")
+    def test_detect_new_returns_failed_placeholder_for_malformed_detail(
+        self, fetch_listing_page, fetch_detail_page
+    ) -> None:
+        fetch_listing_page.return_value = LISTING_PAGE_ONE
+        fetch_detail_page.return_value = "<html><body>No iframe or circular number</body></html>"
+
+        result = self.scraper.detect_new(date(2026, 3, 24), date(2026, 3, 25))
+
+        self.assertTrue(result.has_incomplete_items)
+        self.assertEqual(result.circulars, [])
+        self.assertEqual(len(result.failed_circulars), 2)
+        self.assertEqual(
+            result.failed_circulars[0].error_message,
+            "SEBI detail parse failed: missing circular number or PDF url",
+        )
 
     @patch("ingestion.scrapper.sources.sebi.time.sleep")
     @patch("ingestion.scrapper.sources.sebi.urlopen")

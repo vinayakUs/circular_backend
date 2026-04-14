@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS circulars (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     circular_id VARCHAR(50) NOT NULL,
     source VARCHAR(20) NOT NULL,
+    source_item_key TEXT,
     full_reference TEXT NOT NULL,
     department VARCHAR(50),
     title TEXT NOT NULL,
@@ -41,6 +42,7 @@ CREATE INDEX IF NOT EXISTS idx_circulars_status ON circulars(status);
 CREATE INDEX IF NOT EXISTS idx_circulars_source ON circulars(source);
 CREATE INDEX IF NOT EXISTS idx_circulars_issue_date ON circulars(issue_date DESC);
 CREATE INDEX IF NOT EXISTS idx_circulars_es_pending ON circulars(status, es_indexed_at) WHERE file_path IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_circulars_source_item_key ON circulars(source, source_item_key);
 
 CREATE TABLE IF NOT EXISTS scraper_checkpoints (
     source VARCHAR(20) PRIMARY KEY,
@@ -58,6 +60,7 @@ class CircularRecord:
     id: UUID
     source: str
     circular_id: str
+    source_item_key: str
     full_reference: str
     department: str
     title: str
@@ -85,6 +88,7 @@ class CircularRepository:
         self.db_pool = db_pool
         self._schema_initialized = False
         self._records_by_key: dict[tuple[str, str], CircularRecord] = {}
+        self._records_by_source_item_key: dict[tuple[str, str], CircularRecord] = {}
         self._records_by_id: dict[UUID, CircularRecord] = {}
         self._checkpoints: dict[str, date] = {}
 
@@ -184,12 +188,22 @@ class CircularRepository:
             return self._upsert_circular_db(circular)
 
         key = self._build_key(circular.source, circular.circular_id)
+        source_item_key = self._normalize_source_item_key(
+            circular.source_item_key or circular.url or circular.circular_id
+        )
         now = datetime.now(timezone.utc)
 
-        if key in self._records_by_key:
-            existing = self._records_by_key[key]
+        existing = self._records_by_source_item_key.get(
+            self._build_source_item_key(circular.source, source_item_key)
+        )
+        if existing is None:
+            existing = self._records_by_key.get(key)
+
+        if existing is not None:
             updated = replace(
                 existing,
+                circular_id=circular.circular_id.upper(),
+                source_item_key=source_item_key,
                 full_reference=circular.full_reference,
                 department=circular.department,
                 title=circular.title,
@@ -213,6 +227,7 @@ class CircularRepository:
             id=uuid4(),
             source=circular.source.upper(),
             circular_id=circular.circular_id.upper(),
+            source_item_key=source_item_key,
             full_reference=circular.full_reference,
             department=circular.department,
             title=circular.title,
@@ -322,10 +337,11 @@ class CircularRepository:
             with self.db_pool.connection() as conn:
                 row = conn.execute(
                     """
-                    SELECT id, source, circular_id, full_reference, department, title,
-                           issue_date, effective_date, url, pdf_url, status, file_path,
-                           content_hash, error_message, detected_at, created_at, updated_at,
-                           es_indexed_at, es_chunk_count, es_index_name
+                    SELECT id, source, circular_id, source_item_key, full_reference,
+                           department, title, issue_date, effective_date, url, pdf_url,
+                           status, file_path, content_hash, error_message, detected_at,
+                           created_at, updated_at, es_indexed_at, es_chunk_count,
+                           es_index_name
                     FROM circulars
                     WHERE source = %s AND circular_id = %s
                     """,
@@ -342,10 +358,11 @@ class CircularRepository:
             with self.db_pool.connection() as conn:
                 row = conn.execute(
                     """
-                    SELECT id, source, circular_id, full_reference, department, title,
-                           issue_date, effective_date, url, pdf_url, status, file_path,
-                           content_hash, error_message, detected_at, created_at, updated_at,
-                           es_indexed_at, es_chunk_count, es_index_name
+                    SELECT id, source, circular_id, source_item_key, full_reference,
+                           department, title, issue_date, effective_date, url, pdf_url,
+                           status, file_path, content_hash, error_message, detected_at,
+                           created_at, updated_at, es_indexed_at, es_chunk_count,
+                           es_index_name
                     FROM circulars
                     WHERE id = %s
                     """,
@@ -361,10 +378,11 @@ class CircularRepository:
             with self.db_pool.connection() as conn:
                 rows = conn.execute(
                     """
-                    SELECT id, source, circular_id, full_reference, department, title,
-                           issue_date, effective_date, url, pdf_url, status, file_path,
-                           content_hash, error_message, detected_at, created_at, updated_at,
-                           es_indexed_at, es_chunk_count, es_index_name
+                    SELECT id, source, circular_id, source_item_key, full_reference,
+                           department, title, issue_date, effective_date, url, pdf_url,
+                           status, file_path, content_hash, error_message, detected_at,
+                           created_at, updated_at, es_indexed_at, es_chunk_count,
+                           es_index_name
                     FROM circulars
                     ORDER BY source, circular_id
                     """
@@ -388,9 +406,30 @@ class CircularRepository:
     def _build_key(self, source: str, circular_id: str) -> tuple[str, str]:
         return source.upper(), circular_id.upper()
 
+    def _build_source_item_key(
+        self, source: str, source_item_key: str
+    ) -> tuple[str, str]:
+        return source.upper(), self._normalize_source_item_key(source_item_key)
+
+    def _normalize_source_item_key(self, source_item_key: str) -> str:
+        return source_item_key.strip()
+
     def _store_record(self, record: CircularRecord) -> None:
+        previous = self._records_by_id.get(record.id)
+        if previous is not None:
+            old_key = self._build_key(previous.source, previous.circular_id)
+            self._records_by_key.pop(old_key, None)
+            old_source_item_key = self._build_source_item_key(
+                previous.source, previous.source_item_key
+            )
+            self._records_by_source_item_key.pop(old_source_item_key, None)
+
         key = self._build_key(record.source, record.circular_id)
+        source_item_key = self._build_source_item_key(
+            record.source, record.source_item_key
+        )
         self._records_by_key[key] = record
+        self._records_by_source_item_key[source_item_key] = record
         self._records_by_id[record.id] = record
 
     def _ensure_schema(self) -> None:
@@ -399,61 +438,126 @@ class CircularRepository:
 
         with self.db_pool.connection() as conn:
             conn.execute(self.schema_sql())
+            conn.execute(
+                """
+                ALTER TABLE circulars
+                ADD COLUMN IF NOT EXISTS source_item_key TEXT
+                """
+            )
+            conn.execute(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_circulars_source_item_key
+                ON circulars(source, source_item_key)
+                """
+            )
         self._schema_initialized = True
         self.logger.info("Repository schema initialized")
 
     def _upsert_circular_db(self, circular: Circular) -> tuple[UUID, bool]:
         self._ensure_schema()
         source_name, normalized_id = self._build_key(circular.source, circular.circular_id)
+        normalized_source_item_key = self._normalize_source_item_key(
+            circular.source_item_key or circular.url or circular.circular_id
+        )
         now = datetime.now(timezone.utc)
 
         with self.db_pool.connection() as conn:
             row = conn.execute(
                 """
-                INSERT INTO circulars (
-                    source, circular_id, full_reference, department, title,
-                    issue_date, effective_date, url, pdf_url, status,
-                    file_path, content_hash, error_message, detected_at
-                )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (source, circular_id) DO UPDATE
-                SET full_reference = EXCLUDED.full_reference,
-                    department = EXCLUDED.department,
-                    title = EXCLUDED.title,
-                    issue_date = EXCLUDED.issue_date,
-                    effective_date = EXCLUDED.effective_date,
-                    url = EXCLUDED.url,
-                    pdf_url = EXCLUDED.pdf_url,
-                    detected_at = EXCLUDED.detected_at,
-                    updated_at = NOW()
-                RETURNING id, source, circular_id, full_reference, department, title,
-                          issue_date, effective_date, url, pdf_url, status, file_path,
-                          content_hash, error_message, detected_at, created_at, updated_at,
-                          (xmax = 0) AS inserted
+                SELECT id
+                FROM circulars
+                WHERE source = %s
+                  AND (source_item_key = %s OR circular_id = %s)
+                ORDER BY CASE
+                    WHEN source_item_key = %s THEN 0
+                    ELSE 1
+                END
+                LIMIT 1
                 """,
                 (
                     source_name,
+                    normalized_source_item_key,
                     normalized_id,
-                    circular.full_reference,
-                    circular.department,
-                    circular.title,
-                    circular.issue_date,
-                    circular.effective_date,
-                    circular.url,
-                    circular.pdf_url,
-                    "DISCOVERED",
-                    None,
-                    None,
-                    None,
-                    circular.detected_at or now,
+                    normalized_source_item_key,
                 ),
             ).fetchone()
+
+            if row is not None:
+                row = conn.execute(
+                    """
+                    UPDATE circulars
+                    SET circular_id = %s,
+                        source_item_key = %s,
+                        full_reference = %s,
+                        department = %s,
+                        title = %s,
+                        issue_date = %s,
+                        effective_date = %s,
+                        url = %s,
+                        pdf_url = %s,
+                        detected_at = %s,
+                        updated_at = NOW()
+                    WHERE id = %s
+                    RETURNING id, source, circular_id, source_item_key, full_reference,
+                              department, title, issue_date, effective_date, url, pdf_url,
+                              status, file_path, content_hash, error_message, detected_at,
+                              created_at, updated_at, es_indexed_at, es_chunk_count,
+                              es_index_name
+                    """,
+                    (
+                        normalized_id,
+                        normalized_source_item_key,
+                        circular.full_reference,
+                        circular.department,
+                        circular.title,
+                        circular.issue_date,
+                        circular.effective_date,
+                        circular.url,
+                        circular.pdf_url,
+                        circular.detected_at or now,
+                        row[0],
+                    ),
+                ).fetchone()
+                inserted = False
+            else:
+                row = conn.execute(
+                    """
+                    INSERT INTO circulars (
+                        source, circular_id, source_item_key, full_reference, department,
+                        title, issue_date, effective_date, url, pdf_url, status, file_path,
+                        content_hash, error_message, detected_at
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id, source, circular_id, source_item_key, full_reference,
+                              department, title, issue_date, effective_date, url, pdf_url,
+                              status, file_path, content_hash, error_message, detected_at,
+                              created_at, updated_at, es_indexed_at, es_chunk_count,
+                              es_index_name
+                    """,
+                    (
+                        source_name,
+                        normalized_id,
+                        normalized_source_item_key,
+                        circular.full_reference,
+                        circular.department,
+                        circular.title,
+                        circular.issue_date,
+                        circular.effective_date,
+                        circular.url,
+                        circular.pdf_url,
+                        "DISCOVERED",
+                        None,
+                        None,
+                        None,
+                        circular.detected_at or now,
+                    ),
+                ).fetchone()
+                inserted = True
 
         record = self._row_to_record(row)
         if record is None:
             raise RuntimeError("Failed to upsert circular record")
 
-        inserted = bool(row[-1])
         self.logger.info(
             "Circular %s source=%s circular_id=%s record_id=%s",
             "inserted" if inserted else "upserted existing record",
@@ -555,23 +659,24 @@ class CircularRepository:
             id=row[0],
             source=row[1],
             circular_id=row[2],
-            full_reference=row[3],
-            department=row[4] or "",
-            title=row[5],
-            issue_date=row[6],
-            effective_date=row[7],
-            url=row[8] or "",
-            pdf_url=row[9] or "",
-            status=row[10],
-            file_path=row[11],
-            content_hash=row[12],
-            error_message=row[13],
-            detected_at=row[14],
-            created_at=row[15],
-            updated_at=row[16],
-            es_indexed_at=row[17] if len(row) > 17 else None,
-            es_chunk_count=row[18] if len(row) > 18 else None,
-            es_index_name=row[19] if len(row) > 19 else None,
+            source_item_key=row[3] or "",
+            full_reference=row[4],
+            department=row[5] or "",
+            title=row[6],
+            issue_date=row[7],
+            effective_date=row[8],
+            url=row[9] or "",
+            pdf_url=row[10] or "",
+            status=row[11],
+            file_path=row[12],
+            content_hash=row[13],
+            error_message=row[14],
+            detected_at=row[15],
+            created_at=row[16],
+            updated_at=row[17],
+            es_indexed_at=row[18] if len(row) > 18 else None,
+            es_chunk_count=row[19] if len(row) > 19 else None,
+            es_index_name=row[20] if len(row) > 20 else None,
         )
 
     def _list_pending_es_records_db(self, limit: int) -> list[CircularRecord]:
@@ -579,10 +684,11 @@ class CircularRepository:
         with self.db_pool.connection() as conn:
             rows = conn.execute(
                 """
-                SELECT id, source, circular_id, full_reference, department, title,
-                       issue_date, effective_date, url, pdf_url, status, file_path,
-                       content_hash, error_message, detected_at, created_at, updated_at,
-                       es_indexed_at, es_chunk_count, es_index_name
+                SELECT id, source, circular_id, source_item_key, full_reference,
+                       department, title, issue_date, effective_date, url, pdf_url,
+                       status, file_path, content_hash, error_message, detected_at,
+                       created_at, updated_at, es_indexed_at, es_chunk_count,
+                       es_index_name
                 FROM circulars
                 WHERE status = 'FETCHED'
                   AND file_path IS NOT NULL

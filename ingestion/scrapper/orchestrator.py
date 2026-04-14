@@ -11,7 +11,7 @@ from urllib.request import Request, urlopen
 
 from config import Config
 from ingestion.repository import CircularRepository
-from ingestion.scrapper.base import IScraper
+from ingestion.scrapper.base import IScraper, ScrapeDetectionResult
 from ingestion.scrapper.dto import Circular
 from ingestion.scrapper.registry import ScraperRegistry
 import ingestion.scrapper.sources.nse
@@ -75,16 +75,19 @@ class ScraperOrchestrator:
             today,
         )
         started_at = time.perf_counter()
-        circulars = self._detect_new_circulars(source, last_run_date, today)
+        detection_result = self._detect_new_circulars(source, last_run_date, today)
+        circulars = detection_result.circulars
         self.logger.info(
-            "Detected circulars source=%s count=%s",
+            "Detected circulars source=%s count=%s failed_placeholders=%s",
             source.source_name,
             len(circulars),
+            len(detection_result.failed_circulars),
         )
 
         fetched_count = 0
         skipped_count = 0
         failed_count = 0
+        earliest_failed_issue_date: date | None = None
         for circular in circulars:
             record_id, _created = self.circular_repository.upsert_circular(circular)
             record = self.circular_repository.get_record(
@@ -121,6 +124,9 @@ class ScraperOrchestrator:
                 )
             except Exception as exc:
                 failed_count += 1
+                earliest_failed_issue_date = self._min_issue_date(
+                    earliest_failed_issue_date, circular.issue_date
+                )
                 self.circular_repository.update_status(record_id, "FAILED", str(exc))
                 self.logger.exception(
                     "Failed circular fetch source=%s circular_id=%s record_id=%s",
@@ -129,11 +135,30 @@ class ScraperOrchestrator:
                     record_id,
                 )
 
-        self.circular_repository.set_checkpoint(source.source_name, today)
+        for failed_circular in detection_result.failed_circulars:
+            record_id, _created = self.circular_repository.upsert_circular(failed_circular)
+            failed_count += 1
+            earliest_failed_issue_date = self._min_issue_date(
+                earliest_failed_issue_date, failed_circular.issue_date
+            )
+            self.circular_repository.update_status(
+                record_id,
+                "FAILED",
+                failed_circular.error_message or "Source detail parsing failed",
+            )
+
+        self._update_checkpoint(
+            source.source_name,
+            last_run_date,
+            today,
+            detection_result.has_incomplete_items or earliest_failed_issue_date is not None,
+            earliest_failed_issue_date,
+        )
         self.logger.info(
-            "Completed source scrape source=%s detected=%s fetched=%s skipped=%s failed=%s duration_seconds=%.2f",
+            "Completed source scrape source=%s detected=%s failed_placeholders=%s fetched=%s skipped=%s failed=%s duration_seconds=%.2f",
             source.source_name,
             len(circulars),
+            len(detection_result.failed_circulars),
             fetched_count,
             skipped_count,
             failed_count,
@@ -142,8 +167,54 @@ class ScraperOrchestrator:
 
     def _detect_new_circulars(
         self, source: IScraper, from_date: date, to_date: date
-    ) -> list[Circular]:
+    ) -> ScrapeDetectionResult:
         return source.detect_new(from_date, to_date)
+
+    def _update_checkpoint(
+        self,
+        source_name: str,
+        last_run_date: date,
+        today: date,
+        has_failures: bool,
+        earliest_failed_issue_date: date | None,
+    ) -> None:
+        if not has_failures:
+            self.circular_repository.set_checkpoint(source_name, today)
+            return
+
+        if earliest_failed_issue_date is None:
+            self.logger.warning(
+                "Checkpoint left unchanged because run had failures without issue dates source=%s last_run_date=%s",
+                source_name,
+                last_run_date,
+            )
+            return
+
+        safe_checkpoint = earliest_failed_issue_date - timedelta(days=1)
+        if safe_checkpoint > last_run_date:
+            self.circular_repository.set_checkpoint(source_name, safe_checkpoint)
+            self.logger.warning(
+                "Advanced checkpoint conservatively after failures source=%s last_run_date=%s safe_checkpoint=%s earliest_failed_issue_date=%s",
+                source_name,
+                last_run_date,
+                safe_checkpoint,
+                earliest_failed_issue_date,
+            )
+            return
+
+        self.logger.warning(
+            "Checkpoint left unchanged after failures source=%s last_run_date=%s earliest_failed_issue_date=%s",
+            source_name,
+            last_run_date,
+            earliest_failed_issue_date,
+        )
+
+    def _min_issue_date(
+        self, current: date | None, candidate: date
+    ) -> date:
+        if current is None or candidate < current:
+            return candidate
+        return current
 
     def _get_enabled_scrapers(self) -> list[IScraper]:
         if not self.enabled_sources:

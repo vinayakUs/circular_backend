@@ -6,7 +6,7 @@ import logging
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-from ingestion.scrapper.base import IScraper
+from ingestion.scrapper.base import IScraper, ScrapeDetectionResult
 from ingestion.scrapper.dto import Circular
 from ingestion.scrapper.registry import ScraperRegistry
 
@@ -25,7 +25,7 @@ class NSEScraper(IScraper):
     def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
 
-    def detect_new(self, from_date: date, to_date: date) -> list[Circular]:
+    def detect_new(self, from_date: date, to_date: date) -> ScrapeDetectionResult:
         self.logger.info(
             "Fetching NSE circulars from_date=%s to_date=%s",
             from_date,
@@ -39,7 +39,7 @@ class NSEScraper(IScraper):
             to_date,
             len(circulars),
         )
-        return circulars
+        return ScrapeDetectionResult(circulars=circulars)
 
     def get_pdf_download_url(self, circular_id: str) -> str:
         normalized_id = self.parse_circular_id(circular_id)
@@ -82,6 +82,7 @@ class NSEScraper(IScraper):
                     url=self._build_listing_url(issue_date, issue_date),
                     pdf_url=str(item.get("circFilelink", "")).strip()
                     or self.get_pdf_download_url(circular_id),
+                    source_item_key=circular_id,
                 )
             )
 

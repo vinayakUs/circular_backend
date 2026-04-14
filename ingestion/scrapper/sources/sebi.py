@@ -9,7 +9,7 @@ from urllib.parse import parse_qs, urlencode, urljoin, urlparse
 from urllib.request import Request, urlopen
 
 from config import Config
-from ingestion.scrapper.base import IScraper
+from ingestion.scrapper.base import IScraper, ScrapeDetectionResult
 from ingestion.scrapper.dto import Circular
 from ingestion.scrapper.registry import ScraperRegistry
 
@@ -41,6 +41,7 @@ class SEBIScraper(IScraper):
         "smText": "",
         "doDirect": "-1",
     }
+    FORCE_FAIL_CIRCULAR_ID = "HO/49/14/11(12)2026-CFD-POD1/I/8806/2026"
 
     def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
@@ -50,7 +51,7 @@ class SEBIScraper(IScraper):
             0.0, Config.SEBI_DETAIL_RETRY_BACKOFF_SECONDS
         )
 
-    def detect_new(self, from_date: date, to_date: date) -> list[Circular]:
+    def detect_new(self, from_date: date, to_date: date) -> ScrapeDetectionResult:
         self.logger.info(
             "Fetching SEBI circulars from_date=%s to_date=%s",
             from_date,
@@ -69,6 +70,7 @@ class SEBIScraper(IScraper):
         )
 
         circulars: list[Circular] = []
+        failed_circulars: list[Circular] = []
         seen_detail_urls: set[str] = set()
         duplicate_count = 0
         skipped_count = 0
@@ -83,6 +85,14 @@ class SEBIScraper(IScraper):
                 detail_html = self._fetch_detail_page(detail_url)
             except Exception as exc:
                 skipped_count += 1
+                failed_circulars.append(
+                    self._build_failed_circular(
+                        issue_date,
+                        title,
+                        detail_url,
+                        f"SEBI detail fetch failed: {exc}",
+                    )
+                )
                 self.logger.warning(
                     "Skipping SEBI detail page due to fetch failure detail_url=%s error=%s",
                     detail_url,
@@ -93,11 +103,40 @@ class SEBIScraper(IScraper):
             circular = self._parse_detail_page(detail_url, issue_date, title, detail_html)
             if circular is None:
                 skipped_count += 1
+                failed_circulars.append(
+                    self._build_failed_circular(
+                        issue_date,
+                        title,
+                        detail_url,
+                        "SEBI detail parse failed: missing circular number or PDF url",
+                    )
+                )
                 self.logger.warning(
                     "Skipping SEBI detail page due to missing circular number or PDF url detail_url=%s",
                     detail_url,
                 )
                 continue
+
+
+
+            # code for testing error handling, should be removed in production
+            # if circular.circular_id == self.FORCE_FAIL_CIRCULAR_ID:
+            #     skipped_count += 1
+            #     failed_circulars.append(
+            #         self._build_failed_circular(
+            #             issue_date,
+            #             title,
+            #             detail_url,
+            #             f"SEBI test failure forced for circular_id={circular.circular_id}",
+            #         )
+            #     )
+            #     self.logger.warning(
+            #         "Forced SEBI failure for testing circular_id=%s detail_url=%s",
+            #         circular.circular_id,
+            #         detail_url,
+            #     )
+            #     continue
+            
 
             circulars.append(circular)
 
@@ -109,7 +148,11 @@ class SEBIScraper(IScraper):
             duplicate_count,
             skipped_count,
         )
-        return circulars
+        return ScrapeDetectionResult(
+            circulars=circulars,
+            failed_circulars=failed_circulars,
+            has_incomplete_items=bool(failed_circulars),
+        )
 
     def get_pdf_download_url(self, circular_id: str) -> str:
         return f"{self.base_url}/legal/circulars/{circular_id}.pdf"
@@ -266,7 +309,31 @@ class SEBIScraper(IScraper):
             effective_date=None,
             url=detail_url,
             pdf_url=pdf_url,
+            source_item_key=detail_url,
         )
+
+    def _build_failed_circular(
+        self, issue_date: date, title: str, detail_url: str, error_message: str
+    ) -> Circular:
+        fallback_id = self._build_failed_circular_id(detail_url)
+        return Circular(
+            source=self.source_name,
+            circular_id=fallback_id,
+            full_reference=fallback_id,
+            department="",
+            title=title,
+            issue_date=issue_date,
+            effective_date=None,
+            url=detail_url,
+            pdf_url="",
+            source_item_key=detail_url,
+            error_message=error_message,
+        )
+
+    def _build_failed_circular_id(self, detail_url: str) -> str:
+        parsed = urlparse(detail_url)
+        slug = parsed.path.rstrip("/").rsplit("/", 1)[-1] or "detail"
+        return f"SEBI_PENDING::{slug[:32].upper()}"
 
     def _extract_pdf_url(self, detail_url: str, html: str) -> str | None:
         iframe_match = re.search(r"<iframe[^>]+src='([^']+)'", html, re.IGNORECASE)
