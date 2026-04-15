@@ -12,24 +12,33 @@
     <div class="meta-row">
       <span class="issue-date">{{ circular().issueDate }}</span>
       @if (circular().department) {
-        <span class="department-chip">{{ circular().department }}</span>
+      <span class="department-chip">{{ circular().department }}</span>
       }
     </div>
 
     <div class="actions-row">
       @for (action of actionButtons; track action.label) {
-        <button
-          type="button"
-          class="action-button"
-          [class.primary]="action.variant === 'primary'"
-          (click)="openAction(action.action)">
-          {{ action.label }}
-        </button>
+
+      @if(action.label == 'View on Site'){
+      @if(circular().source=='SEBI') {
+      <button type="button" class="action-button" [class.primary]="action.variant === 'primary'"
+        (click)="openAction(action.action)">
+        View on SEBI
+      </button>
+      }
+
+      }@else {
+      <button type="button" class="action-button" [class.primary]="action.variant === 'primary'"
+        (click)="openAction(action.action)">
+        {{ action.label }}
+      </button>
+      }
+
       }
     </div>
 
     <section class="action-section">
-      <h2>Details</h2>
+      <h2>Actions</h2>
 
       <article class="action-card">
         <div class="action-header">

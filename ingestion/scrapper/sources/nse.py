@@ -69,6 +69,9 @@ class NSEScraper(IScraper):
             seen_ids.add(circular_id)
             issue_date = self._parse_issue_date(item.get("cirDate", ""))
             full_reference = str(item.get("circDisplayNo", "")).strip() or circular_id
+            download_url = str(item.get("circFilelink", "")).strip() or self.get_pdf_download_url(
+                circular_id
+            )
 
             circulars.append(
                 Circular(
@@ -79,9 +82,8 @@ class NSEScraper(IScraper):
                     title=str(item.get("sub", "")).strip(),
                     issue_date=issue_date,
                     effective_date=None,
-                    url=self._build_listing_url(issue_date, issue_date),
-                    pdf_url=str(item.get("circFilelink", "")).strip()
-                    or self.get_pdf_download_url(circular_id),
+                    url=download_url,
+                    pdf_url=download_url,
                     source_item_key=circular_id,
                 )
             )
