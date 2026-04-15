@@ -1,11 +1,13 @@
 import unittest
 from datetime import date, datetime
 from unittest.mock import patch
+from uuid import UUID
 
 from elastic_transport import ConnectionTimeout
 
 from app import create_app
 from ingestion.indexer.dto import IndexDocument, SearchHit
+from ingestion.repository import CircularAssetRecord, CircularRecord
 
 
 class AppTestCase(unittest.TestCase):
@@ -138,6 +140,127 @@ class AppTestCase(unittest.TestCase):
         self.assertEqual(
             response.get_json(),
             {"error": "Query parameter 'q' is required."},
+        )
+
+    @patch("app.CircularRepository")
+    @patch("app.get_db_client")
+    def test_circular_details_endpoint_returns_record_and_assets(
+        self, get_db_client, repository_cls
+    ) -> None:
+        db_client = get_db_client.return_value
+        db_client.get_pool.return_value = object()
+        repository = repository_cls.return_value
+        record = CircularRecord(
+            id=UUID("11111111-1111-1111-1111-111111111111"),
+            source="SEBI",
+            circular_id="CIRCULAR-1",
+            source_item_key="source-key-1",
+            full_reference="SEBI/HO/MRD/2024/1",
+            department="Markets",
+            title="SEBI circular",
+            issue_date=date(2024, 1, 2),
+            effective_date=date(2024, 2, 1),
+            url="https://example.com/circular-1",
+            pdf_url="https://example.com/circular-1.pdf",
+            status="FETCHED",
+            file_path="/tmp/circular-1.pdf",
+            content_hash="hash-1",
+            error_message=None,
+            detected_at=datetime(2024, 1, 2, 3, 4, 5),
+            created_at=datetime(2024, 1, 2, 3, 4, 6),
+            updated_at=datetime(2024, 1, 2, 3, 4, 7),
+            es_indexed_at=datetime(2024, 1, 2, 3, 4, 8),
+            es_chunk_count=12,
+            es_index_name="circulars_chunks",
+        )
+        asset = CircularAssetRecord(
+            id=UUID("22222222-2222-2222-2222-222222222222"),
+            circular_id=record.id,
+            asset_role="original_pdf",
+            file_path="/tmp/circular-1.pdf",
+            content_hash="hash-1",
+            mime_type="application/pdf",
+            archive_member_path=None,
+            file_size_bytes=1024,
+            created_at=datetime(2024, 1, 2, 3, 4, 9),
+            updated_at=datetime(2024, 1, 2, 3, 4, 10),
+        )
+        repository.get_record_by_circular_id.return_value = record
+        repository.list_assets.return_value = [asset]
+
+        response = self.client.get("/api/circulars/circular-1?source=sebi")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.get_json(),
+            {
+                "circular": {
+                    "id": "11111111-1111-1111-1111-111111111111",
+                    "source": "SEBI",
+                    "circular_id": "CIRCULAR-1",
+                    "source_item_key": "source-key-1",
+                    "full_reference": "SEBI/HO/MRD/2024/1",
+                    "department": "Markets",
+                    "title": "SEBI circular",
+                    "issue_date": "2024-01-02",
+                    "effective_date": "2024-02-01",
+                    "url": "https://example.com/circular-1",
+                    "pdf_url": "https://example.com/circular-1.pdf",
+                    "status": "FETCHED",
+                    "file_path": "/tmp/circular-1.pdf",
+                    "content_hash": "hash-1",
+                    "error_message": None,
+                    "detected_at": "2024-01-02T03:04:05",
+                    "created_at": "2024-01-02T03:04:06",
+                    "updated_at": "2024-01-02T03:04:07",
+                    "es_indexed_at": "2024-01-02T03:04:08",
+                    "es_chunk_count": 12,
+                    "es_index_name": "circulars_chunks",
+                },
+                "assets": [
+                    {
+                        "id": "22222222-2222-2222-2222-222222222222",
+                        "circular_id": "11111111-1111-1111-1111-111111111111",
+                        "asset_role": "original_pdf",
+                        "file_path": "/tmp/circular-1.pdf",
+                        "content_hash": "hash-1",
+                        "mime_type": "application/pdf",
+                        "archive_member_path": None,
+                        "file_size_bytes": 1024,
+                        "created_at": "2024-01-02T03:04:09",
+                        "updated_at": "2024-01-02T03:04:10",
+                    }
+                ],
+            },
+        )
+        repository.get_record_by_circular_id.assert_called_once_with(
+            "circular-1", source="sebi"
+        )
+        repository.list_assets.assert_called_once_with(record.id)
+
+    @patch("app.CircularRepository")
+    @patch("app.get_db_client")
+    def test_circular_details_endpoint_returns_404_when_missing(
+        self, get_db_client, repository_cls
+    ) -> None:
+        db_client = get_db_client.return_value
+        db_client.get_pool.return_value = object()
+        repository = repository_cls.return_value
+        repository.get_record_by_circular_id.return_value = None
+
+        response = self.client.get("/api/circulars/missing-id")
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(
+            response.get_json(),
+            {
+                "error": "Circular not found.",
+                "circular_id": "missing-id",
+                "source": None,
+            },
+        )
+        repository.get_record_by_circular_id.assert_called_once_with(
+            "missing-id", source=None
         )
 
 

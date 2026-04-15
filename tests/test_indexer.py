@@ -5,6 +5,7 @@ import unittest
 from unittest.mock import Mock
 
 from ingestion.indexer import ElasticsearchIndexer, FixedSizeChunker
+from ingestion.repository import CircularAsset
 from ingestion.scrapper.dto import Circular
 from tests.fakes import FakeCircularRepository
 
@@ -26,6 +27,17 @@ class IndexerRepositoryTestCase(unittest.TestCase):
         )
         record_id, _created = self.repository.upsert_circular(circular)
         self.repository.update_file_path(record_id, "/tmp/example.pdf", "hash")
+        self.repository.replace_assets(
+            record_id,
+            [
+                CircularAsset(
+                    asset_role="original_pdf",
+                    file_path="/tmp/example.pdf",
+                    content_hash="hash",
+                    mime_type="application/pdf",
+                )
+            ],
+        )
         self.repository.update_status(record_id, "FETCHED")
         return str(record_id), self.repository
 
@@ -84,6 +96,17 @@ class IndexerWorkflowTestCase(unittest.TestCase):
         pdf_path = Path(temp_dir) / "circular.pdf"
         pdf_path.write_bytes(b"not-really-a-pdf")
         repository.update_file_path(record_id, str(pdf_path), "hash")
+        repository.replace_assets(
+            record_id,
+            [
+                CircularAsset(
+                    asset_role="original_pdf",
+                    file_path=str(pdf_path),
+                    content_hash="hash",
+                    mime_type="application/pdf",
+                )
+            ],
+        )
         repository.update_status(record_id, "FETCHED")
         return repository, pdf_path
 
@@ -133,6 +156,86 @@ class IndexerWorkflowTestCase(unittest.TestCase):
             record = repository.list_records()[0]
             self.assertIsNone(record.es_indexed_at)
             self.assertEqual(len(repository.list_pending_es_records(limit=10)), 1)
+
+    def test_indexer_processes_multiple_extracted_pdf_assets_for_one_circular(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            repository = FakeCircularRepository()
+            circular = Circular(
+                source="NSE",
+                circular_id="ZIP123",
+                full_reference="NSE/ZIP123",
+                department="OPS",
+                title="ZIP Circular",
+                issue_date=date(2026, 4, 6),
+                url="https://example.com/circular",
+                pdf_url="https://example.com/archive.zip",
+            )
+            record_id, _created = repository.upsert_circular(circular)
+            archive_path = Path(temp_dir) / "source.zip"
+            first_pdf = Path(temp_dir) / "first.pdf"
+            second_pdf = Path(temp_dir) / "second.pdf"
+            archive_path.write_bytes(b"zip")
+            first_pdf.write_bytes(b"%PDF-1.4 one")
+            second_pdf.write_bytes(b"%PDF-1.4 two")
+            repository.update_file_path(record_id, str(archive_path), "zip-hash")
+            repository.replace_assets(
+                record_id,
+                [
+                    CircularAsset(
+                        asset_role="original_zip",
+                        file_path=str(archive_path),
+                        content_hash="zip-hash",
+                        mime_type="application/zip",
+                    ),
+                    CircularAsset(
+                        asset_role="extracted_pdf",
+                        file_path=str(first_pdf),
+                        content_hash="zip-hash",
+                        mime_type="application/pdf",
+                        archive_member_path="folder/first.pdf",
+                    ),
+                    CircularAsset(
+                        asset_role="extracted_pdf",
+                        file_path=str(second_pdf),
+                        content_hash="zip-hash",
+                        mime_type="application/pdf",
+                        archive_member_path="folder/second.pdf",
+                    ),
+                ],
+            )
+            repository.update_status(record_id, "FETCHED")
+
+            es_client = Mock()
+            es_client.index_name = "circulars_chunks"
+            captured_documents = []
+
+            def bulk_index(documents):
+                captured_documents.extend(documents)
+                return len(documents), 0
+
+            es_client.bulk_index.side_effect = bulk_index
+            extractor = Mock()
+            extractor.extract.side_effect = ["alpha beta " * 30, "gamma delta " * 30]
+            indexer = ElasticsearchIndexer(
+                circular_repository=repository,
+                es_client=es_client,
+                pdf_extractor=extractor,
+                chunker=FixedSizeChunker(chunk_size=40, overlap=5),
+                batch_size=10,
+            )
+
+            processed, failed = indexer.run_once()
+
+            self.assertEqual((processed, failed), (1, 0))
+            self.assertGreaterEqual(len(captured_documents), 2)
+            self.assertEqual(
+                {document.archive_member_path for document in captured_documents},
+                {"folder/first.pdf", "folder/second.pdf"},
+            )
+            self.assertEqual(
+                {document.asset_role for document in captured_documents},
+                {"extracted_pdf"},
+            )
 
     def test_reindex_preserves_existing_db_state_when_replacement_fails(self) -> None:
         with TemporaryDirectory() as temp_dir:

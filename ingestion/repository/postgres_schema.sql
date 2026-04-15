@@ -31,6 +31,26 @@ CREATE INDEX IF NOT EXISTS idx_circulars_issue_date ON circulars(issue_date DESC
 CREATE INDEX IF NOT EXISTS idx_circulars_es_pending ON circulars(status, es_indexed_at) WHERE file_path IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_circulars_source_item_key ON circulars(source, source_item_key);
 
+CREATE TABLE IF NOT EXISTS circular_assets (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    circular_id UUID NOT NULL REFERENCES circulars(id) ON DELETE CASCADE,
+    asset_role VARCHAR(30) NOT NULL,
+    file_path VARCHAR(500) NOT NULL,
+    content_hash VARCHAR(64),
+    mime_type VARCHAR(100),
+    archive_member_path TEXT,
+    file_size_bytes BIGINT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_circular_assets_circular_id
+    ON circular_assets(circular_id);
+CREATE INDEX IF NOT EXISTS idx_circular_assets_circular_role
+    ON circular_assets(circular_id, asset_role);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_circular_assets_identity
+    ON circular_assets(circular_id, asset_role, COALESCE(archive_member_path, ''));
+
 CREATE TABLE IF NOT EXISTS scraper_checkpoints (
     source VARCHAR(20) PRIMARY KEY,
     last_run_date DATE NOT NULL,

@@ -44,6 +44,26 @@ CREATE INDEX IF NOT EXISTS idx_circulars_issue_date ON circulars(issue_date DESC
 CREATE INDEX IF NOT EXISTS idx_circulars_es_pending ON circulars(status, es_indexed_at) WHERE file_path IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_circulars_source_item_key ON circulars(source, source_item_key);
 
+CREATE TABLE IF NOT EXISTS circular_assets (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    circular_id UUID NOT NULL REFERENCES circulars(id) ON DELETE CASCADE,
+    asset_role VARCHAR(30) NOT NULL,
+    file_path VARCHAR(500) NOT NULL,
+    content_hash VARCHAR(64),
+    mime_type VARCHAR(100),
+    archive_member_path TEXT,
+    file_size_bytes BIGINT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_circular_assets_circular_id
+    ON circular_assets(circular_id);
+CREATE INDEX IF NOT EXISTS idx_circular_assets_circular_role
+    ON circular_assets(circular_id, asset_role);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_circular_assets_identity
+    ON circular_assets(circular_id, asset_role, COALESCE(archive_member_path, ''));
+
 CREATE TABLE IF NOT EXISTS scraper_checkpoints (
     source VARCHAR(20) PRIMARY KEY,
     last_run_date DATE NOT NULL,
@@ -78,6 +98,30 @@ class CircularRecord:
     es_indexed_at: datetime | None = None
     es_chunk_count: int | None = None
     es_index_name: str | None = None
+
+
+@dataclass(slots=True)
+class CircularAsset:
+    asset_role: str
+    file_path: str
+    content_hash: str | None = None
+    mime_type: str | None = None
+    archive_member_path: str | None = None
+    file_size_bytes: int | None = None
+
+
+@dataclass(slots=True)
+class CircularAssetRecord:
+    id: UUID
+    circular_id: UUID
+    asset_role: str
+    file_path: str
+    content_hash: str | None
+    mime_type: str | None
+    archive_member_path: str | None
+    file_size_bytes: int | None
+    created_at: datetime
+    updated_at: datetime
 
 
 class CircularRepository:
@@ -120,6 +164,17 @@ class CircularRepository:
         self, record_id: UUID, file_path: str, content_hash: str | None = None
     ) -> None:
         self._update_file_path_db(record_id, file_path, content_hash)
+
+    def replace_assets(
+        self, circular_id: UUID, assets: list[CircularAsset]
+    ) -> list[CircularAssetRecord]:
+        return self._replace_assets_db(circular_id, assets)
+
+    def list_assets(self, circular_id: UUID) -> list[CircularAssetRecord]:
+        return self._list_assets_db(circular_id)
+
+    def get_primary_asset(self, circular_id: UUID) -> CircularAssetRecord | None:
+        return self._get_primary_asset_db(circular_id)
 
     def update_status(
         self, record_id: UUID, status: str, error_message: str | None = None
@@ -168,6 +223,46 @@ class CircularRepository:
                 """,
                 (record_id,),
             ).fetchone()
+        return self._row_to_record(row)
+
+    def get_record_by_circular_id(
+        self, circular_id: str, source: str | None = None
+    ) -> CircularRecord | None:
+        self._ensure_schema()
+        normalized_id = circular_id.upper()
+        normalized_source = source.upper() if source else None
+
+        with self.db_pool.connection() as conn:
+            if normalized_source:
+                row = conn.execute(
+                    """
+                    SELECT id, source, circular_id, source_item_key, full_reference,
+                           department, title, issue_date, effective_date, url, pdf_url,
+                           status, file_path, content_hash, error_message, detected_at,
+                           created_at, updated_at, es_indexed_at, es_chunk_count,
+                           es_index_name
+                    FROM circulars
+                    WHERE circular_id = %s AND source = %s
+                    ORDER BY issue_date DESC, updated_at DESC, created_at DESC
+                    LIMIT 1
+                    """,
+                    (normalized_id, normalized_source),
+                ).fetchone()
+            else:
+                row = conn.execute(
+                    """
+                    SELECT id, source, circular_id, source_item_key, full_reference,
+                           department, title, issue_date, effective_date, url, pdf_url,
+                           status, file_path, content_hash, error_message, detected_at,
+                           created_at, updated_at, es_indexed_at, es_chunk_count,
+                           es_index_name
+                    FROM circulars
+                    WHERE circular_id = %s
+                    ORDER BY issue_date DESC, updated_at DESC, created_at DESC
+                    LIMIT 1
+                    """,
+                    (normalized_id,),
+                ).fetchone()
         return self._row_to_record(row)
 
     def list_records(self) -> list[CircularRecord]:
@@ -219,7 +314,42 @@ class CircularRepository:
                 ON circulars(source, source_item_key)
                 """
             )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS circular_assets (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    circular_id UUID NOT NULL REFERENCES circulars(id) ON DELETE CASCADE,
+                    asset_role VARCHAR(30) NOT NULL,
+                    file_path VARCHAR(500) NOT NULL,
+                    content_hash VARCHAR(64),
+                    mime_type VARCHAR(100),
+                    archive_member_path TEXT,
+                    file_size_bytes BIGINT,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                )
+                """
+            )
+            conn.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_circular_assets_circular_id
+                ON circular_assets(circular_id)
+                """
+            )
+            conn.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_circular_assets_circular_role
+                ON circular_assets(circular_id, asset_role)
+                """
+            )
+            conn.execute(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_circular_assets_identity
+                ON circular_assets(circular_id, asset_role, COALESCE(archive_member_path, ''))
+                """
+            )
         self._schema_initialized = True
+        self._backfill_legacy_assets()
         self.logger.info("Repository schema initialized")
 
     def _upsert_circular_db(self, circular: Circular) -> tuple[UUID, bool]:
@@ -358,6 +488,82 @@ class CircularRepository:
             content_hash,
         )
 
+    def _replace_assets_db(
+        self, circular_id: UUID, assets: list[CircularAsset]
+    ) -> list[CircularAssetRecord]:
+        self._ensure_schema()
+        with self.db_pool.connection() as conn:
+            conn.execute(
+                """
+                DELETE FROM circular_assets
+                WHERE circular_id = %s
+                """,
+                (circular_id,),
+            )
+            for asset in assets:
+                conn.execute(
+                    """
+                    INSERT INTO circular_assets (
+                        circular_id,
+                        asset_role,
+                        file_path,
+                        content_hash,
+                        mime_type,
+                        archive_member_path,
+                        file_size_bytes
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        circular_id,
+                        asset.asset_role,
+                        asset.file_path,
+                        asset.content_hash,
+                        asset.mime_type,
+                        asset.archive_member_path,
+                        asset.file_size_bytes,
+                    ),
+                )
+        self.logger.info(
+            "Replaced circular assets circular_id=%s asset_count=%s",
+            circular_id,
+            len(assets),
+        )
+        return self._list_assets_db(circular_id)
+
+    def _list_assets_db(self, circular_id: UUID) -> list[CircularAssetRecord]:
+        self._ensure_schema()
+        with self.db_pool.connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT id, circular_id, asset_role, file_path, content_hash, mime_type,
+                       archive_member_path, file_size_bytes, created_at, updated_at
+                FROM circular_assets
+                WHERE circular_id = %s
+                ORDER BY
+                    CASE asset_role
+                        WHEN 'original_pdf' THEN 0
+                        WHEN 'original_zip' THEN 1
+                        WHEN 'extracted_pdf' THEN 2
+                        ELSE 9
+                    END,
+                    COALESCE(archive_member_path, ''),
+                    file_path
+                """,
+                (circular_id,),
+            ).fetchall()
+        return [
+            asset
+            for row in rows
+            if (asset := self._row_to_asset_record(row)) is not None
+        ]
+
+    def _get_primary_asset_db(self, circular_id: UUID) -> CircularAssetRecord | None:
+        assets = self._list_assets_db(circular_id)
+        if not assets:
+            return None
+        return assets[0]
+
     def _update_status_db(
         self, record_id: UUID, status: str, error_message: str | None = None
     ) -> None:
@@ -448,6 +654,23 @@ class CircularRepository:
             es_index_name=row[20] if len(row) > 20 else None,
         )
 
+    def _row_to_asset_record(self, row: Any) -> CircularAssetRecord | None:
+        if row is None:
+            return None
+
+        return CircularAssetRecord(
+            id=row[0],
+            circular_id=row[1],
+            asset_role=row[2],
+            file_path=row[3],
+            content_hash=row[4],
+            mime_type=row[5],
+            archive_member_path=row[6],
+            file_size_bytes=row[7],
+            created_at=row[8],
+            updated_at=row[9],
+        )
+
     def _list_pending_es_records_db(self, limit: int) -> list[CircularRecord]:
         self._ensure_schema()
         with self.db_pool.connection() as conn:
@@ -460,7 +683,6 @@ class CircularRepository:
                        es_index_name
                 FROM circulars
                 WHERE status = 'FETCHED'
-                  AND file_path IS NOT NULL
                   AND es_indexed_at IS NULL
                 ORDER BY issue_date ASC, created_at ASC, id ASC
                 LIMIT %s
@@ -468,6 +690,37 @@ class CircularRepository:
                 (limit,),
             ).fetchall()
         return [record for row in rows if (record := self._row_to_record(row))]
+
+    def _backfill_legacy_assets(self) -> None:
+        with self.db_pool.connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO circular_assets (
+                    circular_id,
+                    asset_role,
+                    file_path,
+                    content_hash,
+                    mime_type,
+                    archive_member_path,
+                    file_size_bytes
+                )
+                SELECT
+                    c.id,
+                    'original_pdf',
+                    c.file_path,
+                    c.content_hash,
+                    'application/pdf',
+                    NULL,
+                    NULL
+                FROM circulars c
+                WHERE c.file_path IS NOT NULL
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM circular_assets a
+                      WHERE a.circular_id = c.id
+                  )
+                """
+            )
 
     def _get_source_counts_db(self, sources: tuple[str, ...]) -> dict[str, int]:
         self._ensure_schema()

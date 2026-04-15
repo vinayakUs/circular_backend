@@ -58,7 +58,10 @@
   <section>
       
       @for (item of searchResults; track $index) {
-        <a class="search-result-card mt-3" href="/circulars/{{item.document.circular_id}}">
+        <a
+          class="search-result-card mt-3"
+          [routerLink]="['/circulars', item.document.circular_db_id]"
+          (click)="openCircular(item); $event.preventDefault()">
         <div class="result-meta-row">
           <span class="result-source-badge">{{ item.document.source }}</span>
           <span class="result-circular-id">{{item.document.circular_id}}</span>

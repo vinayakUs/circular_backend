@@ -5,12 +5,15 @@ import hashlib
 import logging
 from pathlib import Path
 import re
+import shutil
 import time
 from typing import Any
+from urllib.parse import urlparse
 from urllib.request import Request, urlopen
+import zipfile
 
 from config import Config
-from ingestion.repository import CircularRepository
+from ingestion.repository import CircularAsset, CircularRepository
 from ingestion.scrapper.base import IScraper, ScrapeDetectionResult
 from ingestion.scrapper.dto import Circular
 from ingestion.scrapper.registry import ScraperRegistry
@@ -113,18 +116,20 @@ class ScraperOrchestrator:
 
             try:
                 self.circular_repository.update_status(record_id, "DISCOVERED")
-                file_path, content_hash = self._download_pdf(circular.pdf_url, circular)
-                self.circular_repository.update_file_path(
-                    record_id, file_path, content_hash
+                file_path, content_hash, assets = self._download_assets(
+                    circular.pdf_url, circular
                 )
+                self.circular_repository.replace_assets(record_id, assets)
+                self.circular_repository.update_file_path(record_id, file_path, content_hash)
                 self.circular_repository.update_status(record_id, "FETCHED")
                 fetched_count += 1
                 self.logger.info(
-                    "Fetched circular source=%s circular_id=%s record_id=%s file_path=%s",
+                    "Fetched circular source=%s circular_id=%s record_id=%s file_path=%s asset_count=%s",
                     circular.source,
                     circular.circular_id,
                     record_id,
                     file_path,
+                    len(assets),
                 )
             except Exception as exc:
                 failed_count += 1
@@ -226,33 +231,169 @@ class ScraperOrchestrator:
 
         return [ScraperRegistry.get(source_name) for source_name in self.enabled_sources]
 
-    def _download_pdf(self, pdf_url: str, circular: Circular) -> tuple[str, str]:
-        target_dir = (
+    def _download_assets(
+        self, pdf_url: str, circular: Circular
+    ) -> tuple[str, str, list[CircularAsset]]:
+        circular_dir = (
             self.storage_path
             / circular.source.upper()
             / f"{circular.issue_date:%Y}"
             / f"{circular.issue_date:%m}"
+            / self._build_safe_filename(circular.circular_id)
         )
-        target_dir.mkdir(parents=True, exist_ok=True)
-        target_path = target_dir / f"{self._build_safe_filename(circular.circular_id)}.pdf"
+        if circular_dir.exists():
+            shutil.rmtree(circular_dir)
+
+        original_dir = circular_dir / "original"
+        extracted_dir = circular_dir / "extracted"
+        original_dir.mkdir(parents=True, exist_ok=True)
 
         self.logger.debug(
-            "Downloading file source=%s circular_id=%s pdf_url=%s target_path=%s",
+            "Downloading file source=%s circular_id=%s pdf_url=%s target_dir=%s",
             circular.source,
             circular.circular_id,
             pdf_url,
-            target_path,
+            circular_dir,
         )
         content = self._fetch_pdf_bytes(pdf_url, circular)
-        target_path.write_bytes(content)
         content_hash = hashlib.sha256(content).hexdigest()
-        return str(target_path), content_hash
+        download_type = self._detect_download_type(pdf_url, content)
+
+        if download_type == "zip":
+            original_path = original_dir / "source.zip"
+            original_path.write_bytes(content)
+            extracted_assets = self._extract_zip_assets(
+                archive_path=original_path,
+                extracted_dir=extracted_dir,
+                content_hash=content_hash,
+                circular=circular
+            )
+            assets = [
+                CircularAsset(
+                    asset_role="original_zip",
+                    file_path=str(original_path),
+                    content_hash=content_hash,
+                    mime_type="application/zip",
+                    file_size_bytes=original_path.stat().st_size,
+                ),
+                *extracted_assets,
+            ]
+            return str(original_path), content_hash, assets
+
+        original_path = original_dir / "source.pdf"
+        original_path.write_bytes(content)
+        return (
+            str(original_path),
+            content_hash,
+            [
+                CircularAsset(
+                    asset_role="original_pdf",
+                    file_path=str(original_path),
+                    content_hash=content_hash,
+                    mime_type="application/pdf",
+                    file_size_bytes=original_path.stat().st_size,
+                )
+            ],
+        )
 
     def _build_safe_filename(self, value: str) -> str:
         safe_value = re.sub(r'[<>:"/\\\\|?*]+', "_", value).strip()
         safe_value = re.sub(r"\s+", "_", safe_value)
         safe_value = re.sub(r"_+", "_", safe_value).strip("._")
         return safe_value or "document"
+
+    def _detect_download_type(self, pdf_url: str, content: bytes) -> str:
+        if content.startswith(b"PK\x03\x04"):
+            return "zip"
+        if content.startswith(b"%PDF"):
+            return "pdf"
+
+        suffix = Path(urlparse(pdf_url).path).suffix.lower()
+        if suffix == ".zip":
+            return "zip"
+        return "pdf"
+
+    def _extract_zip_assets(
+        self,
+        archive_path: Path,
+        extracted_dir: Path,
+        content_hash: str,
+        circular: Circular,
+    ) -> list[CircularAsset]:
+        extracted_dir.mkdir(parents=True, exist_ok=True)
+        assets: list[CircularAsset] = []
+
+        with zipfile.ZipFile(archive_path) as archive:
+            pdf_members = [
+                member
+                for member in archive.infolist()
+                if not member.is_dir() and member.filename.lower().endswith(".pdf")
+            ]
+            if not pdf_members:
+                raise ValueError(f"ZIP archive contains no PDFs: {archive_path}")
+
+            selected_members = self._select_zip_pdf_members(pdf_members, circular)
+
+            for index, member in enumerate(selected_members):
+                member_name = Path(member.filename).name or f"document_{index + 1}.pdf"
+                safe_name = self._build_safe_filename(Path(member_name).stem) + ".pdf"
+                target_path = extracted_dir / f"{index:03d}_{safe_name}"
+
+                with archive.open(member) as source, target_path.open("wb") as target:
+                    shutil.copyfileobj(source, target)
+
+                assets.append(
+                    CircularAsset(
+                        asset_role="extracted_pdf",
+                        file_path=str(target_path),
+                        content_hash=content_hash,
+                        mime_type="application/pdf",
+                        archive_member_path=member.filename,
+                        file_size_bytes=target_path.stat().st_size,
+                    )
+                )
+
+        return assets
+
+
+    def _select_zip_pdf_members(
+        self,
+        pdf_members: list[zipfile.ZipInfo],
+        circular: Circular,
+    ) -> list[zipfile.ZipInfo]:
+        if circular.source.upper() != "NSE":
+            return pdf_members
+
+        normalized_circular_id = self._normalize_zip_match_value(circular.circular_id)
+        matching_members = [
+            member
+            for member in pdf_members
+            if normalized_circular_id
+            and normalized_circular_id
+            in self._normalize_zip_match_value(Path(member.filename).stem)
+        ]
+
+        if matching_members:
+            self.logger.info(
+                "Selected NSE ZIP members by circular_id source=%s circular_id=%s matched=%s total_pdf_members=%s",
+                circular.source,
+                circular.circular_id,
+                len(matching_members),
+                len(pdf_members),
+            )
+            return matching_members
+
+        self.logger.warning(
+            "No NSE ZIP member matched circular_id; falling back to all PDFs source=%s circular_id=%s total_pdf_members=%s",
+            circular.source,
+            circular.circular_id,
+            len(pdf_members),
+        )
+        return pdf_members
+
+
+    def _normalize_zip_match_value(self, value: str) -> str:
+        return re.sub(r"[^A-Z0-9]+", "", value.upper())
 
     def _fetch_pdf_bytes(self, pdf_url: str, circular: Circular) -> bytes:
         if pdf_url:

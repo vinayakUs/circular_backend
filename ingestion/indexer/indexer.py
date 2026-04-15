@@ -9,7 +9,7 @@ from ingestion.indexer.chunker import FixedSizeChunker
 from ingestion.indexer.dto import IndexDocument
 from ingestion.indexer.es_client import ElasticsearchClient
 from ingestion.indexer.pdf_extractor import PDFTextExtractor
-from ingestion.repository import CircularRecord, CircularRepository
+from ingestion.repository import CircularAssetRecord, CircularRecord, CircularRepository
 
 
 class ElasticsearchIndexer:
@@ -58,66 +58,83 @@ class ElasticsearchIndexer:
         record = self.circular_repository.get_record_by_id(record_id)
         if record is None:
             raise ValueError(f"Circular record not found: {record_id}")
-        if not record.file_path:
-            raise ValueError(f"Circular record has no file_path: {record_id}")
         return self._process_record(record, cleanup_stale_chunks=True)
 
     def _process_record(
         self, record: CircularRecord, *, cleanup_stale_chunks: bool = False
     ) -> bool:
         if not record.file_path:
-            self.logger.warning(
-                "Skipping record without file_path record_id=%s circular_id=%s",
+            self.logger.debug(
+                "Record has no legacy file_path record_id=%s circular_id=%s; using asset manifest",
                 record.id,
                 record.circular_id,
             )
-            return False
-
-        pdf_path = Path(record.file_path)
-        if not pdf_path.exists():
-            self.logger.warning(
-                "Skipping record with missing file record_id=%s file_path=%s",
-                record.id,
-                record.file_path,
-            )
-            return False
 
         try:
-            extracted_text = self.pdf_extractor.extract(pdf_path)
-            chunks = self.chunker.chunk(
-                extracted_text,
-                circular_key=f"{record.source}:{record.circular_id}",
-            )
-            if not chunks:
+            assets = self.circular_repository.list_assets(record.id)
+            indexable_assets = self._get_indexable_assets(assets)
+            if not indexable_assets:
                 self.logger.warning(
-                    "Skipping record with empty extracted text record_id=%s file_path=%s",
+                    "Skipping record without indexable PDF assets record_id=%s circular_id=%s",
                     record.id,
-                    record.file_path,
+                    record.circular_id,
                 )
                 return False
 
             indexed_at = datetime.now(timezone.utc)
-            documents = [
-                IndexDocument(
-                    chunk_id=chunk.chunk_id,
-                    circular_db_id=str(record.id),
-                    circular_id=record.circular_id,
-                    source=record.source,
-                    title=record.title,
-                    department=record.department,
-                    issue_date=record.issue_date,
-                    effective_date=record.effective_date,
-                    full_reference=record.full_reference,
-                    url=record.url,
-                    pdf_url=record.pdf_url,
-                    file_path=record.file_path,
-                    content_hash=record.content_hash,
-                    chunk_index=chunk.chunk_index,
-                    chunk_text=chunk.text,
-                    indexed_at=indexed_at,
+            documents: list[IndexDocument] = []
+            for asset in indexable_assets:
+                asset_path = Path(asset.file_path)
+                if not asset_path.exists():
+                    self.logger.warning(
+                        "Skipping missing asset file record_id=%s asset_id=%s file_path=%s",
+                        record.id,
+                        asset.id,
+                        asset.file_path,
+                    )
+                    continue
+
+                extracted_text = self.pdf_extractor.extract(asset_path)
+                chunks = self.chunker.chunk(
+                    extracted_text,
+                    circular_key=(
+                        f"{record.source}:{record.circular_id}:"
+                        f"{asset.asset_role}:{asset.archive_member_path or asset.file_path}"
+                    ),
                 )
-                for chunk in chunks
-            ]
+                documents.extend(
+                    IndexDocument(
+                        chunk_id=chunk.chunk_id,
+                        circular_db_id=str(record.id),
+                        circular_id=record.circular_id,
+                        asset_id=str(asset.id),
+                        asset_role=asset.asset_role,
+                        source=record.source,
+                        title=record.title,
+                        department=record.department,
+                        issue_date=record.issue_date,
+                        effective_date=record.effective_date,
+                        full_reference=record.full_reference,
+                        url=record.url,
+                        pdf_url=record.pdf_url,
+                        file_path=asset.file_path,
+                        archive_member_path=asset.archive_member_path,
+                        content_hash=asset.content_hash or record.content_hash,
+                        chunk_index=chunk.chunk_index,
+                        chunk_text=chunk.text,
+                        indexed_at=indexed_at,
+                    )
+                    for chunk in chunks
+                )
+
+            if not documents:
+                self.logger.warning(
+                    "Skipping record with empty extracted text across all assets record_id=%s circular_id=%s",
+                    record.id,
+                    record.circular_id,
+                )
+                return False
+
             success_count, failed_count = self.es_client.bulk_index(documents)
             if failed_count or success_count != len(documents):
                 self.logger.error(
@@ -155,3 +172,11 @@ class ElasticsearchIndexer:
                 record.circular_id,
             )
             return False
+
+    def _get_indexable_assets(
+        self, assets: list[CircularAssetRecord]
+    ) -> list[CircularAssetRecord]:
+        extracted_assets = [asset for asset in assets if asset.asset_role == "extracted_pdf"]
+        if extracted_assets:
+            return extracted_assets
+        return [asset for asset in assets if asset.asset_role == "original_pdf"]

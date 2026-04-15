@@ -1,16 +1,18 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Router, RouterLink } from '@angular/router';
 import {  IndexService, SearchIndexItem, SearchIndexRespose } from '../../services/index.service';
 import { ToastrService } from 'ngx-toastr';
 
 @Component({
   selector: 'app-searchpage',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, RouterLink],
   templateUrl: './searchpage.component.html',
   styleUrl: './searchpage.component.css'
 })
 export class SearchpageComponent {
+  private readonly router = inject(Router);
   searchQuery = 'sebi';
   readonly exchanges = ['All', 'NSE', 'SEBI'];
   selectedExchange = 'All';
@@ -47,6 +49,17 @@ export class SearchpageComponent {
 
     
 
+  }
+
+  openCircular(item: SearchIndexItem): void {
+    const recordId = item.document.circular_db_id?.trim();
+
+    if (!recordId) {
+      this.toastr.error('This result is missing its record id, so details cannot be opened.', 'Error');
+      return;
+    }
+
+    this.router.navigate(['/circulars', recordId]);
   }
 
 

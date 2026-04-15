@@ -1,0 +1,45 @@
+<main class="circular-view-page py-3 px-2">
+  <section class="circular-view-shell">
+    <a class="back-link" routerLink="/">← Circulars</a>
+
+    <div class="reference-row">
+      <span class="source-badge">{{ circular().source }}</span>
+      <span class="reference-text">{{ circular().fullReference }}</span>
+    </div>
+
+    <h1>{{ circular().title }}</h1>
+
+    <div class="meta-row">
+      <span class="issue-date">{{ circular().issueDate }}</span>
+      @if (circular().department) {
+        <span class="department-chip">{{ circular().department }}</span>
+      }
+    </div>
+
+    <div class="actions-row">
+      @for (action of actionButtons; track action.label) {
+        <button
+          type="button"
+          class="action-button"
+          [class.primary]="action.variant === 'primary'"
+          (click)="openAction(action.action)">
+          {{ action.label }}
+        </button>
+      }
+    </div>
+
+    <section class="action-section">
+      <h2>Details</h2>
+
+      <article class="action-card">
+        <div class="action-header">
+          <span class="severity-pill">{{ circular().source }}</span>
+          <span class="action-label">{{ circular().circularId }}</span>
+          <span class="audience-text">{{ circular().recordId }}</span>
+        </div>
+
+        <p class="action-summary">{{ circular().summary }}</p>
+      </article>
+    </section>
+  </section>
+</main>

@@ -18,6 +18,8 @@ class CircularRepositoryTestCase(unittest.TestCase):
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_circulars_source_item_key",
             schema_sql,
         )
+        self.assertIn("CREATE TABLE IF NOT EXISTS circular_assets", schema_sql)
+        self.assertIn("archive_member_path TEXT", schema_sql)
 
 
 if __name__ == "__main__":

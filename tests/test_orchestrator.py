@@ -2,6 +2,7 @@ from datetime import date
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+import zipfile
 
 from ingestion.scrapper.base import IScraper, ScrapeDetectionResult
 from ingestion.scrapper.dto import Circular
@@ -74,6 +75,10 @@ class OrchestratorTestCase(unittest.TestCase):
         circular = self.build_circular()
         record_id, _created = repository.upsert_circular(circular)
         repository.update_file_path(record_id, "existing.pdf", "hash")
+        repository.replace_assets(
+            record_id,
+            [],
+        )
         repository.update_status(record_id, "FETCHED")
 
         scraper = StubScraper([circular])
@@ -114,6 +119,9 @@ class OrchestratorTestCase(unittest.TestCase):
             self.assertTrue(record.file_path)
             self.assertTrue(Path(record.file_path).exists())
             self.assertEqual(len(record.content_hash), 64)
+            assets = repository.list_assets(record.id)
+            self.assertEqual(len(assets), 1)
+            self.assertEqual(assets[0].asset_role, "original_pdf")
 
     def test_orchestrator_sanitizes_filename_but_not_record_id(self) -> None:
         repository = FakeCircularRepository()
@@ -141,7 +149,7 @@ class OrchestratorTestCase(unittest.TestCase):
             record = repository.get_record("SEBI", "HO/(68)2026-IMD-POD-2/I/5780/2026")
             self.assertIsNotNone(record)
             assert record is not None
-            self.assertIn("HO_(68)2026-IMD-POD-2_I_5780_2026.pdf", record.file_path)
+            self.assertIn("HO_(68)2026-IMD-POD-2_I_5780_2026/original/source.pdf", record.file_path)
 
     def test_orchestrator_persists_failed_placeholders_and_advances_checkpoint_safely(
         self,
@@ -196,6 +204,44 @@ class OrchestratorTestCase(unittest.TestCase):
         assert successful_record is not None
         self.assertEqual(successful_record.status, "FETCHED")
         self.assertEqual(repository.get_checkpoint("SEBI"), date(2026, 4, 11))
+
+    def test_orchestrator_extracts_zip_into_multiple_assets(self) -> None:
+        repository = FakeCircularRepository()
+        circular = self.build_circular()
+        circular.pdf_url = "https://example.com/archive.zip"
+        scraper = StubScraper([circular])
+
+        with TemporaryDirectory() as temp_dir:
+            orchestrator = ScraperOrchestrator(
+                storage_path=temp_dir,
+                circular_repository=repository,
+            )
+
+            def build_zip(_pdf_url: str, _circular: Circular) -> bytes:
+                zip_path = Path(temp_dir) / "payload.zip"
+                with zipfile.ZipFile(zip_path, "w") as archive:
+                    archive.writestr("one.pdf", b"%PDF-1.4 one")
+                    archive.writestr("nested/two.pdf", b"%PDF-1.4 two")
+                    archive.writestr("note.txt", b"ignore")
+                return zip_path.read_bytes()
+
+            orchestrator._fetch_pdf_bytes = build_zip  # type: ignore[method-assign]
+            orchestrator._scrape_source(scraper, date(2026, 4, 6))
+
+            record = repository.get_record("TEST", "ABC123")
+            self.assertIsNotNone(record)
+            assert record is not None
+            self.assertTrue(record.file_path.endswith("/original/source.zip"))
+            assets = repository.list_assets(record.id)
+            self.assertEqual([asset.asset_role for asset in assets].count("original_zip"), 1)
+            self.assertEqual([asset.asset_role for asset in assets].count("extracted_pdf"), 2)
+            self.assertTrue(
+                all(
+                    asset.archive_member_path is not None
+                    for asset in assets
+                    if asset.asset_role == "extracted_pdf"
+                )
+            )
 
     def test_run_only_executes_enabled_sources(self) -> None:
         repository = FakeCircularRepository()

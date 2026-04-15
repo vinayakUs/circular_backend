@@ -49,6 +49,8 @@ class ElasticsearchClientTestCase(unittest.TestCase):
                             "chunk_id": "chunk-1",
                             "circular_db_id": "db-1",
                             "circular_id": "circular-1",
+                            "asset_id": "asset-1",
+                            "asset_role": "original_pdf",
                             "source": "SEBI",
                             "title": "Circular 1",
                             "department": "Legal",
@@ -58,6 +60,7 @@ class ElasticsearchClientTestCase(unittest.TestCase):
                             "url": "https://example.com/circular-1",
                             "pdf_url": "https://example.com/circular-1.pdf",
                             "file_path": "/tmp/circular-1.pdf",
+                            "archive_member_path": None,
                             "content_hash": "hash-1",
                             "chunk_index": 0,
                             "chunk_text": "query text",
@@ -74,12 +77,17 @@ class ElasticsearchClientTestCase(unittest.TestCase):
             client=raw_client,
         )
 
-        results = client.search("query text")
+        results = client.search("query text", {}, size=40)
 
         raw_client.search.assert_called_once_with(
             index="circulars_chunks",
-            query={"match": {"chunk_text": {"query": "query text"}}},
-            size=10,
+            query={
+                "bool": {
+                    "must": [{"match": {"chunk_text": {"query": "query text"}}}],
+                    "filter": [],
+                }
+            },
+            size=40,
         )
         self.assertEqual(
             results,
@@ -91,6 +99,8 @@ class ElasticsearchClientTestCase(unittest.TestCase):
                         chunk_id="chunk-1",
                         circular_db_id="db-1",
                         circular_id="circular-1",
+                        asset_id="asset-1",
+                        asset_role="original_pdf",
                         source="SEBI",
                         title="Circular 1",
                         department="Legal",
@@ -100,6 +110,7 @@ class ElasticsearchClientTestCase(unittest.TestCase):
                         url="https://example.com/circular-1",
                         pdf_url="https://example.com/circular-1.pdf",
                         file_path="/tmp/circular-1.pdf",
+                        archive_member_path=None,
                         content_hash="hash-1",
                         chunk_index=0,
                         chunk_text="query text",

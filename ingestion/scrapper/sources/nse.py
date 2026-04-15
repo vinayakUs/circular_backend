@@ -52,11 +52,11 @@ class NSEScraper(IScraper):
         circulars: list[Circular] = []
         seen_ids: set[str] = set()
         duplicate_count = 0
-        skipped_non_pdf_count = 0
+        skipped_unsupported_count = 0
         for item in payload.get("data", []):
             file_ext = str(item.get("fileExt", "")).lower()
-            if file_ext != "pdf":
-                skipped_non_pdf_count += 1
+            if file_ext not in {"pdf", "zip"}:
+                skipped_unsupported_count += 1
                 continue
 
             file_dept = str(item.get("fileDept", "")).strip().upper()
@@ -87,10 +87,10 @@ class NSEScraper(IScraper):
             )
 
         self.logger.info(
-            "NSE payload processed total_items=%s pdf_circulars=%s skipped_non_pdf=%s duplicates_skipped=%s",
+            "NSE payload processed total_items=%s supported_circulars=%s skipped_unsupported=%s duplicates_skipped=%s",
             len(payload.get("data", [])),
             len(circulars),
-            skipped_non_pdf_count,
+            skipped_unsupported_count,
             duplicate_count,
         )
         return circulars

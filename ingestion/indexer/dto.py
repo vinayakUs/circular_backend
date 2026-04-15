@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime
-from email.mime import text
-from email.mime import text
 from typing import Any
 
 from utils import multi_snippet, highlight
@@ -21,6 +19,8 @@ class IndexDocument:
     chunk_id: str
     circular_db_id: str
     circular_id: str
+    asset_id: str
+    asset_role: str
     source: str
     title: str
     department: str
@@ -30,6 +30,7 @@ class IndexDocument:
     url: str
     pdf_url: str
     file_path: str
+    archive_member_path: str | None
     content_hash: str | None
     chunk_index: int
     chunk_text: str
@@ -41,6 +42,8 @@ class IndexDocument:
             chunk_id=source["chunk_id"],
             circular_db_id=source["circular_db_id"],
             circular_id=source["circular_id"],
+            asset_id=source.get("asset_id", ""),
+            asset_role=source.get("asset_role", ""),
             source=source["source"],
             title=source["title"],
             department=source["department"],
@@ -54,6 +57,7 @@ class IndexDocument:
             url=source["url"],
             pdf_url=source["pdf_url"],
             file_path=source["file_path"],
+            archive_member_path=source.get("archive_member_path"),
             content_hash=source.get("content_hash"),
             chunk_index=source["chunk_index"],
             chunk_text=source["chunk_text"],
@@ -65,6 +69,8 @@ class IndexDocument:
             "chunk_id": self.chunk_id,
             "circular_db_id": self.circular_db_id,
             "circular_id": self.circular_id,
+            "asset_id": self.asset_id,
+            "asset_role": self.asset_role,
             "source": self.source,
             "title": self.title,
             "department": self.department,
@@ -76,6 +82,7 @@ class IndexDocument:
             "url": self.url,
             "pdf_url": self.pdf_url,
             "file_path": self.file_path,
+            "archive_member_path": self.archive_member_path,
             "content_hash": self.content_hash,
             "chunk_index": self.chunk_index,
             "chunk_text": self.chunk_text,

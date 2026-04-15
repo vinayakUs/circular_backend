@@ -5,7 +5,7 @@ from datetime import date, datetime, timezone
 from typing import Any
 from uuid import UUID, uuid4
 
-from ingestion.repository import CircularRecord
+from ingestion.repository import CircularAsset, CircularAssetRecord, CircularRecord
 from ingestion.scrapper.dto import Circular
 
 
@@ -14,6 +14,7 @@ class FakeCircularRepository:
         self._records_by_key: dict[tuple[str, str], CircularRecord] = {}
         self._records_by_source_item_key: dict[tuple[str, str], CircularRecord] = {}
         self._records_by_id: dict[UUID, CircularRecord] = {}
+        self._assets_by_circular_id: dict[UUID, list[CircularAssetRecord]] = {}
         self._checkpoints: dict[str, date] = {}
 
     def upsert_circular(self, circular: Circular) -> tuple[UUID, bool]:
@@ -99,6 +100,35 @@ class FakeCircularRepository:
             )
         )
 
+    def replace_assets(
+        self, circular_id: UUID, assets: list[CircularAsset]
+    ) -> list[CircularAssetRecord]:
+        now = datetime.now(timezone.utc)
+        records = [
+            CircularAssetRecord(
+                id=uuid4(),
+                circular_id=circular_id,
+                asset_role=asset.asset_role,
+                file_path=asset.file_path,
+                content_hash=asset.content_hash,
+                mime_type=asset.mime_type,
+                archive_member_path=asset.archive_member_path,
+                file_size_bytes=asset.file_size_bytes,
+                created_at=now,
+                updated_at=now,
+            )
+            for asset in assets
+        ]
+        self._assets_by_circular_id[circular_id] = records
+        return list(records)
+
+    def list_assets(self, circular_id: UUID) -> list[CircularAssetRecord]:
+        return list(self._assets_by_circular_id.get(circular_id, []))
+
+    def get_primary_asset(self, circular_id: UUID) -> CircularAssetRecord | None:
+        assets = self.list_assets(circular_id)
+        return assets[0] if assets else None
+
     def get_checkpoint(self, source: str) -> date | None:
         return self._checkpoints.get(source.upper())
 
@@ -111,6 +141,25 @@ class FakeCircularRepository:
     def get_record_by_id(self, record_id: UUID) -> CircularRecord | None:
         return self._records_by_id.get(record_id)
 
+    def get_record_by_circular_id(
+        self, circular_id: str, source: str | None = None
+    ) -> CircularRecord | None:
+        normalized_id = circular_id.upper()
+        normalized_source = source.upper() if source else None
+        candidates = [
+            record
+            for record in self._records_by_id.values()
+            if record.circular_id == normalized_id
+            and (normalized_source is None or record.source == normalized_source)
+        ]
+        if not candidates:
+            return None
+        candidates.sort(
+            key=lambda record: (record.issue_date, record.updated_at, record.created_at),
+            reverse=True,
+        )
+        return candidates[0]
+
     def list_records(self) -> list[CircularRecord]:
         return sorted(
             self._records_by_id.values(),
@@ -122,7 +171,7 @@ class FakeCircularRepository:
             record
             for record in self._records_by_id.values()
             if record.status == "FETCHED"
-            and record.file_path is not None
+            and self._assets_by_circular_id.get(record.id)
             and record.es_indexed_at is None
         ]
         pending.sort(key=lambda record: (record.issue_date, record.created_at, record.id))
@@ -207,4 +256,3 @@ class FakeCircularRepository:
             self._build_source_item_key(record.source, record.source_item_key)
         ] = record
         self._records_by_id[record.id] = record
-
