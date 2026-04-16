@@ -76,3 +76,25 @@ Additional `.env` settings:
 - `ES_CHUNK_SIZE`
 - `ES_CHUNK_OVERLAP`
 - `ES_REQUEST_TIMEOUT_SECONDS`
+- `ES_ENABLE_VECTORS`
+- `ES_EMBEDDING_PROVIDER`
+- `ES_EMBEDDING_MODEL_NAME`
+- `ES_QUERY_EMBEDDING_INSTRUCTION`
+
+For semantic retrieval with local embeddings, the default setup now uses:
+
+```bash
+ES_ENABLE_VECTORS=true
+ES_EMBEDDING_PROVIDER=sentence-transformers
+ES_EMBEDDING_MODEL_NAME=BAAI/bge-base-en-v1.5
+ES_QUERY_EMBEDDING_INSTRUCTION="Represent this sentence for searching relevant passages: "
+ES_SEARCH_DEFAULT_STRATEGY=hybrid
+```
+
+After changing embedding model or vector dimensions, recreate the index before reindexing:
+
+```bash
+run-indexer --delete-index
+run-indexer --setup-index
+run-indexer
+```

@@ -51,3 +51,18 @@ class Config:
     ES_CHUNK_SIZE = int(os.getenv("ES_CHUNK_SIZE", "1200"))
     ES_CHUNK_OVERLAP = int(os.getenv("ES_CHUNK_OVERLAP", "200"))
     ES_REQUEST_TIMEOUT_SECONDS = int(os.getenv("ES_REQUEST_TIMEOUT_SECONDS", "30"))
+    ES_ENABLE_VECTORS = os.getenv("ES_ENABLE_VECTORS", "true").lower() == "true"
+    ES_VECTOR_DIMS = int(os.getenv("ES_VECTOR_DIMS", "768"))
+    ES_EMBEDDING_PROVIDER = os.getenv(
+        "ES_EMBEDDING_PROVIDER", "sentence-transformers"
+    ).strip().lower()
+    ES_EMBEDDING_MODEL_NAME = os.getenv(
+        "ES_EMBEDDING_MODEL_NAME", "BAAI/bge-base-en-v1.5"
+    ).strip()
+    ES_QUERY_EMBEDDING_INSTRUCTION = os.getenv(
+        "ES_QUERY_EMBEDDING_INSTRUCTION",
+        "Represent this sentence for searching relevant passages: ",
+    )
+    ES_SEARCH_DEFAULT_STRATEGY = os.getenv(
+        "ES_SEARCH_DEFAULT_STRATEGY", "hybrid"
+    ).strip().lower()

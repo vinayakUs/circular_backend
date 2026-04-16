@@ -33,6 +33,7 @@ from uuid import UUID
 from config import Config
 from db import get_db_client
 from ingestion.indexer import ElasticsearchClient, ElasticsearchIndexer, FixedSizeChunker
+from ingestion.indexer.embedding_provider import build_embedding_provider
 from ingestion.logging_utils import configure_logging
 from ingestion.repository import CircularRepository
 
@@ -93,12 +94,20 @@ def main() -> int:
     db_client = get_db_client()
     db_pool = db_client.get_pool()
     repository = CircularRepository(db_pool=db_pool)
+    embedding_provider = build_embedding_provider(
+        Config.ES_EMBEDDING_PROVIDER,
+        enabled=Config.ES_ENABLE_VECTORS,
+        dimensions=Config.ES_VECTOR_DIMS,
+        model_name=Config.ES_EMBEDDING_MODEL_NAME,
+        query_instruction=Config.ES_QUERY_EMBEDDING_INSTRUCTION,
+    )
     es_client = ElasticsearchClient(
         url=Config.ELASTICSEARCH_URL,
         index_name=Config.ELASTICSEARCH_INDEX_NAME,
         request_timeout_seconds=Config.ES_REQUEST_TIMEOUT_SECONDS,
         username=Config.ELASTICSEARCH_USERNAME,
         password=Config.ELASTICSEARCH_PASSWORD,
+        embedding_provider=embedding_provider,
     )
     indexer = ElasticsearchIndexer(
         circular_repository=repository,
@@ -107,6 +116,7 @@ def main() -> int:
             chunk_size=Config.ES_CHUNK_SIZE,
             overlap=Config.ES_CHUNK_OVERLAP,
         ),
+        embedding_provider=embedding_provider,
         batch_size=args.batch_size,
     )
 

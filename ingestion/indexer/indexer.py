@@ -7,6 +7,7 @@ from uuid import UUID
 
 from ingestion.indexer.chunker import FixedSizeChunker
 from ingestion.indexer.dto import IndexDocument
+from ingestion.indexer.embedding_provider import EmbeddingProvider, NoOpEmbeddingProvider
 from ingestion.indexer.es_client import ElasticsearchClient
 from ingestion.indexer.pdf_extractor import PDFTextExtractor
 from ingestion.repository import CircularAssetRecord, CircularRecord, CircularRepository
@@ -21,6 +22,7 @@ class ElasticsearchIndexer:
         es_client: ElasticsearchClient,
         pdf_extractor: PDFTextExtractor | None = None,
         chunker: FixedSizeChunker | None = None,
+        embedding_provider: EmbeddingProvider | None = None,
         batch_size: int = 50,
     ) -> None:
         self.logger = logging.getLogger(__name__)
@@ -28,6 +30,7 @@ class ElasticsearchIndexer:
         self.es_client = es_client
         self.pdf_extractor = pdf_extractor or PDFTextExtractor()
         self.chunker = chunker or FixedSizeChunker()
+        self.embedding_provider = embedding_provider or NoOpEmbeddingProvider()
         self.batch_size = batch_size
 
     def run_once(self) -> tuple[int, int]:
@@ -102,6 +105,9 @@ class ElasticsearchIndexer:
                         f"{asset.asset_role}:{asset.archive_member_path or asset.file_path}"
                     ),
                 )
+                chunk_embeddings = self.embedding_provider.embed_texts(
+                    [chunk.text for chunk in chunks]
+                )
                 documents.extend(
                     IndexDocument(
                         chunk_id=chunk.chunk_id,
@@ -122,9 +128,10 @@ class ElasticsearchIndexer:
                         content_hash=asset.content_hash or record.content_hash,
                         chunk_index=chunk.chunk_index,
                         chunk_text=chunk.text,
+                        embedding=chunk_embeddings[position],
                         indexed_at=indexed_at,
                     )
-                    for chunk in chunks
+                    for position, chunk in enumerate(chunks)
                 )
 
             if not documents:

@@ -24,7 +24,6 @@ export interface CircularDocument {
   content_hash: string;
   department: string;
   effective_date: string | null;
-  file_path: string;
   full_reference: string;
   indexed_at: string;
   issue_date: string;
@@ -32,6 +31,10 @@ export interface CircularDocument {
   source: string;
   title: string;
   url: string;
+  file_path: string;
+  archive_member_path?: string | null;
+  asset_id?: string;
+  asset_role?: string;
 }
 
 export interface CircularAsset {

@@ -34,6 +34,7 @@ class IndexDocument:
     content_hash: str | None
     chunk_index: int
     chunk_text: str
+    embedding: list[float] | None
     indexed_at: datetime
 
     @classmethod
@@ -61,6 +62,7 @@ class IndexDocument:
             content_hash=source.get("content_hash"),
             chunk_index=source["chunk_index"],
             chunk_text=source["chunk_text"],
+            embedding=source.get("embedding"),
             indexed_at=datetime.fromisoformat(source["indexed_at"]),
         )
 
@@ -86,8 +88,14 @@ class IndexDocument:
             "content_hash": self.content_hash,
             "chunk_index": self.chunk_index,
             "chunk_text": self.chunk_text,
+            "embedding": self.embedding,
             "indexed_at": self.indexed_at.isoformat(),
         }
+
+    def to_api_body(self) -> dict[str, Any]:
+        body = self.to_es_body()
+        body.pop("embedding", None)
+        return body
 
 
 @dataclass(slots=True)
@@ -101,7 +109,7 @@ class SearchHit:
             "id": self.es_id,
             "score": self.score,
             "preview": self.build_preview(query),
-            "document": self.document.to_es_body(),
+            "document": self.document.to_api_body(),
         }
     
     def build_preview(self, query: str) -> str:

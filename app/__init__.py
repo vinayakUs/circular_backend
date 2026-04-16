@@ -5,6 +5,7 @@ from uuid import UUID
 
 from flask import Flask, request
 
+from config import Config
 from db import get_db_client
 from ingestion.indexer.es_provider import get_es_client
 from ingestion.repository import CircularRepository
@@ -120,17 +121,20 @@ def create_app() -> Flask:
 
     @app.get("/api/circulars/search")
     def search_circulars():
-
         query = request.args.get("q", "").strip()
+        strategy = request.args.get("strategy", Config.ES_SEARCH_DEFAULT_STRATEGY).strip().lower()
         raw_exchange = request.args.get("exchange", "")
         raw_exchange = [ex.strip().upper() for ex in raw_exchange.split(",") if ex]
 
         if not query:
             return {"error": "Query parameter 'q' is required."}, 400
 
+        if strategy not in {"bm25", "vector", "hybrid"}:
+            return {"error": "Unsupported search strategy."}, 400
+
         try:
-            exchange = {"source":raw_exchange}
-            results = get_es_client().search(query,exchange)
+            exchange = {"source": raw_exchange}
+            results = get_es_client().search(query, exchange, strategy=strategy)
         except ConnectionTimeout:
             return {
                 "error": "Search service is temporarily unavailable.",
@@ -138,6 +142,10 @@ def create_app() -> Flask:
                 "results": [],
             }, 503
 
-        return {"query": query, "results": [result.to_dict(query=query) for result in results]}
+        return {
+            "query": query,
+            "strategy": strategy,
+            "results": [result.to_dict(query=query) for result in results],
+        }
 
     return app

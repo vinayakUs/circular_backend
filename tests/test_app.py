@@ -54,6 +54,8 @@ class AppTestCase(unittest.TestCase):
                     chunk_id="chunk-1",
                     circular_db_id="db-1",
                     circular_id="circular-1",
+                    asset_id="asset-1",
+                    asset_role="original_pdf",
                     source="SEBI",
                     title="SEBI circular",
                     department="Markets",
@@ -63,9 +65,11 @@ class AppTestCase(unittest.TestCase):
                     url="https://example.com/circular-1",
                     pdf_url="https://example.com/circular-1.pdf",
                     file_path="/tmp/circular-1.pdf",
+                    archive_member_path=None,
                     content_hash="hash-1",
                     chunk_index=0,
                     chunk_text="margin framework update",
+                    embedding=None,
                     indexed_at=datetime(2024, 1, 2, 3, 4, 5),
                 ),
             )
@@ -78,14 +82,18 @@ class AppTestCase(unittest.TestCase):
             response.get_json(),
             {
                 "query": "margin",
+                "strategy": "hybrid",
                 "results": [
                     {
                         "id": "chunk-1",
                         "score": 1.23,
+                        "preview": "<div class='preview'>...framework...</div>",
                         "document": {
                             "chunk_id": "chunk-1",
                             "circular_db_id": "db-1",
                             "circular_id": "circular-1",
+                            "asset_id": "asset-1",
+                            "asset_role": "original_pdf",
                             "source": "SEBI",
                             "title": "SEBI circular",
                             "department": "Markets",
@@ -95,6 +103,7 @@ class AppTestCase(unittest.TestCase):
                             "url": "https://example.com/circular-1",
                             "pdf_url": "https://example.com/circular-1.pdf",
                             "file_path": "/tmp/circular-1.pdf",
+                            "archive_member_path": None,
                             "content_hash": "hash-1",
                             "chunk_index": 0,
                             "chunk_text": "margin framework update",
@@ -104,7 +113,7 @@ class AppTestCase(unittest.TestCase):
                 ],
             },
         )
-        es_client.search.assert_called_once_with("margin")
+        es_client.search.assert_called_once_with("margin", {"source": []}, strategy="hybrid")
 
     @patch("app.get_es_client")
     def test_search_endpoint_handles_es_timeout(self, get_es_client) -> None:
@@ -122,7 +131,7 @@ class AppTestCase(unittest.TestCase):
                 "results": [],
             },
         )
-        es_client.search.assert_called_once_with("margin")
+        es_client.search.assert_called_once_with("margin", {"source": []}, strategy="hybrid")
 
     def test_search_endpoint_requires_q(self) -> None:
         response = self.client.get("/api/circulars/search")
@@ -140,6 +149,15 @@ class AppTestCase(unittest.TestCase):
         self.assertEqual(
             response.get_json(),
             {"error": "Query parameter 'q' is required."},
+        )
+
+    def test_search_endpoint_rejects_unknown_strategy(self) -> None:
+        response = self.client.get("/api/circulars/search?q=margin&strategy=magic")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.get_json(),
+            {"error": "Unsupported search strategy."},
         )
 
     @patch("app.CircularRepository")
@@ -185,10 +203,12 @@ class AppTestCase(unittest.TestCase):
             created_at=datetime(2024, 1, 2, 3, 4, 9),
             updated_at=datetime(2024, 1, 2, 3, 4, 10),
         )
-        repository.get_record_by_circular_id.return_value = record
+        repository.get_record_by_id.return_value = record
         repository.list_assets.return_value = [asset]
 
-        response = self.client.get("/api/circulars/circular-1?source=sebi")
+        response = self.client.get(
+            "/api/circulars/record/11111111-1111-1111-1111-111111111111"
+        )
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
@@ -233,8 +253,8 @@ class AppTestCase(unittest.TestCase):
                 ],
             },
         )
-        repository.get_record_by_circular_id.assert_called_once_with(
-            "circular-1", source="sebi"
+        repository.get_record_by_id.assert_called_once_with(
+            UUID("11111111-1111-1111-1111-111111111111")
         )
         repository.list_assets.assert_called_once_with(record.id)
 
@@ -246,21 +266,22 @@ class AppTestCase(unittest.TestCase):
         db_client = get_db_client.return_value
         db_client.get_pool.return_value = object()
         repository = repository_cls.return_value
-        repository.get_record_by_circular_id.return_value = None
+        repository.get_record_by_id.return_value = None
 
-        response = self.client.get("/api/circulars/missing-id")
+        response = self.client.get(
+            "/api/circulars/record/33333333-3333-3333-3333-333333333333"
+        )
 
         self.assertEqual(response.status_code, 404)
         self.assertEqual(
             response.get_json(),
             {
                 "error": "Circular not found.",
-                "circular_id": "missing-id",
-                "source": None,
+                "record_id": "33333333-3333-3333-3333-333333333333",
             },
         )
-        repository.get_record_by_circular_id.assert_called_once_with(
-            "missing-id", source=None
+        repository.get_record_by_id.assert_called_once_with(
+            UUID("33333333-3333-3333-3333-333333333333")
         )
 
 

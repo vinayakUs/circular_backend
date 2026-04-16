@@ -5,6 +5,7 @@ import unittest
 from unittest.mock import Mock
 
 from ingestion.indexer import ElasticsearchIndexer, FixedSizeChunker
+from ingestion.indexer.embedding_provider import HashingEmbeddingProvider, NoOpEmbeddingProvider
 from ingestion.repository import CircularAsset
 from ingestion.scrapper.dto import Circular
 from tests.fakes import FakeCircularRepository
@@ -123,6 +124,7 @@ class IndexerWorkflowTestCase(unittest.TestCase):
                 es_client=es_client,
                 pdf_extractor=extractor,
                 chunker=FixedSizeChunker(chunk_size=50, overlap=10),
+                embedding_provider=NoOpEmbeddingProvider(),
                 batch_size=10,
             )
 
@@ -147,6 +149,7 @@ class IndexerWorkflowTestCase(unittest.TestCase):
                 es_client=es_client,
                 pdf_extractor=extractor,
                 chunker=FixedSizeChunker(chunk_size=50, overlap=10),
+                embedding_provider=NoOpEmbeddingProvider(),
                 batch_size=10,
             )
 
@@ -221,6 +224,7 @@ class IndexerWorkflowTestCase(unittest.TestCase):
                 es_client=es_client,
                 pdf_extractor=extractor,
                 chunker=FixedSizeChunker(chunk_size=40, overlap=5),
+                embedding_provider=NoOpEmbeddingProvider(),
                 batch_size=10,
             )
 
@@ -257,6 +261,7 @@ class IndexerWorkflowTestCase(unittest.TestCase):
                 es_client=es_client,
                 pdf_extractor=extractor,
                 chunker=FixedSizeChunker(chunk_size=50, overlap=10),
+                embedding_provider=NoOpEmbeddingProvider(),
                 batch_size=10,
             )
 
@@ -291,6 +296,7 @@ class IndexerWorkflowTestCase(unittest.TestCase):
                 es_client=es_client,
                 pdf_extractor=extractor,
                 chunker=FixedSizeChunker(chunk_size=50, overlap=10),
+                embedding_provider=NoOpEmbeddingProvider(),
                 batch_size=10,
             )
 
@@ -304,3 +310,33 @@ class IndexerWorkflowTestCase(unittest.TestCase):
             self.assertGreater(refreshed.es_chunk_count or 0, 1)
             es_client.bulk_index.assert_called_once()
             es_client.delete_stale_documents_for_record.assert_called_once()
+
+    def test_indexer_attaches_embeddings_when_provider_is_enabled(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            repository, _pdf_path = self._build_repository_with_file(temp_dir)
+            es_client = Mock()
+            es_client.index_name = "circulars_chunks"
+            captured_documents = []
+
+            def bulk_index(documents):
+                captured_documents.extend(documents)
+                return len(documents), 0
+
+            es_client.bulk_index.side_effect = bulk_index
+            extractor = Mock()
+            extractor.extract.return_value = "margin trading exposure collateral " * 50
+            indexer = ElasticsearchIndexer(
+                circular_repository=repository,
+                es_client=es_client,
+                pdf_extractor=extractor,
+                chunker=FixedSizeChunker(chunk_size=60, overlap=10),
+                embedding_provider=HashingEmbeddingProvider(dimensions=16),
+                batch_size=10,
+            )
+
+            processed, failed = indexer.run_once()
+
+            self.assertEqual((processed, failed), (1, 0))
+            self.assertTrue(captured_documents)
+            self.assertTrue(all(document.embedding is not None for document in captured_documents))
+            self.assertEqual(len(captured_documents[0].embedding or []), 16)

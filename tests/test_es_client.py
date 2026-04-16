@@ -3,6 +3,12 @@ from datetime import datetime
 from unittest.mock import patch
 
 from ingestion.indexer.dto import IndexDocument, SearchHit
+from ingestion.indexer.embedding_provider import (
+    HashingEmbeddingProvider,
+    NoOpEmbeddingProvider,
+    SentenceTransformerEmbeddingProvider,
+    build_embedding_provider,
+)
 from ingestion.indexer.es_client import ElasticsearchClient
 from ingestion.indexer.es_provider import get_es_client
 import ingestion.indexer.es_provider as es_provider_module
@@ -28,6 +34,7 @@ class GetEsClientTestCase(unittest.TestCase):
         self.assertEqual(client._url, "http://es.local:9200")
         self.assertEqual(client._username, "elastic")
         self.assertEqual(client._password, "secret")
+        self.assertIsNotNone(client.embedding_provider)
 
     def test_get_es_client_reuses_cached_instance(self) -> None:
         first_client = get_es_client()
@@ -64,6 +71,7 @@ class ElasticsearchClientTestCase(unittest.TestCase):
                             "content_hash": "hash-1",
                             "chunk_index": 0,
                             "chunk_text": "query text",
+                            "embedding": None,
                             "indexed_at": "2024-01-02T03:04:05",
                         },
                         "ignored_field": "value",
@@ -74,16 +82,34 @@ class ElasticsearchClientTestCase(unittest.TestCase):
         client = ElasticsearchClient(
             url="http://localhost:9200",
             index_name="circulars_chunks",
+            embedding_provider=NoOpEmbeddingProvider(),
             client=raw_client,
         )
 
-        results = client.search("query text", {}, size=40)
+        results = client.search("query text", {}, size=40, strategy="bm25")
 
         raw_client.search.assert_called_once_with(
             index="circulars_chunks",
             query={
                 "bool": {
-                    "must": [{"match": {"chunk_text": {"query": "query text"}}}],
+                    "should": [
+                        {"match": {"chunk_text": {"query": "query text", "boost": 3}}},
+                        {"match": {"title": {"query": "query text", "boost": 2}}},
+                        {"match": {"full_reference": {"query": "query text", "boost": 2}}},
+                        {
+                            "multi_match": {
+                                "query": "query text",
+                                "fields": [
+                                    "chunk_text",
+                                    "title^2",
+                                    "full_reference^2",
+                                    "department",
+                                ],
+                                "type": "best_fields",
+                            }
+                        },
+                    ],
+                    "minimum_should_match": 1,
                     "filter": [],
                 }
             },
@@ -114,11 +140,48 @@ class ElasticsearchClientTestCase(unittest.TestCase):
                         content_hash="hash-1",
                         chunk_index=0,
                         chunk_text="query text",
+                        embedding=None,
                         indexed_at=datetime(2024, 1, 2, 3, 4, 5),
                     ),
                 )
             ],
         )
+
+    def test_search_uses_hybrid_query_when_embeddings_are_enabled(self) -> None:
+        raw_client = unittest.mock.Mock()
+        raw_client.search.return_value = {"hits": {"hits": []}}
+        client = ElasticsearchClient(
+            url="http://localhost:9200",
+            index_name="circulars_chunks",
+            embedding_provider=HashingEmbeddingProvider(dimensions=8),
+            client=raw_client,
+        )
+
+        client.search("margin framework", {"source": ["SEBI"]}, size=10, strategy="hybrid")
+
+        raw_client.search.assert_called_once()
+        _, kwargs = raw_client.search.call_args
+        self.assertEqual(kwargs["index"], "circulars_chunks")
+        self.assertEqual(kwargs["size"], 10)
+        self.assertIn("query", kwargs)
+        self.assertIn("knn", kwargs)
+        self.assertEqual(kwargs["knn"]["field"], "embedding")
+        self.assertEqual(kwargs["knn"]["k"], 10)
+        self.assertEqual(kwargs["knn"]["filter"], [{"terms": {"source": ["SEBI"]}}])
+
+
+class EmbeddingProviderFactoryTestCase(unittest.TestCase):
+    def test_build_embedding_provider_returns_sentence_transformers_provider(self) -> None:
+        provider = build_embedding_provider(
+            "sentence-transformers",
+            enabled=True,
+            dimensions=768,
+            model_name="BAAI/bge-base-en-v1.5",
+            query_instruction="Represent this sentence for searching relevant passages: ",
+        )
+
+        self.assertIsInstance(provider, SentenceTransformerEmbeddingProvider)
+        self.assertEqual(provider.model_name, "BAAI/bge-base-en-v1.5")
 
 
 if __name__ == "__main__":
