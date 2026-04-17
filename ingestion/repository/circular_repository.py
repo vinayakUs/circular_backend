@@ -72,6 +72,27 @@ CREATE TABLE IF NOT EXISTS scraper_checkpoints (
     es_last_run_at TIMESTAMPTZ,
     es_records_processed INT DEFAULT 0
 );
+
+CREATE TABLE IF NOT EXISTS processing_tasks (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    circular_id UUID NOT NULL REFERENCES circulars(id) ON DELETE CASCADE,
+    processor_name VARCHAR(50) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    error_message TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(circular_id, processor_name)
+);
+
+CREATE TABLE IF NOT EXISTS action_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    circular_id UUID NOT NULL REFERENCES circulars(id) ON DELETE CASCADE,
+    action_item TEXT NOT NULL,
+    deadline DATE,
+    priority VARCHAR(20),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 """
 
 
@@ -346,6 +367,33 @@ class CircularRepository:
                 """
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_circular_assets_identity
                 ON circular_assets(circular_id, asset_role, COALESCE(archive_member_path, ''))
+                """
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS processing_tasks (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    circular_id UUID NOT NULL REFERENCES circulars(id) ON DELETE CASCADE,
+                    processor_name VARCHAR(50) NOT NULL,
+                    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+                    error_message TEXT,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    UNIQUE(circular_id, processor_name)
+                )
+                """
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS action_items (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    circular_id UUID NOT NULL REFERENCES circulars(id) ON DELETE CASCADE,
+                    action_item TEXT NOT NULL,
+                    deadline DATE,
+                    priority VARCHAR(20),
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                )
                 """
             )
         self._schema_initialized = True

@@ -19,7 +19,7 @@ class Config:
     FLASK_ENV = os.getenv("FLASK_ENV", "development")
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 
-    OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "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")
+    OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "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")
     ACTION_ITEM_MODEL = os.getenv(
         "ACTION_ITEM_MODEL", "nvidia/nemotron-3-super-120b-a12b:free"
     )
