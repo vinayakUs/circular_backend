@@ -30,7 +30,8 @@ class ProcessorRepository:
                 FROM circulars c
                 LEFT JOIN processing_tasks pt 
                   ON c.id = pt.circular_id AND pt.processor_name = %s
-                WHERE c.file_path IS NOT NULL
+                WHERE c.status = 'FETCHED'
+                  AND c.file_path IS NOT NULL
                   AND (pt.id IS NULL OR pt.status = 'FAILED' OR pt.status = 'PENDING')
                 ORDER BY c.issue_date DESC, c.created_at ASC
                 LIMIT %s
