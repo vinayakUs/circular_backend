@@ -19,9 +19,9 @@ class Config:
     FLASK_ENV = os.getenv("FLASK_ENV", "development")
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 
-    OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "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")
+    NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY", "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")
     ACTION_ITEM_MODEL = os.getenv(
-        "ACTION_ITEM_MODEL", "nvidia/nemotron-3-super-120b-a12b:free"
+        "ACTION_ITEM_MODEL", "minimaxai/minimax-m2.7"
     )
     DATABASE_URL = os.getenv(
         "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/circular_backend"

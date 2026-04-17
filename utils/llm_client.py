@@ -8,7 +8,7 @@ from config import Config
 
 
 class LLMClient:
-    """Singleton wrapper around the Instructor-patched OpenAI client for OpenRouter."""
+    """Singleton wrapper around the Instructor-patched OpenAI client for NVIDIA."""
 
     _instance: "LLMClient | None" = None
     _instance_lock = Lock()
@@ -23,15 +23,14 @@ class LLMClient:
 
     def get_client(self) -> instructor.Instructor:
         if self._client is None:
-            api_key = Config.OPENROUTER_API_KEY
+            api_key = Config.NVIDIA_API_KEY
             if not api_key:
-                raise ValueError("OPENROUTER_API_KEY is not set in the configuration.")
+                raise ValueError("NVIDIA_API_KEY is not set in the configuration.")
 
             openai_client = OpenAI(
-                base_url="https://openrouter.ai/api/v1",
+                base_url="https://integrate.api.nvidia.com/v1",
                 api_key=api_key,
             )
-            # Patch the OpenAI client using instructor
             self._client = instructor.from_openai(openai_client)
 
         return self._client
