@@ -90,9 +90,33 @@ CREATE TABLE IF NOT EXISTS action_items (
     action_item TEXT NOT NULL,
     deadline DATE,
     priority VARCHAR(20),
+    persona VARCHAR(50),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS circular_references (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    source_circular_id UUID NOT NULL REFERENCES circulars(id) ON DELETE CASCADE,
+    referenced_circular_id VARCHAR(50) NOT NULL,
+    referenced_source VARCHAR(20) NOT NULL,
+    referenced_full_ref TEXT NOT NULL,
+    relationship_nature VARCHAR(50),
+    confidence_score FLOAT DEFAULT 0.0,
+    extraction_method VARCHAR(20) NOT NULL,
+    matched_text TEXT,
+    referenced_circular_exists BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(source_circular_id, referenced_circular_id, referenced_source)
+);
+
+CREATE INDEX IF NOT EXISTS idx_circular_refs_source
+    ON circular_references(source_circular_id);
+CREATE INDEX IF NOT EXISTS idx_circular_refs_ref_source
+    ON circular_references(referenced_source);
+CREATE INDEX IF NOT EXISTS idx_circular_refs_nature
+    ON circular_references(relationship_nature);
 """
 
 
@@ -323,79 +347,6 @@ class CircularRepository:
 
         with self.db_pool.connection() as conn:
             conn.execute(self.schema_sql())
-            conn.execute(
-                """
-                ALTER TABLE circulars
-                ADD COLUMN IF NOT EXISTS source_item_key TEXT
-                """
-            )
-            conn.execute(
-                """
-                CREATE UNIQUE INDEX IF NOT EXISTS idx_circulars_source_item_key
-                ON circulars(source, source_item_key)
-                """
-            )
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS circular_assets (
-                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                    circular_id UUID NOT NULL REFERENCES circulars(id) ON DELETE CASCADE,
-                    asset_role VARCHAR(30) NOT NULL,
-                    file_path VARCHAR(500) NOT NULL,
-                    content_hash VARCHAR(64),
-                    mime_type VARCHAR(100),
-                    archive_member_path TEXT,
-                    file_size_bytes BIGINT,
-                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-                )
-                """
-            )
-            conn.execute(
-                """
-                CREATE INDEX IF NOT EXISTS idx_circular_assets_circular_id
-                ON circular_assets(circular_id)
-                """
-            )
-            conn.execute(
-                """
-                CREATE INDEX IF NOT EXISTS idx_circular_assets_circular_role
-                ON circular_assets(circular_id, asset_role)
-                """
-            )
-            conn.execute(
-                """
-                CREATE UNIQUE INDEX IF NOT EXISTS idx_circular_assets_identity
-                ON circular_assets(circular_id, asset_role, COALESCE(archive_member_path, ''))
-                """
-            )
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS processing_tasks (
-                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                    circular_id UUID NOT NULL REFERENCES circulars(id) ON DELETE CASCADE,
-                    processor_name VARCHAR(50) NOT NULL,
-                    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
-                    error_message TEXT,
-                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                    UNIQUE(circular_id, processor_name)
-                )
-                """
-            )
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS action_items (
-                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                    circular_id UUID NOT NULL REFERENCES circulars(id) ON DELETE CASCADE,
-                    action_item TEXT NOT NULL,
-                    deadline DATE,
-                    priority VARCHAR(20),
-                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-                )
-                """
-            )
         self._schema_initialized = True
         self._backfill_legacy_assets()
         self.logger.info("Repository schema initialized")
