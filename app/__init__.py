@@ -9,6 +9,8 @@ from config import Config
 from db import get_db_client
 from ingestion.indexer.es_provider import get_es_client
 from ingestion.repository import CircularRepository
+from ingestion.repository.action_item_repository import ActionItemRepository
+from ingestion.dto.action_item_dto import ActionItemListResponseDTO
 
 try:
     from elastic_transport import ConnectionTimeout
@@ -147,5 +149,30 @@ def create_app() -> Flask:
             "strategy": strategy,
             "results": [result.to_dict(query=query) for result in results],
         }
+
+    @app.get("/api/action-items")
+    def get_action_items():
+        raw_circular_id = request.args.get("circular_id", "").strip() or None
+
+        if not raw_circular_id:
+            return {"error": "circular_id is required."}, 400
+
+        try:
+            circular_id = UUID(raw_circular_id)
+        except ValueError:
+            return {"error": "Invalid circular_id format."}, 400
+
+        db_client = get_db_client()
+        repository = ActionItemRepository(db_pool=db_client.get_pool())
+
+        action_items, total = repository.get_action_items(circular_id=circular_id)
+
+        response = ActionItemListResponseDTO(
+            action_items=action_items,
+            total=total,
+            limit=total,
+            offset=0,
+        )
+        return response.model_dump()
 
     return app

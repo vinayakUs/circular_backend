@@ -2,6 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
+import { ActionItemsResponse } from '../components/circular-view/circular-view.component';
 
 export interface SearchIndexRespose {
   results: SearchIndexItem[];
@@ -90,8 +91,8 @@ export class IndexService {
   public getSearchResult(keyword: string, exchange: string[]): Observable<SearchIndexRespose> {
 
     let params = new HttpParams()
-    .set('q', keyword)
-    .set('exchange', exchange.join(','));
+      .set('q', keyword)
+      .set('exchange', exchange.join(','));
 
 
     return this.http.get<SearchIndexRespose>(`api/circulars/search`,
@@ -106,4 +107,14 @@ export class IndexService {
       tap((x) => console.log('Circular detail:', x))
     );
   }
+
+  public getActionItems(circularId: string, limit: number = 10, offset: number = 0): Observable<ActionItemsResponse> {
+    let params = new HttpParams()
+      .set('circular_id', circularId)
+      .set('limit', limit.toString())
+      .set('offset', offset.toString());
+
+    return this.http.get<ActionItemsResponse>(`api/action-items`, { params });
+  }
+
 }

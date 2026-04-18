@@ -50,13 +50,24 @@ class ActionItemProcessor(BaseProcessor):
         return "action_item_extractor"
 
     def process(self, record: CircularRecord) -> None:
-        file_path = record.file_path
+        file_path = None
+        
+        # Prefer an explicitly extracted PDF or original PDF
+        assets = self.circular_repo.list_assets(record.id)
+        for role in ['extracted_pdf', 'original_pdf']:
+            for asset in assets:
+                if asset.asset_role == role and asset.file_path and asset.file_path.lower().endswith('.pdf'):
+                    file_path = asset.file_path
+                    break
+            if file_path:
+                break
+        
+        # Fallback to the main record file path if it's a PDF
+        if not file_path and record.file_path and record.file_path.lower().endswith('.pdf'):
+            file_path = record.file_path
+
         if not file_path:
-            # Fallback: Check if there's a primary asset
-            asset = self.circular_repo.get_primary_asset(record.id)
-            if not asset or not asset.file_path:
-                raise ValueError(f"No PDF file path found for circular: {record.circular_id}")
-            file_path = asset.file_path
+            raise ValueError(f"No PDF file path found for circular: {record.circular_id}")
 
         # Extract text from the PDF
         extractor = PDFTextExtractor()

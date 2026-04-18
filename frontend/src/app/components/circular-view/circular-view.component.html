@@ -40,15 +40,22 @@
     <section class="action-section">
       <h2>Actions</h2>
 
+      @for (action of actionItems(); track $index) {
       <article class="action-card">
         <div class="action-header">
-          <span class="severity-pill">{{ circular().source }}</span>
-          <span class="action-label">{{ circular().circularId }}</span>
+          <span class="severity-pill">{{ action.priority.toUpperCase() }}</span>
+          @if(action.deadline) {
+          <span class="deadline-text">{{ action.deadline }}</span>
+          <span class="deadline-text">{{ smartDateDiff(currentDate, parseLocalDate(action.deadline)) }}</span>
+          }
           <span class="audience-text">{{ circular().recordId }}</span>
         </div>
 
-        <p class="action-summary">{{ circular().summary }}</p>
+        <p class="action-summary">{{ action.action_item }}</p>
       </article>
+      }
+
+
     </section>
   </section>
 </main>
