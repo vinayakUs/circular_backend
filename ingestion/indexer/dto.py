@@ -34,6 +34,7 @@ class IndexDocument:
     content_hash: str | None
     chunk_index: int
     chunk_text: str
+    chunk_text_contextual: str | None
     embedding: list[float] | None
     indexed_at: datetime
 
@@ -62,6 +63,7 @@ class IndexDocument:
             content_hash=source.get("content_hash"),
             chunk_index=source["chunk_index"],
             chunk_text=source["chunk_text"],
+            chunk_text_contextual=source.get("chunk_text_contextual"),
             embedding=source.get("embedding"),
             indexed_at=datetime.fromisoformat(source["indexed_at"]),
         )
@@ -88,6 +90,7 @@ class IndexDocument:
             "content_hash": self.content_hash,
             "chunk_index": self.chunk_index,
             "chunk_text": self.chunk_text,
+            "chunk_text_contextual": self.chunk_text_contextual,
             "embedding": self.embedding,
             "indexed_at": self.indexed_at.isoformat(),
         }
@@ -95,6 +98,7 @@ class IndexDocument:
     def to_api_body(self) -> dict[str, Any]:
         body = self.to_es_body()
         body.pop("embedding", None)
+        body.pop("chunk_text_contextual", None)
         return body
 
 

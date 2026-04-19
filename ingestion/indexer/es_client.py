@@ -1,9 +1,18 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
+from config import Config
 from ingestion.indexer.dto import IndexDocument, SearchHit
 from ingestion.indexer.embedding_provider import EmbeddingProvider, NoOpEmbeddingProvider
+
+try:
+    from ranx import Run
+    from ranx.fusion import rrf
+    RANX_AVAILABLE = True
+except ImportError:
+    RANX_AVAILABLE = False
 
 
 DEFAULT_INDEX_MAPPING: dict[str, Any] = {
@@ -27,6 +36,7 @@ DEFAULT_INDEX_MAPPING: dict[str, Any] = {
             "content_hash": {"type": "keyword"},
             "chunk_index": {"type": "integer"},
             "chunk_text": {"type": "text"},
+            "chunk_text_contextual": {"type": "text"},
             "embedding": {
                 "type": "dense_vector",
                 "dims": 256,
@@ -59,6 +69,7 @@ class ElasticsearchClient:
         self._username = username
         self._password = password
         self.embedding_provider = embedding_provider or NoOpEmbeddingProvider()
+        self.logger = logging.getLogger(__name__)
 
     def _mapping(self) -> dict[str, Any]:
         mapping = {
@@ -149,26 +160,94 @@ class ElasticsearchClient:
         }
         if strategy == "bm25":
             search_kwargs["query"] = bm25_query
+            response = self.client.search(**search_kwargs)
+            hits = [
+                SearchHit(
+                    es_id=hit.get("_id"),
+                    score=hit.get("_score"),
+                    document=IndexDocument.from_es_source(hit.get("_source", {})),
+                )
+                for hit in response.get("hits", {}).get("hits", [])
+            ]
         elif strategy == "vector":
             if query_vector is None:
                 search_kwargs["query"] = bm25_query
+                response = self.client.search(**search_kwargs)
+                hits = [
+                    SearchHit(
+                        es_id=hit.get("_id"),
+                        score=hit.get("_score"),
+                        document=IndexDocument.from_es_source(hit.get("_source", {})),
+                    )
+                    for hit in response.get("hits", {}).get("hits", [])
+                ]
             else:
                 search_kwargs["knn"] = self._build_knn(query_vector, size, filters)
+                response = self.client.search(**search_kwargs)
+                hits = [
+                    SearchHit(
+                        es_id=hit.get("_id"),
+                        score=hit.get("_score"),
+                        document=IndexDocument.from_es_source(hit.get("_source", {})),
+                    )
+                    for hit in response.get("hits", {}).get("hits", [])
+                ]
         else:
-            search_kwargs["query"] = bm25_query
             if query_vector is not None:
-                search_kwargs["knn"] = self._build_knn(query_vector, size, filters)
+                # Run BM25 and KNN separately for RRF fusion
+                rrf_size = Config.ES_RRF_WINDOW_SIZE
 
-        response = self.client.search(**search_kwargs)
-        hits = response.get("hits", {}).get("hits", [])
-        return [
-            SearchHit(
-                es_id=hit.get("_id"),
-                score=hit.get("_score"),
-                document=IndexDocument.from_es_source(hit.get("_source", {})),
-            )
-            for hit in hits
-        ]
+                # BM25 query
+                bm25_response = self.client.search(
+                    index=self.index_name,
+                    query=bm25_query,
+                    size=rrf_size,
+                )
+
+                # KNN query
+                knn_response = self.client.search(
+                    index=self.index_name,
+                    knn=self._build_knn(query_vector, rrf_size, filters),
+                    size=rrf_size,
+                )
+
+                # Parse BM25 results
+                bm25_hits = [
+                    SearchHit(
+                        es_id=hit.get("_id"),
+                        score=hit.get("_score"),
+                        document=IndexDocument.from_es_source(hit.get("_source", {})),
+                    )
+                    for hit in bm25_response.get("hits", {}).get("hits", [])
+                ]
+
+                # Parse KNN results
+                knn_hits = [
+                    SearchHit(
+                        es_id=hit.get("_id"),
+                        score=hit.get("_score"),
+                        document=IndexDocument.from_es_source(hit.get("_source", {})),
+                    )
+                    for hit in knn_response.get("hits", {}).get("hits", [])
+                ]
+
+                # Combine with RRF
+                hits = self._combine_with_rrf(bm25_hits, knn_hits, k=Config.ES_RRF_RANK_CONSTANT)
+                hits = hits[:size]  # Limit to requested size
+            else:
+                # Fallback to BM25 only if no query vector
+                search_kwargs["query"] = bm25_query
+                response = self.client.search(**search_kwargs)
+                hits = [
+                    SearchHit(
+                        es_id=hit.get("_id"),
+                        score=hit.get("_score"),
+                        document=IndexDocument.from_es_source(hit.get("_source", {})),
+                    )
+                    for hit in response.get("hits", {}).get("hits", [])
+                ]
+
+        return hits
 
     def _build_filters(self, metadata: dict[str, Any]) -> list[dict[str, Any]]:
         return [{"terms": {key: value}} for key, value in metadata.items() if value]
@@ -177,14 +256,23 @@ class ElasticsearchClient:
         return {
             "bool": {
                 "should": [
-                    {"match": {"chunk_text": {"query": query, "boost": 3}}},
-                    {"match": {"title": {"query": query, "boost": 2}}},
-                    {"match": {"full_reference": {"query": query, "boost": 2}}},
+                    # High boost for circular_id (exact match)
+                    {"match": {"circular_id": {"query": query, "boost": 5}}},
+                    # High boost for contextual chunks
+                    {"match": {"chunk_text_contextual": {"query": query, "boost": 3}}},
+                    # multi_match for other fields
                     {
                         "multi_match": {
                             "query": query,
-                            "fields": ["chunk_text", "title^2", "full_reference^2", "department"],
+                            "fields": [
+                                "chunk_text^2",         # raw text
+                                "title^2",             # title
+                                "full_reference^2",    # reference
+                                "department",          # department
+                                "source"               # source
+                            ],
                             "type": "best_fields",
+                            "tie_breaker": 0.3
                         }
                     },
                 ],
@@ -205,6 +293,44 @@ class ElasticsearchClient:
         if filters:
             knn["filter"] = filters
         return knn
+
+    def _combine_with_rrf(
+        self,
+        bm25_hits: list[SearchHit],
+        knn_hits: list[SearchHit],
+        k: int = 60,
+    ) -> list[SearchHit]:
+        """Combine BM25 and KNN results using ranx RRF."""
+        if not RANX_AVAILABLE:
+            self.logger.warning("ranx not available, falling back to BM25 results")
+            return bm25_hits
+
+        # Create Run objects for BM25 and KNN results
+        # Use a single query ID since we're combining results for one query
+        query_id = "q_1"
+
+        # BM25 run: {doc_id: score}
+        bm25_dict = {query_id: {hit.es_id: hit.score or 0.0 for hit in bm25_hits}}
+        bm25_run = Run(bm25_dict, name="bm25")
+
+        # KNN run: {doc_id: score}
+        knn_dict = {query_id: {hit.es_id: hit.score or 0.0 for hit in knn_hits}}
+        knn_run = Run(knn_dict, name="knn")
+
+        # Use ranx RRF for fusion
+        fused_run = rrf([bm25_run, knn_run], k=k)
+
+        # Get fused results for the query
+        fused_results = fused_run[query_id]
+
+        # Sort by score (descending)
+        sorted_results = sorted(fused_results.items(), key=lambda x: x[1], reverse=True)
+
+        # Create document lookup
+        doc_map = {hit.es_id: hit for hit in bm25_hits + knn_hits}
+
+        # Convert back to SearchHit format
+        return [doc_map[doc_id] for doc_id, _ in sorted_results]
 
     def delete_documents_for_record(self, circular_db_id: str) -> None:
         self.client.delete_by_query(

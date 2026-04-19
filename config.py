@@ -71,6 +71,17 @@ class Config:
     ES_SEARCH_DEFAULT_STRATEGY = os.getenv(
         "ES_SEARCH_DEFAULT_STRATEGY", "hybrid"
     ).strip().lower()
+    ES_ENABLE_CONTEXTUAL_RETRIEVAL = os.getenv(
+        "ES_ENABLE_CONTEXTUAL_RETRIEVAL", "true"
+    ).lower() == "true"
+    ES_CONTEXTUAL_MODEL = os.getenv(
+        "ES_CONTEXTUAL_MODEL", "minimaxai/minimax-m2.7"
+    )
+    ES_CONTEXTUAL_MAX_TOKENS = int(
+        os.getenv("ES_CONTEXTUAL_MAX_TOKENS", "500")
+    )
+    ES_RRF_WINDOW_SIZE = int(os.getenv("ES_RRF_WINDOW_SIZE", "50"))
+    ES_RRF_RANK_CONSTANT = int(os.getenv("ES_RRF_RANK_CONSTANT", "60"))
     RAG_MODEL = os.getenv("RAG_MODEL", "minimaxai/minimax-m2.7")
     RAG_MAX_CHUNKS = int(os.getenv("RAG_MAX_CHUNKS", "10"))
     RAG_MAX_TOKENS = int(os.getenv("RAG_MAX_TOKENS", "4000"))

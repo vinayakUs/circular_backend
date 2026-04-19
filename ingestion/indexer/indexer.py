@@ -5,7 +5,9 @@ import logging
 from pathlib import Path
 from uuid import UUID
 
+from config import Config
 from ingestion.indexer.chunker import FixedSizeChunker
+from ingestion.indexer.contextualizer import get_contextualizer
 from ingestion.indexer.dto import IndexDocument
 from ingestion.indexer.embedding_provider import EmbeddingProvider, NoOpEmbeddingProvider
 from ingestion.indexer.es_client import ElasticsearchClient
@@ -105,8 +107,36 @@ class ElasticsearchIndexer:
                         f"{asset.asset_role}:{asset.archive_member_path or asset.file_path}"
                     ),
                 )
+
+                # Generate contextual text if enabled
+                chunk_texts = [chunk.text for chunk in chunks]
+                chunk_contextual_texts = chunk_texts.copy()
+
+                if Config.ES_ENABLE_CONTEXTUAL_RETRIEVAL:
+                    try:
+                        contextualizer = get_contextualizer()
+                        contexts = contextualizer.contextualize_chunks(
+                            chunks=chunk_texts,
+                            circular_title=record.title,
+                            full_reference=record.full_reference,
+                        )
+                        chunk_contextual_texts = [
+                            ctx.get_contextualized_text() for ctx in contexts
+                        ]
+                        self.logger.debug(
+                            "Generated contextual text for %s chunks record_id=%s",
+                            len(contexts),
+                            record.id,
+                        )
+                    except Exception as e:
+                        self.logger.warning(
+                            "Failed to generate contextual text, falling back to original chunks record_id=%s error=%s",
+                            record.id,
+                            e,
+                        )
+
                 chunk_embeddings = self.embedding_provider.embed_texts(
-                    [chunk.text for chunk in chunks]
+                    chunk_contextual_texts
                 )
                 documents.extend(
                     IndexDocument(
@@ -128,6 +158,9 @@ class ElasticsearchIndexer:
                         content_hash=asset.content_hash or record.content_hash,
                         chunk_index=chunk.chunk_index,
                         chunk_text=chunk.text,
+                        chunk_text_contextual=chunk_contextual_texts[position]
+                        if Config.ES_ENABLE_CONTEXTUAL_RETRIEVAL
+                        else None,
                         embedding=chunk_embeddings[position],
                         indexed_at=indexed_at,
                     )
