@@ -5,6 +5,7 @@ import sys
 from db.client import get_db_client
 from ingestion.processor.pipeline import ProcessorPipeline
 from ingestion.processor.action_item_extractor import ActionItemProcessor
+from ingestion.processor.circular_reference_extractor import CircularReferenceProcessor
 
 
 def main():
@@ -32,6 +33,7 @@ def main():
         
         # Register processors
         pipeline.register_processor(ActionItemProcessor(pool))
+        pipeline.register_processor(CircularReferenceProcessor(pool))
         # Future processors can be registered here:
         # pipeline.register_processor(SummaryProcessor(pool))
 

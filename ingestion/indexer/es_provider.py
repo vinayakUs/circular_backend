@@ -26,6 +26,5 @@ def get_es_client() -> ElasticsearchClient:
             username=Config.ELASTICSEARCH_USERNAME,
             password=Config.ELASTICSEARCH_PASSWORD,
             embedding_provider=embedding_provider,
-            verify_certs=False  # OK for local dev only
         )
     return _shared_es_client

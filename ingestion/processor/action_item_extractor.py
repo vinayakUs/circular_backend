@@ -23,11 +23,15 @@ class ActionItem(BaseModel):
     )
     deadline: Optional[str] = Field(
         None,
-        description=" deadline in YYYY-MM-DD format. Copy directly from the text without modification.",
+        description=" deadline in YYYY-MM-DD format. Copy directly from text without modification.",
     )
     priority: Optional[str] = Field(
         None,
         description="Priority level: critical, high, medium, or low. Assess based on regulatory consequence and urgency.",
+    )
+    persona: Optional[str] = Field(
+        None,
+        description="Persona: Compliance Officer, Trading Desk, Risk Manager, Technology/Connectivity, Operations, FPI/Investor",
     )
 
 
@@ -90,18 +94,28 @@ class ActionItemProcessor(BaseProcessor):
         1. Each action_item should be in natural action item format starting with a verb (e.g., "Extend...", "Reduce...", "Trading members must..."). Keep it brief - aim for 10-20 words maximum.
         2. The deadline field must be in YYYY-MM-DD format. Extract dates directly from the text without modification. If no specific date is mentioned, use null.
         3. Also extract priority: critical, high, medium, or low. Assess based on regulatory consequence and urgency.
-        4. Output EXACTLY 1 action item that combines all key changes into a single concise summary.
+        4. Also extract persona based on the primary stakeholder affected:
+           - Compliance Officer: regulatory compliance, SEBI directives, KYC/AML updates
+           - Trading Desk: market hours, trading halts, circuit limits, product launches
+           - Risk Manager: margin changes, risk frameworks, collateral
+           - Technology/Connectivity: API changes, CTCL updates, testing windows
+           - Operations: settlement cycles, clearing, corporate actions
+           - FPI/Investor: investment limits, listings, corporate governance
+        5. Output EXACTLY 1 action item that combines all key changes into a single concise summary.
 
         Examples of good action items:
         - action_item: "Trading in HDFC Bank Limited's Non-Convertible Securities will be suspended from April 17, 2026."
           deadline: "2026-04-17"
           priority: "critical"
+          persona: "Trading Desk"
         - action_item: "ZCZP minimum subscription reduced to 50% for Social Stock Exchange."
           deadline: null
           priority: "medium"
+          persona: "FPI/Investor"
         - action_item: "Trading members must ensure all Client and PRO UCCs are compliant with KYC attributes, custodian details, PAN verification, and PAN-Aadhaar seeding by April 01, 2022."
           deadline: "2022-04-01"
           priority: "high"
+          persona: "Compliance Officer"
 
         Text to extract from:
         {text}
@@ -151,10 +165,10 @@ def main():
             action_repo = ActionItemRepository(pool)
             # Add a small helper query to see them
             with pool.connection() as conn:
-                rows = conn.execute("SELECT action_item, deadline, priority FROM action_items WHERE circular_id = %s", (record.id,)).fetchall()
+                rows = conn.execute("SELECT action_item, deadline, priority, persona FROM action_items WHERE circular_id = %s", (record.id,)).fetchall()
                 print("\n=== Saved Action Items ===")
                 for r in rows:
-                    print(f"- {r[0]} (Deadline: {r[1]}, Priority: {r[2]})")
+                    print(f"- {r[0]} (Deadline: {r[1]}, Priority: {r[2]}, Persona: {r[3]})")
         else:
             print("Failed to process circular.", file=sys.stderr)
             sys.exit(1)

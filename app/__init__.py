@@ -11,11 +11,18 @@ from ingestion.indexer.es_provider import get_es_client
 from ingestion.repository import CircularRepository
 from ingestion.repository.action_item_repository import ActionItemRepository
 from ingestion.dto.action_item_dto import ActionItemListResponseDTO
+from services.rag.answer_generator import RAGAnswerGenerator
 
 try:
     from elastic_transport import ConnectionTimeout
 except ImportError:  # pragma: no cover - dependency is installed in runtime
     ConnectionTimeout = TimeoutError
+
+'''
+GET /api/circulars/search?q=what are regulations for trading members&strategy=vector
+GET /api/circulars/search?q=margin&strategy=bm25
+'''
+
 
 
 def _serialize_circular_record(record: Any) -> dict[str, Any]:
@@ -66,6 +73,8 @@ def _serialize_circular_asset(asset: Any) -> dict[str, Any]:
 def create_app() -> Flask:
     app = Flask(__name__)
     app.config.from_object("config.Config")
+
+    rag_generator = RAGAnswerGenerator()
 
     @app.get("/")
     def health_check():
@@ -144,11 +153,32 @@ def create_app() -> Flask:
                 "results": [],
             }, 503
 
-        return {
-            "query": query,
-            "strategy": strategy,
-            "results": [result.to_dict(query=query) for result in results],
-        }
+        if strategy == "bm25":
+            # Return chunks as-is (current behavior)
+            return {
+                "query": query,
+                "strategy": strategy,
+                "results": [result.to_dict(query=query) for result in results],
+            }
+        else:
+            # vector or hybrid - generate RAG answer
+            try:
+                rag_answer = rag_generator.generate_answer(query, results)
+                return {
+                    "query": query,
+                    "strategy": strategy,
+                    "answer": rag_answer.answer,
+                    "references": [ref.to_dict() for ref in rag_answer.references],
+                    "snippets": rag_answer.snippets,
+                }
+            except Exception as e:
+                # Fallback to chunks if RAG fails
+                return {
+                    "query": query,
+                    "strategy": strategy,
+                    "results": [result.to_dict(query=query) for result in results],
+                    "rag_error": str(e),
+                }
 
     @app.get("/api/action-items")
     def get_action_items():

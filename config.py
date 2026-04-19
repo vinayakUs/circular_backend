@@ -37,13 +37,13 @@ class Config:
         os.getenv("SEBI_DETAIL_RETRY_BACKOFF_SECONDS", "2")
     )
     SCRAPER_DEFAULT_LOOKBACK_DAYS = int(
-        os.getenv("SCRAPER_DEFAULT_LOOKBACK_DAYS", "4") # default to 3 days if no data in db fetching historical data
+        os.getenv("SCRAPER_DEFAULT_LOOKBACK_DAYS", "365") # default to 3 days if no data in db fetching historical data
     ) 
     SCRAPER_ENABLED_SOURCES = _parse_scraper_sources(
         os.getenv("SCRAPER_ENABLED_SOURCES")
     )
     ELASTICSEARCH_URL = os.getenv(
-        "ELASTICSEARCH_URL", "https://es-eb59a8.es.us-central1.gcp.cloud.es.io"
+        "ELASTICSEARCH_URL", "http://localhost:9200"
     )
     ELASTICSEARCH_USERNAME = os.getenv("ELASTICSEARCH_USERNAME", "elastic")
     ELASTICSEARCH_PASSWORD = os.getenv(
@@ -53,8 +53,8 @@ class Config:
         "ELASTICSEARCH_INDEX_NAME", "circulars_chunks"
     )
     ES_INDEXER_BATCH_SIZE = int(os.getenv("ES_INDEXER_BATCH_SIZE", "50"))
-    ES_CHUNK_SIZE = int(os.getenv("ES_CHUNK_SIZE", "1200"))
-    ES_CHUNK_OVERLAP = int(os.getenv("ES_CHUNK_OVERLAP", "200"))
+    ES_CHUNK_SIZE = int(os.getenv("ES_CHUNK_SIZE", "800"))
+    ES_CHUNK_OVERLAP = int(os.getenv("ES_CHUNK_OVERLAP", "150"))
     ES_REQUEST_TIMEOUT_SECONDS = int(os.getenv("ES_REQUEST_TIMEOUT_SECONDS", "30"))
     ES_ENABLE_VECTORS = os.getenv("ES_ENABLE_VECTORS", "true").lower() == "true"
     ES_VECTOR_DIMS = int(os.getenv("ES_VECTOR_DIMS", "768"))
@@ -71,3 +71,6 @@ class Config:
     ES_SEARCH_DEFAULT_STRATEGY = os.getenv(
         "ES_SEARCH_DEFAULT_STRATEGY", "hybrid"
     ).strip().lower()
+    RAG_MODEL = os.getenv("RAG_MODEL", "minimaxai/minimax-m2.7")
+    RAG_MAX_CHUNKS = int(os.getenv("RAG_MAX_CHUNKS", "10"))
+    RAG_MAX_TOKENS = int(os.getenv("RAG_MAX_TOKENS", "4000"))

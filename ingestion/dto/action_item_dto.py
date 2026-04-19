@@ -15,6 +15,7 @@ class ActionItemDTO(BaseModel):
     action_item: str
     deadline: Optional[date] = None
     priority: Optional[str] = None
+    persona: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

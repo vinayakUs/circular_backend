@@ -27,10 +27,10 @@ class ActionItemRepository:
             for item in items:
                 conn.execute(
                     """
-                    INSERT INTO action_items (circular_id, action_item, deadline, priority)
-                    VALUES (%s, %s, %s, %s)
+                    INSERT INTO action_items (circular_id, action_item, deadline, priority, persona)
+                    VALUES (%s, %s, %s, %s, %s)
                     """,
-                    (circular_id, item.action_item, item.deadline, item.priority),
+                    (circular_id, item.action_item, item.deadline, item.priority, item.persona),
                 )
 
     def delete_action_items_for_circular(self, circular_id: UUID) -> None:
@@ -48,6 +48,7 @@ class ActionItemRepository:
         self,
         circular_id: UUID | None = None,
         priority: str | None = None,
+        persona: str | None = None,
         start_date: date | None = None,
         end_date: date | None = None,
         limit: int = 20,
@@ -63,12 +64,19 @@ class ActionItemRepository:
             conditions.append("circular_id = %s")
             params.append(circular_id)
 
-       
+        if priority is not None:
+            conditions.append("priority = %s")
+            params.append(priority)
+
+        if persona is not None:
+            conditions.append("persona = %s")
+            params.append(persona)
+
         where_clause = " AND ".join(conditions) if conditions else "1=1"
 
         count_query = f"SELECT COUNT(*) FROM action_items WHERE {where_clause}"
         data_query = f"""
-            SELECT id, circular_id, action_item, deadline, priority, created_at, updated_at
+            SELECT id, circular_id, action_item, deadline, priority, persona, created_at, updated_at
             FROM action_items
             WHERE {where_clause}
             ORDER BY created_at DESC
@@ -90,8 +98,9 @@ class ActionItemRepository:
                 action_item=row[2],
                 deadline=row[3],
                 priority=row[4],
-                created_at=row[5],
-                updated_at=row[6],
+                persona=row[5],
+                created_at=row[6],
+                updated_at=row[7],
             )
             for row in rows
         ]
