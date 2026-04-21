@@ -115,8 +115,9 @@ class ElasticsearchIndexer:
                 if Config.ES_ENABLE_CONTEXTUAL_RETRIEVAL:
                     try:
                         contextualizer = get_contextualizer()
-                        contexts = contextualizer.contextualize_chunks(
+                        contexts = contextualizer.contextualize_chunks_wrt_full_doc(
                             chunks=chunk_texts,
+                            full_doc_text=extracted_text,
                             circular_title=record.title,
                             full_reference=record.full_reference,
                         )

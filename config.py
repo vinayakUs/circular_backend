@@ -57,7 +57,6 @@ class Config:
     ES_CHUNK_OVERLAP = int(os.getenv("ES_CHUNK_OVERLAP", "150"))
     ES_REQUEST_TIMEOUT_SECONDS = int(os.getenv("ES_REQUEST_TIMEOUT_SECONDS", "30"))
     ES_ENABLE_VECTORS = os.getenv("ES_ENABLE_VECTORS", "true").lower() == "true"
-    ES_VECTOR_DIMS = int(os.getenv("ES_VECTOR_DIMS", "768"))
     ES_EMBEDDING_PROVIDER = os.getenv(
         "ES_EMBEDDING_PROVIDER", "sentence-transformers"
     ).strip().lower()
@@ -81,6 +80,7 @@ class Config:
         os.getenv("ES_CONTEXTUAL_MAX_TOKENS", "500")
     )
     ES_RRF_WINDOW_SIZE = int(os.getenv("ES_RRF_WINDOW_SIZE", "50"))
+    ES_KNN_NUM_CANDIDATES = int(os.getenv("ES_KNN_NUM_CANDIDATES", "1000"))
     ES_RRF_RANK_CONSTANT = int(os.getenv("ES_RRF_RANK_CONSTANT", "60"))
     RAG_MODEL = os.getenv("RAG_MODEL", "minimaxai/minimax-m2.7")
     RAG_MAX_CHUNKS = int(os.getenv("RAG_MAX_CHUNKS", "10"))

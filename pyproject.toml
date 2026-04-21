@@ -12,6 +12,7 @@ dependencies = [
     "elasticsearch>=8.0.0",
     "pypdf>=5.0.0",
     "sentence-transformers>=3.0.0",
+    "ranx>=0.3.0",
 ]
 
 [project.scripts]

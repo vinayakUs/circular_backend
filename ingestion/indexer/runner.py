@@ -97,7 +97,6 @@ def main() -> int:
     embedding_provider = build_embedding_provider(
         Config.ES_EMBEDDING_PROVIDER,
         enabled=Config.ES_ENABLE_VECTORS,
-        dimensions=Config.ES_VECTOR_DIMS,
         model_name=Config.ES_EMBEDDING_MODEL_NAME,
         query_instruction=Config.ES_QUERY_EMBEDDING_INSTRUCTION,
     )

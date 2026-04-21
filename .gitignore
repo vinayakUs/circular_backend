@@ -23,3 +23,5 @@ data/*.pdf
 opencode.json
 copilot-instructions.md
 *.log
+.agent
+.agents

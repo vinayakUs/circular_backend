@@ -1,13 +1,6 @@
 from __future__ import annotations
 
-import math
-import re
-from collections.abc import Iterable
-from hashlib import blake2b
 from typing import Any
-
-
-TOKEN_PATTERN = re.compile(r"\b\w+\b")
 
 
 class EmbeddingProvider:
@@ -33,41 +26,6 @@ class NoOpEmbeddingProvider(EmbeddingProvider):
         return [None for _ in texts]
 
 
-class HashingEmbeddingProvider(EmbeddingProvider):
-    """Small local embedding fallback using hashed token features."""
-
-    def __init__(self, dimensions: int = 256) -> None:
-        self._dimensions = dimensions
-
-    @property
-    def dimensions(self) -> int:
-        return self._dimensions
-
-    def embed_texts(self, texts: list[str]) -> list[list[float] | None]:
-        return [self._embed_text(text) for text in texts]
-
-    def _embed_text(self, text: str) -> list[float]:
-        vector = [0.0] * self._dimensions
-        for token in self._tokenize(text):
-            slot = self._hash_to_index(token)
-            vector[slot] += 1.0
-        return self._normalize(vector)
-
-    def _tokenize(self, text: str) -> Iterable[str]:
-        for match in TOKEN_PATTERN.finditer(text.lower()):
-            yield match.group(0)
-
-    def _hash_to_index(self, token: str) -> int:
-        digest = blake2b(token.encode("utf-8"), digest_size=8).digest()
-        return int.from_bytes(digest, "big") % self._dimensions
-
-    def _normalize(self, vector: list[float]) -> list[float]:
-        magnitude = math.sqrt(sum(value * value for value in vector))
-        if magnitude == 0:
-            return vector
-        return [value / magnitude for value in vector]
-
-
 class SentenceTransformerEmbeddingProvider(EmbeddingProvider):
     """Embedding provider backed by sentence-transformers."""
 
@@ -87,7 +45,7 @@ class SentenceTransformerEmbeddingProvider(EmbeddingProvider):
     @property
     def dimensions(self) -> int | None:
         if self._dimensions is None:
-            self._dimensions = int(self._load_model().get_sentence_embedding_dimension())
+            self._dimensions = int(self._load_model().get_embedding_dimension())
         return self._dimensions
 
     def embed_texts(self, texts: list[str]) -> list[list[float] | None]:
@@ -128,7 +86,6 @@ def build_embedding_provider(
     provider_name: str,
     *,
     enabled: bool,
-    dimensions: int,
     model_name: str | None = None,
     query_instruction: str = "",
 ) -> EmbeddingProvider:
@@ -136,8 +93,6 @@ def build_embedding_provider(
         return NoOpEmbeddingProvider()
     if provider_name in {"", "none", "disabled"}:
         return NoOpEmbeddingProvider()
-    if provider_name == "hashing":
-        return HashingEmbeddingProvider(dimensions=dimensions)
     if provider_name in {"sentence-transformers", "sentence_transformers", "sbert"}:
         if not model_name:
             raise ValueError("model_name is required for sentence-transformers provider")

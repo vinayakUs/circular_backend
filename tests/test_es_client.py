@@ -4,7 +4,6 @@ from unittest.mock import patch
 
 from ingestion.indexer.dto import IndexDocument, SearchHit
 from ingestion.indexer.embedding_provider import (
-    HashingEmbeddingProvider,
     NoOpEmbeddingProvider,
     SentenceTransformerEmbeddingProvider,
     build_embedding_provider,
@@ -90,22 +89,24 @@ class ElasticsearchClientTestCase(unittest.TestCase):
 
         raw_client.search.assert_called_once_with(
             index="circulars_chunks",
+            size=40,
             query={
                 "bool": {
                     "should": [
-                        {"match": {"chunk_text": {"query": "query text", "boost": 3}}},
-                        {"match": {"title": {"query": "query text", "boost": 2}}},
-                        {"match": {"full_reference": {"query": "query text", "boost": 2}}},
+                        {"match": {"circular_id": {"query": "query text", "boost": 5}}},
+                        {"match": {"chunk_text_contextual": {"query": "query text", "boost": 3}}},
                         {
                             "multi_match": {
                                 "query": "query text",
                                 "fields": [
-                                    "chunk_text",
+                                    "chunk_text^2",
                                     "title^2",
                                     "full_reference^2",
                                     "department",
+                                    "source",
                                 ],
                                 "type": "best_fields",
+                                "tie_breaker": 0.3,
                             }
                         },
                     ],
@@ -113,7 +114,6 @@ class ElasticsearchClientTestCase(unittest.TestCase):
                     "filter": [],
                 }
             },
-            size=40,
         )
         self.assertEqual(
             results,
@@ -140,6 +140,7 @@ class ElasticsearchClientTestCase(unittest.TestCase):
                         content_hash="hash-1",
                         chunk_index=0,
                         chunk_text="query text",
+                        chunk_text_contextual=None,
                         embedding=None,
                         indexed_at=datetime(2024, 1, 2, 3, 4, 5),
                     ),
@@ -150,24 +151,38 @@ class ElasticsearchClientTestCase(unittest.TestCase):
     def test_search_uses_hybrid_query_when_embeddings_are_enabled(self) -> None:
         raw_client = unittest.mock.Mock()
         raw_client.search.return_value = {"hits": {"hits": []}}
+        mock_provider = unittest.mock.MagicMock()
+        mock_provider.is_enabled = True
+        mock_provider.dimensions = 8
+        mock_provider.embed_query.return_value = [0.1] * 8
         client = ElasticsearchClient(
             url="http://localhost:9200",
             index_name="circulars_chunks",
-            embedding_provider=HashingEmbeddingProvider(dimensions=8),
+            embedding_provider=mock_provider,
             client=raw_client,
         )
 
         client.search("margin framework", {"source": ["SEBI"]}, size=10, strategy="hybrid")
 
-        raw_client.search.assert_called_once()
-        _, kwargs = raw_client.search.call_args
-        self.assertEqual(kwargs["index"], "circulars_chunks")
-        self.assertEqual(kwargs["size"], 10)
-        self.assertIn("query", kwargs)
-        self.assertIn("knn", kwargs)
-        self.assertEqual(kwargs["knn"]["field"], "embedding")
-        self.assertEqual(kwargs["knn"]["k"], 10)
-        self.assertEqual(kwargs["knn"]["filter"], [{"terms": {"source": ["SEBI"]}}])
+        # Hybrid calls search twice: once for BM25, once for KNN
+        self.assertEqual(raw_client.search.call_count, 2)
+        calls = raw_client.search.call_args_list
+
+        # First call: BM25 query
+        _, bm25_kwargs = calls[0]
+        self.assertEqual(bm25_kwargs["index"], "circulars_chunks")
+        self.assertIn("query", bm25_kwargs)
+        self.assertNotIn("knn", bm25_kwargs)
+
+        # Second call: KNN query
+        _, knn_kwargs = calls[1]
+        self.assertEqual(knn_kwargs["index"], "circulars_chunks")
+        self.assertIn("knn", knn_kwargs)
+        self.assertNotIn("query", knn_kwargs)
+        self.assertEqual(knn_kwargs["knn"]["field"], "embedding")
+        self.assertEqual(knn_kwargs["knn"]["k"], 50)  # rrf_size from Config
+        self.assertEqual(knn_kwargs["knn"]["num_candidates"], 1000)
+        self.assertEqual(knn_kwargs["knn"]["filter"], [{"terms": {"source": ["SEBI"]}}])
 
 
 class EmbeddingProviderFactoryTestCase(unittest.TestCase):
@@ -175,7 +190,6 @@ class EmbeddingProviderFactoryTestCase(unittest.TestCase):
         provider = build_embedding_provider(
             "sentence-transformers",
             enabled=True,
-            dimensions=768,
             model_name="BAAI/bge-base-en-v1.5",
             query_instruction="Represent this sentence for searching relevant passages: ",
         )

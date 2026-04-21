@@ -5,7 +5,7 @@ import unittest
 from unittest.mock import Mock
 
 from ingestion.indexer import ElasticsearchIndexer, FixedSizeChunker
-from ingestion.indexer.embedding_provider import HashingEmbeddingProvider, NoOpEmbeddingProvider
+from ingestion.indexer.embedding_provider import NoOpEmbeddingProvider
 from ingestion.repository import CircularAsset
 from ingestion.scrapper.dto import Circular
 from tests.fakes import FakeCircularRepository
@@ -325,12 +325,15 @@ class IndexerWorkflowTestCase(unittest.TestCase):
             es_client.bulk_index.side_effect = bulk_index
             extractor = Mock()
             extractor.extract.return_value = "margin trading exposure collateral " * 50
+            mock_embedding_provider = Mock()
+            mock_embedding_provider.embed_texts.return_value = [[0.1] * 16]
+            mock_embedding_provider.embed_query.return_value = [0.1] * 16
             indexer = ElasticsearchIndexer(
                 circular_repository=repository,
                 es_client=es_client,
                 pdf_extractor=extractor,
                 chunker=FixedSizeChunker(chunk_size=60, overlap=10),
-                embedding_provider=HashingEmbeddingProvider(dimensions=16),
+                embedding_provider=mock_embedding_provider,
                 batch_size=10,
             )
 

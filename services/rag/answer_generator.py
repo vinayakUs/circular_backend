@@ -47,7 +47,7 @@ class RAGAnswerGenerator:
 
         try:
             llm_client = get_llm_client()
-            response = llm_client.chat.completions.create(
+            response = llm_client.get_client().chat.completions.create(
                 model=Config.RAG_MODEL,
                 response_model=RAGAnswer,
                 messages=[{"role": "user", "content": prompt}],

@@ -122,7 +122,7 @@ class ActionItemProcessor(BaseProcessor):
         """
 
         try:
-            response = llm_client.chat.completions.create(
+            response = llm_client.get_client().chat.completions.create(
                 model=model,
                 response_model=ActionItemList,
                 messages=[{"role": "user", "content": prompt}],

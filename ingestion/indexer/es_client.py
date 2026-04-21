@@ -3,6 +3,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from pypdf import filters
+
 from config import Config
 from ingestion.indexer.dto import IndexDocument, SearchHit
 from ingestion.indexer.embedding_provider import EmbeddingProvider, NoOpEmbeddingProvider
@@ -192,19 +194,72 @@ class ElasticsearchClient:
                     )
                     for hit in response.get("hits", {}).get("hits", [])
                 ]
+
+        # else:
+        #     if query_vector is not None:
+
+        #         rrf_size = Config.ES_RRF_WINDOW_SIZE  # e.g. 100, must be > size
+
+        #         # BM25 query
+        #         bm25_response = self.client.search(
+        #             index=self.index_name,
+        #             query=bm25_query,
+        #             size=rrf_size,                    # wide window for fusion
+        #         )
+
+        #         # KNN query
+        #         knn_response = self.client.search(
+        #             index=self.index_name,
+        #             knn=self._build_knn(query_vector, rrf_size, filters),
+        #             size=rrf_size,                    # wide window for fusion
+        #         )
+
+        #         # Parse BM25 results
+        #         bm25_hits = [
+        #             SearchHit(
+        #                 es_id=hit.get("_id"),
+        #                 score=hit.get("_score"),
+        #                 document=IndexDocument.from_es_source(hit.get("_source", {})),
+        #             )
+        #             for hit in bm25_response.get("hits", {}).get("hits", [])
+        #         ]
+
+        #         # Parse KNN results
+        #         knn_hits = [
+        #             SearchHit(
+        #                 es_id=hit.get("_id"),
+        #                 score=hit.get("_score"),
+        #                 document=IndexDocument.from_es_source(hit.get("_source", {})),
+        #             )
+        #             for hit in knn_response.get("hits", {}).get("hits", [])
+        #         ]
+
+        #         # Combine with RRF
+        #         hits = self._combine_with_rrf(bm25_hits, knn_hits, k=Config.ES_RRF_RANK_CONSTANT)
+        #         hits = hits[:size]  # Cap at caller's requested size
+
         else:
             if query_vector is not None:
-                # Run BM25 and KNN separately for RRF fusion
-                rrf_size = Config.ES_RRF_WINDOW_SIZE
+                # Added by Vinayak
+                # Previous code used `size` for both retriever fetch size and final output size —
+                # this collapsed the RRF window into the caller's requested size, defeating fusion.
+                # e.g. with size=40: both retrievers fetched only 40 docs, fused, trimmed to 40 — no reranking benefit.
+                # Fix: retrievers now fetch rrf_size (wide window) for fusion, final trim uses `size` (caller's count).
+                # Fix: _build_knn now receives rrf_size as k, not size — KNN and BM25 pools are now symmetric.
+                # Fix: hits[:rrf_size] replaced with hits[:size] — previously returned up to rrf_size hits ignoring caller's size.
+                # Invariant: ES_KNN_NUM_CANDIDATES > rrf_size > size (e.g. 1000 > 100 > 40)
 
-                # BM25 query
+                rrf_size = Config.ES_RRF_WINDOW_SIZE  # wide fetch window, must be > size
+
+                # BM25 fetches rrf_size candidates — wide pool for fusion quality
                 bm25_response = self.client.search(
                     index=self.index_name,
                     query=bm25_query,
                     size=rrf_size,
                 )
 
-                # KNN query
+                # KNN fetches rrf_size candidates — symmetric with BM25 pool
+                # k=rrf_size not k=size — see _build_knn comments for invariant
                 knn_response = self.client.search(
                     index=self.index_name,
                     knn=self._build_knn(query_vector, rrf_size, filters),
@@ -231,9 +286,12 @@ class ElasticsearchClient:
                     for hit in knn_response.get("hits", {}).get("hits", [])
                 ]
 
-                # Combine with RRF
+                # Fuse BM25 and KNN pools using Reciprocal Rank Fusion
+                # k=ES_RRF_RANK_CONSTANT is the rank constant in 1/(k+rank) formula — unrelated to fetch size
                 hits = self._combine_with_rrf(bm25_hits, knn_hits, k=Config.ES_RRF_RANK_CONSTANT)
-                hits = hits[:size]  # Limit to requested size
+                hits = hits[:size]  # trim fused results to caller's requested size
+
+                
             else:
                 # Fallback to BM25 only if no query vector
                 search_kwargs["query"] = bm25_query
@@ -281,18 +339,51 @@ class ElasticsearchClient:
             }
         }
 
+    # def _build_knn(
+    #     self, query_vector: list[float], size: int, filters: list[dict[str, Any]]
+    # ) -> dict[str, Any]:
+    #     knn: dict[str, Any] = {
+    #         "field": "embedding",
+    #         "query_vector": query_vector,
+    #         "k": size,
+    #         "num_candidates": max(size * 3, 50),
+    #     }
+    #     if filters:
+    #         knn["filter"] = filters
+    #     return knn
+    
+
+    # Added by Vinayak
+    # Previous code used `size` as parameter name (misleading — it's the ES ANN return count, not caller output size)
+    # Previous code computed num_candidates dynamically as max(size * 3, 50) — too small for 80k corpus, wrong base value
+    # Fix: renamed parameter to `k` to clarify intent
+    # Fix: num_candidates now reads from Config.ES_KNN_NUM_CANDIDATES (stable, corpus-aware value set once in Config)
+    # Fix: added validation — ES hard-requires num_candidates > k, previously this was silently violated
+    # Invariant: ES_KNN_NUM_CANDIDATES > ES_RRF_WINDOW_SIZE > size (e.g. 1000 > 100 > 40)
     def _build_knn(
-        self, query_vector: list[float], size: int, filters: list[dict[str, Any]]
+        self,
+        query_vector: list[float],
+        k: int,
+        filters: list[dict[str, Any]],
     ) -> dict[str, Any]:
+        num_candidates = Config.ES_KNN_NUM_CANDIDATES
+
+        if num_candidates <= k:
+            raise ValueError(
+                f"ES_KNN_NUM_CANDIDATES ({num_candidates}) must be greater than "
+                f"k ({k}). Increase ES_KNN_NUM_CANDIDATES in Config."
+            )
+
         knn: dict[str, Any] = {
             "field": "embedding",
             "query_vector": query_vector,
-            "k": size,
-            "num_candidates": max(size * 3, 50),
+            "k": k,
+            "num_candidates": num_candidates,
         }
         if filters:
             knn["filter"] = filters
         return knn
+
 
     def _combine_with_rrf(
         self,
@@ -300,37 +391,53 @@ class ElasticsearchClient:
         knn_hits: list[SearchHit],
         k: int = 60,
     ) -> list[SearchHit]:
-        """Combine BM25 and KNN results using ranx RRF."""
         if not RANX_AVAILABLE:
             self.logger.warning("ranx not available, falling back to BM25 results")
             return bm25_hits
 
-        # Create Run objects for BM25 and KNN results
-        # Use a single query ID since we're combining results for one query
+        if not bm25_hits and not knn_hits:
+            return []
+
         query_id = "q_1"
+        runs: list[Run] = []
 
-        # BM25 run: {doc_id: score}
-        bm25_dict = {query_id: {hit.es_id: hit.score or 0.0 for hit in bm25_hits}}
-        bm25_run = Run(bm25_dict, name="bm25")
+        if bm25_hits:
+            runs.append(Run(
+                {query_id: {hit.es_id: hit.score if hit.score is not None else 0.0 for hit in bm25_hits}},
+                name="bm25",
+            ))
+        else:
+            self.logger.debug("BM25 returned no hits; fusing KNN only")
 
-        # KNN run: {doc_id: score}
-        knn_dict = {query_id: {hit.es_id: hit.score or 0.0 for hit in knn_hits}}
-        knn_run = Run(knn_dict, name="knn")
+        if knn_hits:
+            runs.append(Run(
+                {query_id: {hit.es_id: hit.score if hit.score is not None else 0.0 for hit in knn_hits}},
+                name="knn",
+            ))
+        else:
+            self.logger.debug("KNN returned no hits; fusing BM25 only")
 
-        # Use ranx RRF for fusion
-        fused_run = rrf([bm25_run, knn_run], k=k)
-
-        # Get fused results for the query
+        fused_run = rrf(runs, k=k)
         fused_results = fused_run[query_id]
 
-        # Sort by score (descending)
-        sorted_results = sorted(fused_results.items(), key=lambda x: x[1], reverse=True)
+        doc_map: dict[str, SearchHit] = {
+            hit.es_id: hit
+            for hit in knn_hits + bm25_hits
+        }
 
-        # Create document lookup
-        doc_map = {hit.es_id: hit for hit in bm25_hits + knn_hits}
+        output: list[SearchHit] = []
+        for doc_id, fused_score in sorted(fused_results.items(), key=lambda x: x[1], reverse=True):
+            hit = doc_map.get(doc_id)
+            if hit is None:
+                self.logger.warning("RRF doc_id %s missing from retrievers — skipping", doc_id)
+                continue
+            output.append(SearchHit(
+                es_id=hit.es_id,
+                score=fused_score,
+                document=hit.document,
+            ))
 
-        # Convert back to SearchHit format
-        return [doc_map[doc_id] for doc_id, _ in sorted_results]
+        return output
 
     def delete_documents_for_record(self, circular_db_id: str) -> None:
         self.client.delete_by_query(

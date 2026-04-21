@@ -201,7 +201,7 @@ Text excerpt for context (first 1500 chars):
 
         try:
             llm_client = get_llm_client()
-            response = llm_client.chat.completions.create(
+            response = llm_client.get_client().chat.completions.create(
                 model=Config.ACTION_ITEM_MODEL,
                 response_model=ReferenceListResponse,
                 messages=[{"role": "user", "content": prompt}],

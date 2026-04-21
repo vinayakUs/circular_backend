@@ -4,7 +4,6 @@ from ingestion.indexer.chunker import FixedSizeChunker
 from ingestion.indexer.dto import IndexDocument, SearchHit, TextChunk
 from ingestion.indexer.embedding_provider import (
     EmbeddingProvider,
-    HashingEmbeddingProvider,
     NoOpEmbeddingProvider,
     SentenceTransformerEmbeddingProvider,
     build_embedding_provider,
@@ -19,7 +18,6 @@ __all__ = [
     "ElasticsearchIndexer",
     "EmbeddingProvider",
     "FixedSizeChunker",
-    "HashingEmbeddingProvider",
     "IndexDocument",
     "NoOpEmbeddingProvider",
     "PDFTextExtractor",
