@@ -1,0 +1,170 @@
+{
+  "info": {
+    "name": "Circular Backend API",
+    "description": "API collection for the Circular Backend application",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/",
+          "host": ["{{baseUrl}}"],
+          "path": []
+        },
+        "description": "Verify the API is running"
+      },
+      "response": []
+    },
+    {
+      "name": "Get Circular Counts",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/circulars/counts",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "circulars", "counts"]
+        },
+        "description": "Get counts of circulars by source (NSE, SEBI)"
+      },
+      "response": []
+    },
+    {
+      "name": "Search Circulars (BM25)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/circulars/search?q=margin&strategy=bm25",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "circulars", "search"],
+          "query": [
+            {
+              "key": "q",
+              "value": "margin",
+              "description": "Search query"
+            },
+            {
+              "key": "strategy",
+              "value": "bm25",
+              "description": "Search strategy: bm25, vector, or hybrid"
+            },
+            {
+              "key": "exchange",
+              "value": "",
+              "description": "Filter by exchange (NSE, SEBI). Comma-separated for multiple.",
+              "optional": true
+            }
+          ]
+        },
+        "description": "Search circulars using BM25 (keyword) search"
+      },
+      "response": []
+    },
+    {
+      "name": "Search Circulars (Vector)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/circulars/search?q=margin&strategy=vector",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "circulars", "search"],
+          "query": [
+            {
+              "key": "q",
+              "value": "margin",
+              "description": "Search query"
+            },
+            {
+              "key": "strategy",
+              "value": "vector",
+              "description": "Search strategy: vector for semantic search"
+            }
+          ]
+        },
+        "description": "Search circulars using vector (semantic) search with RAG answer"
+      },
+      "response": []
+    },
+    {
+      "name": "Search Circulars (Hybrid)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/circulars/search?q=margin&strategy=hybrid",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "circulars", "search"],
+          "query": [
+            {
+              "key": "q",
+              "value": "margin",
+              "description": "Search query"
+            },
+            {
+              "key": "strategy",
+              "value": "hybrid",
+              "description": "Search strategy: hybrid (BM25 + vector)"
+            }
+          ]
+        },
+        "description": "Search circulars using hybrid search with RAG answer"
+      },
+      "response": []
+    },
+    {
+      "name": "Get Circular by Record ID",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/circulars/record/{{recordId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "circulars", "record", "{{recordId}}"]
+        },
+        "description": "Get circular details by record UUID",
+        "variable": [
+          {
+            "key": "recordId",
+            "value": "",
+            "description": "UUID of the circular record"
+          }
+        ]
+      },
+      "response": []
+    },
+    {
+      "name": "Get Action Items",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/action-items?circular_id={{circularId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "action-items"],
+          "query": [
+            {
+              "key": "circular_id",
+              "value": "{{circularId}}",
+              "description": "UUID of the circular to get action items for"
+            }
+          ]
+        },
+        "description": "Get action items for a specific circular",
+        "variable": [
+          {
+            "key": "circularId",
+            "value": "",
+            "description": "UUID of the circular"
+          }
+        ]
+      },
+      "response": []
+    }
+  ]
+}

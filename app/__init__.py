@@ -4,13 +4,15 @@ from typing import Any
 from uuid import UUID
 
 from flask import Flask, request
+from flask_cors import CORS
 
 from config import Config
 from db import get_db_client
 from ingestion.indexer.es_provider import get_es_client
 from ingestion.repository import CircularRepository
 from ingestion.repository.action_item_repository import ActionItemRepository
-from ingestion.dto.action_item_dto import ActionItemListResponseDTO
+from app.dto.action_item_dto import ActionItemListResponseDTO
+from app.dto.circular_dto import CircularListResponseDTO, CircularSummaryDTO
 from services.rag.answer_generator import RAGAnswerGenerator
 
 try:
@@ -73,6 +75,7 @@ def _serialize_circular_asset(asset: Any) -> dict[str, Any]:
 def create_app() -> Flask:
     app = Flask(__name__)
     app.config.from_object("config.Config")
+    CORS(app, origins="*")
 
     rag_generator = RAGAnswerGenerator()
 
@@ -202,6 +205,79 @@ def create_app() -> Flask:
             total=total,
             limit=total,
             offset=0,
+        )
+        return response.model_dump()
+
+    @app.get("/api/circulars")
+    def list_circulars():
+        raw_limit = request.args.get("limit", "20").strip()
+        raw_offset = request.args.get("offset", "0").strip()
+        raw_source = request.args.get("source", "").strip() or None
+
+        try:
+            limit = max(1, min(int(raw_limit), 100))
+        except ValueError:
+            return {"error": "limit must be an integer between 1 and 100."}, 400
+
+        try:
+            offset = max(0, int(raw_offset))
+        except ValueError:
+            return {"error": "offset must be a non-negative integer."}, 400
+
+        normalized_source = raw_source.upper() if raw_source else None
+        if normalized_source == "ALL":
+            normalized_source = None
+        elif normalized_source and normalized_source not in {"NSE", "SEBI"}:
+            return {"error": "source must be 'NSE', 'SEBI', or 'ALL'."}, 400
+
+        raw_from_date = request.args.get("from_date", "").strip() or None
+        raw_to_date = request.args.get("to_date", "").strip() or None
+
+        from_date = None
+        to_date = None
+        if raw_from_date:
+            try:
+                from_date = date.fromisoformat(raw_from_date)
+            except ValueError:
+                return {"error": "from_date must be YYYY-MM-DD."}, 400
+        if raw_to_date:
+            try:
+                to_date = date.fromisoformat(raw_to_date)
+            except ValueError:
+                return {"error": "to_date must be YYYY-MM-DD."}, 400
+
+        db_client = get_db_client()
+        repository = CircularRepository(db_pool=db_client.get_pool())
+
+        records, total = repository.list_paginated(
+            limit=limit,
+            offset=offset,
+            source=normalized_source,
+            from_date=from_date,
+            to_date=to_date,
+        )
+
+        items = [
+            CircularSummaryDTO(
+                id=r.id,
+                source=r.source,
+                circular_id=r.circular_id,
+                full_reference=r.full_reference,
+                department=r.department or None,
+                title=r.title,
+                issue_date=r.issue_date,
+                effective_date=r.effective_date,
+                status=r.status,
+                url=r.url or None,
+            )
+            for r in records
+        ]
+
+        response = CircularListResponseDTO(
+            items=items,
+            total=total,
+            limit=limit,
+            offset=offset,
         )
         return response.model_dump()
 

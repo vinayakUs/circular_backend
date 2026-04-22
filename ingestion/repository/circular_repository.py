@@ -326,6 +326,52 @@ class CircularRepository:
             ).fetchall()
         return [record for row in rows if (record := self._row_to_record(row))]
 
+    def list_paginated(
+        self,
+        limit: int = 20,
+        offset: int = 0,
+        source: str | None = None,
+        from_date: date | None = None,
+        to_date: date | None = None,
+    ) -> tuple[list[CircularRecord], int]:
+        self._ensure_schema()
+        args: list = []
+        where_clauses = []
+        if source:
+            where_clauses.append("source = %s")
+            args.append(source.upper())
+        if from_date:
+            where_clauses.append("issue_date >= %s")
+            args.append(from_date)
+        if to_date:
+            where_clauses.append("issue_date <= %s")
+            args.append(to_date)
+
+        where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
+
+        count_sql = f"SELECT COUNT(*) FROM circulars WHERE {where_sql}"
+        total_sql = f"""
+            SELECT id, source, circular_id, source_item_key, full_reference,
+                   department, title, issue_date, effective_date, url, pdf_url,
+                   status, file_path, content_hash, error_message, detected_at,
+                   created_at, updated_at, es_indexed_at, es_chunk_count,
+                   es_index_name
+            FROM circulars
+            WHERE {where_sql}
+            ORDER BY issue_date DESC, created_at DESC, id DESC
+            LIMIT %s OFFSET %s
+        """
+        args_with_pagination = [*args, limit, offset]
+
+        with self.db_pool.connection() as conn:
+            total_row = conn.execute(count_sql, args).fetchone()
+            total = total_row[0] if total_row else 0
+
+            rows = conn.execute(total_sql, args_with_pagination).fetchall()
+            records = [record for row in rows if (record := self._row_to_record(row))]
+
+        return records, total
+
     def schema_sql(self) -> str:
         return POSTGRES_SCHEMA_SQL.strip()
 
