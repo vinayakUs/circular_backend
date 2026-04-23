@@ -154,7 +154,9 @@ class ElasticsearchClient:
         strategy = strategy.lower()
         filters = self._build_filters(metadata)
         bm25_query = self._build_bm25_query(query, filters)
-        query_vector = self.embedding_provider.embed_query(query)
+        query_vector = None
+        if strategy != "bm25":
+            query_vector = self.embedding_provider.embed_query(query)
 
         search_kwargs: dict[str, Any] = {
             "index": self.index_name,
@@ -171,6 +173,14 @@ class ElasticsearchClient:
                 )
                 for hit in response.get("hits", {}).get("hits", [])
             ]
+            # Deduplicate by circular_id — keep best-scoring chunk per document
+            best_per_doc: dict[str, SearchHit] = {}
+            for hit in hits:
+                circ_id = hit.document.circular_id
+                if circ_id not in best_per_doc or hit.score > best_per_doc[circ_id].score:
+                    best_per_doc[circ_id] = hit
+            hits = list(best_per_doc.values())
+            hits.sort(key=lambda h: h.score, reverse=True)
         elif strategy == "vector":
             if query_vector is None:
                 search_kwargs["query"] = bm25_query
@@ -287,6 +297,7 @@ class ElasticsearchClient:
                 "should": [
                     # High boost for circular_id (exact match)
                     {"match": {"circular_id": {"query": query, "boost": 5}}},
+                    {"match": {"full_reference": {"query": query, "boost": 5}}},
                     # High boost for contextual chunks
                     {"match": {"chunk_text_contextual": {"query": query, "boost": 3}}},
                     # multi_match for other fields
@@ -296,7 +307,6 @@ class ElasticsearchClient:
                             "fields": [
                                 "chunk_text^2",         # raw text
                                 "title^2",             # title
-                                "full_reference^2",    # reference
                                 "department",          # department
                                 "source"               # source
                             ],
