@@ -1,5 +1,11 @@
 import re
 
+def render_sql(sql, params):
+    try:
+        return sql % tuple(repr(p) for p in params)
+    except Exception:
+        return f"{sql} | params={params}"
+
 def multi_snippet(paragraph, query, window_size=120, merge_gap=80, max_snippets=3):
     # Step 0: normalize text
     text = re.sub(r'\s+', ' ', paragraph).strip()

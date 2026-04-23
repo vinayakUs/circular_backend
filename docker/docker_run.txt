@@ -6,3 +6,6 @@ docker run -d --name pgadmin --network ts-net -e PGADMIN_DEFAULT_EMAIL=admin@adm
 
 
 docker run -d --name elasticsearch --network my-net -p 9200:9200 -v esdata:/usr/share/elasticsearch/data -e "discovery.type=single-node" -e "xpack.security.enabled=false" -e "ES_JAVA_OPTS=-Xms1g -Xmx1g" --memory=2g docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+
+
+docker run -d  --name kibana-local  -p 5601:5601  -e ELASTICSEARCH_HOSTS=http://54.254.212.161:9200  docker.elastic.co/kibana/kibana:8.13.4

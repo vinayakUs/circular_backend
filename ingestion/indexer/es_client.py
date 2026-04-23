@@ -194,50 +194,6 @@ class ElasticsearchClient:
                     )
                     for hit in response.get("hits", {}).get("hits", [])
                 ]
-
-        # else:
-        #     if query_vector is not None:
-
-        #         rrf_size = Config.ES_RRF_WINDOW_SIZE  # e.g. 100, must be > size
-
-        #         # BM25 query
-        #         bm25_response = self.client.search(
-        #             index=self.index_name,
-        #             query=bm25_query,
-        #             size=rrf_size,                    # wide window for fusion
-        #         )
-
-        #         # KNN query
-        #         knn_response = self.client.search(
-        #             index=self.index_name,
-        #             knn=self._build_knn(query_vector, rrf_size, filters),
-        #             size=rrf_size,                    # wide window for fusion
-        #         )
-
-        #         # Parse BM25 results
-        #         bm25_hits = [
-        #             SearchHit(
-        #                 es_id=hit.get("_id"),
-        #                 score=hit.get("_score"),
-        #                 document=IndexDocument.from_es_source(hit.get("_source", {})),
-        #             )
-        #             for hit in bm25_response.get("hits", {}).get("hits", [])
-        #         ]
-
-        #         # Parse KNN results
-        #         knn_hits = [
-        #             SearchHit(
-        #                 es_id=hit.get("_id"),
-        #                 score=hit.get("_score"),
-        #                 document=IndexDocument.from_es_source(hit.get("_source", {})),
-        #             )
-        #             for hit in knn_response.get("hits", {}).get("hits", [])
-        #         ]
-
-        #         # Combine with RRF
-        #         hits = self._combine_with_rrf(bm25_hits, knn_hits, k=Config.ES_RRF_RANK_CONSTANT)
-        #         hits = hits[:size]  # Cap at caller's requested size
-
         else:
             if query_vector is not None:
                 # Added by Vinayak
@@ -252,19 +208,24 @@ class ElasticsearchClient:
                 rrf_size = Config.ES_RRF_WINDOW_SIZE  # wide fetch window, must be > size
 
                 # BM25 fetches rrf_size candidates — wide pool for fusion quality
+                self.logger.info("Executing BM25 search with query: %s, filters: %s, size: %d, bm25_query: %s", query, filters, rrf_size, bm25_query)
+
                 bm25_response = self.client.search(
                     index=self.index_name,
                     query=bm25_query,
                     size=rrf_size,
                 )
 
-                # KNN fetches rrf_size candidates — symmetric with BM25 pool
-                # k=rrf_size not k=size — see _build_knn comments for invariant
+                self.logger.info("BM25 search returned %d hits", bm25_response.get("hits", {}).get("total", {}).get("value", 0))
+                knn_query = self._build_knn(query_vector, rrf_size, filters)
+                self.logger.info("Executing KNN search: filters=%s, size=%d, knn=%s", filters, rrf_size, {k: v for k, v in knn_query.items() if k != "query_vector"})
                 knn_response = self.client.search(
                     index=self.index_name,
-                    knn=self._build_knn(query_vector, rrf_size, filters),
+                    knn=knn_query,
                     size=rrf_size,
                 )
+
+                self.logger.info("KNN search returned %d hits", knn_response.get("hits", {}).get("total", {}).get("value", 0))
 
                 # Parse BM25 results
                 bm25_hits = [
@@ -308,7 +269,17 @@ class ElasticsearchClient:
         return hits
 
     def _build_filters(self, metadata: dict[str, Any]) -> list[dict[str, Any]]:
-        return [{"terms": {key: value}} for key, value in metadata.items() if value]
+        filters: list[dict[str, Any]] = []
+        for key, value in metadata.items():
+            if not value:
+                continue
+            if key == "from_date":
+                filters.append({"range": {"issue_date": {"gte": value, "format": "yyyy-MM-dd" if "T" not in str(value) else "strict_date_optional_time"}}})
+            elif key == "to_date":
+                filters.append({"range": {"issue_date": {"lte": value, "format": "yyyy-MM-dd" if "T" not in str(value) else "strict_date_optional_time"}}})
+            else:
+                filters.append({"terms": {key: value if isinstance(value, list) else [value]}})
+        return filters
 
     def _build_bm25_query(self, query: str, filters: list[dict[str, Any]]) -> dict[str, Any]:
         return {

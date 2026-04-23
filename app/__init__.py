@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import date
+import logging
 from typing import Any
 from uuid import UUID
 
@@ -25,6 +26,9 @@ GET /api/circulars/search?q=what are regulations for trading members&strategy=ve
 GET /api/circulars/search?q=margin&strategy=bm25
 '''
 
+
+
+logger = logging.getLogger(__name__)
 
 
 def _serialize_circular_record(record: Any) -> dict[str, Any]:
@@ -73,6 +77,12 @@ def _serialize_circular_asset(asset: Any) -> dict[str, Any]:
 
 
 def create_app() -> Flask:
+    logging.basicConfig(
+        level=Config.LOG_LEVEL,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
+    logging.getLogger("numba.core").setLevel(logging.WARNING)
+
     app = Flask(__name__)
     app.config.from_object("config.Config")
     CORS(app, origins="*")
@@ -133,12 +143,17 @@ def create_app() -> Flask:
 
 
 
-    @app.get("/api/circulars/search")
+    @app.post("/api/circulars/search")
     def search_circulars():
-        query = request.args.get("q", "").strip()
-        strategy = request.args.get("strategy", Config.ES_SEARCH_DEFAULT_STRATEGY).strip().lower()
-        raw_exchange = request.args.get("exchange", "")
-        raw_exchange = [ex.strip().upper() for ex in raw_exchange.split(",") if ex]
+        body = request.get_json() or {}
+        query = body.get("q", "").strip()
+        strategy = body.get("strategy", Config.ES_SEARCH_DEFAULT_STRATEGY).strip().lower()
+
+        raw_source = body.get("source", "").strip().upper()
+        if raw_source == "ALL":
+            raw_source = ""
+        from_date = body.get("from_date") or None
+        to_date = body.get("to_date") or None
 
         if not query:
             return {"error": "Query parameter 'q' is required."}, 400
@@ -146,27 +161,72 @@ def create_app() -> Flask:
         if strategy not in {"bm25", "vector", "hybrid"}:
             return {"error": "Unsupported search strategy."}, 400
 
+        search_metadata = {}
+        if raw_source:
+            search_metadata["source"] = [raw_source]
+        if from_date:
+            search_metadata["from_date"] = from_date
+        if to_date:
+            search_metadata["to_date"] = to_date
+
+        logger.info(
+            "Search request: query=%r, strategy=%s, source=%s, from_date=%s, to_date=%s",
+            query,
+            strategy,
+            raw_source or "ALL",
+            from_date,
+            to_date,
+        )
+
         try:
-            exchange = {"source": raw_exchange}
-            results = get_es_client().search(query, exchange, strategy=strategy)
+            import time
+            search_start = time.perf_counter()
+            results = get_es_client().search(query, search_metadata, strategy=strategy)
+            search_elapsed_ms = (time.perf_counter() - search_start) * 1000
+
+            result_count = len(results)
+            logger.info(
+                "Search completed: query=%r, strategy=%s, results=%d, duration_ms=%.2f",
+                query,
+                strategy,
+                result_count,
+                search_elapsed_ms,
+            )
         except ConnectionTimeout:
+            logger.warning("Search timeout: query=%r, strategy=%s", query, strategy)
             return {
                 "error": "Search service is temporarily unavailable.",
                 "query": query,
                 "results": [],
             }, 503
+        except Exception as e:
+            logger.error("Search failed: query=%r, strategy=%s, error=%s", query, strategy, e)
+            return {
+                "error": "Search service encountered an error.",
+                "query": query,
+                "results": [],
+            }, 500
 
         if strategy == "bm25":
-            # Return chunks as-is (current behavior)
             return {
                 "query": query,
                 "strategy": strategy,
                 "results": [result.to_dict(query=query) for result in results],
             }
         else:
-            # vector or hybrid - generate RAG answer
             try:
+                rag_start = time.perf_counter()
                 rag_answer = rag_generator.generate_answer(query, results)
+                rag_elapsed_ms = (time.perf_counter() - rag_start) * 1000
+
+                logger.info(
+                    "RAG answer generated: query=%r, strategy=%s, answer_length=%d, refs=%d, duration_ms=%.2f",
+                    query,
+                    strategy,
+                    len(rag_answer.answer) if rag_answer.answer else 0,
+                    len(rag_answer.references),
+                    rag_elapsed_ms,
+                )
                 return {
                     "query": query,
                     "strategy": strategy,
@@ -175,7 +235,7 @@ def create_app() -> Flask:
                     "snippets": rag_answer.snippets,
                 }
             except Exception as e:
-                # Fallback to chunks if RAG fails
+                logger.warning("RAG failed, returning raw chunks: query=%r, error=%s", query, e)
                 return {
                     "query": query,
                     "strategy": strategy,

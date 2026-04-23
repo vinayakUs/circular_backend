@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 from typing import Any
 from uuid import UUID
+from utils.utils import render_sql
 
 from ingestion.scrapper.dto import Circular
 
@@ -363,10 +364,19 @@ class CircularRepository:
         """
         args_with_pagination = [*args, limit, offset]
 
+        
         with self.db_pool.connection() as conn:
+            self.logger.debug(
+                "Executing paginated list query: %s \nArgs: %s",
+                render_sql(count_sql, args),
+                args) 
+        
             total_row = conn.execute(count_sql, args).fetchone()
             total = total_row[0] if total_row else 0
-
+            self.logger.debug(
+                "Executing paginated list query: %s \nArgs: %s",
+                render_sql(total_sql, args_with_pagination),
+                args_with_pagination) 
             rows = conn.execute(total_sql, args_with_pagination).fetchall()
             records = [record for row in rows if (record := self._row_to_record(row))]
 
