@@ -5,7 +5,7 @@ from typing import Any
 from pydantic import BaseModel
 
 from config import Config
-from utils.llm_client import get_llm_client
+from utils.llm_providers import get_llm_provider
 
 
 logger = logging.getLogger(__name__)
@@ -145,7 +145,7 @@ class Contextualizer:
         ]
 
         # Call LLM in parallel
-        llm_client = get_llm_client()
+        llm_client = get_llm_provider(Config.LLM_PROVIDER)
         responses = llm_client.create_completions_parallel(
             prompts=prompts,
             model=self.model,
@@ -212,7 +212,7 @@ class Contextualizer:
         )
 
         try:
-            llm_client = get_llm_client()
+            llm_client = get_llm_provider(Config.LLM_PROVIDER)
             response = llm_client.get_client().chat.completions.create(
                 model=self.model,
                 response_model=ContextResponse,
@@ -256,7 +256,7 @@ class Contextualizer:
         )
 
         try:
-            llm_client = get_llm_client()
+            llm_client = get_llm_provider(Config.LLM_PROVIDER)
             self.logger.debug("Calling LLM for chunk %d, model=%s", chunk_index, self.model)
             response = llm_client.chat.completions.create(
                 model=self.model,

@@ -1,0 +1,165 @@
+<div class="all-circulars-page">
+  <app-navbar></app-navbar>
+
+  <main class="main-content">
+    <section class="header-section">
+      <h1 class="page-title">Circulars</h1>
+      <p class="page-subtitle">Browse circulars from NSE and SEBI</p>
+
+      <div class="search-container">
+        <div class="search-box">
+          <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/>
+            <path d="m21 21-4.35-4.35"/>
+          </svg>
+          <input type="text" [(ngModel)]="filters.search" placeholder="Search circulars..." class="search-input" (keyup.enter)="onSearch()" />
+          <div class="search-type-toggle">
+            <button class="toggle-btn" [class.active]="searchType === 'keyword'" (click)="setSearchType('keyword')">Keyword</button>
+            <button class="toggle-btn" [class.active]="searchType === 'semantic'" (click)="setSearchType('semantic')">Semantic</button>
+          </div>
+          <button class="search-btn" (click)="onSearch()">Search</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="circulars-section">
+      <div class="content-grid">
+        <div class="results-header">
+        <span class="results-count" *ngIf="!loading">{{ total | number }} circulars found</span>
+        <span class="results-count skeleton-text" *ngIf="loading">Loading...</span>
+      </div>
+
+      </div>
+      <div class="content-grid">
+        <aside class="filters-sidebar">
+          <div class="filter-group">
+            <span class="filter-label">Exchange</span>
+            <div class="filter-tabs vertical">
+              <button class="filter-tab" [class.active]="filters.source === 'ALL'" (click)="onFilterChange('ALL')">All</button>
+              <button class="filter-tab" [class.active]="filters.source === 'NSE'" (click)="onFilterChange('NSE')">NSE</button>
+              <button class="filter-tab" [class.active]="filters.source === 'SEBI'" (click)="onFilterChange('SEBI')">SEBI</button>
+            </div>
+          </div>
+
+          <div class="filter-group">
+            <span class="filter-label">Date Range</span>
+            <div class="date-input">
+              <span class="date-label">From</span>
+              <input type="date" [(ngModel)]="filters.from_date" class="date-field" />
+            </div>
+            <div class="date-input">
+              <span class="date-label">To</span>
+              <input type="date" [(ngModel)]="filters.to_date" class="date-field" />
+            </div>
+          </div>
+
+          <button class="clear-btn full-width" (click)="clearFilters()">Clear filters</button>
+          <button class="apply-btn full-width" (click)="onSearch()">Apply Filters</button>
+        </aside>
+
+        <div class="results-panel">
+          <div class="circulars-list" *ngIf="loading">
+            <div class="circular-item skeleton" *ngFor="let i of [1,2,3,4,5,6,7,8,9,10]">
+              <div class="skeleton-badge"></div>
+              <div class="circular-content">
+                <div class="skeleton-header">
+                  <span class="skeleton-text skeleton-id"></span>
+                  <span class="skeleton-text skeleton-time"></span>
+                </div>
+                <span class="skeleton-text skeleton-title"></span>
+                <!-- <div class="skeleton-tags">
+                  <span class="skeleton-tag"></span>
+                  <span class="skeleton-tag"></span>
+                </div> -->
+              </div>
+            </div>
+          </div>
+
+          <div class="circulars-list" *ngIf="!loading && circulars.length > 0 && !showSemanticResult">
+            <ng-container *ngFor="let circ of circulars; let i = index">
+              <a [href]="circ.url" target="_blank" class="circular-item">
+                <div class="exchange-badge" [class]="circ.source.toLowerCase()">{{ circ.source }}</div>
+                <div class="circular-content">
+                  <div class="circular-header">
+                    <span class="circular-id">{{ circ.full_reference }}</span>
+                    <span class="circular-time">{{ circ.issue_date | date:'dd-MMM-yyyy' }}</span>
+                  </div>
+                  <span class="circular-title">{{ circ.title }}</span>
+                  <div class="search-preview" *ngIf="searchResults[i]?.preview" [innerHTML]="getPreview(searchResults[i])"></div>
+                </div>
+              </a>
+            </ng-container>
+          </div>
+
+          <div class="no-results" *ngIf="!loading && circulars.length === 0 && !isApiError">
+            <span>No circulars found matching your criteria</span>
+          </div>
+
+          <div class="no-results error" *ngIf="!loading && isApiError">
+            <span>Unable to load circulars. Please check your connection.</span>
+          </div>
+
+          <div class="semantic-result" *ngIf="showSemanticResult">
+            <div class="semantic-answer" *ngIf="semanticLoading">
+              <div class="loading-spinner"></div>
+              <span>Processing semantic search...</span>
+            </div>
+
+            <ng-container *ngIf="!semanticLoading && semanticResult">
+              <div class="answer-section">
+                <h3>Answer</h3>
+                <div class="answer-content" [innerHTML]="parseMarkdown(semanticResult.answer)"></div>
+              </div>
+
+              <div class="references-section" *ngIf="semanticResult.references.length > 0">
+                <h3>References</h3>
+                <div class="reference-item" *ngFor="let ref of semanticResult.references">
+                  <div class="ref-header">
+                    <span class="ref-id">{{ ref.circular_id }}</span>
+                    <span class="ref-score">{{ (ref.relevance_score * 100).toFixed(0) }}% match</span>
+                  </div>
+                  <a [href]="ref.url" target="_blank" class="ref-title">{{ ref.title }}</a>
+                  <span class="ref-source">{{ ref.source }}</span>
+                </div>
+              </div>
+
+              <div class="snippets-section" *ngIf="semanticResult.snippets.length > 0">
+                <h3>Relevant Snippets</h3>
+                <div class="snippet-item" *ngFor="let snippet of semanticResult.snippets">
+                  <p>{{ snippet }}</p>
+                </div>
+              </div>
+
+              <div class="search-meta">
+                <span>Strategy: {{ semanticResult.strategy }}</span>
+                <span>Query: {{ semanticResult.query }}</span>
+              </div>
+            </ng-container>
+
+            <div class="no-results error" *ngIf="!semanticLoading && isApiError">
+              <span>Unable to perform semantic search. Please check your connection.</span>
+            </div>
+          </div>
+
+          <div class="pagination" *ngIf="!loading && total > 0 && !showSemanticResult">
+            <button class="page-btn prev" [disabled]="pagination.offset === 0" (click)="goToPage(pagination.offset - pagination.limit)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="15 18 9 12 15 6"/>
+              </svg>
+            </button>
+            <div class="page-numbers">
+              <button *ngFor="let page of pageNumbers" class="page-number" [class.active]="page === currentPage" [class.ellipsis]="page === -1" (click)="page !== -1 && goToPage((page - 1) * pagination.limit)">
+                {{ page === -1 ? '...' : page }}
+              </button>
+            </div>
+            <button class="page-btn next" [disabled]="pagination.offset + pagination.limit >= total" (click)="goToPage(pagination.offset + pagination.limit)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>

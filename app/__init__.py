@@ -216,6 +216,7 @@ def create_app() -> Flask:
         else:
             try:
                 rag_start = time.perf_counter()
+                logger.info("Executing LLM search: strategy=%s", strategy)
                 rag_answer = rag_generator.generate_answer(query, results)
                 rag_elapsed_ms = (time.perf_counter() - rag_start) * 1000
 

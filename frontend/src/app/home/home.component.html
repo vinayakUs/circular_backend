@@ -1,0 +1,225 @@
+<div class="home-page">
+  <app-navbar></app-navbar>
+
+  <main class="main-content">
+    <div class="hero-section">
+      <div class="hero-grid">
+        <div class="hero-content">
+          <div class="badge">
+            <span class="badge-dot"></span>
+            Live Monitoring
+          </div>
+          <h1 class="hero-title">
+            Never miss a<br/>
+            <span class="gradient-text">regulatory update</span>
+          </h1>
+          <p class="hero-description">
+            AI-powered tracking across NSE, BSE, MCX, and SEBI circulars.
+            Real-time alerts, intelligent search, and compliance workflow automation
+            for modern finance teams.
+          </p>
+
+          <div class="search-container">
+            <div class="search-box">
+              <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="m21 21-4.35-4.35"/>
+              </svg>
+              <input type="text" placeholder="Search circulars, keywords, or topics..." class="search-input" />
+              <button class="search-btn">Search</button>
+            </div>
+          </div>
+
+          <div class="trust-badges">
+            <span class="trust-item">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12,6 12,12 16,14"/>
+              </svg>
+              Real-time Updates
+            </span>
+            <span class="trust-item">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2a10 10 0 0 1 10 10c0 5.52-4.48 10-10 10S2 17.52 2 12c0-1.85.5-3.58 1.38-5.08"/>
+                <path d="M12 6v6l4 2"/>
+              </svg>
+              AI Summaries
+            </span>
+          </div>
+        </div>
+
+        <div class="hero-visual">
+          <div class="dashboard-card">
+            <div class="card-header">
+              <div class="card-title" *ngIf="!isApiError">
+                <span class="pulse"></span>
+                Latest Circulars
+              </div>
+              <div class="card-title" *ngIf="isApiError">
+                Latest Circulars
+              </div>
+              <span class="card-badge" *ngIf="!isApiError">Live</span>
+            </div>
+            <div class="circular-list" *ngIf="loadingCirculars; else circularsContent">
+              <div class="circular-item skeleton">
+                <div class="exchange-badge skeleton-badge"></div>
+                <div class="circular-info">
+                  <span class="skeleton-text skeleton-title"></span>
+                  <span class="skeleton-text skeleton-time"></span>
+                </div>
+              </div>
+              <div class="circular-item skeleton">
+                <div class="exchange-badge skeleton-badge"></div>
+                <div class="circular-info">
+                  <span class="skeleton-text skeleton-title"></span>
+                  <span class="skeleton-text skeleton-time"></span>
+                </div>
+              </div>
+              <div class="circular-item skeleton">
+                <div class="exchange-badge skeleton-badge"></div>
+                <div class="circular-info">
+                  <span class="skeleton-text skeleton-title"></span>
+                  <span class="skeleton-text skeleton-time"></span>
+                </div>
+              </div>
+              <div class="circular-item skeleton">
+                <div class="exchange-badge skeleton-badge"></div>
+                <div class="circular-info">
+                  <span class="skeleton-text skeleton-title"></span>
+                  <span class="skeleton-text skeleton-time"></span>
+                </div>
+              </div>
+            </div>
+            <ng-template #circularsContent>
+              <div class="circular-list" *ngIf="circulars?.items?.length; else noCirculars">
+                <div class="circular-item" *ngFor="let circ of circulars?.items ?? []">
+                  <div class="exchange-badge" [class]="circ.source.toLowerCase()">{{ circ.source }}</div>
+                  <div class="circular-info">
+                    <span class="circular-title">{{ circ.title }}</span>
+                    <span class="circular-time">{{ circ.issue_date | date:'dd-MMM-yyyy' }}</span>
+                  </div>
+                </div>
+              </div>
+              <ng-template #noCirculars>
+                <div class="circular-list">
+                  <div class="circular-item">
+                    <div class="exchange-badge sebi">SEBI</div>
+                    <div class="circular-info">
+                      <span class="circular-title">No circulars available</span>
+                      <span class="circular-time">Check connection</span>
+                    </div>
+                  </div>
+                </div>
+              </ng-template>
+            </ng-template>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <section class="stats-section">
+      <div class="stats-container three-col">
+        <div class="stat-card">
+          <div class="stat-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14,2 14,8 20,8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+              <polyline points="10,9 9,9 8,9"/>
+            </svg>
+          </div>
+          <div class="stat-value" *ngIf="!loadingCounts; else loadingTotal">
+            {{ counts?.total == null ? '—' : (counts?.total | number) }}
+          </div>
+          <ng-template #loadingTotal>
+            <div class="stat-value skeleton-count"></div>
+          </ng-template>
+          <div class="stat-label">Total Circulars</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon sebi">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+              <line x1="3" y1="9" x2="21" y2="9"/>
+              <line x1="9" y1="21" x2="9" y2="9"/>
+            </svg>
+          </div>
+          <div class="stat-value" *ngIf="!loadingCounts; else loadingSebi">
+            {{ counts?.sebi == null ? '—' : (counts?.sebi | number) }}
+          </div>
+          <ng-template #loadingSebi>
+            <div class="stat-value skeleton-count"></div>
+          </ng-template>
+          <div class="stat-label">SEBI Circulars</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon nse">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+          </div>
+          <div class="stat-value" *ngIf="!loadingCounts; else loadingNse">
+            {{ counts?.nse == null ? '—' : (counts?.nse | number) }}
+          </div>
+          <ng-template #loadingNse>
+            <div class="stat-value skeleton-count"></div>
+          </ng-template>
+          <div class="stat-label">NSE Circulars</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="features-section">
+      <div class="features-header">
+        <h2 class="section-title">Everything you need to stay compliant</h2>
+        <p class="section-subtitle">Powerful tools designed for compliance officers, traders, and operations teams</p>
+      </div>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon blue">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/>
+              <path d="m21 21-4.35-4.35"/>
+            </svg>
+          </div>
+          <h3>Smart Search</h3>
+          <p>Natural language search across all circulars with semantic understanding and filters</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon purple">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            </svg>
+          </div>
+          <h3>Real-time Alerts</h3>
+          <p>Instant notifications for new circulars matching your watchlist criteria</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon green">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/>
+            </svg>
+          </div>
+          <h3>Impact Analysis</h3>
+          <p>AI-powered analysis showing which existing processes need attention</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="cta-section">
+      <div class="cta-container">
+        <h2>Stay updated with the latest circulars</h2>
+        <p>Subscribe to get instant notifications when new SEBI or NSE circulars are issued</p>
+        <div class="subscribe-form">
+          <input type="email" placeholder="Enter your email address" class="email-input" />
+          <button class="btn btn-primary btn-large">Subscribe</button>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>

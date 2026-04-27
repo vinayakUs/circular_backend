@@ -20,6 +20,8 @@ class Config:
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 
     NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY", "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")
+    MINMAX_API_KEY = os.getenv("MINMAX_API_KEY", "")
+    MINMAX_BASE_URL = os.getenv("MINMAX_BASE_URL", "https://api.minimax.chat/v1")
     ACTION_ITEM_MODEL = os.getenv(
         "ACTION_ITEM_MODEL", "minimaxai/minimax-m2.7"
     )
@@ -74,7 +76,7 @@ class Config:
         "ES_ENABLE_CONTEXTUAL_RETRIEVAL", "true"
     ).lower() == "true"
     ES_CONTEXTUAL_MODEL = os.getenv(
-        "ES_CONTEXTUAL_MODEL", "minimaxai/minimax-m2.7"
+        "ES_CONTEXTUAL_MODEL", "MiniMax-M2.7"
     )
     ES_CONTEXTUAL_MAX_TOKENS = int(
         os.getenv("ES_CONTEXTUAL_MAX_TOKENS", "500")
@@ -85,3 +87,4 @@ class Config:
     RAG_MODEL = os.getenv("RAG_MODEL", "minimaxai/minimax-m2.7")
     RAG_MAX_CHUNKS = int(os.getenv("RAG_MAX_CHUNKS", "10"))
     RAG_MAX_TOKENS = int(os.getenv("RAG_MAX_TOKENS", "4000"))
+    LLM_PROVIDER = os.getenv("LLM_PROVIDER", "nvidia").strip().lower()

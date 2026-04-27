@@ -1,0 +1,102 @@
+<div class="changes-page">
+  <app-navbar></app-navbar>
+
+  <main class="main-content">
+    <section class="header-section">
+      <h1 class="page-title">Upcoming deadlines</h1>
+      <p class="page-subtitle">Upcoming implementation dates and deadlines from NSE and SEBI circulars</p>
+    </section>
+
+    <section class="calendar-section">
+      <div class="calendar-container">
+        <div class="calendar-header">
+          <button class="nav-btn" (click)="previousMonth()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="15 18 9 12 15 6"/>
+            </svg>
+          </button>
+          <div class="month-year">
+            <span class="month-name">{{ monthName }}</span>
+            <span class="year">{{ currentYear }}</span>
+          </div>
+          <button class="nav-btn" (click)="nextMonth()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+          </button>
+          <button class="today-btn" (click)="goToToday()">Today</button>
+        </div>
+
+        <div class="calendar-grid">
+          <div class="day-header" *ngFor="let day of ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']">
+            {{ day }}
+          </div>
+
+          <div
+            class="calendar-day"
+            *ngFor="let day of calendarDays"
+            [class.empty]="day === -1"
+            [class.today]="isToday(day)"
+            [class.selected]="isSelected(day)"
+            [class.has-items]="!isEmptyDay(day)"
+            (click)="onDayClick(day)">
+            <ng-container *ngIf="day !== -1">
+              <span class="day-number">{{ getDayNumber(day) }}</span>
+              <div class="day-indicators" *ngIf="!isEmptyDay(day)">
+                <span
+                  class="indicator-dot"
+                  *ngFor="let item of getDayItems(day)"
+                  [style.background-color]="getTypeColor(item.type)"
+                  [title]="item.title">
+                </span>
+              </div>
+            </ng-container>
+          </div>
+        </div>
+
+        <div class="calendar-legend">
+          <div class="legend-item">
+            <span class="legend-dot" style="background-color: #ef4444"></span>
+            <span>Deadline</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-dot" style="background-color: #3b82f6"></span>
+            <span>Implementation</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-dot" style="background-color: #22c55e"></span>
+            <span>Compliance</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="items-panel">
+        <div class="items-header">
+          <h3 *ngIf="selectedDate">{{ selectedDate | date:'MMMM d, yyyy' }}</h3>
+          <h3 *ngIf="!selectedDate">Select a date</h3>
+        </div>
+
+        <div class="items-list" *ngIf="selectedItems.length > 0">
+          <div class="action-item" *ngFor="let item of selectedItems">
+            <div class="item-type-indicator" [style.background-color]="getTypeColor(item.type)"></div>
+            <div class="item-content">
+              <div class="item-header">
+                <span class="item-type" [style.color]="getTypeColor(item.type)">{{ getTypeLabel(item.type) }}</span>
+                <span class="item-source">{{ item.source }}</span>
+              </div>
+              <span class="item-title">{{ item.title }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="no-items" *ngIf="selectedItems.length === 0 && selectedDate">
+          <span>No items for this date</span>
+        </div>
+
+        <div class="no-selection" *ngIf="!selectedDate">
+          <span>Click on a date to view action items</span>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>

@@ -1,22 +1,13 @@
 import { Routes } from '@angular/router';
-import { HomepageComponent } from './components/homepage/homepage.component';
-import { SearchpageComponent } from './components/searchpage/searchpage.component';
-import { CircularViewComponent } from './components/circular-view/circular-view.component';
+import { HomeComponent } from './home/home.component';
+import { AllCircularsComponent } from './all-circulars/all-circulars.component';
+import { CircularDetailComponent } from './circular-detail/circular-detail.component';
+import { ChangesComponent } from './changes/changes.component';
 
 export const routes: Routes = [
-  {
-    path: '',
-    component: SearchpageComponent,
-    title: 'Search Page'
-  },
-  {
-    path: 'home',
-    component: HomepageComponent,
-    title: 'Home'
-  },
-  {
-    path: 'circulars/:id',
-    component: CircularViewComponent,
-    title: 'Circular View'
-  }
+  { path: '', component: HomeComponent },
+  { path: 'all-circulars', component: AllCircularsComponent },
+  { path: 'changes', component: ChangesComponent },
+  { path: 'circular/:id', component: CircularDetailComponent },
+  { path: '**', redirectTo: '' }
 ];

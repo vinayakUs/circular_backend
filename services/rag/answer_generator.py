@@ -45,18 +45,71 @@ class RAGAnswerGenerator:
         # Build prompt
         prompt = self._build_prompt(query, context_chunks)
 
-        try:
-            llm_client = get_llm_client()
-            response = llm_client.get_client().chat.completions.create(
-                model=Config.RAG_MODEL,
-                response_model=RAGAnswer,
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=self.max_tokens,
-            )
-            return response
-        except Exception as e:
-            self.logger.error("RAG generation failed: %s", e)
-            raise
+        max_retries = 3
+        last_error: Exception | None = None
+
+        for attempt in range(max_retries + 1):
+            try:
+                llm_client = get_llm_client()
+                self.logger.info(
+                    "RAG: attempt=%d/%d calling LLM model=%s chunks=%d prompt_chars=%d",
+                    attempt + 1,
+                    max_retries + 1,
+                    Config.RAG_MODEL,
+                    len(limited_hits),
+                    len(prompt),
+                )
+                response = llm_client.get_client().chat.completions.create(
+                    model=Config.RAG_MODEL,
+                    response_model=RAGAnswer,
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=self.max_tokens,
+                    max_retries=0,  # we handle retries ourselves
+                )
+                self.logger.info(
+                    "RAG: attempt=%d/%d success answer_chars=%d refs=%d",
+                    attempt + 1,
+                    max_retries + 1,
+                    len(response.answer) if response.answer else 0,
+                    len(response.references),
+                )
+                return response
+            except Exception as e:
+                last_error = e
+                error_type = type(e).__name__
+                error_msg = str(e)[:300]
+                is_instructor_retry = "InstructorRetryException" in error_type or "incomplete" in error_msg.lower()
+                if is_instructor_retry and attempt < max_retries:
+                    self.logger.warning(
+                        "RAG: attempt=%d/%d retryable error type=%s msg=%s",
+                        attempt + 1,
+                        max_retries + 1,
+                        error_type,
+                        error_msg,
+                    )
+                elif is_instructor_retry and attempt == max_retries:
+                    self.logger.error(
+                        "RAG: attempt=%d/%d exhausted all retries type=%s msg=%s",
+                        attempt + 1,
+                        max_retries + 1,
+                        error_type,
+                        error_msg,
+                    )
+                    raise
+                else:
+                    # Non-retryable error (e.g. auth, timeout, connection)
+                    self.logger.error(
+                        "RAG: attempt=%d/%d non-retryable error type=%s msg=%s",
+                        attempt + 1,
+                        max_retries + 1,
+                        error_type,
+                        error_msg,
+                    )
+                    raise
+
+        # Should not reach here, but raise last error if we do
+        if last_error:
+            raise last_error
 
     def _build_context_chunks(self, hits: list[SearchHit]) -> list[dict[str, Any]]:
         """Build context chunks from search hits."""
