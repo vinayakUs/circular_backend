@@ -30,10 +30,21 @@ class CircularSummaryDTO(BaseModel):
         return value.isoformat() if value else None
 
 
-class CircularListResponseDTO(BaseModel):
-    """Paginated response for circular list endpoint."""
+class CircularListDataDTO(BaseModel):
+    """Inner data container for circular list response."""
+    circulars: List[CircularSummaryDTO]
 
-    items: List[CircularSummaryDTO]
-    total: int
+
+class PaginationDTO(BaseModel):
+    """Pagination metadata."""
     limit: int
     offset: int
+    total: int
+    hasNext: bool
+    hasPrev: bool
+
+
+class CircularListResponseDTO(BaseModel):
+    """Paginated response for circular list endpoint."""
+    data: CircularListDataDTO
+    pagination: PaginationDTO

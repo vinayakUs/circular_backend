@@ -10,12 +10,28 @@ export interface CountsResponse {
 
 export interface Circular {
   id: string;
+  source: string;
   circular_id: string;
   full_reference: string;
-  issue_date: string;
+  department: string;
   title: string;
-  source: string;
+  issue_date: string;
+  effective_date: string;
+  status: string;
   url: string;
+}
+
+export interface PaginatedCircularsResponse {
+  data: {
+    circulars: Circular[];
+  };
+  pagination: {
+    limit: number;
+    offset: number;
+    total: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+  };
 }
 
 export interface CircularsResponse {
@@ -24,8 +40,9 @@ export interface CircularsResponse {
 }
 
 export interface SemanticSearchResponse {
-  answer: string;
   query: string;
+  strategy: string;
+  answer: string;
   references: {
     circular_id: string;
     relevance_score: number;
@@ -34,20 +51,28 @@ export interface SemanticSearchResponse {
     url: string;
   }[];
   snippets: string[];
-  strategy: string;
+  rag_error?: string;
 }
 
 export interface SearchResponse {
   query: string;
-  results: SearchResult[];
   strategy: string;
+  results: SearchResult[];
 }
 
 export interface SearchResult {
-  document: Circular;
   id: string;
-  preview: string;
   score: number;
+  chunkId: string;
+  circularId: string;
+  fullReference: string;
+  department: string;
+  source: string;
+  title: string;
+  issueDate: string;
+  url: string;
+  chunkIndex: number;
+  preview: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -69,9 +94,9 @@ export class CircularsApiService {
     );
   }
 
-  getLatestCirculars(): Observable<CircularsResponse> {
+  getLatestCirculars(): Observable<PaginatedCircularsResponse> {
     const url = `${this.baseUrl}/api/circulars?source=ALL&limit=4&offset=0`;
-    return this.http.get<CircularsResponse>(url).pipe(
+    return this.http.get<PaginatedCircularsResponse>(url).pipe(
       tap(data => localStorage.setItem(this.listCacheKey, JSON.stringify(data))),
       catchError(() => {
         const cached = localStorage.getItem(this.listCacheKey);
@@ -87,7 +112,7 @@ export class CircularsApiService {
     from_date?: string;
     to_date?: string;
     search?: string;
-  }): Observable<CircularsResponse> {
+  }): Observable<PaginatedCircularsResponse> {
     const queryParams = new URLSearchParams();
     if (params.source) queryParams.set('source', params.source);
     if (params.limit) queryParams.set('limit', params.limit.toString());
@@ -97,15 +122,7 @@ export class CircularsApiService {
     if (params.search) queryParams.set('search', params.search);
 
     const url = `${this.baseUrl}/api/circulars?${queryParams.toString()}`;
-    const cacheKey = `circulars_list_${params.source}_${params.offset}_${params.search || ''}`;
-
-    return this.http.get<CircularsResponse>(url).pipe(
-      tap(data => localStorage.setItem(cacheKey, JSON.stringify(data))),
-      catchError(() => {
-        const cached = localStorage.getItem(cacheKey);
-        return cached ? of(JSON.parse(cached)) : of({ items: [], total: 0 });
-      })
-    );
+    return this.http.get<PaginatedCircularsResponse>(url);
   }
 
   semanticSearch(params: {
@@ -116,8 +133,8 @@ export class CircularsApiService {
     to_date?: string;
   }): Observable<SemanticSearchResponse> {
     return this.http.post<SemanticSearchResponse>(
-      `${this.baseUrl}/api/circulars/search`,
-      { q: params.query, ...params }
+      `${this.baseUrl}/api/circulars/search/hybrid`,
+      { q: params.query, source: params.source, from_date: params.from_date, to_date: params.to_date }
     );
   }
 
@@ -127,10 +144,9 @@ export class CircularsApiService {
     from_date?: string;
     to_date?: string;
   }): Observable<SearchResponse> {
-    const { query, ...rest } = params;
     return this.http.post<SearchResponse>(
-      `${this.baseUrl}/api/circulars/search`,
-      { q: query, strategy: 'bm25', ...rest }
+      `${this.baseUrl}/api/circulars/search/bm25`,
+      { q: params.query, source: params.source, from_date: params.from_date, to_date: params.to_date }
     );
   }
 }

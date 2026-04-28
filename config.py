@@ -39,7 +39,7 @@ class Config:
         os.getenv("SEBI_DETAIL_RETRY_BACKOFF_SECONDS", "2")
     )
     SCRAPER_DEFAULT_LOOKBACK_DAYS = int(
-        os.getenv("SCRAPER_DEFAULT_LOOKBACK_DAYS", "365") # default to 3 days if no data in db fetching historical data
+        os.getenv("SCRAPER_DEFAULT_LOOKBACK_DAYS", "2") # default to 2 days if no data in db fetching historical data
     ) 
     SCRAPER_ENABLED_SOURCES = _parse_scraper_sources(
         os.getenv("SCRAPER_ENABLED_SOURCES")
@@ -76,10 +76,10 @@ class Config:
         "ES_ENABLE_CONTEXTUAL_RETRIEVAL", "true"
     ).lower() == "true"
     ES_CONTEXTUAL_MODEL = os.getenv(
-        "ES_CONTEXTUAL_MODEL", "MiniMax-M2.7"
+        "ES_CONTEXTUAL_MODEL", "minimaxai/minimax-m2.7"
     )
     ES_CONTEXTUAL_MAX_TOKENS = int(
-        os.getenv("ES_CONTEXTUAL_MAX_TOKENS", "500")
+        os.getenv("ES_CONTEXTUAL_MAX_TOKENS", "600")
     )
     ES_RRF_WINDOW_SIZE = int(os.getenv("ES_RRF_WINDOW_SIZE", "100"))
     ES_KNN_NUM_CANDIDATES = int(os.getenv("ES_KNN_NUM_CANDIDATES", "1000"))

@@ -1,10 +1,11 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { marked } from 'marked';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { NavbarComponent } from '../navbar/navbar.component';
-import { CircularsApiService, Circular, SemanticSearchResponse, SearchResult } from '../services/circulars-api.service';
+import { CircularsApiService, Circular, SemanticSearchResponse, SearchResult, SearchResponse } from '../services/circulars-api.service';
 
 @Component({
   selector: 'app-all-circulars',
@@ -16,6 +17,7 @@ import { CircularsApiService, Circular, SemanticSearchResponse, SearchResult } f
 export class AllCircularsComponent implements OnInit {
   private apiService = inject(CircularsApiService);
   private sanitizer = inject(DomSanitizer);
+  private router = inject(Router);
 
   circulars: Circular[] = [];
   searchResults: SearchResult[] = [];
@@ -57,8 +59,8 @@ export class AllCircularsComponent implements OnInit {
       search: this.filters.search || undefined
     }).subscribe({
       next: (data) => {
-        this.circulars = data.items;
-        this.total = data.total;
+        this.circulars = data.data.circulars;
+        this.total = data.pagination.total;
         this.loading = false;
         this.isApiError = false;
       },
@@ -91,6 +93,7 @@ export class AllCircularsComponent implements OnInit {
   }
 
   performKeywordSearch(): void {
+    console.log("Performing keyword search with query:", this.filters.search);
     if (!this.filters.search.trim()) {
       this.loadCirculars();
       return;
@@ -103,9 +106,25 @@ export class AllCircularsComponent implements OnInit {
       from_date: this.filters.from_date || undefined,
       to_date: this.filters.to_date || undefined
     }).subscribe({
-      next: (data) => {
+      next: (data: SearchResponse) => {
+        console.log("data:", data);
         this.searchResults = data.results;
-        this.circulars = data.results.map(r => r.document);
+        console.log("searchResults:", this.searchResults);
+
+        this.circulars = data.results.map(r => ({
+          id: r.id,
+          circular_id: r.circularId,
+          full_reference: r.fullReference,
+          department: r.department,
+          source: r.source,
+          title: r.title,
+          issue_date: r.issueDate,
+          effective_date: '',
+          status: '',
+          url: r.url
+        }));
+        console.log("circulars:", this.circulars);
+
         this.total = data.results.length;
         this.loading = false;
         this.isApiError = false;
@@ -125,6 +144,7 @@ export class AllCircularsComponent implements OnInit {
     this.semanticLoading = true;
     this.semanticResult = null;
     this.showSemanticResult = true;
+    this.total = 0;
 
     this.apiService.semanticSearch({
       query: this.filters.search,
@@ -195,6 +215,11 @@ export class AllCircularsComponent implements OnInit {
 
   getPreview(result: SearchResult): SafeHtml {
     return this.sanitizer.bypassSecurityTrustHtml(result.preview);
+  }
+
+  navigateToCircular(circularId: string,circ: any): void {
+    console.log("Navigating to circular:", circularId, circ);
+    this.router.navigate(['/circular', circularId]);
   }
 
   clearSearch(): void {

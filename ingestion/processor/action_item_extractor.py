@@ -11,7 +11,7 @@ from ingestion.indexer.pdf_extractor import PDFTextExtractor
 from ingestion.processor.base import BaseProcessor
 from ingestion.repository.action_item_repository import ActionItemRepository
 from ingestion.repository.circular_repository import CircularRepository, CircularRecord
-from utils.llm_client import get_llm_client
+from utils.llm_providers import get_llm_provider
 
 
 class ActionItem(BaseModel):
@@ -35,10 +35,25 @@ class ActionItem(BaseModel):
     )
 
 
-class ActionItemList(BaseModel):
-    """A list of extracted action items."""
+class ActionItemSingle(BaseModel):
+    """Single action item extracted from a circular."""
 
-    items: List[ActionItem]
+    action_item: str = Field(
+        ...,
+        description="Full action item in natural language format including entity, action, and deadline. Examples: 'Trading in HDFC Bank Limited's Non-Convertible Securities (ISIN: INE040A08468) will be suspended from April 17, 2026.' or 'Promoters of Creative Merchants Ltd must purchase shares from public shareholders as per fair value by May 11, 2026.'",
+    )
+    deadline: Optional[str] = Field(
+        None,
+        description="Deadline in YYYY-MM-DD format. Copy directly from text without modification.",
+    )
+    priority: Optional[str] = Field(
+        None,
+        description="Priority level: critical, high, medium, or low. Assess based on regulatory consequence and urgency.",
+    )
+    persona: Optional[str] = Field(
+        None,
+        description="Persona: Compliance Officer, Trading Desk, Risk Manager, Technology/Connectivity, Operations, FPI/Investor",
+    )
 
 
 class ActionItemProcessor(BaseProcessor):
@@ -84,7 +99,7 @@ class ActionItemProcessor(BaseProcessor):
             raise ValueError("Extracted text from PDF is empty.")
 
         # Call LLM
-        llm_client = get_llm_client()
+        llm_client = get_llm_provider(Config.LLM_PROVIDER)
         model = Config.ACTION_ITEM_MODEL
 
         prompt = f"""
@@ -122,21 +137,18 @@ class ActionItemProcessor(BaseProcessor):
         """
 
         try:
-            response = llm_client.get_client().chat.completions.create(
+            response = llm_client.create_completions_parallel(
+                prompts=[prompt],
                 model=model,
-                response_model=ActionItemList,
-                messages=[{"role": "user", "content": prompt}],
-            )
+                response_model=ActionItemSingle,
+            )[0]
         except Exception as e:
             raise RuntimeError(f"LLM extraction failed: {e}")
 
         # Persist action items idempotently
         self.action_repo.delete_action_items_for_circular(record.id)
-        if response.items:
-            self.action_repo.insert_action_items(record.id, response.items)
-            self.logger.info("Inserted %d action items for circular_id=%s", len(response.items), record.id)
-        else:
-            self.logger.info("No action items extracted for circular_id=%s", record.id)
+        self.action_repo.insert_action_items(record.id, [response])
+        self.logger.info("Inserted 1 action item for circular_id=%s", record.id)
 
 
 def main():

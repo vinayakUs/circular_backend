@@ -8,7 +8,7 @@ from ingestion.indexer.pdf_extractor import PDFTextExtractor
 from ingestion.processor.base import BaseProcessor
 from ingestion.repository.circular_reference_repository import CircularReferenceRepository
 from ingestion.repository.circular_repository import CircularRepository, CircularRecord
-from utils.llm_client import get_llm_client
+from utils.llm_providers import get_llm_provider
 
 from pydantic import BaseModel, Field
 
@@ -200,12 +200,12 @@ Text excerpt for context (first 1500 chars):
 """
 
         try:
-            llm_client = get_llm_client()
-            response = llm_client.get_client().chat.completions.create(
+            llm_client = get_llm_provider(Config.LLM_PROVIDER)
+            response = llm_client.create_completions_parallel(
+                prompts=[prompt],
                 model=Config.ACTION_ITEM_MODEL,
                 response_model=ReferenceListResponse,
-                messages=[{"role": "user", "content": prompt}],
-            )
+            )[0]
             # Merge LLM results with original references
             result = []
             for classified in response.references:

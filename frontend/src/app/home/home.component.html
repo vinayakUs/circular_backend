@@ -91,8 +91,8 @@
               </div>
             </div>
             <ng-template #circularsContent>
-              <div class="circular-list" *ngIf="circulars?.items?.length; else noCirculars">
-                <div class="circular-item" *ngFor="let circ of circulars?.items ?? []">
+              <div class="circular-list" *ngIf="circulars?.length; else noCirculars">
+                <div class="circular-item" *ngFor="let circ of circulars ?? []" (click)="navigateToCircular(circ.id)">
                   <div class="exchange-badge" [class]="circ.source.toLowerCase()">{{ circ.source }}</div>
                   <div class="circular-info">
                     <span class="circular-title">{{ circ.title }}</span>

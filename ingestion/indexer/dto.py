@@ -108,24 +108,21 @@ class SearchHit:
     score: float | None
     document: IndexDocument
 
-    def to_dict(self, query: str) -> dict[str, Any]:
-        return {
-            "id": self.es_id,
-            "score": self.score,
-            "preview": self.build_preview(query),
-            "document": self.document.to_api_body(),
-        }
-    
-    def build_preview(self, query: str) -> str:
-        text = self.document.chunk_text or ""
-        if not text:
-            return ""
+    # def to_dict(self, query: str) -> dict[str, Any]:
+    #     return {
+    #         "id": self.es_id,
+    #         "score": self.score,
+    #         "preview": self.build_preview(query),
+    #         "document": self.document.to_api_body(),
+    #     }
 
-        snippets = multi_snippet(text, query)
-        if snippets:
-            # highlight the query terms in the snippets
-            highlighted = [highlight(s, query) for s in snippets]
-            return f"<div class='preview'>{' ... '.join(highlighted)}</div>"
-
-        fallback = text[:200] + ("..." if len(text) > 200 else "")
-        return f"<div class='preview'>{highlight(fallback, query)}</div>"
+    # def build_preview(self, query: str) -> str:
+    #     text = self.document.chunk_text or ""
+    #     if not text:
+    #         return ""
+    #     snippets = multi_snippet(text, query)
+    #     if snippets:
+    #         highlighted = [highlight(s, query) for s in snippets]
+    #         return f"<div class='preview'>{' ... '.join(highlighted)}</div>"
+    #     fallback = text[:200] + ("..." if len(text) > 200 else "")
+    #     return f"<div class='preview'>{highlight(fallback, query)}</div>"

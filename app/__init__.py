@@ -14,6 +14,7 @@ from ingestion.repository import CircularRepository
 from ingestion.repository.action_item_repository import ActionItemRepository
 from app.dto.action_item_dto import ActionItemListResponseDTO
 from app.dto.circular_dto import CircularListResponseDTO, CircularSummaryDTO
+from app.dto.search_result_dto import search_hit_to_dict
 from services.rag.answer_generator import RAGAnswerGenerator
 
 try:
@@ -143,11 +144,11 @@ def create_app() -> Flask:
 
 
 
-    @app.post("/api/circulars/search")
-    def search_circulars():
+    @app.post("/api/circulars/search/bm25")
+    def search_circulars_bm25():
         body = request.get_json() or {}
         query = body.get("q", "").strip()
-        strategy = body.get("strategy", Config.ES_SEARCH_DEFAULT_STRATEGY).strip().lower()
+        strategy = "bm25"
 
         raw_source = body.get("source", "").strip().upper()
         if raw_source == "ALL":
@@ -158,9 +159,6 @@ def create_app() -> Flask:
         if not query:
             return {"error": "Query parameter 'q' is required."}, 400
 
-        if strategy not in {"bm25", "vector", "hybrid"}:
-            return {"error": "Unsupported search strategy."}, 400
-
         search_metadata = {}
         if raw_source:
             search_metadata["source"] = [raw_source]
@@ -170,9 +168,8 @@ def create_app() -> Flask:
             search_metadata["to_date"] = to_date
 
         logger.info(
-            "Search request: query=%r, strategy=%s, source=%s, from_date=%s, to_date=%s",
+            "BM25 search request: query=%r, source=%s, from_date=%s, to_date=%s",
             query,
-            strategy,
             raw_source or "ALL",
             from_date,
             to_date,
@@ -186,63 +183,120 @@ def create_app() -> Flask:
 
             result_count = len(results)
             logger.info(
-                "Search completed: query=%r, strategy=%s, results=%d, duration_ms=%.2f",
+                "BM25 search completed: query=%r, results=%d, duration_ms=%.2f",
                 query,
-                strategy,
                 result_count,
                 search_elapsed_ms,
             )
         except ConnectionTimeout:
-            logger.warning("Search timeout: query=%r, strategy=%s", query, strategy)
+            logger.warning("Search timeout: query=%r", query)
             return {
                 "error": "Search service is temporarily unavailable.",
                 "query": query,
                 "results": [],
             }, 503
         except Exception as e:
-            logger.error("Search failed: query=%r, strategy=%s, error=%s", query, strategy, e)
+            logger.error("Search failed: query=%r, error=%s", query, e)
             return {
                 "error": "Search service encountered an error.",
                 "query": query,
                 "results": [],
             }, 500
 
-        if strategy == "bm25":
+        return {
+            "query": query,
+            "strategy": strategy,
+            "results": [search_hit_to_dict(result, query) for result in results],
+        }
+
+    @app.post("/api/circulars/search/hybrid")
+    def search_circulars_hybrid():
+        body = request.get_json() or {}
+        query = body.get("q", "").strip()
+        strategy = "hybrid"
+
+        raw_source = body.get("source", "").strip().upper()
+        if raw_source == "ALL":
+            raw_source = ""
+        from_date = body.get("from_date") or None
+        to_date = body.get("to_date") or None
+
+        if not query:
+            return {"error": "Query parameter 'q' is required."}, 400
+
+        search_metadata = {}
+        if raw_source:
+            search_metadata["source"] = [raw_source]
+        if from_date:
+            search_metadata["from_date"] = from_date
+        if to_date:
+            search_metadata["to_date"] = to_date
+
+        logger.info(
+            "Hybrid search request: query=%r, source=%s, from_date=%s, to_date=%s",
+            query,
+            raw_source or "ALL",
+            from_date,
+            to_date,
+        )
+
+        try:
+            import time
+            search_start = time.perf_counter()
+            results = get_es_client().search(query, search_metadata, strategy=strategy)
+            search_elapsed_ms = (time.perf_counter() - search_start) * 1000
+
+            result_count = len(results)
+            logger.info(
+                "Hybrid search completed: query=%r, results=%d, duration_ms=%.2f",
+                query,
+                result_count,
+                search_elapsed_ms,
+            )
+        except ConnectionTimeout:
+            logger.warning("Search timeout: query=%r", query)
+            return {
+                "error": "Search service is temporarily unavailable.",
+                "query": query,
+                "results": [],
+            }, 503
+        except Exception as e:
+            logger.error("Search failed: query=%r, error=%s", query, e)
+            return {
+                "error": "Search service encountered an error.",
+                "query": query,
+                "results": [],
+            }, 500
+
+        try:
+            rag_start = time.perf_counter()
+            logger.info("Executing LLM search: strategy=%s", strategy)
+            rag_answer = rag_generator.generate_answer(query, results)
+            rag_elapsed_ms = (time.perf_counter() - rag_start) * 1000
+
+            logger.info(
+                "RAG answer generated: query=%r, strategy=%s, answer_length=%d, refs=%d, duration_ms=%.2f",
+                query,
+                strategy,
+                len(rag_answer.answer) if rag_answer.answer else 0,
+                len(rag_answer.references),
+                rag_elapsed_ms,
+            )
             return {
                 "query": query,
                 "strategy": strategy,
-                "results": [result.to_dict(query=query) for result in results],
+                "answer": rag_answer.answer,
+                "references": [ref.to_dict() for ref in rag_answer.references],
+                "snippets": rag_answer.snippets,
             }
-        else:
-            try:
-                rag_start = time.perf_counter()
-                logger.info("Executing LLM search: strategy=%s", strategy)
-                rag_answer = rag_generator.generate_answer(query, results)
-                rag_elapsed_ms = (time.perf_counter() - rag_start) * 1000
-
-                logger.info(
-                    "RAG answer generated: query=%r, strategy=%s, answer_length=%d, refs=%d, duration_ms=%.2f",
-                    query,
-                    strategy,
-                    len(rag_answer.answer) if rag_answer.answer else 0,
-                    len(rag_answer.references),
-                    rag_elapsed_ms,
-                )
-                return {
-                    "query": query,
-                    "strategy": strategy,
-                    "answer": rag_answer.answer,
-                    "references": [ref.to_dict() for ref in rag_answer.references],
-                    "snippets": rag_answer.snippets,
-                }
-            except Exception as e:
-                logger.warning("RAG failed, returning raw chunks: query=%r, error=%s", query, e)
-                return {
-                    "query": query,
-                    "strategy": strategy,
-                    "results": [result.to_dict(query=query) for result in results],
-                    "rag_error": str(e),
-                }
+        except Exception as e:
+            logger.warning("RAG failed, returning raw chunks: query=%r, error=%s", query, e)
+            return {
+                "query": query,
+                "strategy": strategy,
+                "results": [search_hit_to_dict(result, query) for result in results],
+                "rag_error": str(e),
+            }
 
     @app.get("/api/action-items")
     def get_action_items():
@@ -335,10 +389,14 @@ def create_app() -> Flask:
         ]
 
         response = CircularListResponseDTO(
-            items=items,
-            total=total,
-            limit=limit,
-            offset=offset,
+            data={"circulars": items},
+            pagination={
+                "limit": limit,
+                "offset": offset,
+                "total": total,
+                "hasNext": offset + limit < total,
+                "hasPrev": offset > 0,
+            },
         )
         return response.model_dump()
 

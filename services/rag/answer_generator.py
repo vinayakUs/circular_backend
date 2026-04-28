@@ -4,7 +4,7 @@ from typing import Any
 from config import Config
 from ingestion.indexer.dto import SearchHit
 from services.rag.dto import Citation, RAGAnswer
-from utils.llm_client import get_llm_client
+from utils.llm_providers import get_llm_provider
 
 
 class RAGAnswerGenerator:
@@ -50,7 +50,7 @@ class RAGAnswerGenerator:
 
         for attempt in range(max_retries + 1):
             try:
-                llm_client = get_llm_client()
+                llm_client = get_llm_provider(Config.LLM_PROVIDER)
                 self.logger.info(
                     "RAG: attempt=%d/%d calling LLM model=%s chunks=%d prompt_chars=%d",
                     attempt + 1,

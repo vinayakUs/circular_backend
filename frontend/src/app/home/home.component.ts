@@ -1,7 +1,8 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { DecimalPipe, DatePipe, NgIf, NgFor } from '@angular/common';
+import { Router } from '@angular/router';
 import { NavbarComponent } from '../navbar/navbar.component';
-import { CircularsApiService, CircularsResponse, CountsResponse } from '../services/circulars-api.service';
+import { CircularsApiService, Circular, PaginatedCircularsResponse, CountsResponse } from '../services/circulars-api.service';
 
 @Component({
   selector: 'app-home',
@@ -12,8 +13,9 @@ import { CircularsApiService, CircularsResponse, CountsResponse } from '../servi
 })
 export class HomeComponent implements OnInit {
   private apiService = inject(CircularsApiService);
+  private router = inject(Router);
   counts: CountsResponse | null = null;
-  circulars: CircularsResponse | null = null;
+  circulars: Circular[] = [];
   loadingCounts = true;
   loadingCirculars = true;
   isApiError = false;
@@ -31,16 +33,20 @@ export class HomeComponent implements OnInit {
     });
 
     this.apiService.getLatestCirculars().subscribe({
-      next: (data) => {
-        this.circulars = data;
+      next: (data: PaginatedCircularsResponse) => {
+        this.circulars = data.data.circulars;
         this.loadingCirculars = false;
         this.isApiError = false;
       },
       error: () => {
-        this.circulars = null;
+        this.circulars = [];
         this.loadingCirculars = false;
         this.isApiError = true;
       }
     });
+  }
+
+  navigateToCircular(circularId: string): void {
+    this.router.navigate(['/circular', circularId]);
   }
 }
