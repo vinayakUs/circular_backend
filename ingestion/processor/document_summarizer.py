@@ -24,16 +24,9 @@ MAX_CHUNK_CHARS = 5000
 # Map prompt for map_reduce
 MAP_PROMPT = PromptTemplate(
     input_variables=["text"],
-    template="""Extract key factual information and regulatory entities from this section. Ignore UI navigation steps, SOPs for process completion, and procedural instructions.
+    template="""Write a concise paragraph summarizing this section. Focus on: factual information about what the regulation requires, who it applies to, and key obligations or deadlines. For tables: extract only aggregate counts or totals (e.g., "the list contains 45 securities across 6 categories"). Do not list individual table entries. Ignore UI navigation steps, procedural instructions, and SOPs. Do not include any contact information, email addresses, phone numbers, or references to help desk/FAQ/exchange contacts. Write 2-4 sentences in plain paragraph format without headers, bullet points, or tables.
 
-For tables or large data: summarize as counts, totals, or statistics (e.g., "Table lists 47 items across 6 categories").
-
-Output 2-3 sentences max covering:
-- Factual entities and their attributes
-- Regulatory requirements and obligations
-- Key statistics or aggregated data
-
-Use **bold** for key entities, obligations, and important values.
+IMPORTANT: You MUST wrap the following in **bold** in your output: key entities (like names of regulations, frameworks, segments), obligations, deadlines (dates), and important values or thresholds. Example: "**minimum 100% margin**", "**January 6, 2026**", "**Trade-for-Trade**"
 
 Text:
 {text}""",
@@ -42,16 +35,9 @@ Text:
 # Reduce prompt to combine chunk summaries
 REDUCE_PROMPT = PromptTemplate(
     input_variables=["text"],
-    template="""Combine these section summaries into a cohesive 2-3 paragraph regulatory summary.
+    template="""Combine these section summaries into a single cohesive paragraph. Write in plain paragraph format without headers, bullet points, or tables. Focus on: what the regulation requires, who it applies to, key compliance obligations, and important deadlines. For any tables or lists mentioned, include only aggregate counts or totals (e.g., "covers 30 securities across 4 categories"). Do not include individual entries. Do not include any contact information, email addresses, phone numbers, or references to help desk/FAQ/exchange contacts. Ignore procedural steps and UI instructions.
 
-Focus on:
-- What the regulation requires and who it applies to
-- Key compliance obligations and deadlines
-- Important entities, thresholds, or statistics mentioned
-
-Ignore: UI steps, navigation instructions, SOPs, and procedural how-to guides.
-
-Use **bold** for key entities, obligations, deadlines, and important values.
+IMPORTANT: You MUST wrap the following in **bold** in your output: key entities (like names of regulations, frameworks, segments), obligations, deadlines (dates), and important values or thresholds. Example: "**minimum 100% margin**", "**January 6, 2026**", "**Trade-for-Trade**"
 
 Summaries:
 {text}""",
@@ -60,21 +46,9 @@ Summaries:
 # Stuff prompt for small documents
 SUMMARY_PROMPT = PromptTemplate(
     input_variables=["text"],
-    template="""You are a regulatory compliance assistant. Summarize the following document focusing on factual content.
+    template="""You are a regulatory compliance assistant. Summarize the following document as a single cohesive paragraph. Write in plain prose without headers, bullet points, tables, or lists. Focus on: what the regulation requires, who it applies to, key compliance obligations and deadlines, and important entities or thresholds. For any tables or data sets, include only aggregate statistics (e.g., "covers 45 securities across 6 categories" or "lists 12 items with values ranging from X to Y"). Do not enumerate individual table entries. Do not include any contact information, email addresses, phone numbers, or references to help desk/FAQ/exchange contacts. Ignore UI steps, navigation instructions, SOPs, and procedural how-to guides. Be precise and factual.
 
-Extract:
-- What the regulation requires and who it applies to
-- Key compliance obligations, deadlines, and thresholds
-- Important entities and their attributes
-- Aggregated statistics from tables (ignore individual entries)
-
-Skip:
-- UI navigation steps or screen instructions
-- SOPs and process completion procedures
-- Procedural how-to guides
-
-Use **bold** for key entities, obligations, deadlines, and important values.
-Be precise and factual. Do not add commentary or opinions.
+IMPORTANT: You MUST wrap the following in **bold** in your output: key entities (like names of regulations, frameworks, segments), obligations, deadlines (dates), and important values or thresholds. Example: "**minimum 100% margin**", "**January 6, 2026**", "**Trade-for-Trade**"
 
 Document:
 {text}""",
@@ -125,7 +99,7 @@ class DocumentSummarizerProcessor(BaseProcessor):
         # Build LangChain adapter
         llm_adapter = LangChainLLMAdapter(
             provider_name=Config.LLM_PROVIDER,
-            model_name=Config.RAG_MODEL,
+            model_name=Config.SUMMARIZATION_MODEL,
         )
 
         # Use map_reduce for large documents, stuff for small ones

@@ -70,13 +70,6 @@ class ElasticsearchIndexer:
     def _process_record(
         self, record: CircularRecord, *, cleanup_stale_chunks: bool = False
     ) -> bool:
-        if not record.file_path:
-            self.logger.debug(
-                "Record has no legacy file_path record_id=%s circular_id=%s; using asset manifest",
-                record.id,
-                record.circular_id,
-            )
-
         try:
             assets = self.circular_repository.list_assets(record.id)
             indexable_assets = self._get_indexable_assets(assets)

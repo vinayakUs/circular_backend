@@ -132,15 +132,13 @@ class ScraperOrchestrator:
                     circular.pdf_url, circular
                 )
                 self.circular_repository.replace_assets(record_id, assets)
-                self.circular_repository.update_file_path(record_id, file_path, content_hash)
                 self.circular_repository.update_status(record_id, "FETCHED")
                 fetched_count += 1
                 self.logger.info(
-                    "Fetched circular source=%s circular_id=%s record_id=%s file_path=%s asset_count=%s",
+                    "Fetched circular source=%s circular_id=%s record_id=%s asset_count=%s",
                     circular.source,
                     circular.circular_id,
                     record_id,
-                    file_path,
                     len(assets),
                 )
             except Exception as exc:

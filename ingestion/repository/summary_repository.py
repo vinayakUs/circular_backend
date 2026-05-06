@@ -115,3 +115,14 @@ class SummaryRepository:
         # Delete DB record
         with self.db_pool.connection() as conn:
             conn.execute("DELETE FROM summaries WHERE circular_id = %s", (circular_id,))
+
+    def get_summary_text(self, circular_id: UUID) -> str | None:
+        """Get summary text directly from S3 by circular_id."""
+        summary_key = self.get_summary_key(circular_id)
+        if not summary_key:
+            return None
+        try:
+            return self.s3_client.download_as_text(summary_key)
+        except Exception:
+            self.logger.warning("Failed to download summary from S3 key=%s", summary_key)
+            return None

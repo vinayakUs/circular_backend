@@ -27,7 +27,6 @@ CREATE TABLE IF NOT EXISTS circulars (
     effective_date DATE,
     url TEXT,
     pdf_url TEXT,
-    file_path VARCHAR(500),
     content_hash VARCHAR(64),
     status VARCHAR(20) NOT NULL DEFAULT 'DISCOVERED',
     error_message TEXT,
@@ -43,7 +42,6 @@ CREATE TABLE IF NOT EXISTS circulars (
 CREATE INDEX IF NOT EXISTS idx_circulars_status ON circulars(status);
 CREATE INDEX IF NOT EXISTS idx_circulars_source ON circulars(source);
 CREATE INDEX IF NOT EXISTS idx_circulars_issue_date ON circulars(issue_date DESC);
-CREATE INDEX IF NOT EXISTS idx_circulars_es_pending ON circulars(status, es_indexed_at) WHERE file_path IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_circulars_source_item_key ON circulars(source, source_item_key);
 
 CREATE TABLE IF NOT EXISTS circular_assets (
@@ -159,7 +157,6 @@ class CircularRecord:
     url: str
     pdf_url: str
     status: str
-    file_path: str | None
     content_hash: str | None
     error_message: str | None
     detected_at: datetime
@@ -241,11 +238,6 @@ class CircularRepository:
     def upsert_circular(self, circular: Circular) -> tuple[UUID, bool]:
         return self._upsert_circular_db(circular)
 
-    def update_file_path(
-        self, record_id: UUID, file_path: str, content_hash: str | None = None
-    ) -> None:
-        self._update_file_path_db(record_id, file_path, content_hash)
-
     def replace_assets(
         self, circular_id: UUID, assets: list[CircularAsset]
     ) -> list[CircularAssetRecord]:
@@ -279,7 +271,7 @@ class CircularRepository:
                 """
                 SELECT id, source, circular_id, source_item_key, full_reference,
                        department, title, issue_date, effective_date, url, pdf_url,
-                       status, file_path, content_hash, error_message, detected_at,
+                       status, content_hash, error_message, detected_at,
                        created_at, updated_at, es_indexed_at, es_chunk_count,
                        es_index_name
                 FROM circulars
@@ -296,7 +288,7 @@ class CircularRepository:
                 """
                 SELECT id, source, circular_id, source_item_key, full_reference,
                        department, title, issue_date, effective_date, url, pdf_url,
-                       status, file_path, content_hash, error_message, detected_at,
+                       status, content_hash, error_message, detected_at,
                        created_at, updated_at, es_indexed_at, es_chunk_count,
                        es_index_name
                 FROM circulars
@@ -319,7 +311,7 @@ class CircularRepository:
                     """
                     SELECT id, source, circular_id, source_item_key, full_reference,
                            department, title, issue_date, effective_date, url, pdf_url,
-                           status, file_path, content_hash, error_message, detected_at,
+                           status, content_hash, error_message, detected_at,
                            created_at, updated_at, es_indexed_at, es_chunk_count,
                            es_index_name
                     FROM circulars
@@ -334,7 +326,7 @@ class CircularRepository:
                     """
                     SELECT id, source, circular_id, source_item_key, full_reference,
                            department, title, issue_date, effective_date, url, pdf_url,
-                           status, file_path, content_hash, error_message, detected_at,
+                           status, content_hash, error_message, detected_at,
                            created_at, updated_at, es_indexed_at, es_chunk_count,
                            es_index_name
                     FROM circulars
@@ -355,7 +347,7 @@ class CircularRepository:
         normalized = reference.upper()
         self.logger.info('''SELECT id, source, circular_id, source_item_key, full_reference,
                        department, title, issue_date, effective_date, url, pdf_url,
-                       status, file_path, content_hash, error_message, detected_at,
+                       status, content_hash, error_message, detected_at,
                        created_at, updated_at, es_indexed_at, es_chunk_count,
                        es_index_name
                 FROM circulars
@@ -367,7 +359,7 @@ class CircularRepository:
                 """
                 SELECT id, source, circular_id, source_item_key, full_reference,
                        department, title, issue_date, effective_date, url, pdf_url,
-                       status, file_path, content_hash, error_message, detected_at,
+                       status, content_hash, error_message, detected_at,
                        created_at, updated_at, es_indexed_at, es_chunk_count,
                        es_index_name
                 FROM circulars
@@ -387,7 +379,7 @@ class CircularRepository:
                 """
                 SELECT id, source, circular_id, source_item_key, full_reference,
                        department, title, issue_date, effective_date, url, pdf_url,
-                       status, file_path, content_hash, error_message, detected_at,
+                       status, content_hash, error_message, detected_at,
                        created_at, updated_at, es_indexed_at, es_chunk_count,
                        es_index_name
                 FROM circulars
@@ -423,7 +415,7 @@ class CircularRepository:
         total_sql = f"""
             SELECT id, source, circular_id, source_item_key, full_reference,
                    department, title, issue_date, effective_date, url, pdf_url,
-                   status, file_path, content_hash, error_message, detected_at,
+                   status, content_hash, error_message, detected_at,
                    created_at, updated_at, es_indexed_at, es_chunk_count,
                    es_index_name
             FROM circulars
@@ -477,7 +469,6 @@ class CircularRepository:
             with self.db_pool.connection() as conn:
                 conn.execute(self.schema_sql())
             CircularRepository._schema_initialized = True
-            self._backfill_legacy_assets()
             self.logger.info("Repository schema initialized")
 
     def _upsert_circular_db(self, circular: Circular) -> tuple[UUID, bool]:
@@ -527,7 +518,7 @@ class CircularRepository:
                     WHERE id = %s
                     RETURNING id, source, circular_id, source_item_key, full_reference,
                               department, title, issue_date, effective_date, url, pdf_url,
-                              status, file_path, content_hash, error_message, detected_at,
+                              status, content_hash, error_message, detected_at,
                               created_at, updated_at, es_indexed_at, es_chunk_count,
                               es_index_name
                     """,
@@ -551,13 +542,13 @@ class CircularRepository:
                     """
                     INSERT INTO circulars (
                         source, circular_id, source_item_key, full_reference, department,
-                        title, issue_date, effective_date, url, pdf_url, status, file_path,
+                        title, issue_date, effective_date, url, pdf_url, status,
                         content_hash, error_message, detected_at
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     RETURNING id, source, circular_id, source_item_key, full_reference,
                               department, title, issue_date, effective_date, url, pdf_url,
-                              status, file_path, content_hash, error_message, detected_at,
+                              status, content_hash, error_message, detected_at,
                               created_at, updated_at, es_indexed_at, es_chunk_count,
                               es_index_name
                     """,
@@ -573,7 +564,6 @@ class CircularRepository:
                         circular.url,
                         circular.pdf_url,
                         "DISCOVERED",
-                        None,
                         None,
                         None,
                         circular.detected_at or now,
@@ -593,28 +583,6 @@ class CircularRepository:
             record.id,
         )
         return record.id, inserted
-
-    def _update_file_path_db(
-        self, record_id: UUID, file_path: str, content_hash: str | None = None
-    ) -> None:
-        self._ensure_schema()
-        with self.db_pool.connection() as conn:
-            conn.execute(
-                """
-                UPDATE circulars
-                SET file_path = %s,
-                    content_hash = %s,
-                    updated_at = NOW()
-                WHERE id = %s
-                """,
-                (file_path, content_hash, record_id),
-            )
-        self.logger.info(
-            "Circular file path updated record_id=%s file_path=%s content_hash=%s",
-            record_id,
-            file_path,
-            content_hash,
-        )
 
     def _replace_assets_db(
         self, circular_id: UUID, assets: list[CircularAsset]
@@ -771,15 +739,14 @@ class CircularRepository:
             url=row[9] or "",
             pdf_url=row[10] or "",
             status=row[11],
-            file_path=row[12],
-            content_hash=row[13],
-            error_message=row[14],
-            detected_at=row[15],
-            created_at=row[16],
-            updated_at=row[17],
-            es_indexed_at=row[18] if len(row) > 18 else None,
-            es_chunk_count=row[19] if len(row) > 19 else None,
-            es_index_name=row[20] if len(row) > 20 else None,
+            content_hash=row[12],
+            error_message=row[13],
+            detected_at=row[14],
+            created_at=row[15],
+            updated_at=row[16],
+            es_indexed_at=row[17] if len(row) > 17 else None,
+            es_chunk_count=row[18] if len(row) > 18 else None,
+            es_index_name=row[19] if len(row) > 19 else None,
         )
 
     def _row_to_asset_record(self, row: Any) -> CircularAssetRecord | None:
@@ -806,7 +773,7 @@ class CircularRepository:
                 """
                 SELECT id, source, circular_id, source_item_key, full_reference,
                        department, title, issue_date, effective_date, url, pdf_url,
-                       status, file_path, content_hash, error_message, detected_at,
+                       status, content_hash, error_message, detected_at,
                        created_at, updated_at, es_indexed_at, es_chunk_count,
                        es_index_name
                 FROM circulars
@@ -818,37 +785,6 @@ class CircularRepository:
                 (limit,),
             ).fetchall()
         return [record for row in rows if (record := self._row_to_record(row))]
-
-    def _backfill_legacy_assets(self) -> None:
-        with self.db_pool.connection() as conn:
-            conn.execute(
-                """
-                INSERT INTO circular_assets (
-                    circular_id,
-                    asset_role,
-                    file_path,
-                    content_hash,
-                    mime_type,
-                    archive_member_path,
-                    file_size_bytes
-                )
-                SELECT
-                    c.id,
-                    'original_pdf',
-                    c.file_path,
-                    c.content_hash,
-                    'application/pdf',
-                    NULL,
-                    NULL
-                FROM circulars c
-                WHERE c.file_path IS NOT NULL
-                  AND NOT EXISTS (
-                      SELECT 1
-                      FROM circular_assets a
-                      WHERE a.circular_id = c.id
-                  )
-                """
-            )
 
     def _get_source_counts_db(self, sources: tuple[str, ...]) -> dict[str, int]:
         self._ensure_schema()

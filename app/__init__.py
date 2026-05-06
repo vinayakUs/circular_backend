@@ -41,7 +41,6 @@ def _serialize_circular_record(record: Any) -> dict[str, Any]:
         "id": str(record.id),
         "issue_date": record.issue_date.isoformat(),
         "full_reference": record.full_reference,
-        "file_path": record.file_path,
         "url": record.url,
         "source": record.source,
         "title": record.title,
@@ -523,5 +522,15 @@ def create_app() -> Flask:
                 for r in records
             ],
         }
+
+    @app.get("/api/circulars/<uuid:record_id>/summary")
+    def get_circular_summary(record_id):
+        from ingestion.repository.summary_repository import SummaryRepository
+        db_client = get_db_client()
+        repository = SummaryRepository(db_pool=db_client.get_pool())
+        summary_text = repository.get_summary_text(record_id)
+        if summary_text is None:
+            return {"error": "Summary not found"}, 404
+        return {"summary": summary_text}
 
     return app

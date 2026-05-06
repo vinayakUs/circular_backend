@@ -3,6 +3,7 @@ import { CommonModule, DatePipe } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { NavbarComponent } from '../navbar/navbar.component';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { marked } from 'marked';
 import { CircularsApiService, Circular } from '../services/circulars-api.service';
 import { LoginService } from '../services/login.service';
 
@@ -55,6 +56,9 @@ export class CircularDetailComponent implements AfterViewInit, OnDestroy, OnInit
   showDepartmentDropdown = false;
   departmentsLoading = false;
 
+  summary: string | null = null;
+  summaryLoading = false;
+
   nodes: GraphNode[] = [
     { id: '1', label: 'SEBI/MRD/2025/089', exchange: 'sebi', title: 'Master Circular on AIF', x: 40, y: 20 },
     { id: '4', label: 'NSE/MF/2026/10',    exchange: 'nse',  title: 'Related Compliance',    x: 280, y: 20 },
@@ -99,6 +103,7 @@ export class CircularDetailComponent implements AfterViewInit, OnDestroy, OnInit
           this.loading = false;
           this.fetchActionItems(id);
           this.fetchDepartments(id);
+          this.fetchSummary(id);
         },
         error: (err) => {
           this.loading = false;
@@ -106,6 +111,25 @@ export class CircularDetailComponent implements AfterViewInit, OnDestroy, OnInit
         }
       });
     }
+  }
+
+  private fetchSummary(circularId: string) {
+    this.summaryLoading = true;
+    this.api.getSummary(circularId).subscribe({
+      next: (data) => {
+        this.summary = data.summary;
+        this.summaryLoading = false;
+      },
+      error: () => {
+        this.summary = null;
+        this.summaryLoading = false;
+      }
+    });
+  }
+
+  parseMarkdown(text: string | null): SafeHtml {
+    if (!text) return '';
+    return this.sanitizer.bypassSecurityTrustHtml(marked.parse(text) as string);
   }
 
   private fetchActionItems(circularId: string) {

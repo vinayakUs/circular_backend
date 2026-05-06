@@ -19,7 +19,6 @@ export interface Circular {
   effective_date: string;
   status: string;
   url: string;
-  file_path?: string;
 }
 
 export interface PaginatedCircularsResponse {
@@ -170,6 +169,12 @@ export class CircularsApiService {
   getAvailableDepartments(): Observable<{ items: Department[] }> {
     return this.http.get<{ items: Department[] }>(
       `${this.baseUrl}/api/properties/department`
+    );
+  }
+
+  getSummary(recordId: string): Observable<{ summary: string }> {
+    return this.http.get<{ summary: string }>(
+      `${this.baseUrl}/api/circulars/${recordId}/summary`
     );
   }
 }

@@ -68,6 +68,10 @@ class S3StorageClient:
         response = self.client.get_object(Bucket=self.bucket, Key=clean_key)
         return response["Body"].read()
 
+    def download_as_text(self, key: str) -> str:
+        """Download content from S3 as string."""
+        return self.download_bytes(key).decode("utf-8")
+
     def exists(self, key: str) -> bool:
         """Check if an object exists in S3."""
         clean_key = self._make_key(key)

@@ -87,6 +87,7 @@ class Config:
     ES_CONTEXTUAL_MAX_TOKENS = int(
         os.getenv("ES_CONTEXTUAL_MAX_TOKENS", "600")
     )
+    SUMMARIZATION_MODEL = os.getenv("SUMMARIZATION_MODEL", "minimaxai/minimax-m2.7")
     ES_RRF_WINDOW_SIZE = int(os.getenv("ES_RRF_WINDOW_SIZE", "100"))
     ES_KNN_NUM_CANDIDATES = int(os.getenv("ES_KNN_NUM_CANDIDATES", "1000"))
     ES_RRF_RANK_CONSTANT = int(os.getenv("ES_RRF_RANK_CONSTANT", "60"))

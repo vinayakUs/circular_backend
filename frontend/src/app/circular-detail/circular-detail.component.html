@@ -34,7 +34,7 @@
         <div class="header-left">
           <div class="exchange-badge" [class.nse]="circular?.source === 'NSE'"
             [class.sebi]="circular?.source === 'SEBI'">{{ circular?.source }}</div>
-          <span class="circular-id">{{ circular?.circular_id || circular?.full_reference }}</span>
+          <span class="circular-id">{{ circular?.full_reference || circular?.circular_id }}</span>
         </div>
         <div class="header-actions">
           <button class="action-btn" *ngIf="circular?.url" (click)="openSource()">
@@ -151,16 +151,15 @@
                 Regenerate
               </button>
             </div>
-            <div class="ai-summary-card">
-              <p>The National Stock Exchange (NSE) has issued Circular No. NMF73772 dated April 17, 2026, notifying
-                trading members about a scheduled maintenance window for the NSE MF Invest Platform. The platform will
-                be unavailable from <strong>01:00 hrs to 05:00 hrs IST on April 25, 2026</strong> (Saturday).</p>
-              <p><strong>Key Impact:</strong> Trading members are advised to complete all mutual fund related activities
-                on the NSE MF Invest Platform before the maintenance window. No transactions can be processed during
-                this period.</p>
-              <p><strong>Required Action:</strong> Trading members must ensure all pending transactions are completed
-                before 01:00 hrs on April 25, 2026, and refrain from attempting any activities on the platform during
-                the maintenance window.</p>
+            <div class="loading-state small" *ngIf="summaryLoading">
+              <div class="loading-spinner small"></div>
+              <p>Loading summary...</p>
+            </div>
+            <div class="ai-summary-card" *ngIf="!summaryLoading && summary">
+              <div class="ai-summary-content" [innerHTML]="parseMarkdown(summary)"></div>
+            </div>
+            <div class="empty-state small" *ngIf="!summaryLoading && !summary">
+              <p>No summary available.</p>
             </div>
           </div>
 
