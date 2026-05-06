@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timezone
 import logging
 from pathlib import Path
+import threading
 from typing import Any
 from uuid import UUID
 from utils.utils import render_sql
@@ -99,25 +100,48 @@ CREATE TABLE IF NOT EXISTS action_items (
 CREATE TABLE IF NOT EXISTS circular_references (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     source_circular_id UUID NOT NULL REFERENCES circulars(id) ON DELETE CASCADE,
-    referenced_circular_id VARCHAR(50) NOT NULL,
-    referenced_source VARCHAR(20) NOT NULL,
-    referenced_full_ref TEXT NOT NULL,
-    relationship_nature VARCHAR(50),
-    confidence_score FLOAT DEFAULT 0.0,
-    extraction_method VARCHAR(20) NOT NULL,
-    matched_text TEXT,
-    referenced_circular_exists BOOLEAN DEFAULT FALSE,
+    reference_circular_no VARCHAR(100) NOT NULL,
+    reference_circular_id UUID,
+    relationship_nature VARCHAR(50) NOT NULL,
+    ref_circular_exist BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE(source_circular_id, referenced_circular_id, referenced_source)
+    UNIQUE(source_circular_id, reference_circular_no)
 );
 
 CREATE INDEX IF NOT EXISTS idx_circular_refs_source
     ON circular_references(source_circular_id);
-CREATE INDEX IF NOT EXISTS idx_circular_refs_ref_source
-    ON circular_references(referenced_source);
+CREATE INDEX IF NOT EXISTS idx_circular_refs_ref_id
+    ON circular_references(reference_circular_id);
 CREATE INDEX IF NOT EXISTS idx_circular_refs_nature
     ON circular_references(relationship_nature);
+
+-- Generic properties table for departments, categories, regions, and other entity types
+CREATE TABLE IF NOT EXISTS properties (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    archived BOOLEAN NOT NULL DEFAULT FALSE,
+    archived_at TIMESTAMPTZ,
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_properties_type ON properties(type);
+CREATE INDEX IF NOT EXISTS idx_properties_type_name ON properties(type, name) WHERE archived = FALSE;
+CREATE INDEX IF NOT EXISTS idx_properties_metadata_gin ON properties USING gin (metadata jsonb_path_ops);
+
+-- Many-to-many mapping between circulars and departments
+CREATE TABLE IF NOT EXISTS circular_department_mapping (
+    circular_id UUID NOT NULL REFERENCES circulars(id) ON DELETE CASCADE,
+    department_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (circular_id, department_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_cdm_circular_id ON circular_department_mapping(circular_id);
+CREATE INDEX IF NOT EXISTS idx_cdm_department_id ON circular_department_mapping(department_id);
 """
 
 
@@ -173,12 +197,14 @@ class CircularAssetRecord:
 class CircularRepository:
     """Repository for circular records and scraper checkpoints."""
 
+    _schema_initialized: bool = False
+    _schema_init_lock: threading.Lock = threading.Lock()
+
     def __init__(self, db_pool: Any) -> None:
         if db_pool is None:
             raise ValueError("CircularRepository requires db_pool")
         self.logger = logging.getLogger(__name__)
         self.db_pool = db_pool
-        self._schema_initialized = False
 
     def list_pending_es_records(self, limit: int = 100) -> list[CircularRecord]:
         return self._list_pending_es_records_db(limit)
@@ -199,6 +225,15 @@ class CircularRepository:
 
     def clear_all_es_index_state(self) -> None:
         self._clear_all_es_index_state_db()
+
+    def get_departments_for_circular(self, circular_id: UUID) -> list[dict]:
+        return self._get_departments_for_circular_db(circular_id)
+
+    def add_department_mapping(self, circular_id: UUID, department_id: UUID) -> None:
+        self._add_department_mapping_db(circular_id, department_id)
+
+    def remove_department_mapping(self, circular_id: UUID, department_id: UUID) -> None:
+        self._remove_department_mapping_db(circular_id, department_id)
 
     def reset_bloom_state(self) -> None:
         self._reset_bloom_state_db()
@@ -311,6 +346,40 @@ class CircularRepository:
                 ).fetchone()
         return self._row_to_record(row)
 
+    def get_record_by_full_reference(self, reference: str) -> CircularRecord | None:
+        """Look up a circular by full_reference.
+
+        Returns CircularRecord if found, None if not found.
+        """
+        self._ensure_schema()
+        normalized = reference.upper()
+        self.logger.info('''SELECT id, source, circular_id, source_item_key, full_reference,
+                       department, title, issue_date, effective_date, url, pdf_url,
+                       status, file_path, content_hash, error_message, detected_at,
+                       created_at, updated_at, es_indexed_at, es_chunk_count,
+                       es_index_name
+                FROM circulars
+                WHERE UPPER(full_reference) = %s
+                LIMIT 1''', normalized)
+
+        with self.db_pool.connection() as conn:
+            row = conn.execute(
+                """
+                SELECT id, source, circular_id, source_item_key, full_reference,
+                       department, title, issue_date, effective_date, url, pdf_url,
+                       status, file_path, content_hash, error_message, detected_at,
+                       created_at, updated_at, es_indexed_at, es_chunk_count,
+                       es_index_name
+                FROM circulars
+                WHERE UPPER(full_reference) = %s
+                LIMIT 1
+                """,
+                (normalized,),
+            ).fetchone()
+            if row:
+                return self._row_to_record(row)
+            return None
+
     def list_records(self) -> list[CircularRecord]:
         self._ensure_schema()
         with self.db_pool.connection() as conn:
@@ -398,14 +467,18 @@ class CircularRepository:
         return source_item_key.strip()
 
     def _ensure_schema(self) -> None:
-        if self._schema_initialized:
+        if CircularRepository._schema_initialized:
             return
 
-        with self.db_pool.connection() as conn:
-            conn.execute(self.schema_sql())
-        self._schema_initialized = True
-        self._backfill_legacy_assets()
-        self.logger.info("Repository schema initialized")
+        with CircularRepository._schema_init_lock:
+            if CircularRepository._schema_initialized:
+                return
+
+            with self.db_pool.connection() as conn:
+                conn.execute(self.schema_sql())
+            CircularRepository._schema_initialized = True
+            self._backfill_legacy_assets()
+            self.logger.info("Repository schema initialized")
 
     def _upsert_circular_db(self, circular: Circular) -> tuple[UUID, bool]:
         self._ensure_schema()
@@ -864,3 +937,43 @@ class CircularRepository:
                 """
             )
         self.logger.info("Reset bloom/checkpoint state for all sources")
+
+    def _get_departments_for_circular_db(self, circular_id: UUID) -> list[dict]:
+        self._ensure_schema()
+        with self.db_pool.connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT p.id, p.name, p.type, cdm.created_at
+                FROM circular_department_mapping cdm
+                JOIN properties p ON p.id = cdm.department_id
+                WHERE cdm.circular_id = %s AND p.archived = FALSE
+                ORDER BY p.name
+                """,
+                (circular_id,),
+            ).fetchall()
+        return [{"id": str(r[0]), "name": r[1], "type": r[2], "created_at": r[3]} for r in rows]
+
+    def _add_department_mapping_db(self, circular_id: UUID, department_id: UUID) -> None:
+        self._ensure_schema()
+        with self.db_pool.connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO circular_department_mapping (circular_id, department_id)
+                VALUES (%s, %s)
+                ON CONFLICT (circular_id, department_id) DO NOTHING
+                """,
+                (circular_id, department_id),
+            )
+        self.logger.info("Added department mapping circular_id=%s department_id=%s", circular_id, department_id)
+
+    def _remove_department_mapping_db(self, circular_id: UUID, department_id: UUID) -> None:
+        self._ensure_schema()
+        with self.db_pool.connection() as conn:
+            conn.execute(
+                """
+                DELETE FROM circular_department_mapping
+                WHERE circular_id = %s AND department_id = %s
+                """,
+                (circular_id, department_id),
+            )
+        self.logger.info("Removed department mapping circular_id=%s department_id=%s", circular_id, department_id)

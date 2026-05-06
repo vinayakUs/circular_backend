@@ -92,26 +92,13 @@ class ElasticsearchClientTestCase(unittest.TestCase):
             size=40,
             query={
                 "bool": {
+                    "filter": [],
                     "should": [
-                        {"match": {"circular_id": {"query": "query text", "boost": 5}}},
-                        {"match": {"chunk_text_contextual": {"query": "query text", "boost": 3}}},
-                        {
-                            "multi_match": {
-                                "query": "query text",
-                                "fields": [
-                                    "chunk_text^2",
-                                    "title^2",
-                                    "full_reference^2",
-                                    "department",
-                                    "source",
-                                ],
-                                "type": "best_fields",
-                                "tie_breaker": 0.3,
-                            }
-                        },
+                        {"term": {"circular_id": {"value": "query text", "boost": 10}}},
+                        {"match_phrase": {"title": {"query": "query text", "boost": 5}}},
+                        {"match_phrase": {"full_reference": {"query": "query text", "boost": 5}}},
                     ],
                     "minimum_should_match": 1,
-                    "filter": [],
                 }
             },
         )
@@ -180,7 +167,7 @@ class ElasticsearchClientTestCase(unittest.TestCase):
         self.assertIn("knn", knn_kwargs)
         self.assertNotIn("query", knn_kwargs)
         self.assertEqual(knn_kwargs["knn"]["field"], "embedding")
-        self.assertEqual(knn_kwargs["knn"]["k"], 50)  # rrf_size from Config
+        self.assertEqual(knn_kwargs["knn"]["k"], 100)  # rrf_size from Config
         self.assertEqual(knn_kwargs["knn"]["num_candidates"], 1000)
         self.assertEqual(knn_kwargs["knn"]["filter"], [{"terms": {"source": ["SEBI"]}}])
 

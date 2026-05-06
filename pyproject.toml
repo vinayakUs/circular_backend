@@ -33,6 +33,8 @@ packages = [
     "ingestion.repository",
     "ingestion.scrapper",
     "ingestion.scrapper.sources",
+    "services",
+    "storage",
     "utils"
 ]
 

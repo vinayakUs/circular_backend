@@ -1,7 +1,10 @@
-import { Component, AfterViewInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, AfterViewInit, OnDestroy, ViewChild, ElementRef, OnInit } from '@angular/core';
+import { CommonModule, DatePipe } from '@angular/common';
+import { ActivatedRoute } from '@angular/router';
 import { NavbarComponent } from '../navbar/navbar.component';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { CircularsApiService, Circular } from '../services/circulars-api.service';
+import { LoginService } from '../services/login.service';
 
 const NODE_W = 160;
 const NODE_H = 64;
@@ -10,15 +13,47 @@ interface GraphNode {
   id: string; label: string; exchange: string; title: string; x: number; y: number; current?: boolean;
 }
 
+interface ActionItem {
+  id: string;
+  action_item: string;
+  circular_id: string;
+  deadline: string;
+  persona: string;
+  priority: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface Department {
+  id: string;
+  name: string;
+  type: string;
+  archived?: boolean;
+  created_at: string;
+  updated_at?: string;
+}
+
 @Component({
   selector: 'app-circular-detail',
   standalone: true,
-  imports: [CommonModule, NavbarComponent],
+  imports: [CommonModule, NavbarComponent, DatePipe],
   templateUrl: './circular-detail.component.html',
   styleUrl: './circular-detail.component.css'
 })
-export class CircularDetailComponent implements AfterViewInit, OnDestroy {
+export class CircularDetailComponent implements AfterViewInit, OnDestroy, OnInit {
   @ViewChild('graphContainer') containerRef!: ElementRef<HTMLDivElement>;
+
+  circular: Circular | null = null;
+  loading = true;
+  circularError: 'connection' | 'not_found' | null = null;
+  actionItems: ActionItem[] = [];
+  actionItemsLoading = false;
+  actionItemsError: 'connection' | 'not_found' | null = null;
+
+  mappedDepartments: Department[] = [];
+  availableDepartments: Department[] = [];
+  showDepartmentDropdown = false;
+  departmentsLoading = false;
 
   nodes: GraphNode[] = [
     { id: '1', label: 'SEBI/MRD/2025/089', exchange: 'sebi', title: 'Master Circular on AIF', x: 40, y: 20 },
@@ -46,17 +81,132 @@ export class CircularDetailComponent implements AfterViewInit, OnDestroy {
   private dragging: { el: SVGGElement; data: GraphNode } | null = null;
   private dragOffset = { x: 0, y: 0 };
 
-  constructor(private sanitizer: DomSanitizer) {
+  constructor(
+    private sanitizer: DomSanitizer,
+    private route: ActivatedRoute,
+    private api: CircularsApiService,
+    private loginService: LoginService
+  ) {
     this.graphSvg = this.generateGraphSvg();
+  }
+
+  ngOnInit() {
+    const id = this.route.snapshot.paramMap.get('id');
+    if (id) {
+      this.api.getCircularRecord(id).subscribe({
+        next: (data) => {
+          this.circular = data;
+          this.loading = false;
+          this.fetchActionItems(id);
+          this.fetchDepartments(id);
+        },
+        error: (err) => {
+          this.loading = false;
+          this.circularError = err?.status === 0 ? 'connection' : 'not_found';
+        }
+      });
+    }
+  }
+
+  private fetchActionItems(circularId: string) {
+    this.actionItemsLoading = true;
+    this.actionItemsError = null;
+    this.api.getActionItems(circularId).subscribe({
+      next: (data) => {
+        this.actionItems = data.action_items;
+        this.actionItemsLoading = false;
+      },
+      error: (err) => {
+        this.actionItems = [];
+        this.actionItemsLoading = false;
+        this.actionItemsError = err?.status === 0 ? 'connection' : 'not_found';
+      }
+    });
+  }
+
+  private fetchDepartments(circularId: string) {
+    this.departmentsLoading = true;
+    this.api.getDepartments(circularId).subscribe({
+      next: (data) => {
+        this.mappedDepartments = data.departments;
+        this.departmentsLoading = false;
+      },
+      error: () => {
+        this.mappedDepartments = [];
+        this.departmentsLoading = false;
+      }
+    });
+  }
+
+  loadAvailableDepartments() {
+    this.api.getAvailableDepartments().subscribe({
+      next: (data) => {
+        this.availableDepartments = data.items.filter(
+          dept => !this.mappedDepartments.some(m => m.id === dept.id)
+        );
+        this.showDepartmentDropdown = true;
+      },
+      error: () => {
+        this.availableDepartments = [];
+      }
+    });
+  }
+
+  addDepartment(deptId: string) {
+    if (!this.circular) return;
+    this.api.addDepartment(this.circular.id, deptId).subscribe({
+      next: (data) => {
+        this.mappedDepartments = data.departments;
+        this.availableDepartments = this.availableDepartments.filter(d => d.id !== deptId);
+        this.showDepartmentDropdown = false;
+      },
+      error: () => {}
+    });
+  }
+
+  removeDepartment(deptId: string) {
+    if (!this.circular) return;
+    this.api.removeDepartment(this.circular.id, deptId).subscribe({
+      next: (data) => {
+        this.mappedDepartments = data.departments;
+      },
+      error: () => {}
+    });
+  }
+
+  toggleDepartmentDropdown() {
+    if (this.showDepartmentDropdown) {
+      this.showDepartmentDropdown = false;
+    } else {
+      this.loadAvailableDepartments();
+    }
+  }
+
+  isLoggedIn(): boolean {
+    return this.loginService.isAuthenticated();
   }
 
   private boundMove = (e: MouseEvent) => this.onMove(e);
   private boundEnd = () => this.endInteraction();
 
   ngAfterViewInit() {
-    this.svgEl = this.containerRef.nativeElement.querySelector('svg')!;
-    if (!this.svgEl) return;
+    const el = this.containerRef?.nativeElement;
+    if (!el) return;
+    const svg = el.querySelector('svg');
+    if (!svg) {
+      setTimeout(() => {
+        const svgEl = el.querySelector('svg');
+        if (!svgEl) return;
+        this.svgEl = svgEl;
+        this.setupSvgEvents();
+      }, 0);
+      return;
+    }
+    this.svgEl = svg;
+    this.setupSvgEvents();
+  }
 
+  private setupSvgEvents() {
     this.svgEl.querySelectorAll('[data-node-id]').forEach(g => {
       g.addEventListener('mousedown', e => this.startNodeDrag(e as MouseEvent, g as SVGGElement));
     });
@@ -165,6 +315,12 @@ export class CircularDetailComponent implements AfterViewInit, OnDestroy {
     return { pathD, lx, ly };
   }
 
+  openSource() {
+    if (this.circular?.url) {
+      window.open(this.circular.url, '_blank');
+    }
+  }
+
   getNodeById(id: string) {
     return this.nodes.find(n => n.id === id);
   }
@@ -175,6 +331,30 @@ export class CircularDetailComponent implements AfterViewInit, OnDestroy {
       return `${parts[0].charAt(0)}/${parts[1].charAt(0)}/${parts[2].slice(-2)}/${parts[3]}`;
     }
     return label;
+  }
+
+  getDeadlineText(deadline: string): string {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const deadlineDate = new Date(deadline);
+    deadlineDate.setHours(0, 0, 0, 0);
+    const diffMs = deadlineDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0) {
+      return `${Math.abs(diffDays)} days overdue`;
+    } else if (diffDays === 0) {
+      return 'Due today';
+    } else if (diffDays === 1) {
+      return 'Due tomorrow';
+    } else if (diffDays <= 7) {
+      return `Due in ${diffDays} days`;
+    } else if (diffDays <= 30) {
+      const weeks = Math.floor(diffDays / 7);
+      return weeks === 1 ? 'Due in 1 week' : `Due in ${weeks} weeks`;
+    } else {
+      return `Due in ${Math.floor(diffDays / 30)} months`;
+    }
   }
 
   generateGraphSvg(): SafeHtml {

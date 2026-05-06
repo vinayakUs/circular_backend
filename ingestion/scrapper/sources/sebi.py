@@ -3,10 +3,11 @@ from __future__ import annotations
 from datetime import date, datetime
 from html import unescape
 import logging
+import os
 import re
 import time
 from urllib.parse import parse_qs, urlencode, urljoin, urlparse
-from urllib.request import Request, urlopen
+import requests
 
 from config import Config
 from ingestion.scrapper.base import IScraper, ScrapeDetectionResult
@@ -41,11 +42,30 @@ class SEBIScraper(IScraper):
         "smText": "",
         "doDirect": "-1",
     }
-    FORCE_FAIL_CIRCULAR_ID = "HO/49/14/11(12)2026-CFD-POD1/I/8806/2026"
+
+    DEPARTMENT_MAPPING: dict[int, str] = {
+        75: "AIF & FP Investors Dept",
+        1: "Corporation Finance Department",
+        3: "Dept of Economic and Policy Analysis",
+        64: "Dept of Debt and Hybrid Securities",
+        6: "Enforcement Department",
+        35: "Information Technology Department",
+        9: "Investment Management Department",
+        14: "Market Intermediaries Reg and Supervision",
+        15: "Market Regulation Department",
+        19: "Office of Investor Assistance and Education",
+    }
 
     def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
         self.detail_timeout_seconds = Config.SEBI_DETAIL_TIMEOUT_SECONDS
+        self.listing_timeout_seconds = int(
+            os.getenv("SEBI_LISTING_TIMEOUT_SECONDS", "300")
+        )
+        self.listing_max_retries = max(1, int(os.getenv("SEBI_LISTING_MAX_RETRIES", "3")))
+        self.listing_retry_backoff_seconds = max(
+            0.0, float(os.getenv("SEBI_LISTING_RETRY_BACKOFF_SECONDS", "2"))
+        )
         self.detail_max_retries = max(1, Config.SEBI_DETAIL_MAX_RETRIES)
         self.detail_retry_backoff_seconds = max(
             0.0, Config.SEBI_DETAIL_RETRY_BACKOFF_SECONDS
@@ -57,10 +77,16 @@ class SEBIScraper(IScraper):
             from_date,
             to_date,
         )
-        listing_rows = self._fetch_all_listing_rows(from_date, to_date)
-        self.logger.info("SEBI listing rows fetched count=%s", len(listing_rows))
+        all_rows: list[tuple[date, str, str, str]] = []
+        for dept_id, dept_name in self.DEPARTMENT_MAPPING.items():
+            self.logger.info("Fetching SEBI listing for dept_id=%s dept_name=%s", dept_id, dept_name)
+            dept_rows = self._fetch_all_listing_rows(from_date, to_date, dept_id, dept_name)
+            all_rows.extend(dept_rows)
+            self.logger.info("Fetched %s rows for dept_id=%s dept_name=%s", len(dept_rows), dept_id, dept_name)
+
+        self.logger.info("SEBI listing rows fetched count=%s", len(all_rows))
         in_range_rows = [
-            row for row in listing_rows if from_date <= row[0] <= to_date
+            row for row in all_rows if from_date <= row[0] <= to_date
         ]
         self.logger.info(
             "SEBI rows filtered by date from_date=%s to_date=%s count=%s",
@@ -75,7 +101,7 @@ class SEBIScraper(IScraper):
         duplicate_count = 0
         skipped_count = 0
 
-        for issue_date, title, detail_url in in_range_rows:
+        for issue_date, title, detail_url, dept_name in in_range_rows:
             if detail_url in seen_detail_urls:
                 duplicate_count += 1
                 continue
@@ -99,8 +125,12 @@ class SEBIScraper(IScraper):
                     exc,
                 )
                 continue
+            
+            print("===================")
+            print(detail_url)
+            circular = self._parse_detail_page(detail_url, issue_date, title, detail_html, dept_name)
+            print(circular)
 
-            circular = self._parse_detail_page(detail_url, issue_date, title, detail_html)
             if circular is None:
                 skipped_count += 1
                 failed_circulars.append(
@@ -161,20 +191,22 @@ class SEBIScraper(IScraper):
         return re.sub(r"\s+", " ", raw_id.strip())
 
     def _fetch_all_listing_rows(
-        self, from_date: date, to_date: date
-    ) -> list[tuple[date, str, str]]:
+        self, from_date: date, to_date: date, dept_id: int = -1, dept_name: str = "All Department"
+    ) -> list[tuple[date, str, str, str]]:
         page_index = 1
         page_count = 0
-        rows: list[tuple[date, str, str]] = []
+        rows: list[tuple[date, str, str, str]] = []
         seen_signatures: set[str] = set()
 
         while True:
-            html = self._fetch_listing_page(from_date, to_date, page_index)
+            html = self._fetch_listing_page(from_date, to_date, page_index, dept_id)
             signature = self._page_signature(html)
             if signature in seen_signatures:
                 self.logger.info(
-                    "Stopping SEBI pagination because page signature repeated page_index=%s",
+                    "Stopping SEBI pagination because page signature repeated page_index=%s dept_id=%s dept_name=%s",
                     page_index,
+                    dept_id,
+                    dept_name,
                 )
                 break
 
@@ -182,18 +214,22 @@ class SEBIScraper(IScraper):
             page_rows = self._parse_listing_rows(html)
             if not page_rows:
                 self.logger.info(
-                    "Stopping SEBI pagination because page returned zero rows page_index=%s",
+                    "Stopping SEBI pagination because page returned zero rows page_index=%s dept_id=%s dept_name=%s",
                     page_index,
+                    dept_id,
+                    dept_name,
                 )
                 break
 
             page_count += 1
-            rows.extend(page_rows)
+            rows.extend([(*row, dept_name) for row in page_rows])
             self.logger.info(
-                "Parsed SEBI listing page page_index=%s rows=%s cumulative_rows=%s",
+                "Parsed SEBI listing page page_index=%s rows=%s cumulative_rows=%s dept_id=%s dept_name=%s",
                 page_index,
                 len(page_rows),
                 len(rows),
+                dept_id,
+                dept_name,
             )
 
             if not self._has_next_page(html):
@@ -202,16 +238,21 @@ class SEBIScraper(IScraper):
             page_index += 1
 
         self.logger.info(
-            "Completed SEBI listing pagination pages=%s rows=%s", page_count, len(rows)
+            "Completed SEBI listing pagination pages=%s rows=%s dept_id=%s dept_name=%s",
+            page_count,
+            len(rows),
+            dept_id,
+            dept_name,
         )
         return rows
 
     def _build_listing_payload(
-        self, from_date: date, to_date: date, page_index: int
+        self, from_date: date, to_date: date, page_index: int, dept_id: int = -1
     ) -> dict[str, str]:
         payload = dict(self.base_payload)
         payload["fromDate"] = from_date.strftime("%d-%m-%Y")
         payload["toDate"] = to_date.strftime("%d-%m-%Y")
+        payload["deptId"] = str(dept_id)
 
         if page_index == 1:
             payload["next"] = "s"
@@ -222,11 +263,50 @@ class SEBIScraper(IScraper):
 
         return payload
 
-    def _fetch_listing_page(self, from_date: date, to_date: date, page_index: int) -> str:
-        payload = urlencode(self._build_listing_payload(from_date, to_date, page_index)).encode()
-        request = Request(self.LISTING_URL, data=payload, headers=self.default_headers)
-        with urlopen(request, timeout=30) as response:
-            return response.read().decode("utf-8", "ignore")
+    def _fetch_listing_page(self, from_date: date, to_date: date, page_index: int, dept_id: int = -1) -> str:
+        payload = urlencode(self._build_listing_payload(from_date, to_date, page_index, dept_id))
+        last_error: Exception | None = None
+
+        for attempt in range(1, self.listing_max_retries + 1):
+            self.logger.info(
+                "Fetching SEBI listing page from_date=%s to_date=%s page_index=%s attempt=%s/%s timeout_seconds=%s",
+                from_date,
+                to_date,
+                page_index,
+                attempt,
+                self.listing_max_retries,
+                self.listing_timeout_seconds,
+            )
+            try:
+                response = requests.post(
+                    self.LISTING_URL,
+                    data=payload,
+                    headers=self.default_headers,
+                    timeout=self.listing_timeout_seconds,
+                    allow_redirects=True,
+                )
+                return response.text
+            except Exception as exc:
+                last_error = exc
+                if attempt >= self.listing_max_retries:
+                    break
+
+                sleep_seconds = self.listing_retry_backoff_seconds * attempt
+                self.logger.warning(
+                    "Retrying SEBI listing page after fetch failure from_date=%s to_date=%s page_index=%s attempt=%s/%s backoff_seconds=%.2f error=%s",
+                    from_date,
+                    to_date,
+                    page_index,
+                    attempt,
+                    self.listing_max_retries,
+                    sleep_seconds,
+                    exc,
+                )
+                if sleep_seconds > 0:
+                    time.sleep(sleep_seconds)
+
+        assert last_error is not None
+        raise last_error
 
     def _parse_listing_rows(self, html: str) -> list[tuple[date, str, str]]:
         pattern = re.compile(
@@ -248,7 +328,6 @@ class SEBIScraper(IScraper):
         return "title='Next'" in html or 'title="Next"' in html
 
     def _fetch_detail_page(self, detail_url: str) -> str:
-        request = Request(detail_url, headers={"User-Agent": "Mozilla/5.0"})
         last_error: Exception | None = None
 
         for attempt in range(1, self.detail_max_retries + 1):
@@ -260,8 +339,13 @@ class SEBIScraper(IScraper):
                 self.detail_timeout_seconds,
             )
             try:
-                with urlopen(request, timeout=self.detail_timeout_seconds) as response:
-                    return response.read().decode("utf-8", "ignore")
+                response = requests.get(
+                    detail_url,
+                    headers={"User-Agent": "Mozilla/5.0"},
+                    timeout=self.detail_timeout_seconds,
+                    allow_redirects=True,
+                )
+                return response.text
             except Exception as exc:
                 last_error = exc
                 if attempt >= self.detail_max_retries:
@@ -283,7 +367,7 @@ class SEBIScraper(IScraper):
         raise last_error
 
     def _parse_detail_page(
-        self, detail_url: str, issue_date: date, title: str, html: str
+        self, detail_url: str, issue_date: date, title: str, html: str, dept_name: str = ""
     ) -> Circular | None:
         circular_number_match = re.search(
             r"<span>\s*Circular No\.:\s*</span>\s*<span>([^<]+)</span>",
@@ -295,6 +379,7 @@ class SEBIScraper(IScraper):
 
         raw_circular_number = unescape(circular_number_match.group(1)).strip()
         pdf_url = self._extract_pdf_url(detail_url, html)
+        print("=============pdf url==============",pdf_url)
         if not pdf_url:
             return None
 
@@ -303,7 +388,7 @@ class SEBIScraper(IScraper):
             source=self.source_name,
             circular_id=circular_id,
             full_reference=circular_id,
-            department="",
+            department=dept_name,
             title=title,
             issue_date=issue_date,
             effective_date=None,
@@ -342,9 +427,20 @@ class SEBIScraper(IScraper):
         if not iframe_match:
             return None
 
-        iframe_src = urljoin(detail_url, iframe_match.group(1))
+        raw_src = iframe_match.group(1)
+        # Remove any ../ sequences used for path traversal
+        while raw_src.startswith("../"):
+            raw_src = raw_src[3:]
+        iframe_src = urljoin(detail_url, raw_src)
+        print("=============iframe src==============",iframe_src)
+
         parsed = urlparse(iframe_src)
-        return parse_qs(parsed.query).get("file", [None])[0]
+        file_param = parse_qs(parsed.query).get("file", [None])[0]
+        if file_param:
+            return urljoin(self.base_url, file_param)
+        if iframe_src.lower().endswith(".pdf"):
+            return iframe_src
+        return None
 
     def _page_signature(self, html: str) -> str:
         rows = self._parse_listing_rows(html)

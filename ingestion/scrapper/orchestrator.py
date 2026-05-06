@@ -17,6 +17,7 @@ from ingestion.repository import CircularAsset, CircularRepository
 from ingestion.scrapper.base import IScraper, ScrapeDetectionResult
 from ingestion.scrapper.dto import Circular
 from ingestion.scrapper.registry import ScraperRegistry
+from storage.s3_client import S3StorageClient
 import ingestion.scrapper.sources.nse
 import ingestion.scrapper.sources.sebi
 
@@ -32,6 +33,9 @@ class ScraperOrchestrator:
         default_lookback_days: int = 7,
         circular_repository: CircularRepository | None = None,
         enabled_sources: list[str] | tuple[str, ...] | None = None,
+        from_date: date | None = None,
+        to_date: date | None = None,
+        s3_client: S3StorageClient | None = None,
     ) -> None:
         self.logger = logging.getLogger(__name__)
         if circular_repository is None and db_pool is None:
@@ -51,15 +55,20 @@ class ScraperOrchestrator:
                 else Config.SCRAPER_ENABLED_SOURCES
             )
         )
+        self.from_date = from_date
+        self.to_date = to_date or date.today()
+        self.s3_client = s3_client or (S3StorageClient() if Config.AWS_S3_BUCKET else None)
 
     def run(self) -> None:
         today = date.today()
         enabled_scrapers = self._get_enabled_scrapers()
         self.logger.info(
-            "Starting ingestion run enabled_sources=%s storage_path=%s lookback_days=%s",
+            "Starting ingestion run enabled_sources=%s storage_path=%s lookback_days=%s from_date=%s to_date=%s",
             [source.source_name for source in enabled_scrapers],
             self.storage_path,
             self.default_lookback_days,
+            self.from_date,
+            self.to_date,
         )
         started_at = time.perf_counter()
         for source in enabled_scrapers:
@@ -71,18 +80,21 @@ class ScraperOrchestrator:
         )
 
     def _scrape_source(self, source: IScraper, today: date) -> None:
-        last_run_date = self.circular_repository.get_checkpoint(source.source_name)
-        if last_run_date is None:
-            last_run_date = today - timedelta(days=self.default_lookback_days)
+        if self.from_date is not None:
+            last_run_date = self.from_date
+        else:
+            last_run_date = self.circular_repository.get_checkpoint(source.source_name)
+            if last_run_date is None:
+                last_run_date = today - timedelta(days=self.default_lookback_days)
 
         self.logger.info(
             "Starting source scrape source=%s from_date=%s to_date=%s",
             source.source_name,
             last_run_date,
-            today,
+            self.to_date,
         )
         started_at = time.perf_counter()
-        detection_result = self._detect_new_circulars(source, last_run_date, today)
+        detection_result = self._detect_new_circulars(source, last_run_date, self.to_date)
         circulars = detection_result.circulars
         self.logger.info(
             "Detected circulars source=%s count=%s failed_placeholders=%s",
@@ -159,7 +171,7 @@ class ScraperOrchestrator:
         self._update_checkpoint(
             source.source_name,
             last_run_date,
-            today,
+            self.to_date,
             detection_result.has_incomplete_items or earliest_failed_issue_date is not None,
             earliest_failed_issue_date,
         )
@@ -234,64 +246,59 @@ class ScraperOrchestrator:
     def _download_assets(
         self, pdf_url: str, circular: Circular
     ) -> tuple[str, str, list[CircularAsset]]:
-        circular_dir = (
-            self.storage_path
-            / circular.source.upper()
-            / f"{circular.issue_date:%Y}"
-            / f"{circular.issue_date:%m}"
-            / self._build_safe_filename(circular.circular_id)
+        prefix = (
+            f"{circular.source.upper()}/"
+            f"{circular.issue_date:%Y}/{circular.issue_date:%m}/"
+            f"{self._build_safe_filename(circular.circular_id)}"
         )
-        if circular_dir.exists():
-            shutil.rmtree(circular_dir)
 
-        original_dir = circular_dir / "original"
-        extracted_dir = circular_dir / "extracted"
-        original_dir.mkdir(parents=True, exist_ok=True)
+        if self.s3_client:
+            self.s3_client.delete_prefix(prefix)
 
         self.logger.debug(
-            "Downloading file source=%s circular_id=%s pdf_url=%s target_dir=%s",
+            "Downloading file source=%s circular_id=%s pdf_url=%s prefix=%s",
             circular.source,
             circular.circular_id,
             pdf_url,
-            circular_dir,
+            prefix,
         )
         content = self._fetch_pdf_bytes(pdf_url, circular)
         content_hash = hashlib.sha256(content).hexdigest()
         download_type = self._detect_download_type(pdf_url, content)
 
         if download_type == "zip":
-            original_path = original_dir / "source.zip"
-            original_path.write_bytes(content)
+            original_key = f"{prefix}/original/source.zip"
+            self.s3_client.upload_bytes(original_key, content)
             extracted_assets = self._extract_zip_assets(
-                archive_path=original_path,
-                extracted_dir=extracted_dir,
+                archive_content=content,
+                prefix=prefix,
                 content_hash=content_hash,
-                circular=circular
+                circular=circular,
             )
             assets = [
                 CircularAsset(
                     asset_role="original_zip",
-                    file_path=str(original_path),
+                    file_path=f"s3://{Config.AWS_S3_BUCKET}/{original_key}",
                     content_hash=content_hash,
                     mime_type="application/zip",
-                    file_size_bytes=original_path.stat().st_size,
+                    file_size_bytes=len(content),
                 ),
                 *extracted_assets,
             ]
-            return str(original_path), content_hash, assets
+            return f"s3://{Config.AWS_S3_BUCKET}/{original_key}", content_hash, assets
 
-        original_path = original_dir / "source.pdf"
-        original_path.write_bytes(content)
+        original_key = f"{prefix}/original/source.pdf"
+        self.s3_client.upload_bytes(original_key, content)
         return (
-            str(original_path),
+            f"s3://{Config.AWS_S3_BUCKET}/{original_key}",
             content_hash,
             [
                 CircularAsset(
                     asset_role="original_pdf",
-                    file_path=str(original_path),
+                    file_path=f"s3://{Config.AWS_S3_BUCKET}/{original_key}",
                     content_hash=content_hash,
                     mime_type="application/pdf",
-                    file_size_bytes=original_path.stat().st_size,
+                    file_size_bytes=len(content),
                 )
             ],
         )
@@ -315,41 +322,42 @@ class ScraperOrchestrator:
 
     def _extract_zip_assets(
         self,
-        archive_path: Path,
-        extracted_dir: Path,
+        archive_content: bytes,
+        prefix: str,
         content_hash: str,
         circular: Circular,
     ) -> list[CircularAsset]:
-        extracted_dir.mkdir(parents=True, exist_ok=True)
         assets: list[CircularAsset] = []
+        import io
 
-        with zipfile.ZipFile(archive_path) as archive:
+        with zipfile.ZipFile(io.BytesIO(archive_content)) as archive:
             pdf_members = [
                 member
                 for member in archive.infolist()
                 if not member.is_dir() and member.filename.lower().endswith(".pdf")
             ]
             if not pdf_members:
-                raise ValueError(f"ZIP archive contains no PDFs: {archive_path}")
+                raise ValueError(f"ZIP archive contains no PDFs")
 
             selected_members = self._select_zip_pdf_members(pdf_members, circular)
 
             for index, member in enumerate(selected_members):
                 member_name = Path(member.filename).name or f"document_{index + 1}.pdf"
                 safe_name = self._build_safe_filename(Path(member_name).stem) + ".pdf"
-                target_path = extracted_dir / f"{index:03d}_{safe_name}"
+                target_key = f"{prefix}/extracted/{index:03d}_{safe_name}"
 
-                with archive.open(member) as source, target_path.open("wb") as target:
-                    shutil.copyfileobj(source, target)
+                with archive.open(member) as source:
+                    member_content = source.read()
+                self.s3_client.upload_bytes(target_key, member_content)
 
                 assets.append(
                     CircularAsset(
                         asset_role="extracted_pdf",
-                        file_path=str(target_path),
+                        file_path=f"s3://{Config.AWS_S3_BUCKET}/{target_key}",
                         content_hash=content_hash,
                         mime_type="application/pdf",
                         archive_member_path=member.filename,
-                        file_size_bytes=target_path.stat().st_size,
+                        file_size_bytes=len(member_content),
                     )
                 )
 

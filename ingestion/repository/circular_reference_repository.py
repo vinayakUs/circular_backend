@@ -2,9 +2,7 @@ import logging
 from typing import Any, Optional
 from uuid import UUID
 
-from pydantic import BaseModel
-
-from ingestion.dto.circular_reference_dto import CircularReferenceDTO, ExtractedReference, ReferenceWithNature
+from ingestion.dto.circular_reference_dto import CircularReferenceDTO
 from ingestion.repository.circular_repository import CircularRepository
 
 
@@ -18,66 +16,59 @@ class CircularReferenceRepository:
         self.db_pool = db_pool
         self.circular_repo = CircularRepository(db_pool)
 
-    def _validate_referenced_exists(self, referenced_id: str, referenced_source: str) -> bool:
-        """Check if a referenced circular exists in our circulars table."""
-        try:
-            record = self.circular_repo.get_record(referenced_source, referenced_id)
-            return record is not None
-        except Exception:
-            return False
-
     def insert_reference(
         self,
         source_circular_id: UUID,
-        ref: ReferenceWithNature,
+        reference_circular_no: str,
+        relationship_nature: str,
+        ref_circular_id: Optional[UUID] = None,
     ) -> None:
-        """Inserts a single reference for a circular with existence validation."""
+        """Inserts a single reference for a circular."""
         self.circular_repo._ensure_schema()
-
-        ref_id = ref.reference.referenced_id
-        ref_source = ref.reference.referenced_source
-        exists = self._validate_referenced_exists(ref_id, ref_source)
-
-        relationship_nature = ref.relationship.relationship_nature if ref.relationship else None
-        confidence = ref.relationship.confidence if ref.relationship else 0.0
 
         with self.db_pool.connection() as conn:
             conn.execute(
                 """
                 INSERT INTO circular_references (
-                    source_circular_id, referenced_circular_id, referenced_source,
-                    referenced_full_ref, relationship_nature, confidence_score,
-                    extraction_method, matched_text, referenced_circular_exists
+                    source_circular_id, reference_circular_no, reference_circular_id,
+                    relationship_nature, ref_circular_exist
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (source_circular_id, referenced_circular_id, referenced_source)
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (source_circular_id, reference_circular_no)
                 DO UPDATE SET
                     relationship_nature = EXCLUDED.relationship_nature,
-                    confidence_score = EXCLUDED.confidence_score,
-                    referenced_circular_exists = EXCLUDED.referenced_circular_exists,
+                    reference_circular_id = EXCLUDED.reference_circular_id,
+                    ref_circular_exist = EXCLUDED.ref_circular_exist,
                     updated_at = NOW()
                 """,
                 (
                     source_circular_id,
-                    ref_id,
-                    ref_source,
-                    ref.reference.referenced_full_ref,
+                    reference_circular_no,
+                    ref_circular_id,
                     relationship_nature,
-                    confidence,
-                    ref.reference.extraction_method,
-                    ref.reference.matched_text,
-                    exists,
+                    ref_circular_id is not None,
                 ),
             )
 
     def insert_reference_batch(
         self,
         source_circular_id: UUID,
-        refs: list[ReferenceWithNature],
+        references: list[dict],
     ) -> None:
-        """Batch insert references for efficiency."""
-        for ref in refs:
-            self.insert_reference(source_circular_id, ref)
+        """Batch insert references for efficiency.
+
+        Args:
+            source_circular_id: UUID of the source circular
+            references: List of dicts with 'reference_circular_no', 'relationship_nature',
+                       and optional 'reference_circular_id' keys
+        """
+        for ref in references:
+            self.insert_reference(
+                source_circular_id=source_circular_id,
+                reference_circular_no=ref["reference_circular_no"],
+                relationship_nature=ref["relationship_nature"],
+                ref_circular_id=ref.get("reference_circular_id"),
+            )
 
     def delete_references_for_circular(self, circular_id: UUID) -> None:
         """Deletes all references for a given circular (idempotency)."""
@@ -92,7 +83,6 @@ class CircularReferenceRepository:
         self,
         circular_id: Optional[UUID] = None,
         relationship_nature: Optional[str] = None,
-        referenced_source: Optional[str] = None,
         unresolved_only: bool = False,
         limit: int = 20,
         offset: int = 0,
@@ -109,21 +99,16 @@ class CircularReferenceRepository:
         if relationship_nature is not None:
             conditions.append("relationship_nature = %s")
             params.append(relationship_nature)
-        if referenced_source is not None:
-            conditions.append("referenced_source = %s")
-            params.append(referenced_source)
         if unresolved_only:
-            conditions.append("referenced_circular_exists = FALSE")
+            conditions.append("ref_circular_exist = FALSE")
             params.append(False)
 
         where_clause = " AND ".join(conditions) if conditions else "1=1"
 
         count_query = f"SELECT COUNT(*) FROM circular_references WHERE {where_clause}"
         data_query = f"""
-            SELECT id, source_circular_id, referenced_circular_id, referenced_source,
-                   referenced_full_ref, relationship_nature, confidence_score,
-                   extraction_method, matched_text, referenced_circular_exists,
-                   created_at, updated_at
+            SELECT id, source_circular_id, reference_circular_no, reference_circular_id,
+                   relationship_nature, ref_circular_exist, created_at, updated_at
             FROM circular_references
             WHERE {where_clause}
             ORDER BY created_at DESC
@@ -142,16 +127,12 @@ class CircularReferenceRepository:
             CircularReferenceDTO(
                 id=row[0],
                 source_circular_id=row[1],
-                referenced_circular_id=row[2],
-                referenced_source=row[3],
-                referenced_full_ref=row[4],
-                relationship_nature=row[5],
-                confidence_score=row[6],
-                extraction_method=row[7],
-                matched_text=row[8],
-                referenced_circular_exists=row[9],
-                created_at=row[10],
-                updated_at=row[11],
+                reference_circular_no=row[2],
+                reference_circular_id=row[3],
+                relationship_nature=row[4],
+                ref_circular_exist=row[5],
+                created_at=row[6],
+                updated_at=row[7],
             )
             for row in rows
         ]

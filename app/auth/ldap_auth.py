@@ -1,0 +1,74 @@
+import ldap3
+import jwt
+from datetime import datetime, timedelta, timezone
+from functools import wraps
+from typing import Any
+
+from flask import request, g
+
+from config import Config
+
+
+class LDAPAuth:
+    """LDAP authentication and JWT token management."""
+
+    def __init__(
+        self,
+        server: str | None = None,
+        base_dn: str | None = None,
+        user_dn_template: str | None = None,
+    ):
+        self.server = server or Config.LDAP_SERVER
+        self.base_dn = base_dn or Config.LDAP_BASE_DN
+        self.user_dn_template = user_dn_template or Config.LDAP_USER_DN_TEMPLATE
+
+    def authenticate(self, username: str, password: str) -> bool:
+        """Authenticate user against LDAP directory."""
+        user_dn = self.user_dn_template.format(username=username)
+        server = ldap3.Server(self.server, get_info=ldap3.DSA)
+        conn = ldap3.Connection(server, user=user_dn, password=password, auto_bind=True)
+        return conn.bound
+
+    def create_token(self, username: str) -> str:
+        """Create JWT token for authenticated user."""
+        payload = {
+            "sub": username,
+            "exp": datetime.now(timezone.utc) + timedelta(hours=Config.JWT_EXPIRATION_HOURS),
+            "iat": datetime.now(timezone.utc),
+        }
+        return jwt.encode(payload, Config.JWT_SECRET, algorithm=Config.JWT_ALGORITHM)
+
+    @staticmethod
+    def decode_token(token: str) -> dict[str, Any] | None:
+        """Decode and validate JWT token. Returns payload or None if invalid."""
+        try:
+            payload = jwt.decode(
+                token,
+                Config.JWT_SECRET,
+                algorithms=[Config.JWT_ALGORITHM],
+            )
+            return payload
+        except jwt.ExpiredSignatureError:
+            return None
+        except jwt.InvalidTokenError:
+            return None
+
+
+def require_auth(f):
+    """Decorator to require valid JWT token for endpoint access."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        auth_header = request.headers.get("Authorization", "")
+        if not auth_header.startswith("Bearer "):
+            return {"error": "Missing or invalid Authorization header"}, 401
+
+        token = auth_header.replace("Bearer ", "")
+        payload = LDAPAuth.decode_token(token)
+
+        if payload is None:
+            return {"error": "Invalid or expired token"}, 401
+
+        g.current_user = payload.get("sub")
+        return f(*args, **kwargs)
+
+    return decorated

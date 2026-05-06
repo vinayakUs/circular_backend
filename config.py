@@ -25,6 +25,12 @@ class Config:
     ACTION_ITEM_MODEL = os.getenv(
         "ACTION_ITEM_MODEL", "minimaxai/minimax-m2.7"
     )
+    LDAP_SERVER = os.getenv("LDAP_SERVER", "ldap://localhost:389")
+    LDAP_BASE_DN = os.getenv("LDAP_BASE_DN", "dc=company,dc=com")
+    LDAP_USER_DN_TEMPLATE = os.getenv("LDAP_USER_DN_TEMPLATE", "uid={username},ou=users,dc=company,dc=com")
+    JWT_SECRET = os.getenv("JWT_SECRET", os.urandom(32).hex())
+    JWT_ALGORITHM = "HS256"
+    JWT_EXPIRATION_HOURS = int(os.getenv("JWT_EXPIRATION_HOURS", "24"))
     DATABASE_URL = os.getenv(
         "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/circular_backend"
     )
@@ -39,7 +45,7 @@ class Config:
         os.getenv("SEBI_DETAIL_RETRY_BACKOFF_SECONDS", "2")
     )
     SCRAPER_DEFAULT_LOOKBACK_DAYS = int(
-        os.getenv("SCRAPER_DEFAULT_LOOKBACK_DAYS", "2") # default to 2 days if no data in db fetching historical data
+        os.getenv("SCRAPER_DEFAULT_LOOKBACK_DAYS", "10") # default to 9616 days if no data in db fetching historical data
     ) 
     SCRAPER_ENABLED_SOURCES = _parse_scraper_sources(
         os.getenv("SCRAPER_ENABLED_SOURCES")
@@ -88,3 +94,8 @@ class Config:
     RAG_MAX_CHUNKS = int(os.getenv("RAG_MAX_CHUNKS", "10"))
     RAG_MAX_TOKENS = int(os.getenv("RAG_MAX_TOKENS", "4000"))
     LLM_PROVIDER = os.getenv("LLM_PROVIDER", "nvidia").strip().lower()
+    AWS_S3_BUCKET = os.getenv("AWS_S3_BUCKET", "my-app-dev-bucket")
+    AWS_S3_REGION = os.getenv("AWS_S3_REGION", "us-east-1")
+    AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID", "test")
+    AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "test")
+    AWS_S3_ENDPOINT_URL = os.getenv("AWS_S3_ENDPOINT_URL", "http://localhost:4566")

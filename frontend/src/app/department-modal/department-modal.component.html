@@ -1,0 +1,42 @@
+<div class="modal-overlay" (click)="close.emit()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+            <h3>Add Department</h3>
+            <button class="modal-close" (click)="close.emit()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            <input type="text" [(ngModel)]="departmentName" placeholder="Department name" class="input-field">
+            @if (errorMessage) {
+                <p class="error-text">{{ errorMessage }}</p>
+            }
+            @if (successMessage) {
+                <p class="success-text">{{ successMessage }}</p>
+            }
+            @if (isLoading) {
+                <div class="loading-state">
+                    <div class="loading-spinner small"></div>
+                    <p>Loading departments...</p>
+                </div>
+            } @else if (departments.length > 0) {
+                <div class="department-list">
+                    <h4>Existing Departments</h4>
+                    <ul>
+                        @for (dept of departments; track dept.id) {
+                            <li>{{ dept.name }}</li>
+                        }
+                    </ul>
+                </div>
+            }
+        </div>
+        <div class="modal-footer">
+            <button class="btn" (click)="close.emit()">Cancel</button>
+            <button class="btn" (click)="onAdd()">Add</button>
+        </div>
+    </div>
+</div>

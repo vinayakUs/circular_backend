@@ -59,3 +59,41 @@ CREATE TABLE IF NOT EXISTS scraper_checkpoints (
     es_last_run_at TIMESTAMPTZ,
     es_records_processed INT DEFAULT 0
 );
+
+CREATE TABLE IF NOT EXISTS summaries (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    circular_id UUID NOT NULL REFERENCES circulars(id) ON DELETE CASCADE,
+    summary_key TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (circular_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_summaries_circular_id ON summaries(circular_id);
+
+-- Generic properties table for departments, categories, regions, and other entity types
+CREATE TABLE IF NOT EXISTS properties (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    archived BOOLEAN NOT NULL DEFAULT FALSE,
+    archived_at TIMESTAMPTZ,
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_properties_type ON properties(type);
+CREATE INDEX IF NOT EXISTS idx_properties_type_name ON properties(type, name) WHERE archived = FALSE;
+CREATE INDEX IF NOT EXISTS idx_properties_metadata_gin ON properties USING gin (metadata jsonb_path_ops);
+
+-- Many-to-many mapping between circulars and departments
+CREATE TABLE IF NOT EXISTS circular_department_mapping (
+    circular_id UUID NOT NULL REFERENCES circulars(id) ON DELETE CASCADE,
+    department_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (circular_id, department_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_cdm_circular_id ON circular_department_mapping(circular_id);
+CREATE INDEX IF NOT EXISTS idx_cdm_department_id ON circular_department_mapping(department_id);

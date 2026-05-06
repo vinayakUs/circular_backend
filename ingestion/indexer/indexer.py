@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import logging
-from pathlib import Path
 from uuid import UUID
 
 from config import Config
@@ -13,6 +12,7 @@ from ingestion.indexer.embedding_provider import EmbeddingProvider, NoOpEmbeddin
 from ingestion.indexer.es_client import ElasticsearchClient
 from ingestion.indexer.pdf_extractor import PDFTextExtractor
 from ingestion.repository import CircularAssetRecord, CircularRecord, CircularRepository
+from storage.s3_client import S3StorageClient
 
 
 class ElasticsearchIndexer:
@@ -26,6 +26,7 @@ class ElasticsearchIndexer:
         chunker: FixedSizeChunker | None = None,
         embedding_provider: EmbeddingProvider | None = None,
         batch_size: int = 50,
+        s3_client: S3StorageClient | None = None,
     ) -> None:
         self.logger = logging.getLogger(__name__)
         self.circular_repository = circular_repository
@@ -34,6 +35,7 @@ class ElasticsearchIndexer:
         self.chunker = chunker or FixedSizeChunker()
         self.embedding_provider = embedding_provider or NoOpEmbeddingProvider()
         self.batch_size = batch_size
+        self.s3_client = s3_client or (S3StorageClient() if Config.AWS_S3_BUCKET else None)
 
     def run_once(self) -> tuple[int, int]:
         pending_records = self.circular_repository.list_pending_es_records(
@@ -89,17 +91,31 @@ class ElasticsearchIndexer:
             indexed_at = datetime.now(timezone.utc)
             documents: list[IndexDocument] = []
             for asset in indexable_assets:
-                asset_path = Path(asset.file_path)
-                if not asset_path.exists():
+                if not self.s3_client:
                     self.logger.warning(
-                        "Skipping missing asset file record_id=%s asset_id=%s file_path=%s",
+                        "No s3_client configured record_id=%s asset_id=%s",
+                        record.id,
+                        asset.id,
+                    )
+                    continue
+                if not self.s3_client.exists(asset.file_path):
+                    self.logger.warning(
+                        "S3 object not found record_id=%s asset_id=%s file_path=%s",
                         record.id,
                         asset.id,
                         asset.file_path,
                     )
                     continue
-
-                extracted_text = self.pdf_extractor.extract(asset_path)
+                try:
+                    extracted_text = self.pdf_extractor.extract(asset.file_path)
+                except Exception:
+                    self.logger.exception(
+                        "Failed to read S3 asset record_id=%s asset_id=%s file_path=%s",
+                        record.id,
+                        asset.id,
+                        asset.file_path,
+                    )
+                    continue
                 chunks = self.chunker.chunk(
                     extracted_text,
                     circular_key=(

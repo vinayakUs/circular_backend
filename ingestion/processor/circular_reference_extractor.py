@@ -1,5 +1,7 @@
+import argparse
 import logging
 import re
+import sys
 from typing import Any
 
 from config import Config
@@ -218,3 +220,46 @@ Text excerpt for context (first 1500 chars):
             self.logger.warning("LLM classification failed: %s - storing references without nature", e)
             # Return references with None relationship (will be stored with NULL)
             return [ReferenceWithNature(reference=r, relationship=None) for r in references]
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Extract circular references using LLM.")
+    parser.add_argument("--circular_id", type=str, required=True, help="The circular ID to process (e.g. NSE/FAOP/73791)")
+    args = parser.parse_args()
+
+    logging.basicConfig(level=logging.INFO)
+
+    print(f"Extracting references for: {args.circular_id}")
+    try:
+        db_client = get_db_client()
+        pool = db_client.get_pool()
+        repo = CircularRepository(pool)
+
+        record = repo.get_record_by_circular_id(args.circular_id)
+        if not record:
+            print(f"No circular found with ID: {args.circular_id}", file=sys.stderr)
+            sys.exit(1)
+
+        processor = CircularReferenceProcessor(pool)
+        success = processor.run(record)
+
+        if success:
+            print("Successfully processed and saved references.")
+            from ingestion.repository.circular_reference_repository import CircularReferenceRepository
+            ref_repo = CircularReferenceRepository(pool)
+            refs = ref_repo.get_references_for_circular(record.id)
+            print(f"\n=== Saved References ({len(refs)}) ===")
+            for r in refs:
+                print(f"- {r['referenced_source']} {r['referenced_id']}: {r['relationship_nature']} (conf: {r['confidence']})")
+                print(f"  matched: \"{r['matched_text'][:80]}...\"")
+        else:
+            print("Failed to process circular.", file=sys.stderr)
+            sys.exit(1)
+
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, catchError, of, tap, throwError } from 'rxjs';
+import { Observable, of, throwError } from 'rxjs';
 
 export interface CountsResponse {
   total: number;
@@ -19,6 +19,7 @@ export interface Circular {
   effective_date: string;
   status: string;
   url: string;
+  file_path?: string;
 }
 
 export interface PaginatedCircularsResponse {
@@ -78,31 +79,16 @@ export interface SearchResult {
 @Injectable({ providedIn: 'root' })
 export class CircularsApiService {
   private http = inject(HttpClient);
-  private baseUrl = 'http://127.0.0.1:5000';
-  private countsCacheKey = 'circulars_counts';
-  private listCacheKey = 'circulars_list';
-
+  private baseUrl = '';
   getCounts(): Observable<CountsResponse> {
     return this.http.get<CountsResponse>(
       `${this.baseUrl}/api/circulars/counts`
-    ).pipe(
-      tap(data => localStorage.setItem(this.countsCacheKey, JSON.stringify(data))),
-      catchError(() => {
-        const cached = localStorage.getItem(this.countsCacheKey);
-        return cached ? of(JSON.parse(cached)) : throwError(() => new Error('No cache'));
-      })
     );
   }
 
   getLatestCirculars(): Observable<PaginatedCircularsResponse> {
     const url = `${this.baseUrl}/api/circulars?source=ALL&limit=4&offset=0`;
-    return this.http.get<PaginatedCircularsResponse>(url).pipe(
-      tap(data => localStorage.setItem(this.listCacheKey, JSON.stringify(data))),
-      catchError(() => {
-        const cached = localStorage.getItem(this.listCacheKey);
-        return cached ? of(JSON.parse(cached)) : throwError(() => new Error('No cache'));
-      })
-    );
+    return this.http.get<PaginatedCircularsResponse>(url);
   }
 
   getCirculars(params: {
@@ -149,4 +135,62 @@ export class CircularsApiService {
       { q: params.query, source: params.source, from_date: params.from_date, to_date: params.to_date }
     );
   }
+
+  getCircularRecord(id: string): Observable<Circular> {
+    return this.http.get<Circular>(
+      `${this.baseUrl}/api/circulars/record/${id}`
+    );
+  }
+
+  getActionItems(circularId: string): Observable<{ action_items: ActionItem[]; limit: number; offset: number; total: number }> {
+    return this.http.get<{ action_items: ActionItem[]; limit: number; offset: number; total: number }>(
+      `${this.baseUrl}/api/action-items?circular_id=${circularId}`
+    );
+  }
+
+  getDepartments(circularId: string): Observable<{ departments: Department[] }> {
+    return this.http.get<{ departments: Department[] }>(
+      `${this.baseUrl}/api/circulars/${circularId}/departments`
+    );
+  }
+
+  addDepartment(circularId: string, departmentId: string): Observable<{ departments: Department[] }> {
+    return this.http.post<{ departments: Department[] }>(
+      `${this.baseUrl}/api/circulars/${circularId}/departments`,
+      { department_id: departmentId }
+    );
+  }
+
+  removeDepartment(circularId: string, departmentId: string): Observable<{ departments: Department[] }> {
+    return this.http.delete<{ departments: Department[] }>(
+      `${this.baseUrl}/api/circulars/${circularId}/departments/${departmentId}`
+    );
+  }
+
+  getAvailableDepartments(): Observable<{ items: Department[] }> {
+    return this.http.get<{ items: Department[] }>(
+      `${this.baseUrl}/api/properties/department`
+    );
+  }
+}
+
+interface ActionItem {
+  id: string;
+  action_item: string;
+  circular_id: string;
+  deadline: string;
+  persona: string;
+  priority: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface Department {
+  id: string;
+  name: string;
+  type: string;
+  archived?: boolean;
+  metadata?: Record<string, unknown>;
+  created_at: string;
+  updated_at?: string;
 }

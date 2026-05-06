@@ -163,24 +163,19 @@ class ElasticsearchClient:
             "size": size,
         }
         if strategy == "bm25":
-            search_kwargs["query"] = bm25_query
-            response = self.client.search(**search_kwargs)
-            hits = [
-                SearchHit(
-                    es_id=hit.get("_id"),
-                    score=hit.get("_score"),
-                    document=IndexDocument.from_es_source(hit.get("_source", {})),
-                )
-                for hit in response.get("hits", {}).get("hits", [])
-            ]
-            # Deduplicate by circular_id — keep best-scoring chunk per document
-            best_per_doc: dict[str, SearchHit] = {}
-            for hit in hits:
-                circ_id = hit.document.circular_id
-                if circ_id not in best_per_doc or hit.score > best_per_doc[circ_id].score:
-                    best_per_doc[circ_id] = hit
-            hits = list(best_per_doc.values())
-            hits.sort(key=lambda h: h.score, reverse=True)
+            exact_query = self._build_exact_match_query(query, filters)
+            exact_response = self.client.search(index=self.index_name, query=exact_query, size=size)
+            exact_hits = self._parse_hits(exact_response)
+
+            if exact_hits:
+                hits = self._deduplicate_by_circular_id(exact_hits)
+                return hits
+
+            bm25_query = self._build_bm25_query(query, filters)
+            bm25_response = self.client.search(index=self.index_name, query=bm25_query, size=size)
+            hits = self._parse_hits(bm25_response)
+            hits = self._deduplicate_by_circular_id(hits)
+            return hits
         elif strategy == "vector":
             if query_vector is None:
                 search_kwargs["query"] = bm25_query
@@ -290,6 +285,44 @@ class ElasticsearchClient:
             else:
                 filters.append({"terms": {key: value if isinstance(value, list) else [value]}})
         return filters
+
+    def _parse_hits(self, response: dict[str, Any]) -> list[SearchHit]:
+        return [
+            SearchHit(
+                es_id=hit.get("_id"),
+                score=hit.get("_score"),
+                document=IndexDocument.from_es_source(hit.get("_source", {})),
+            )
+            for hit in response.get("hits", {}).get("hits", [])
+        ]
+
+    def _deduplicate_by_circular_id(self, hits: list[SearchHit]) -> list[SearchHit]:
+        best_per_doc: dict[str, SearchHit] = {}
+        for hit in hits:
+            circ_id = hit.document.circular_id
+            if circ_id not in best_per_doc or hit.score > best_per_doc[circ_id].score:
+                best_per_doc[circ_id] = hit
+        result = list(best_per_doc.values())
+        result.sort(key=lambda h: h.score, reverse=True)
+        return result
+
+    def _build_exact_match_query(self, query: str, filters: list[dict[str, Any]]) -> dict[str, Any]:
+        """Build query that only matches exact/near-exact circular_id, title, or full_reference."""
+        return {
+            "bool": {
+                "filter": filters,
+                "should": [
+                    {"term": {"circular_id": {"value": query, "boost": 10}}},
+                    {"match_phrase": {"title": {"query": query, "boost": 5}}},
+                    {"match_phrase": {"full_reference": {"query": query, "boost": 5}}},
+                ],
+                "minimum_should_match": 1,
+            }
+        }
+
+    def _build_keyword_fallback_query(self, query: str, filters: list[dict[str, Any]]) -> dict[str, Any]:
+        """Keyword-only fallback when exact match yields no results."""
+        return self._build_bm25_query(query, filters)
 
     def _build_bm25_query(self, query: str, filters: list[dict[str, Any]]) -> dict[str, Any]:
         return {

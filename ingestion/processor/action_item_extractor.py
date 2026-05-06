@@ -1,7 +1,10 @@
+'''
+python -m ingestion.processor.action_item_extractor --circular_id "SEBI/HO/CFD/..."                                                       
+'''
 import argparse
 import logging
 import sys
-from typing import List, Optional, Any
+from typing import Optional, Any
 
 from pydantic import BaseModel, Field
 
@@ -12,27 +15,6 @@ from ingestion.processor.base import BaseProcessor
 from ingestion.repository.action_item_repository import ActionItemRepository
 from ingestion.repository.circular_repository import CircularRepository, CircularRecord
 from utils.llm_providers import get_llm_provider
-
-
-class ActionItem(BaseModel):
-    """Represents a single extracted action item from a circular."""
-
-    action_item: str = Field(
-        ...,
-        description="Full action item in natural language format including entity, action, and deadline. Examples: 'Trading in HDFC Bank Limited's Non-Convertible Securities (ISIN: INE040A08468) will be suspended from April 17, 2026.' or 'Promoters of Creative Merchants Ltd must purchase shares from public shareholders as per fair value by May 11, 2026.'",
-    )
-    deadline: Optional[str] = Field(
-        None,
-        description=" deadline in YYYY-MM-DD format. Copy directly from text without modification.",
-    )
-    priority: Optional[str] = Field(
-        None,
-        description="Priority level: critical, high, medium, or low. Assess based on regulatory consequence and urgency.",
-    )
-    persona: Optional[str] = Field(
-        None,
-        description="Persona: Compliance Officer, Trading Desk, Risk Manager, Technology/Connectivity, Operations, FPI/Investor",
-    )
 
 
 class ActionItemSingle(BaseModel):

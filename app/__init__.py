@@ -4,7 +4,7 @@ import logging
 from typing import Any
 from uuid import UUID
 
-from flask import Flask, request
+from flask import Flask, request, g
 from flask_cors import CORS
 
 from config import Config
@@ -12,9 +12,11 @@ from db import get_db_client
 from ingestion.indexer.es_provider import get_es_client
 from ingestion.repository import CircularRepository
 from ingestion.repository.action_item_repository import ActionItemRepository
-from app.dto.action_item_dto import ActionItemListResponseDTO
+from ingestion.repository.properties_repository import PropertiesRepository
+from app.dto.action_item_dto import ActionItemDTO, ActionItemListResponseDTO
 from app.dto.circular_dto import CircularListResponseDTO, CircularSummaryDTO
 from app.dto.search_result_dto import search_hit_to_dict
+from app.auth.ldap_auth import LDAPAuth, require_auth
 from services.rag.answer_generator import RAGAnswerGenerator
 
 try:
@@ -34,31 +36,16 @@ logger = logging.getLogger(__name__)
 
 def _serialize_circular_record(record: Any) -> dict[str, Any]:
     return {
-        "id": str(record.id),
-        "source": record.source,
         "circular_id": record.circular_id,
-        "source_item_key": record.source_item_key,
-        "full_reference": record.full_reference,
         "department": record.department,
-        "title": record.title,
+        "id": str(record.id),
         "issue_date": record.issue_date.isoformat(),
-        "effective_date": (
-            record.effective_date.isoformat() if record.effective_date is not None else None
-        ),
-        "url": record.url,
-        "pdf_url": record.pdf_url,
-        "status": record.status,
+        "full_reference": record.full_reference,
         "file_path": record.file_path,
-        "content_hash": record.content_hash,
-        "error_message": record.error_message,
-        "detected_at": record.detected_at.isoformat(),
-        "created_at": record.created_at.isoformat(),
-        "updated_at": record.updated_at.isoformat(),
-        "es_indexed_at": (
-            record.es_indexed_at.isoformat() if record.es_indexed_at is not None else None
-        ),
-        "es_chunk_count": record.es_chunk_count,
-        "es_index_name": record.es_index_name,
+        "url": record.url,
+        "source": record.source,
+        "title": record.title,
+        "status": record.status,
     }
 
 
@@ -93,6 +80,33 @@ def create_app() -> Flask:
     @app.get("/")
     def health_check():
         return {"message": "Flask project initialized successfully."}
+
+    @app.post("/api/auth/login")
+    def login():
+        body = request.get_json() or {}
+        username = body.get("username", "").strip()
+        password = body.get("password", "")
+
+        if not username or not password:
+            return {"error": "Username and password are required."}, 400
+
+        auth = LDAPAuth()
+        try:
+            auth.authenticate(username, password)
+        except Exception as e:
+            logging.getLogger(__name__).error("LDAP auth error: %s", e)
+            error_msg = str(e).lower()
+            if "invalid" in error_msg or "credentials" in error_msg or "_bind" in error_msg:
+                return {"error": "Invalid credentials"}, 401
+            return {"error": "Authentication failed"}, 500
+
+        token = auth.create_token(username)
+        return {"access_token": token, "token_type": "bearer"}
+
+    @app.get("/api/auth/me")
+    @require_auth
+    def me():
+        return {"username": g.current_user}
 
     @app.get("/api/circulars/counts")
     def get_circular_counts():
@@ -136,11 +150,7 @@ def create_app() -> Flask:
         if record is None:
             return {"error": "Circular not found.", "record_id": str(record_id)}, 404
 
-        assets = repository.list_assets(record.id)
-        return {
-            "circular": _serialize_circular_record(record),
-            "assets": [_serialize_circular_asset(asset) for asset in assets],
-        }
+        return _serialize_circular_record(record)
 
 
 
@@ -301,25 +311,53 @@ def create_app() -> Flask:
     @app.get("/api/action-items")
     def get_action_items():
         raw_circular_id = request.args.get("circular_id", "").strip() or None
+        priority = request.args.get("priority", "").strip() or None
+        persona = request.args.get("persona", "").strip() or None
+        start_date = request.args.get("start_date", "").strip() or None
+        end_date = request.args.get("end_date", "").strip() or None
+        limit = int(request.args.get("limit", "20").strip() or "20")
+        offset = int(request.args.get("offset", "0").strip() or "0")
 
-        if not raw_circular_id:
-            return {"error": "circular_id is required."}, 400
-
-        try:
-            circular_id = UUID(raw_circular_id)
-        except ValueError:
-            return {"error": "Invalid circular_id format."}, 400
+        if raw_circular_id:
+            try:
+                circular_id = UUID(raw_circular_id)
+            except ValueError:
+                return {"error": "Invalid circular_id format."}, 400
+        else:
+            circular_id = None
 
         db_client = get_db_client()
         repository = ActionItemRepository(db_pool=db_client.get_pool())
 
-        action_items, total = repository.get_action_items(circular_id=circular_id)
+        action_items_dtos, total = repository.get_action_items(
+            circular_id=circular_id,
+            priority=priority,
+            persona=persona,
+            start_date=start_date,
+            end_date=end_date,
+            limit=limit,
+            offset=offset,
+        )
+
+        action_items = [
+            ActionItemDTO(
+                id=dto.id,
+                circular_id=dto.circular_id,
+                action_item=dto.action_item,
+                deadline=dto.deadline,
+                priority=dto.priority,
+                persona=dto.persona,
+                created_at=dto.created_at,
+                updated_at=dto.updated_at,
+            )
+            for dto in action_items_dtos
+        ]
 
         response = ActionItemListResponseDTO(
             action_items=action_items,
             total=total,
-            limit=total,
-            offset=0,
+            limit=limit,
+            offset=offset,
         )
         return response.model_dump()
 
@@ -399,5 +437,91 @@ def create_app() -> Flask:
             },
         )
         return response.model_dump()
+
+    @app.get("/api/circulars/<uuid:record_id>/departments")
+    def get_circular_departments(record_id):
+        db_client = get_db_client()
+        repository = CircularRepository(db_pool=db_client.get_pool())
+        departments = repository.get_departments_for_circular(record_id)
+        return {"departments": departments}
+
+    @app.post("/api/circulars/<uuid:record_id>/departments")
+    def add_circular_department(record_id):
+        body = request.get_json() or {}
+        department_id = body.get("department_id", "").strip()
+
+        if not department_id:
+            return {"error": "department_id is required"}, 400
+
+        try:
+            dept_uuid = UUID(department_id)
+        except ValueError:
+            return {"error": "Invalid department_id format"}, 400
+
+        db_client = get_db_client()
+        repository = CircularRepository(db_pool=db_client.get_pool())
+        repository.add_department_mapping(record_id, dept_uuid)
+        departments = repository.get_departments_for_circular(record_id)
+        return {"departments": departments}
+
+    @app.delete("/api/circulars/<uuid:record_id>/departments/<string:department_id>")
+    def remove_circular_department(record_id, department_id):
+        try:
+            dept_uuid = UUID(department_id)
+        except ValueError:
+            return {"error": "Invalid department_id format"}, 400
+
+        db_client = get_db_client()
+        repository = CircularRepository(db_pool=db_client.get_pool())
+        repository.remove_department_mapping(record_id, dept_uuid)
+        departments = repository.get_departments_for_circular(record_id)
+        return {"departments": departments}
+
+    @app.post("/api/properties")
+    def create_property():
+        body = request.get_json() or {}
+        name = body.get("name", "").strip()
+        prop_type = body.get("type", "").strip()
+        metadata = body.get("metadata") or {}
+
+        if not name:
+            return {"error": "name is required"}, 400
+        if not prop_type:
+            return {"error": "type is required"}, 400
+
+        db_client = get_db_client()
+        repository = PropertiesRepository(db_pool=db_client.get_pool())
+        record = repository.create(name, prop_type, metadata)
+        if record is None:
+            return {"error": "A property with this name and type already exists"}, 409
+        return {
+            "id": str(record.id),
+            "name": record.name,
+            "type": record.type,
+            "metadata": record.metadata,
+            "created_at": record.created_at.isoformat(),
+            "updated_at": record.updated_at.isoformat(),
+        }, 201
+
+    @app.get("/api/properties/<string:prop_type>")
+    def list_properties(prop_type: str):
+        include_archived = request.args.get("include_archived", "false").strip().lower() == "true"
+        db_client = get_db_client()
+        repository = PropertiesRepository(db_pool=db_client.get_pool())
+        records = repository.list_by_type(prop_type, include_archived=include_archived)
+        return {
+            "type": prop_type,
+            "items": [
+                {
+                    "id": str(r.id),
+                    "name": r.name,
+                    "archived": r.archived,
+                    "metadata": r.metadata,
+                    "created_at": r.created_at.isoformat(),
+                    "updated_at": r.updated_at.isoformat(),
+                }
+                for r in records
+            ],
+        }
 
     return app
