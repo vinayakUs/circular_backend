@@ -10,6 +10,7 @@ from ingestion.processor.pipeline import ProcessorPipeline
 from ingestion.processor.action_item_extractor import ActionItemProcessor
 from ingestion.processor.llm_reference_extractor import LLMCircularReferenceExtractor
 from ingestion.processor.document_summarizer import DocumentSummarizerProcessor
+from ingestion.processor.nse_applicability_processor import NSEApplicabilityProcessor
 
 
 def main():
@@ -40,6 +41,7 @@ def main():
         pipeline.register_processor(ActionItemProcessor(pool))
         pipeline.register_processor(LLMCircularReferenceExtractor(pool))
         pipeline.register_processor(DocumentSummarizerProcessor(pool))
+        pipeline.register_processor(NSEApplicabilityProcessor(pool))
 
         logger.info(f"Running pipeline with limit {args.limit}...")
         pipeline.run(limit_per_processor=args.limit)

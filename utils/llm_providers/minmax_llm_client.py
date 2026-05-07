@@ -36,7 +36,9 @@ class MinmaxLLMClient(BaseLLMClient):
                 base_url=Config.MINMAX_BASE_URL,
                 api_key=api_key,
             )
-            self._client = instructor.from_openai(openai_client)
+            # Use JSON mode to bypass tool calls — MiniMax can emit multiple
+            # tool call blocks which instructor's default mode rejects.
+            self._client = instructor.from_openai(openai_client, mode=instructor.Mode.JSON)
 
         return self._client
 

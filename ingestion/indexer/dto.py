@@ -25,7 +25,7 @@ class IndexDocument:
     title: str
     department: str
     issue_date: date
-    effective_date: date | None
+    applicable_to_nse: bool
     full_reference: str
     url: str
     pdf_url: str
@@ -50,11 +50,7 @@ class IndexDocument:
             title=source["title"],
             department=source["department"],
             issue_date=date.fromisoformat(source["issue_date"]),
-            effective_date=(
-                date.fromisoformat(source["effective_date"])
-                if source.get("effective_date") is not None
-                else None
-            ),
+            applicable_to_nse=source.get("applicable_to_nse", False),
             full_reference=source["full_reference"],
             url=source["url"],
             pdf_url=source["pdf_url"],
@@ -79,9 +75,7 @@ class IndexDocument:
             "title": self.title,
             "department": self.department,
             "issue_date": self.issue_date.isoformat(),
-            "effective_date": (
-                self.effective_date.isoformat() if self.effective_date is not None else None
-            ),
+            "applicable_to_nse": self.applicable_to_nse,
             "full_reference": self.full_reference,
             "url": self.url,
             "pdf_url": self.pdf_url,

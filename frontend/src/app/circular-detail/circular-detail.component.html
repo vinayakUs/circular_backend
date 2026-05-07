@@ -121,7 +121,9 @@
 
             <div class="action-item-card" *ngFor="let item of actionItems">
               <div class="action-item-header">
+                @if(item.deadline != null){
                 <span class="due-date">{{ getDeadlineText(item.deadline) }}</span>
+                }
                 <span class="due-status" [class]="item.priority">{{ item.priority }}</span>
               </div>
               <div class="action-item-content">
@@ -200,6 +202,10 @@
               <span class="detail-label">Department</span>
               <span class="detail-value">{{ circular?.department }}</span>
             </div>
+            <div class="detail-row">
+              <span class="detail-label">Applicable to NSE</span>
+              <span class="detail-value">{{ circular?.applicable_to_nse ? 'Yes' : 'No' }}</span>
+            </div>
           </div>
 
           <div class="sidebar-section">
@@ -210,7 +216,7 @@
             <div class="department-tags" *ngIf="!departmentsLoading && mappedDepartments.length > 0">
               <span class="dept-tag" *ngFor="let dept of mappedDepartments">
                 {{ dept.name }}
-                <button class="dept-remove" (click)="removeDepartment(dept.id)">×</button>
+                <button class="dept-remove" *ngIf="isLoggedIn()" (click)="removeDepartment(dept.id)">×</button>
               </span>
             </div>
             <div class="empty-state small" *ngIf="!departmentsLoading && mappedDepartments.length === 0">

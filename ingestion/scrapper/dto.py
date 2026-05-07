@@ -13,7 +13,7 @@ class Circular:
     department: str
     title: str
     issue_date: date
-    effective_date: date | None = None
+    applicable_to_nse: bool = False
     url: str = ""
     pdf_url: str = ""
     source_item_key: str = ""
@@ -28,7 +28,7 @@ class Circular:
             "department": self.department,
             "title": self.title,
             "issue_date": self.issue_date,
-            "effective_date": self.effective_date,
+            "applicable_to_nse": self.applicable_to_nse,
             "url": self.url,
             "pdf_url": self.pdf_url,
             "source_item_key": self.source_item_key,
@@ -39,8 +39,6 @@ class Circular:
     def to_json(self) -> str:
         payload = asdict(self)
         payload["issue_date"] = self.issue_date.isoformat()
-        payload["effective_date"] = (
-            self.effective_date.isoformat() if self.effective_date else None
-        )
+        payload["applicable_to_nse"] = self.applicable_to_nse
         payload["detected_at"] = self.detected_at.isoformat()
         return json.dumps(payload)

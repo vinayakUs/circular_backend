@@ -16,7 +16,7 @@ export interface Circular {
   department: string;
   title: string;
   issue_date: string;
-  effective_date: string;
+  applicable_to_nse: boolean;
   status: string;
   url: string;
 }

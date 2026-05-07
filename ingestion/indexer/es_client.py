@@ -29,7 +29,7 @@ DEFAULT_INDEX_MAPPING: dict[str, Any] = {
             "title": {"type": "text"},
             "department": {"type": "keyword"},
             "issue_date": {"type": "date"},
-            "effective_date": {"type": "date"},
+            "applicable_to_nse": {"type": "boolean"},
             "full_reference": {"type": "text"},
             "url": {"type": "keyword", "index": False},
             "pdf_url": {"type": "keyword", "index": False},

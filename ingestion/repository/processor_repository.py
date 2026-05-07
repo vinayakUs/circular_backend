@@ -23,7 +23,7 @@ class ProcessorRepository:
             rows = conn.execute(
                 """
                 SELECT c.id, c.source, c.circular_id, c.source_item_key, c.full_reference,
-                       c.department, c.title, c.issue_date, c.effective_date, c.url, c.pdf_url,
+                       c.department, c.title, c.issue_date, c.applicable_to_nse, c.url, c.pdf_url,
                        c.status, c.file_path, c.content_hash, c.error_message, c.detected_at,
                        c.created_at, c.updated_at, c.es_indexed_at, c.es_chunk_count,
                        c.es_index_name

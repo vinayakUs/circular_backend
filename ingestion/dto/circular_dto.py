@@ -19,17 +19,13 @@ class CircularSummaryDTO(BaseModel):
     department: Optional[str] = None
     title: str
     issue_date: date
-    effective_date: Optional[date] = None
+    applicable_to_nse: bool = False
     status: str
     url: Optional[str] = None
 
     @field_serializer("issue_date")
     def serialize_issue_date(self, value: date) -> str:
         return value.isoformat()
-
-    @field_serializer("effective_date")
-    def serialize_effective_date(self, value: Optional[date]) -> Optional[str]:
-        return value.isoformat() if value else None
 
 
 class CircularListResponseDTO(BaseModel):

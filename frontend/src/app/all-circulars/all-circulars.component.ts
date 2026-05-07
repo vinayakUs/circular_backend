@@ -119,7 +119,7 @@ export class AllCircularsComponent implements OnInit {
           source: r.source,
           title: r.title,
           issue_date: r.issueDate,
-          effective_date: '',
+          applicable_to_nse: false,
           status: '',
           url: r.url
         }));

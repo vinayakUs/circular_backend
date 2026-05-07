@@ -159,7 +159,7 @@ class ElasticsearchIndexer:
                         title=record.title,
                         department=record.department,
                         issue_date=record.issue_date,
-                        effective_date=record.effective_date,
+                        applicable_to_nse=record.applicable_to_nse,
                         full_reference=record.full_reference,
                         url=record.url,
                         pdf_url=record.pdf_url,

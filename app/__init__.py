@@ -45,6 +45,7 @@ def _serialize_circular_record(record: Any) -> dict[str, Any]:
         "source": record.source,
         "title": record.title,
         "status": record.status,
+        "applicable_to_nse": record.applicable_to_nse,
     }
 
 
@@ -418,7 +419,7 @@ def create_app() -> Flask:
                 department=r.department or None,
                 title=r.title,
                 issue_date=r.issue_date,
-                effective_date=r.effective_date,
+                applicable_to_nse=r.applicable_to_nse,
                 status=r.status,
                 url=r.url or None,
             )
@@ -445,6 +446,7 @@ def create_app() -> Flask:
         return {"departments": departments}
 
     @app.post("/api/circulars/<uuid:record_id>/departments")
+    @require_auth
     def add_circular_department(record_id):
         body = request.get_json() or {}
         department_id = body.get("department_id", "").strip()
@@ -464,6 +466,7 @@ def create_app() -> Flask:
         return {"departments": departments}
 
     @app.delete("/api/circulars/<uuid:record_id>/departments/<string:department_id>")
+    @require_auth
     def remove_circular_department(record_id, department_id):
         try:
             dept_uuid = UUID(department_id)

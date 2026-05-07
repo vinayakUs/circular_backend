@@ -19,6 +19,7 @@ def search_hit_to_dict(hit: SearchHit, query: str) -> dict[str, Any]:
         "url": doc.url,
         "chunkIndex": doc.chunk_index,
         "preview": _build_preview(doc.chunk_text, query),
+        "applicable_to_nse": doc.applicable_to_nse,
     }
 
 

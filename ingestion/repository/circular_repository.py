@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS circulars (
     department VARCHAR(50),
     title TEXT NOT NULL,
     issue_date DATE NOT NULL,
-    effective_date DATE,
+    applicable_to_nse BOOLEAN NOT NULL DEFAULT FALSE,
     url TEXT,
     pdf_url TEXT,
     content_hash VARCHAR(64),
@@ -153,7 +153,7 @@ class CircularRecord:
     department: str
     title: str
     issue_date: date
-    effective_date: date | None
+    applicable_to_nse: bool
     url: str
     pdf_url: str
     status: str
@@ -254,6 +254,9 @@ class CircularRepository:
     ) -> None:
         self._update_status_db(record_id, status, error_message)
 
+    def update_applicable_to_nse(self, record_id: UUID, applicable: bool) -> None:
+        self._update_applicable_to_nse_db(record_id, applicable)
+
     def get_checkpoint(self, source: str) -> date | None:
         return self._get_checkpoint_db(source)
 
@@ -270,7 +273,7 @@ class CircularRepository:
             row = conn.execute(
                 """
                 SELECT id, source, circular_id, source_item_key, full_reference,
-                       department, title, issue_date, effective_date, url, pdf_url,
+                       department, title, issue_date, applicable_to_nse, url, pdf_url,
                        status, content_hash, error_message, detected_at,
                        created_at, updated_at, es_indexed_at, es_chunk_count,
                        es_index_name
@@ -287,7 +290,7 @@ class CircularRepository:
             row = conn.execute(
                 """
                 SELECT id, source, circular_id, source_item_key, full_reference,
-                       department, title, issue_date, effective_date, url, pdf_url,
+                       department, title, issue_date, applicable_to_nse, url, pdf_url,
                        status, content_hash, error_message, detected_at,
                        created_at, updated_at, es_indexed_at, es_chunk_count,
                        es_index_name
@@ -310,7 +313,7 @@ class CircularRepository:
                 row = conn.execute(
                     """
                     SELECT id, source, circular_id, source_item_key, full_reference,
-                           department, title, issue_date, effective_date, url, pdf_url,
+                           department, title, issue_date, applicable_to_nse, url, pdf_url,
                            status, content_hash, error_message, detected_at,
                            created_at, updated_at, es_indexed_at, es_chunk_count,
                            es_index_name
@@ -325,7 +328,7 @@ class CircularRepository:
                 row = conn.execute(
                     """
                     SELECT id, source, circular_id, source_item_key, full_reference,
-                           department, title, issue_date, effective_date, url, pdf_url,
+                           department, title, issue_date, applicable_to_nse, url, pdf_url,
                            status, content_hash, error_message, detected_at,
                            created_at, updated_at, es_indexed_at, es_chunk_count,
                            es_index_name
@@ -346,7 +349,7 @@ class CircularRepository:
         self._ensure_schema()
         normalized = reference.upper()
         self.logger.info('''SELECT id, source, circular_id, source_item_key, full_reference,
-                       department, title, issue_date, effective_date, url, pdf_url,
+                       department, title, issue_date, applicable_to_nse, url, pdf_url,
                        status, content_hash, error_message, detected_at,
                        created_at, updated_at, es_indexed_at, es_chunk_count,
                        es_index_name
@@ -358,7 +361,7 @@ class CircularRepository:
             row = conn.execute(
                 """
                 SELECT id, source, circular_id, source_item_key, full_reference,
-                       department, title, issue_date, effective_date, url, pdf_url,
+                       department, title, issue_date, applicable_to_nse, url, pdf_url,
                        status, content_hash, error_message, detected_at,
                        created_at, updated_at, es_indexed_at, es_chunk_count,
                        es_index_name
@@ -378,7 +381,7 @@ class CircularRepository:
             rows = conn.execute(
                 """
                 SELECT id, source, circular_id, source_item_key, full_reference,
-                       department, title, issue_date, effective_date, url, pdf_url,
+                       department, title, issue_date, applicable_to_nse, url, pdf_url,
                        status, content_hash, error_message, detected_at,
                        created_at, updated_at, es_indexed_at, es_chunk_count,
                        es_index_name
@@ -414,7 +417,7 @@ class CircularRepository:
         count_sql = f"SELECT COUNT(*) FROM circulars WHERE {where_sql}"
         total_sql = f"""
             SELECT id, source, circular_id, source_item_key, full_reference,
-                   department, title, issue_date, effective_date, url, pdf_url,
+                   department, title, issue_date, applicable_to_nse, url, pdf_url,
                    status, content_hash, error_message, detected_at,
                    created_at, updated_at, es_indexed_at, es_chunk_count,
                    es_index_name
@@ -510,14 +513,14 @@ class CircularRepository:
                         department = %s,
                         title = %s,
                         issue_date = %s,
-                        effective_date = %s,
+                        applicable_to_nse = %s,
                         url = %s,
                         pdf_url = %s,
                         detected_at = %s,
                         updated_at = NOW()
                     WHERE id = %s
                     RETURNING id, source, circular_id, source_item_key, full_reference,
-                              department, title, issue_date, effective_date, url, pdf_url,
+                              department, title, issue_date, applicable_to_nse, url, pdf_url,
                               status, content_hash, error_message, detected_at,
                               created_at, updated_at, es_indexed_at, es_chunk_count,
                               es_index_name
@@ -529,7 +532,7 @@ class CircularRepository:
                         circular.department,
                         circular.title,
                         circular.issue_date,
-                        circular.effective_date,
+                        circular.applicable_to_nse,
                         circular.url,
                         circular.pdf_url,
                         circular.detected_at or now,
@@ -542,12 +545,12 @@ class CircularRepository:
                     """
                     INSERT INTO circulars (
                         source, circular_id, source_item_key, full_reference, department,
-                        title, issue_date, effective_date, url, pdf_url, status,
+                        title, issue_date, applicable_to_nse, url, pdf_url, status,
                         content_hash, error_message, detected_at
                     )
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     RETURNING id, source, circular_id, source_item_key, full_reference,
-                              department, title, issue_date, effective_date, url, pdf_url,
+                              department, title, issue_date, applicable_to_nse, url, pdf_url,
                               status, content_hash, error_message, detected_at,
                               created_at, updated_at, es_indexed_at, es_chunk_count,
                               es_index_name
@@ -560,7 +563,7 @@ class CircularRepository:
                         circular.department,
                         circular.title,
                         circular.issue_date,
-                        circular.effective_date,
+                        circular.applicable_to_nse,
                         circular.url,
                         circular.pdf_url,
                         "DISCOVERED",
@@ -735,7 +738,7 @@ class CircularRepository:
             department=row[5] or "",
             title=row[6],
             issue_date=row[7],
-            effective_date=row[8],
+            applicable_to_nse=row[8],
             url=row[9] or "",
             pdf_url=row[10] or "",
             status=row[11],
@@ -772,7 +775,7 @@ class CircularRepository:
             rows = conn.execute(
                 """
                 SELECT id, source, circular_id, source_item_key, full_reference,
-                       department, title, issue_date, effective_date, url, pdf_url,
+                       department, title, issue_date, applicable_to_nse, url, pdf_url,
                        status, content_hash, error_message, detected_at,
                        created_at, updated_at, es_indexed_at, es_chunk_count,
                        es_index_name
@@ -913,3 +916,17 @@ class CircularRepository:
                 (circular_id, department_id),
             )
         self.logger.info("Removed department mapping circular_id=%s department_id=%s", circular_id, department_id)
+
+    def _update_applicable_to_nse_db(self, record_id: UUID, applicable: bool) -> None:
+        self._ensure_schema()
+        with self.db_pool.connection() as conn:
+            conn.execute(
+                """
+                UPDATE circulars
+                SET applicable_to_nse = %s,
+                    updated_at = NOW()
+                WHERE id = %s
+                """,
+                (applicable, record_id),
+            )
+        self.logger.info("Updated applicable_to_nse record_id=%s applicable=%s", record_id, applicable)
