@@ -1,7 +1,7 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { marked } from 'marked';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { NavbarComponent } from '../navbar/navbar.component';
@@ -18,6 +18,7 @@ export class AllCircularsComponent implements OnInit {
   private apiService = inject(CircularsApiService);
   private sanitizer = inject(DomSanitizer);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
 
   circulars: Circular[] = [];
   searchResults: SearchResult[] = [];
@@ -29,7 +30,8 @@ export class AllCircularsComponent implements OnInit {
     source: 'ALL',
     from_date: '',
     to_date: '',
-    search: ''
+    search: '',
+    applicable_to_nse: null as boolean | null
   };
 
   searchType: 'keyword' | 'semantic' = 'keyword';
@@ -45,7 +47,14 @@ export class AllCircularsComponent implements OnInit {
   };
 
   ngOnInit(): void {
-    this.loadCirculars();
+    this.route.queryParams.subscribe(params => {
+      if (params['q']) {
+        this.filters.search = params['q'];
+        this.performKeywordSearch();
+      } else {
+        this.loadCirculars();
+      }
+    });
   }
 
   loadCirculars(): void {
@@ -56,7 +65,8 @@ export class AllCircularsComponent implements OnInit {
       offset: this.pagination.offset,
       from_date: this.filters.from_date || undefined,
       to_date: this.filters.to_date || undefined,
-      search: this.filters.search || undefined
+      search: this.filters.search || undefined,
+      applicable_to_nse: this.filters.applicable_to_nse
     }).subscribe({
       next: (data) => {
         this.circulars = data.data.circulars;
@@ -104,7 +114,8 @@ export class AllCircularsComponent implements OnInit {
       query: this.filters.search,
       source: this.filters.source === 'ALL' ? undefined : this.filters.source,
       from_date: this.filters.from_date || undefined,
-      to_date: this.filters.to_date || undefined
+      to_date: this.filters.to_date || undefined,
+      applicable_to_nse: this.filters.applicable_to_nse
     }).subscribe({
       next: (data: SearchResponse) => {
         console.log("data:", data);
@@ -151,7 +162,8 @@ export class AllCircularsComponent implements OnInit {
       strategy: 'hybrid',
       source: this.filters.source === 'ALL' ? undefined : this.filters.source,
       from_date: this.filters.from_date || undefined,
-      to_date: this.filters.to_date || undefined
+      to_date: this.filters.to_date || undefined,
+      applicable_to_nse: this.filters.applicable_to_nse
     }).subscribe({
       next: (data) => {
         this.semanticResult = data;
@@ -170,8 +182,14 @@ export class AllCircularsComponent implements OnInit {
     this.filters.source = source;
   }
 
+  onApplicableToNseChange(value: boolean | null): void {
+    this.filters.applicable_to_nse = value;
+  }
+
   clearFilters(): void {
-    this.filters = { source: 'ALL', from_date: '', to_date: '', search: '' };
+    this.filters = { source: 'ALL', from_date: '', to_date: '', search: '', applicable_to_nse: null };
+    this.searchResults = [];
+    this.showSemanticResult = false;
     this.pagination.offset = 0;
     this.loadCirculars();
   }

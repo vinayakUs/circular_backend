@@ -1,13 +1,14 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { DecimalPipe, DatePipe, NgIf, NgFor } from '@angular/common';
 import { Router } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { NavbarComponent } from '../navbar/navbar.component';
 import { CircularsApiService, Circular, PaginatedCircularsResponse, CountsResponse } from '../services/circulars-api.service';
 
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [NavbarComponent, DecimalPipe, DatePipe, NgIf, NgFor],
+  imports: [NavbarComponent, DecimalPipe, DatePipe, NgIf, NgFor, FormsModule],
   templateUrl: './home.component.html',
   styleUrl: './home.component.css'
 })
@@ -19,6 +20,7 @@ export class HomeComponent implements OnInit {
   loadingCounts = true;
   loadingCirculars = true;
   isApiError = false;
+  searchQuery = '';
 
   ngOnInit(): void {
     this.apiService.getCounts().subscribe({
@@ -48,5 +50,13 @@ export class HomeComponent implements OnInit {
 
   navigateToCircular(circularId: string): void {
     this.router.navigate(['/circular', circularId]);
+  }
+
+  onSearch(): void {
+    if (this.searchQuery.trim()) {
+      this.router.navigate(['/all-circulars'], {
+        queryParams: { q: this.searchQuery.trim() }
+      });
+    }
   }
 }

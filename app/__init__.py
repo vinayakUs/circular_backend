@@ -153,6 +153,37 @@ def create_app() -> Flask:
         return _serialize_circular_record(record)
 
 
+    @app.get("/api/circulars/<uuid:record_id>/content")
+    def get_circular_content(record_id):
+        db_client = get_db_client()
+        repository = CircularRepository(db_pool=db_client.get_pool())
+
+        asset = repository.get_primary_asset(record_id)
+        if asset is None:
+            return {"error": "No PDF asset found for this circular.", "record_id": str(record_id)}, 404
+
+        file_path = asset.file_path
+
+        if file_path.startswith("s3://"):
+            from storage.s3_client import S3StorageClient
+            s3 = S3StorageClient()
+            parts = file_path.replace("s3://", "").split("/", 1)
+            bucket = parts[0]
+            key = parts[1] if len(parts) > 1 else ""
+            try:
+                file_content = s3.download_bytes(file_path)
+            except Exception:
+                return {"error": "Failed to download PDF from storage.", "record_id": str(record_id)}, 500
+
+            response = app.make_response((file_content, 200))
+            response.content_type = asset.mime_type or "application/pdf"
+            response.headers["Content-Disposition"] = f'inline; filename="{key.split("/")[-1]}"'
+            return response
+
+        # Local file path
+        from flask import send_file
+        return send_file(file_path, mimetype=asset.mime_type or "application/pdf")
+
 
     @app.post("/api/circulars/search/bm25")
     def search_circulars_bm25():
@@ -176,13 +207,17 @@ def create_app() -> Flask:
             search_metadata["from_date"] = from_date
         if to_date:
             search_metadata["to_date"] = to_date
+        applicable_to_nse = body.get("applicable_to_nse")
+        if applicable_to_nse is not None:
+            search_metadata["applicable_to_nse"] = applicable_to_nse
 
         logger.info(
-            "BM25 search request: query=%r, source=%s, from_date=%s, to_date=%s",
+            "BM25 search request: query=%r, source=%s, from_date=%s, to_date=%s, applicable_to_nse=%s",
             query,
             raw_source or "ALL",
             from_date,
             to_date,
+            applicable_to_nse,
         )
 
         try:
@@ -241,13 +276,17 @@ def create_app() -> Flask:
             search_metadata["from_date"] = from_date
         if to_date:
             search_metadata["to_date"] = to_date
+        applicable_to_nse = body.get("applicable_to_nse")
+        if applicable_to_nse is not None:
+            search_metadata["applicable_to_nse"] = applicable_to_nse
 
         logger.info(
-            "Hybrid search request: query=%r, source=%s, from_date=%s, to_date=%s",
+            "Hybrid search request: query=%r, source=%s, from_date=%s, to_date=%s, applicable_to_nse=%s",
             query,
             raw_source or "ALL",
             from_date,
             to_date,
+            applicable_to_nse,
         )
 
         try:
@@ -385,6 +424,7 @@ def create_app() -> Flask:
 
         raw_from_date = request.args.get("from_date", "").strip() or None
         raw_to_date = request.args.get("to_date", "").strip() or None
+        raw_applicable_to_nse = request.args.get("applicable_to_nse", "").strip() or None
 
         from_date = None
         to_date = None
@@ -399,6 +439,15 @@ def create_app() -> Flask:
             except ValueError:
                 return {"error": "to_date must be YYYY-MM-DD."}, 400
 
+        applicable_to_nse = None
+        if raw_applicable_to_nse is not None:
+            if raw_applicable_to_nse.lower() == "true":
+                applicable_to_nse = True
+            elif raw_applicable_to_nse.lower() == "false":
+                applicable_to_nse = False
+            else:
+                return {"error": "applicable_to_nse must be 'true' or 'false'."}, 400
+
         db_client = get_db_client()
         repository = CircularRepository(db_pool=db_client.get_pool())
 
@@ -408,6 +457,7 @@ def create_app() -> Flask:
             source=normalized_source,
             from_date=from_date,
             to_date=to_date,
+            applicable_to_nse=applicable_to_nse,
         )
 
         items = [
@@ -438,46 +488,63 @@ def create_app() -> Flask:
         )
         return response.model_dump()
 
-    @app.get("/api/circulars/<uuid:record_id>/departments")
-    def get_circular_departments(record_id):
-        db_client = get_db_client()
-        repository = CircularRepository(db_pool=db_client.get_pool())
-        departments = repository.get_departments_for_circular(record_id)
-        return {"departments": departments}
-
-    @app.post("/api/circulars/<uuid:record_id>/departments")
+    @app.post("/api/circulars/<uuid:record_id>/experts")
     @require_auth
-    def add_circular_department(record_id):
+    def save_circular_experts(record_id):
         body = request.get_json() or {}
-        department_id = body.get("department_id", "").strip()
+        experts = body.get("experts", [])
 
-        if not department_id:
-            return {"error": "department_id is required"}, 400
-
-        try:
-            dept_uuid = UUID(department_id)
-        except ValueError:
-            return {"error": "Invalid department_id format"}, 400
+        if not experts:
+            return {"error": "experts list is required"}, 400
 
         db_client = get_db_client()
         repository = CircularRepository(db_pool=db_client.get_pool())
-        repository.add_department_mapping(record_id, dept_uuid)
-        departments = repository.get_departments_for_circular(record_id)
-        return {"departments": departments}
 
-    @app.delete("/api/circulars/<uuid:record_id>/departments/<string:department_id>")
-    @require_auth
-    def remove_circular_department(record_id, department_id):
-        try:
-            dept_uuid = UUID(department_id)
-        except ValueError:
-            return {"error": "Invalid department_id format"}, 400
+        for expert in experts:
+            row_id = expert.get("id")
+            title = expert.get("title", "")
+            text = expert.get("text", "")
+            dept_id = expert.get("dept_id")
+            highlights = expert.get("highlights", [])
 
+            if row_id:
+                try:
+                    row_uuid = UUID(row_id)
+                except ValueError:
+                    return {"error": f"Invalid id format: {row_id}"}, 400
+
+                success = repository.update_expert_mapping(
+                    row_id=row_uuid,
+                    title=title,
+                    text=text,
+                    highlights=highlights,
+                )
+                if not success:
+                    return {"error": "Update failed - row not found"}, 404
+            else:
+                if not dept_id:
+                    return {"error": "dept_id is required for new experts"}, 400
+                try:
+                    dept_uuid = UUID(dept_id)
+                except ValueError:
+                    return {"error": f"Invalid dept_id format: {dept_id}"}, 400
+
+                repository.save_expert_mapping(
+                    circular_id=record_id,
+                    dept_id=dept_uuid,
+                    title=title,
+                    text=text,
+                    highlights=highlights,
+                )
+
+        return {"success": True}
+
+    @app.get("/api/circulars/<uuid:record_id>/experts")
+    def get_circular_experts(record_id):
         db_client = get_db_client()
         repository = CircularRepository(db_pool=db_client.get_pool())
-        repository.remove_department_mapping(record_id, dept_uuid)
-        departments = repository.get_departments_for_circular(record_id)
-        return {"departments": departments}
+        experts = repository.get_expert_mappings_for_circular(record_id)
+        return {"experts": experts}
 
     @app.post("/api/properties")
     def create_property():

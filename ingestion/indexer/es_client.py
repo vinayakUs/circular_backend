@@ -276,13 +276,13 @@ class ElasticsearchClient:
     def _build_filters(self, metadata: dict[str, Any]) -> list[dict[str, Any]]:
         filters: list[dict[str, Any]] = []
         for key, value in metadata.items():
-            if not value:
-                continue
             if key == "from_date":
                 filters.append({"range": {"issue_date": {"gte": value, "format": "yyyy-MM-dd" if "T" not in str(value) else "strict_date_optional_time"}}})
             elif key == "to_date":
                 filters.append({"range": {"issue_date": {"lte": value, "format": "yyyy-MM-dd" if "T" not in str(value) else "strict_date_optional_time"}}})
-            else:
+            elif key == "applicable_to_nse":
+                filters.append({"term": {"applicable_to_nse": value}})
+            elif value:
                 filters.append({"terms": {key: value if isinstance(value, list) else [value]}})
         return filters
 

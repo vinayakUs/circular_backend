@@ -60,6 +60,15 @@
             </svg>
             View Reference Chain
           </button>
+          <button class="action-btn" (click)="openExpertModal()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+            Add Expert
+          </button>
           <button class="action-btn">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
@@ -207,39 +216,12 @@
               <span class="detail-value">{{ circular?.applicable_to_nse ? 'Yes' : 'No' }}</span>
             </div>
           </div>
-
-          <div class="sidebar-section">
-            <h3>Department Mapping</h3>
-            <div class="loading-state small" *ngIf="departmentsLoading">
-              <div class="loading-spinner small"></div>
-            </div>
-            <div class="department-tags" *ngIf="!departmentsLoading && mappedDepartments.length > 0">
-              <span class="dept-tag" *ngFor="let dept of mappedDepartments">
-                {{ dept.name }}
-                <button class="dept-remove" *ngIf="isLoggedIn()" (click)="removeDepartment(dept.id)">×</button>
-              </span>
-            </div>
-            <div class="empty-state small" *ngIf="!departmentsLoading && mappedDepartments.length === 0">
-              <p>No departments mapped.</p>
-            </div>
-            <button class="add-dept-btn" *ngIf="isLoggedIn()" (click)="toggleDepartmentDropdown()">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="12" y1="5" x2="12" y2="19" />
-                <line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
-              Add Department
-            </button>
-            <div class="dept-dropdown" *ngIf="showDepartmentDropdown">
-              <div class="dept-option" *ngFor="let dept of availableDepartments" (click)="addDepartment(dept.id)">
-                {{ dept.name }}
-              </div>
-              <div class="dept-empty" *ngIf="availableDepartments.length === 0">
-                No departments available
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
   </main>
+
+  @if (showExpertModal) {
+    <app-expert-modal [circularId]="circular?.id ?? ''" (close)="closeExpertModal()"></app-expert-modal>
+  }
 </div>

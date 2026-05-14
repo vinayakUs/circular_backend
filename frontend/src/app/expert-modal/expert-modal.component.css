@@ -1,0 +1,384 @@
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100vh;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  flex-shrink: 0;
+}
+
+.modal-header h3 {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: #0a0a0a;
+  margin: 0;
+}
+
+.modal-close {
+  border: none;
+  background: transparent;
+  color: #9e9e9e;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.modal-close:hover {
+  color: #0a0a0a;
+  background: #f5f5f5;
+}
+
+.modal-body {
+  flex: 1;
+  padding: 0;
+  overflow: hidden;
+}
+
+.pdf-viewer-section {
+  display: flex;
+  height: 100%;
+  width: 100%;
+}
+
+.pdf-container {
+  flex: 1;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+.pdf-container ngx-extended-pdf-viewer {
+  height: 100%;
+  display: block;
+}
+
+.highlight-popup {
+  position: absolute;
+  z-index: 100;
+  transform: translate(-50%, -100%);
+  margin-top: -8px;
+}
+
+.popup-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: #0a0a0a;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.popup-btn:hover {
+  background: #f5f5f5;
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+.popup-btn svg {
+  color: #5e6ad2;
+}
+
+.empty-section {
+  width: 480px;
+  border-left: 1px solid rgba(0, 0, 0, 0.08);
+  background: #fafafa;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.experts-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  overflow: hidden;
+}
+
+.experts-list h4 {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: #9e9e9e;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 16px 0;
+  flex-shrink: 0;
+}
+
+.experts-list-content {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.expert-card {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.expert-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.expert-name {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: #0a0a0a;
+  background: transparent;
+  border: none;
+  padding: 0;
+  width: 100%;
+}
+
+.expert-name-input {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: #0a0a0a;
+  background: #f5f5f5;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+  padding: 6px 10px;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.expert-name-input:focus {
+  border-color: #5e6ad2;
+}
+
+.remove-btn {
+  border: none;
+  background: transparent;
+  color: #9e9e9e;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.remove-btn:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.expert-highlights {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.expert-text {
+  background: rgba(255, 255, 152, 0.3);
+  border-left: 3px solid #FFFF98;
+  padding: 8px 10px;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.expert-text .highlight-text {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 12px;
+  color: #5e5e5e;
+  line-height: 1.4;
+}
+
+.highlight-item {
+  background: rgba(255, 255, 152, 0.3);
+  border-left: 3px solid #FFFF98;
+  padding: 8px 10px;
+  border-radius: 4px;
+}
+
+.highlight-text {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 12px;
+  color: #5e5e5e;
+  line-height: 1.4;
+}
+
+.dept-selector {
+  position: relative;
+}
+
+.dept-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: #f5f5f5;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 6px;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  color: #5e5e5e;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dept-btn:hover {
+  background: #eeeeee;
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+.dept-btn span:first-child {
+  flex: 1;
+  text-align: left;
+}
+
+.dept-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 50;
+  margin-top: 4px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.dept-option {
+  padding: 10px 12px;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  color: #0a0a0a;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.dept-option:hover {
+  background: rgba(94, 106, 210, 0.08);
+}
+
+.dept-option:first-child {
+  border-radius: 7px 7px 0 0;
+}
+
+.dept-option:last-child {
+  border-radius: 0 0 7px 7px;
+}
+
+.no-data {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 13px;
+  color: #9e9e9e;
+  text-align: center;
+  padding: 24px 0;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  flex-shrink: 0;
+}
+
+.modal-footer .btn {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.modal-footer .btn:first-child {
+  background: transparent;
+  color: #5e5e5e;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.modal-footer .btn:first-child:hover {
+  background: #f5f5f5;
+  color: #0a0a0a;
+}
+
+.modal-footer .btn.btn-primary {
+  background: #5e6ad2;
+  color: white;
+  border: none;
+}
+
+.modal-footer .btn.btn-primary:hover {
+  background: #4f5dc4;
+}
+
+@media (max-width: 768px) {
+  .pdf-viewer-section {
+    flex-direction: column;
+  }
+
+  .pdf-container {
+    height: 50%;
+  }
+
+  .empty-section {
+    width: 100%;
+    height: 50%;
+    border-left: none;
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+  }
+}

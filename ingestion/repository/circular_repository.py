@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
+import json
 import logging
 from pathlib import Path
 import threading
@@ -130,12 +131,17 @@ CREATE INDEX IF NOT EXISTS idx_properties_type ON properties(type);
 CREATE INDEX IF NOT EXISTS idx_properties_type_name ON properties(type, name) WHERE archived = FALSE;
 CREATE INDEX IF NOT EXISTS idx_properties_metadata_gin ON properties USING gin (metadata jsonb_path_ops);
 
--- Many-to-many mapping between circulars and departments
+-- Many-to-many mapping between circulars and departments/experts
 CREATE TABLE IF NOT EXISTS circular_department_mapping (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     circular_id UUID NOT NULL REFERENCES circulars(id) ON DELETE CASCADE,
     department_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+    expert_name VARCHAR(255) NOT NULL,
+    highlight_text TEXT NOT NULL,
+    highlights JSONB DEFAULT '[]',
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (circular_id, department_id)
+    UNIQUE (circular_id, department_id, expert_name)
 );
 
 CREATE INDEX IF NOT EXISTS idx_cdm_circular_id ON circular_department_mapping(circular_id);
@@ -222,15 +228,6 @@ class CircularRepository:
 
     def clear_all_es_index_state(self) -> None:
         self._clear_all_es_index_state_db()
-
-    def get_departments_for_circular(self, circular_id: UUID) -> list[dict]:
-        return self._get_departments_for_circular_db(circular_id)
-
-    def add_department_mapping(self, circular_id: UUID, department_id: UUID) -> None:
-        self._add_department_mapping_db(circular_id, department_id)
-
-    def remove_department_mapping(self, circular_id: UUID, department_id: UUID) -> None:
-        self._remove_department_mapping_db(circular_id, department_id)
 
     def reset_bloom_state(self) -> None:
         self._reset_bloom_state_db()
@@ -398,6 +395,7 @@ class CircularRepository:
         source: str | None = None,
         from_date: date | None = None,
         to_date: date | None = None,
+        applicable_to_nse: bool | None = None,
     ) -> tuple[list[CircularRecord], int]:
         self._ensure_schema()
         args: list = []
@@ -411,6 +409,9 @@ class CircularRepository:
         if to_date:
             where_clauses.append("issue_date <= %s")
             args.append(to_date)
+        if applicable_to_nse is not None:
+            where_clauses.append("applicable_to_nse = %s")
+            args.append(applicable_to_nse)
 
         where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
 
@@ -877,45 +878,75 @@ class CircularRepository:
             )
         self.logger.info("Reset bloom/checkpoint state for all sources")
 
-    def _get_departments_for_circular_db(self, circular_id: UUID) -> list[dict]:
+    def save_expert_mapping(
+        self,
+        circular_id: UUID,
+        dept_id: UUID,
+        title: str,
+        text: str,
+        highlights: list[dict],
+    ) -> UUID:
+        self._ensure_schema()
+        with self.db_pool.connection() as conn:
+            row = conn.execute(
+                """
+                INSERT INTO circular_department_mapping
+                    (circular_id, department_id, expert_name, highlight_text, highlights)
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING id
+                """,
+                (circular_id, dept_id, title, text, json.dumps(highlights)),
+            ).fetchone()
+        return row[0]
+
+    def update_expert_mapping(
+        self,
+        row_id: UUID,
+        title: str,
+        text: str,
+        highlights: list[dict],
+    ) -> bool:
+        self._ensure_schema()
+        with self.db_pool.connection() as conn:
+            row = conn.execute(
+                """
+                UPDATE circular_department_mapping
+                SET expert_name = %s,
+                    highlight_text = %s,
+                    highlights = %s,
+                    updated_at = NOW()
+                WHERE id = %s
+                RETURNING id
+                """,
+                (title, text, json.dumps(highlights), row_id),
+            ).fetchone()
+        return row is not None
+
+    def get_expert_mappings_for_circular(self, circular_id: UUID) -> list[dict]:
         self._ensure_schema()
         with self.db_pool.connection() as conn:
             rows = conn.execute(
                 """
-                SELECT p.id, p.name, p.type, cdm.created_at
-                FROM circular_department_mapping cdm
-                JOIN properties p ON p.id = cdm.department_id
-                WHERE cdm.circular_id = %s AND p.archived = FALSE
-                ORDER BY p.name
+                SELECT id, circular_id, department_id, expert_name, highlight_text, highlights, created_at, updated_at
+                FROM circular_department_mapping
+                WHERE circular_id = %s
+                ORDER BY created_at
                 """,
                 (circular_id,),
             ).fetchall()
-        return [{"id": str(r[0]), "name": r[1], "type": r[2], "created_at": r[3]} for r in rows]
-
-    def _add_department_mapping_db(self, circular_id: UUID, department_id: UUID) -> None:
-        self._ensure_schema()
-        with self.db_pool.connection() as conn:
-            conn.execute(
-                """
-                INSERT INTO circular_department_mapping (circular_id, department_id)
-                VALUES (%s, %s)
-                ON CONFLICT (circular_id, department_id) DO NOTHING
-                """,
-                (circular_id, department_id),
-            )
-        self.logger.info("Added department mapping circular_id=%s department_id=%s", circular_id, department_id)
-
-    def _remove_department_mapping_db(self, circular_id: UUID, department_id: UUID) -> None:
-        self._ensure_schema()
-        with self.db_pool.connection() as conn:
-            conn.execute(
-                """
-                DELETE FROM circular_department_mapping
-                WHERE circular_id = %s AND department_id = %s
-                """,
-                (circular_id, department_id),
-            )
-        self.logger.info("Removed department mapping circular_id=%s department_id=%s", circular_id, department_id)
+        return [
+            {
+                "id": str(r[0]),
+                "circular_id": str(r[1]),
+                "dept_id": str(r[2]),
+                "title": r[3],
+                "text": r[4],
+                "highlights": r[5] or [],
+                "created_at": r[6].isoformat() if r[6] else None,
+                "updated_at": r[7].isoformat() if r[7] else None,
+            }
+            for r in rows
+        ]
 
     def _update_applicable_to_nse_db(self, record_id: UUID, applicable: bool) -> None:
         self._ensure_schema()

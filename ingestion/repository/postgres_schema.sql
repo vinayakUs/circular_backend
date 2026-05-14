@@ -85,13 +85,18 @@ CREATE INDEX IF NOT EXISTS idx_properties_type ON properties(type);
 CREATE INDEX IF NOT EXISTS idx_properties_type_name ON properties(type, name) WHERE archived = FALSE;
 CREATE INDEX IF NOT EXISTS idx_properties_metadata_gin ON properties USING gin (metadata jsonb_path_ops);
 
--- Many-to-many mapping between circulars and departments
+-- Many-to-many mapping between circulars and departments/experts
 CREATE TABLE IF NOT EXISTS circular_department_mapping (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     circular_id UUID NOT NULL REFERENCES circulars(id) ON DELETE CASCADE,
     department_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+    expert_name VARCHAR(255) NOT NULL,
+    highlight_text TEXT NOT NULL,
+    highlights JSONB DEFAULT '[]',
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (circular_id, department_id)
+    UNIQUE (circular_id, department_id, expert_name)
 );
 
-CREATE INDEX IF NOT EXISTS idx_cdm_circular_id ON circular_department_mapping(circular_id);
-CREATE INDEX IF NOT EXISTS idx_cdm_department_id ON circular_department_mapping(department_id);
+CREATE INDEX idx_cdm_circular_id ON circular_department_mapping(circular_id);
+CREATE INDEX idx_cdm_department_id ON circular_department_mapping(department_id);

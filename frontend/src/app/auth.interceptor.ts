@@ -7,10 +7,14 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const cookies = document.cookie.split(";");
   let token: string | null = null;
   for (const cookie of cookies) {
-    const [name, value] = cookie.trim().split('=');
-    if (name === 'access_token') {
-      token = value;
-      break;
+    const parts = cookie.split('=');
+    if (parts.length >= 2) {
+      const name = parts[0].trim();
+      if (name === 'access_token') {
+        token = decodeURIComponent(parts.slice(1).join('='));
+        console.log('Token extracted from cookie:', token);
+        break;
+      }
     }
   }
 
@@ -21,9 +25,11 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
         Authorization: `Bearer ${token}`
       }
     });
+    console.log('Auth header set:', authReq.headers.get('Authorization'));
     return next(authReq);
   }
 
+  console.log('No token found in cookie');
   // No token found, pass request through without auth header
   // Backend will return 401 which will be handled as appropriate
   return next(req);

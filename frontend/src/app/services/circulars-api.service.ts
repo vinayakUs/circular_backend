@@ -75,6 +75,24 @@ export interface SearchResult {
   preview: string;
 }
 
+export interface HighlightDetail {
+  id: string;
+  color: string;
+  page: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface Expert {
+  id?: string;
+  dept_id: string;
+  title: string;
+  text: string;
+  highlights: HighlightDetail[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class CircularsApiService {
   private http = inject(HttpClient);
@@ -97,6 +115,7 @@ export class CircularsApiService {
     from_date?: string;
     to_date?: string;
     search?: string;
+    applicable_to_nse?: boolean | null;
   }): Observable<PaginatedCircularsResponse> {
     const queryParams = new URLSearchParams();
     if (params.source) queryParams.set('source', params.source);
@@ -105,6 +124,9 @@ export class CircularsApiService {
     if (params.from_date) queryParams.set('from_date', params.from_date);
     if (params.to_date) queryParams.set('to_date', params.to_date);
     if (params.search) queryParams.set('search', params.search);
+    if (params.applicable_to_nse !== null && params.applicable_to_nse !== undefined) {
+      queryParams.set('applicable_to_nse', params.applicable_to_nse.toString());
+    }
 
     const url = `${this.baseUrl}/api/circulars?${queryParams.toString()}`;
     return this.http.get<PaginatedCircularsResponse>(url);
@@ -116,10 +138,11 @@ export class CircularsApiService {
     source?: string;
     from_date?: string;
     to_date?: string;
+    applicable_to_nse?: boolean | null;
   }): Observable<SemanticSearchResponse> {
     return this.http.post<SemanticSearchResponse>(
       `${this.baseUrl}/api/circulars/search/hybrid`,
-      { q: params.query, source: params.source, from_date: params.from_date, to_date: params.to_date }
+      { q: params.query, source: params.source, from_date: params.from_date, to_date: params.to_date, applicable_to_nse: params.applicable_to_nse }
     );
   }
 
@@ -128,10 +151,11 @@ export class CircularsApiService {
     source?: string;
     from_date?: string;
     to_date?: string;
+    applicable_to_nse?: boolean | null;
   }): Observable<SearchResponse> {
     return this.http.post<SearchResponse>(
       `${this.baseUrl}/api/circulars/search/bm25`,
-      { q: params.query, source: params.source, from_date: params.from_date, to_date: params.to_date }
+      { q: params.query, source: params.source, from_date: params.from_date, to_date: params.to_date, applicable_to_nse: params.applicable_to_nse }
     );
   }
 
@@ -147,25 +171,6 @@ export class CircularsApiService {
     );
   }
 
-  getDepartments(circularId: string): Observable<{ departments: Department[] }> {
-    return this.http.get<{ departments: Department[] }>(
-      `${this.baseUrl}/api/circulars/${circularId}/departments`
-    );
-  }
-
-  addDepartment(circularId: string, departmentId: string): Observable<{ departments: Department[] }> {
-    return this.http.post<{ departments: Department[] }>(
-      `${this.baseUrl}/api/circulars/${circularId}/departments`,
-      { department_id: departmentId }
-    );
-  }
-
-  removeDepartment(circularId: string, departmentId: string): Observable<{ departments: Department[] }> {
-    return this.http.delete<{ departments: Department[] }>(
-      `${this.baseUrl}/api/circulars/${circularId}/departments/${departmentId}`
-    );
-  }
-
   getAvailableDepartments(): Observable<{ items: Department[] }> {
     return this.http.get<{ items: Department[] }>(
       `${this.baseUrl}/api/properties/department`
@@ -175,6 +180,19 @@ export class CircularsApiService {
   getSummary(recordId: string): Observable<{ summary: string }> {
     return this.http.get<{ summary: string }>(
       `${this.baseUrl}/api/circulars/${recordId}/summary`
+    );
+  }
+
+  saveExperts(circularId: string, experts: Expert[]): Observable<{ success: boolean }> {
+    return this.http.post<{ success: boolean }>(
+      `${this.baseUrl}/api/circulars/${circularId}/experts`,
+      { experts }
+    );
+  }
+
+  getExperts(circularId: string): Observable<{ experts: Expert[] }> {
+    return this.http.get<{ experts: Expert[] }>(
+      `${this.baseUrl}/api/circulars/${circularId}/experts`
     );
   }
 }
@@ -190,7 +208,7 @@ interface ActionItem {
   updated_at: string;
 }
 
-interface Department {
+export interface Department {
   id: string;
   name: string;
   type: string;

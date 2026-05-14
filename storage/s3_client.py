@@ -100,3 +100,11 @@ class S3StorageClient:
                         "Quiet": True,
                     },
                 )
+
+    def generate_presigned_url(self, bucket: str, key: str, expires_in: int = 3600) -> str:
+        """Generate a presigned URL for an S3 object."""
+        return self.client.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": bucket, "Key": key},
+            ExpiresIn=expires_in,
+        )

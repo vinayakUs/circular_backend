@@ -14,7 +14,7 @@
             <span class="gradient-text">regulatory update</span>
           </h1>
           <p class="hero-description">
-            AI-powered tracking across NSE, BSE, MCX, and SEBI circulars.
+            AI-powered tracking across NSE and SEBI circulars.
             Real-time alerts, intelligent search, and compliance workflow automation
             for modern finance teams.
           </p>
@@ -25,8 +25,8 @@
                 <circle cx="11" cy="11" r="8"/>
                 <path d="m21 21-4.35-4.35"/>
               </svg>
-              <input type="text" placeholder="Search circulars, keywords, or topics..." class="search-input" />
-              <button class="search-btn">Search</button>
+              <input type="text" [(ngModel)]="searchQuery" placeholder="Search circulars, keywords, or topics..." class="search-input" (keyup.enter)="onSearch()" />
+              <button class="search-btn" (click)="onSearch()">Search</button>
             </div>
           </div>
 

@@ -1,0 +1,111 @@
+<div class="modal-overlay" (click)="close.emit()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+            <h3>Add Expert</h3>
+            <button class="modal-close" (click)="close.emit()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="pdf-viewer-section" (contextmenu)="$event.preventDefault()" (mouseup)="onPdfMouseUp($event)">
+                <div class="pdf-container">
+                    <ngx-extended-pdf-viewer
+                        [src]="pdfUrl"
+                        [showToolbar]="true"
+                        [showSidebarButton]="false"
+                        [showFindButton]="false"
+                        [showPagingButtons]="false"
+                        [showSignatureEditor]="false"
+                        [showHighlightEditor]="false"
+                        [showDrawEditor]="false"
+                        [showCommentEditor]="false"
+                        [showStampEditor]="false"
+                        [showTextEditor]="false"
+                        [showZoomButtons]="false"
+                        [showPresentationModeButton]="false"
+                        [showOpenFileButton]="false"
+                        [showPrintButton]="false"
+                        [showDownloadButton]="false"
+                        [showSecondaryToolbarButton]="true"
+                        [showMovePageButton]="false"
+                        [showRotateButton]="false"
+                        [showRotateCwButton]="false"
+                        [showRotateCcwButton]="false"
+                        [showHandToolButton]="false"
+                        [showScrollingButtons]="false"
+                        [showSpreadButton]="false"
+                        [showPropertiesButton]="false"
+                        [showBorders]="false"
+                        [textLayer]="true"
+                        [handTool]="false"
+                        (annotationEditorEvent)="onAnnotationEvent($event)">
+                    </ngx-extended-pdf-viewer>
+
+                    <div class="highlight-popup" *ngIf="showPopup" [style.top.px]="popupY" [style.left.px]="popupX">
+                        <button class="popup-btn" (click)="addHighlight()">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 2a10 10 0 0 1 10 10c0 5.52-4.48 10-10 10S2 17.52 2 12c0-1.85.5-3.58 1.38-5.08"/>
+                                <path d="M12 6v6l4 2"/>
+                            </svg>
+                            Add Highlight
+                        </button>
+                    </div>
+                </div>
+                <div class="empty-section">
+                    <div class="experts-list">
+                        <h4>Tagged Experts</h4>
+                        <div class="experts-list-content" *ngIf="experts.length > 0; else noExperts">
+                            <div class="expert-card" *ngFor="let expert of experts; let i = index">
+                                <div class="expert-header">
+                                    <input
+                                        class="expert-name-input"
+                                        type="text"
+                                        [(ngModel)]="expert.title"
+                                        placeholder="Expert name"
+                                    />
+                                    <button class="remove-btn" (click)="removeExpert(i)">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                                        </svg>
+                                    </button>
+                                </div>
+                                <div class="expert-text">
+                                    <span class="highlight-text">"{{ expert.text }}"</span>
+                                </div>
+                                <div class="dept-selector">
+                                    <button class="dept-btn" (click)="openDeptDropdownIndex = openDeptDropdownIndex === i ? null : i">
+                                        <span *ngIf="expert.dept_id">{{ getDeptName(expert.dept_id) }}</span>
+                                        <span *ngIf="!expert.dept_id">Assign Department</span>
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <polyline points="6 9 12 15 18 9"></polyline>
+                                        </svg>
+                                    </button>
+                                    <div class="dept-dropdown" *ngIf="openDeptDropdownIndex === i">
+                                        <div class="dept-option" *ngFor="let dept of departments" (click)="assignDepartment(i, dept.id)">
+                                            {{ dept.name }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <ng-template #noExperts>
+                            <p class="no-data">No experts tagged yet. Highlight text to add.</p>
+                        </ng-template>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn" (click)="close.emit()">Cancel</button>
+            <button class="btn btn-primary" (click)="onSave()" [disabled]="isSaving">
+              <span *ngIf="isSaving">Saving...</span>
+              <span *ngIf="!isSaving">Save</span>
+            </button>
+        </div>
+    </div>
+</div>

@@ -28,7 +28,7 @@ class Config:
     LDAP_SERVER = os.getenv("LDAP_SERVER", "ldap://localhost:389")
     LDAP_BASE_DN = os.getenv("LDAP_BASE_DN", "dc=company,dc=com")
     LDAP_USER_DN_TEMPLATE = os.getenv("LDAP_USER_DN_TEMPLATE", "uid={username},ou=users,dc=company,dc=com")
-    JWT_SECRET = os.getenv("JWT_SECRET", os.urandom(32).hex())
+    JWT_SECRET = os.getenv("JWT_SECRET", "s2L65pGQtRN0Tu1ZDAH80SqP1Rl7FgWXOzanvGKeOS0")
     JWT_ALGORITHM = "HS256"
     JWT_EXPIRATION_HOURS = int(os.getenv("JWT_EXPIRATION_HOURS", "24"))
     DATABASE_URL = os.getenv(

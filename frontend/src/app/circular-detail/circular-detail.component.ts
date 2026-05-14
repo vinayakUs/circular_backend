@@ -5,7 +5,7 @@ import { NavbarComponent } from '../navbar/navbar.component';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { marked } from 'marked';
 import { CircularsApiService, Circular } from '../services/circulars-api.service';
-import { LoginService } from '../services/login.service';
+import { ExpertModalComponent } from '../expert-modal/expert-modal.component';
 
 const NODE_W = 160;
 const NODE_H = 64;
@@ -25,19 +25,11 @@ interface ActionItem {
   updated_at: string;
 }
 
-interface Department {
-  id: string;
-  name: string;
-  type: string;
-  archived?: boolean;
-  created_at: string;
-  updated_at?: string;
-}
 
 @Component({
   selector: 'app-circular-detail',
   standalone: true,
-  imports: [CommonModule, NavbarComponent, DatePipe],
+  imports: [CommonModule, NavbarComponent, DatePipe, ExpertModalComponent],
   templateUrl: './circular-detail.component.html',
   styleUrl: './circular-detail.component.css'
 })
@@ -51,13 +43,9 @@ export class CircularDetailComponent implements AfterViewInit, OnDestroy, OnInit
   actionItemsLoading = false;
   actionItemsError: 'connection' | 'not_found' | null = null;
 
-  mappedDepartments: Department[] = [];
-  availableDepartments: Department[] = [];
-  showDepartmentDropdown = false;
-  departmentsLoading = false;
-
   summary: string | null = null;
   summaryLoading = false;
+  showExpertModal = false;
 
   nodes: GraphNode[] = [
     { id: '1', label: 'SEBI/MRD/2025/089', exchange: 'sebi', title: 'Master Circular on AIF', x: 40, y: 20 },
@@ -88,8 +76,7 @@ export class CircularDetailComponent implements AfterViewInit, OnDestroy, OnInit
   constructor(
     private sanitizer: DomSanitizer,
     private route: ActivatedRoute,
-    private api: CircularsApiService,
-    private loginService: LoginService
+    private api: CircularsApiService
   ) {
     this.graphSvg = this.generateGraphSvg();
   }
@@ -102,7 +89,6 @@ export class CircularDetailComponent implements AfterViewInit, OnDestroy, OnInit
           this.circular = data;
           this.loading = false;
           this.fetchActionItems(id);
-          this.fetchDepartments(id);
           this.fetchSummary(id);
         },
         error: (err) => {
@@ -148,68 +134,7 @@ export class CircularDetailComponent implements AfterViewInit, OnDestroy, OnInit
     });
   }
 
-  private fetchDepartments(circularId: string) {
-    this.departmentsLoading = true;
-    this.api.getDepartments(circularId).subscribe({
-      next: (data) => {
-        this.mappedDepartments = data.departments;
-        this.departmentsLoading = false;
-      },
-      error: () => {
-        this.mappedDepartments = [];
-        this.departmentsLoading = false;
-      }
-    });
-  }
-
-  loadAvailableDepartments() {
-    this.api.getAvailableDepartments().subscribe({
-      next: (data) => {
-        this.availableDepartments = data.items.filter(
-          dept => !this.mappedDepartments.some(m => m.id === dept.id)
-        );
-        this.showDepartmentDropdown = true;
-      },
-      error: () => {
-        this.availableDepartments = [];
-      }
-    });
-  }
-
-  addDepartment(deptId: string) {
-    if (!this.circular) return;
-    this.api.addDepartment(this.circular.id, deptId).subscribe({
-      next: (data) => {
-        this.mappedDepartments = data.departments;
-        this.availableDepartments = this.availableDepartments.filter(d => d.id !== deptId);
-        this.showDepartmentDropdown = false;
-      },
-      error: () => {}
-    });
-  }
-
-  removeDepartment(deptId: string) {
-    if (!this.circular) return;
-    this.api.removeDepartment(this.circular.id, deptId).subscribe({
-      next: (data) => {
-        this.mappedDepartments = data.departments;
-      },
-      error: () => {}
-    });
-  }
-
-  toggleDepartmentDropdown() {
-    if (this.showDepartmentDropdown) {
-      this.showDepartmentDropdown = false;
-    } else {
-      this.loadAvailableDepartments();
-    }
-  }
-
-  isLoggedIn(): boolean {
-    return this.loginService.isAuthenticated();
-  }
-
+  
   private boundMove = (e: MouseEvent) => this.onMove(e);
   private boundEnd = () => this.endInteraction();
 
@@ -343,6 +268,14 @@ export class CircularDetailComponent implements AfterViewInit, OnDestroy, OnInit
     if (this.circular?.url) {
       window.open(this.circular.url, '_blank');
     }
+  }
+
+  openExpertModal() {
+    this.showExpertModal = true;
+  }
+
+  closeExpertModal() {
+    this.showExpertModal = false;
   }
 
   getNodeById(id: string) {
