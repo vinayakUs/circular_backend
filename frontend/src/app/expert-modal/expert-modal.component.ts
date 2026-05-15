@@ -43,6 +43,7 @@ export class ExpertModalComponent implements OnInit {
   departments: Department[] = [];
   openDeptDropdownIndex: number | null = null;
   isSaving = false;
+  isLoadingExperts = false;
 
   constructor(private api: CircularsApiService) {}
 
@@ -61,6 +62,7 @@ export class ExpertModalComponent implements OnInit {
 
   loadExperts(): void {
     if (!this.circularId) return;
+    this.isLoadingExperts = true;
     this.api.getExperts(this.circularId).subscribe({
       next: (res) => {
         this.experts = res.experts.map(e => ({
@@ -72,7 +74,11 @@ export class ExpertModalComponent implements OnInit {
         }));
       },
       error: (err) => {
+        this.isLoadingExperts = false;
         console.error('Failed to load experts', err);
+      },
+      complete: () => {
+        this.isLoadingExperts = false;
       }
     });
   }

@@ -5,7 +5,7 @@ import logging
 from uuid import UUID
 
 from config import Config
-from ingestion.indexer.chunker import FixedSizeChunker
+from ingestion.indexer.chunker import ChunkingStrategy, FixedSizeChunker
 from ingestion.indexer.contextualizer import get_contextualizer
 from ingestion.indexer.dto import IndexDocument
 from ingestion.indexer.embedding_provider import EmbeddingProvider, NoOpEmbeddingProvider
@@ -23,7 +23,7 @@ class ElasticsearchIndexer:
         circular_repository: CircularRepository,
         es_client: ElasticsearchClient,
         pdf_extractor: PDFTextExtractor | None = None,
-        chunker: FixedSizeChunker | None = None,
+        chunker: ChunkingStrategy | None = None,
         embedding_provider: EmbeddingProvider | None = None,
         batch_size: int = 50,
         s3_client: S3StorageClient | None = None,

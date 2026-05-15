@@ -61,8 +61,8 @@ class Config:
         "ELASTICSEARCH_INDEX_NAME", "circulars_chunks"
     )
     ES_INDEXER_BATCH_SIZE = int(os.getenv("ES_INDEXER_BATCH_SIZE", "50"))
-    ES_CHUNK_SIZE = int(os.getenv("ES_CHUNK_SIZE", "800"))
-    ES_CHUNK_OVERLAP = int(os.getenv("ES_CHUNK_OVERLAP", "150"))
+    ES_CHUNK_SIZE = int(os.getenv("ES_CHUNK_SIZE", "600"))
+    ES_CHUNK_OVERLAP = int(os.getenv("ES_CHUNK_OVERLAP", "80"))
     ES_REQUEST_TIMEOUT_SECONDS = int(os.getenv("ES_REQUEST_TIMEOUT_SECONDS", "30"))
     ES_ENABLE_VECTORS = os.getenv("ES_ENABLE_VECTORS", "true").lower() == "true"
     ES_EMBEDDING_PROVIDER = os.getenv(
