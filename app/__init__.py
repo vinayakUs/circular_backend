@@ -501,13 +501,8 @@ def create_app() -> Flask:
 
         db_client = get_db_client()
         service = ExpertService(db_pool=db_client.get_pool())
-        try:
-            result = service.save_experts(record_id, experts, original_ids)
-            return result
-        except ValueError as e:
-            return {"error": str(e)}, 404
-        except Exception as e:
-            return {"error": str(e)}, 500
+        result = service.save_experts(record_id, experts, original_ids)
+        return result
 
     @app.get("/api/circulars/<uuid:record_id>/experts")
     def get_circular_experts(record_id):

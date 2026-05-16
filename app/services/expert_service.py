@@ -40,54 +40,43 @@ class ExpertService:
 
     def save_experts(self, circular_id: UUID, experts: list[dict], original_ids: list[str] | None = None) -> dict[str, Any]:
         """Save/update experts for a circular. Delete any that were removed."""
-        with self.repository.db_pool.connection() as conn:
-            conn.begin()
-            try:
-                # Delete removed experts
-                if original_ids:
-                    current_ids = {e.get("id") for e in experts if e.get("id")}
-                    removed_ids = set(original_ids) - current_ids
-                    for removed_id in removed_ids:
-                        self.repository.delete_expert_mapping(UUID(removed_id), conn=conn)
+        # Delete removed experts
+        if original_ids:
+            current_ids = {e.get("id") for e in experts if e.get("id")}
+            removed_ids = set(original_ids) - current_ids
+            for removed_id in removed_ids:
+                self.repository.delete_expert_mapping(UUID(removed_id))
 
-                # Upsert current experts
-                for expert in experts:
-                    row_id = expert.get("id")
-                    title = expert.get("title", "")
-                    text = expert.get("text", "")
-                    dept_id = expert.get("dept_id")
-                    highlights = expert.get("highlights", [])
+        # Upsert current experts
+        for expert in experts:
+            row_id = expert.get("id")
+            title = expert.get("title", "")
+            text = expert.get("text", "")
+            dept_id = expert.get("dept_id")
+            highlights = expert.get("highlights", [])
 
-                    if row_id:
-                        row_uuid = UUID(row_id)
-                        dept_uuid = UUID(dept_id) if dept_id else None
-                        success = self.repository.update_expert_mapping(
-                            row_id=row_uuid,
-                            dept_id=dept_uuid,
-                            title=title,
-                            text=text,
-                            highlights=highlights,
-                            conn=conn,
-                        )
-                        if not success:
-                            conn.rollback()
-                            raise ValueError(f"Update failed for id {row_id}")
-                    else:
-                        if not dept_id:
-                            conn.rollback()
-                            raise ValueError("dept_id is required for new experts")
-                        self.repository.save_expert_mapping(
-                            circular_id=circular_id,
-                            dept_id=UUID(dept_id),
-                            title=title,
-                            text=text,
-                            highlights=highlights,
-                            conn=conn
-                        )
-                conn.commit()
-            except Exception:
-                conn.rollback()
-                raise
+            if row_id:
+                row_uuid = UUID(row_id)
+                dept_uuid = UUID(dept_id) if dept_id else None
+                success = self.repository.update_expert_mapping(
+                    row_id=row_uuid,
+                    dept_id=dept_uuid,
+                    title=title,
+                    text=text,
+                    highlights=highlights,
+                )
+                if not success:
+                    return {"error": f"Update failed for id {row_id}"}, 404
+            else:
+                if not dept_id:
+                    return {"error": "dept_id is required for new experts"}, 400
+                self.repository.save_expert_mapping(
+                    circular_id=circular_id,
+                    dept_id=UUID(dept_id),
+                    title=title,
+                    text=text,
+                    highlights=highlights,
+                )
 
         return {"success": True}
 

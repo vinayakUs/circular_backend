@@ -885,12 +885,9 @@ class CircularRepository:
         title: str,
         text: str,
         highlights: list[dict],
-        conn=None,
     ) -> UUID:
         self._ensure_schema()
-        if conn is None:
-            conn = self.db_pool.connection()
-        with conn:
+        with self.db_pool.connection() as conn:
             row = conn.execute(
                 """
                 INSERT INTO circular_department_mapping
@@ -909,12 +906,9 @@ class CircularRepository:
         title: str,
         text: str,
         highlights: list[dict],
-        conn=None,
     ) -> bool:
         self._ensure_schema()
-        if conn is None:
-            conn = self.db_pool.connection()
-        with conn:
+        with self.db_pool.connection() as conn:
             row = conn.execute(
                 """
                 UPDATE circular_department_mapping
@@ -930,13 +924,9 @@ class CircularRepository:
             ).fetchone()
         return row is not None
 
-    def delete_expert_mapping(self, row_id: UUID,conn=None) -> bool:
+    def delete_expert_mapping(self, row_id: UUID) -> bool:
         self._ensure_schema()
-
-        if conn is None:
-            conn = self.db_pool.connection()
-
-        with conn:
+        with self.db_pool.connection() as conn:
             row = conn.execute(
                 """
                 DELETE FROM circular_department_mapping
