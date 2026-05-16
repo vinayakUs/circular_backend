@@ -183,10 +183,10 @@ export class CircularsApiService {
     );
   }
 
-  saveExperts(circularId: string, experts: Expert[]): Observable<{ success: boolean }> {
+  saveExperts(circularId: string, experts: Expert[], originalIds: string[]): Observable<{ success: boolean }> {
     return this.http.post<{ success: boolean }>(
       `${this.baseUrl}/api/circulars/${circularId}/experts`,
-      { experts }
+      { experts, original_ids: originalIds }
     );
   }
 
@@ -195,6 +195,58 @@ export class CircularsApiService {
       `${this.baseUrl}/api/circulars/${circularId}/experts`
     );
   }
+
+  getExpertsByDepartment(params: {
+    department_id?: string;
+    source?: string;
+    from_date?: string;
+    to_date?: string;
+    full_circular_no?: string;
+    page?: number;
+    page_size?: number;
+  }): Observable<ExpertsByDepartmentResponse> {
+    const queryParams = new URLSearchParams();
+    if (params.department_id) queryParams.set('department_id', params.department_id);
+    if (params.source) queryParams.set('source', params.source);
+    if (params.from_date) queryParams.set('from_date', params.from_date);
+    if (params.to_date) queryParams.set('to_date', params.to_date);
+    if (params.full_circular_no) queryParams.set('full_circular_no', params.full_circular_no);
+    if (params.page) queryParams.set('page', String(params.page));
+    if (params.page_size) queryParams.set('page_size', String(params.page_size));
+    return this.http.get<ExpertsByDepartmentResponse>(
+      `${this.baseUrl}/api/experts/by-department?${queryParams.toString()}`
+    );
+  }
+}
+
+export interface ExpertsByDepartmentResponse {
+  experts: {
+    items: ExpertWithCircular[];
+    total: number;
+    page: number;
+    page_size: number;
+    total_pages: number;
+  };
+  filters_applied: {
+    department_id: string | null;
+    source: string | null;
+    from_date: string | null;
+    to_date: string | null;
+    full_circular_no: string | null;
+  };
+}
+
+export interface ExpertWithCircular {
+  id: string;
+  expert_name: string;
+  highlight_text: string;
+  circular: {
+    id: string;
+    full_reference: string;
+    source: string;
+    issue_date: string;
+    title: string;
+  };
 }
 
 interface ActionItem {

@@ -40,6 +40,7 @@ export class ExpertModalComponent implements OnInit {
   pendingSelection: string = '';
 
   experts: Expert[] = [];
+  originalExpertIds: string[] = [];
   departments: Department[] = [];
   openDeptDropdownIndex: number | null = null;
   isSaving = false;
@@ -65,7 +66,8 @@ export class ExpertModalComponent implements OnInit {
     this.isLoadingExperts = true;
     this.api.getExperts(this.circularId).subscribe({
       next: (res) => {
-        this.experts = res.experts.map(e => ({
+        this.originalExpertIds = res.experts.map((e: any) => e.id).filter((id: string) => id);
+        this.experts = res.experts.map((e: any) => ({
           id: e.id,
           dept_id: e.dept_id,
           title: e.title,
@@ -163,10 +165,11 @@ export class ExpertModalComponent implements OnInit {
         title: e.title,
         text: e.text,
         highlights: e.highlights
-      }))
+      })),
+      original_ids: this.originalExpertIds
     };
     console.log('Final experts payload:', JSON.stringify(payload, null, 2));
-    this.api.saveExperts(this.circularId!, payload.experts).subscribe({
+    this.api.saveExperts(this.circularId!, payload.experts, this.originalExpertIds).subscribe({
       next: (res) => {
         console.log('Saved successfully:', res);
         this.isSaving = false;

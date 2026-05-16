@@ -1,0 +1,96 @@
+from datetime import date
+from typing import Any
+from uuid import UUID
+
+from ingestion.repository import CircularRepository
+
+
+class ExpertService:
+    def __init__(self, db_pool):
+        self.repository = CircularRepository(db_pool=db_pool)
+
+    def get_experts_by_department(
+        self,
+        department_id: UUID | None,
+        source: str | None,
+        from_date: date | None,
+        to_date: date | None,
+        full_circular_no: str | None,
+        page: int,
+        page_size: int,
+    ) -> dict[str, Any]:
+        offset = (page - 1) * page_size
+        experts, total = self.repository.get_experts_by_department(
+            department_id=department_id,
+            source=source,
+            from_date=from_date,
+            to_date=to_date,
+            full_circular_no=full_circular_no,
+            limit=page_size,
+            offset=offset,
+        )
+        total_pages = (total + page_size - 1) // page_size if total > 0 else 0
+        return {
+            "items": experts,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": total_pages,
+        }
+
+    def save_experts(self, circular_id: UUID, experts: list[dict], original_ids: list[str] | None = None) -> dict[str, Any]:
+        """Save/update experts for a circular. Delete any that were removed."""
+        with self.repository.db_pool.connection() as conn:
+            conn.begin()
+            try:
+                # Delete removed experts
+                if original_ids:
+                    current_ids = {e.get("id") for e in experts if e.get("id")}
+                    removed_ids = set(original_ids) - current_ids
+                    for removed_id in removed_ids:
+                        self.repository.delete_expert_mapping(UUID(removed_id), conn=conn)
+
+                # Upsert current experts
+                for expert in experts:
+                    row_id = expert.get("id")
+                    title = expert.get("title", "")
+                    text = expert.get("text", "")
+                    dept_id = expert.get("dept_id")
+                    highlights = expert.get("highlights", [])
+
+                    if row_id:
+                        row_uuid = UUID(row_id)
+                        dept_uuid = UUID(dept_id) if dept_id else None
+                        success = self.repository.update_expert_mapping(
+                            row_id=row_uuid,
+                            dept_id=dept_uuid,
+                            title=title,
+                            text=text,
+                            highlights=highlights,
+                            conn=conn,
+                        )
+                        if not success:
+                            conn.rollback()
+                            raise ValueError(f"Update failed for id {row_id}")
+                    else:
+                        if not dept_id:
+                            conn.rollback()
+                            raise ValueError("dept_id is required for new experts")
+                        self.repository.save_expert_mapping(
+                            circular_id=circular_id,
+                            dept_id=UUID(dept_id),
+                            title=title,
+                            text=text,
+                            highlights=highlights,
+                            conn=conn
+                        )
+                conn.commit()
+            except Exception:
+                conn.rollback()
+                raise
+
+        return {"success": True}
+
+    def get_experts_for_circular(self, circular_id: UUID) -> list[dict]:
+        """Get all experts for a specific circular."""
+        return self.repository.get_expert_mappings_for_circular(circular_id)

@@ -17,6 +17,7 @@ from app.dto.action_item_dto import ActionItemDTO, ActionItemListResponseDTO
 from app.dto.circular_dto import CircularListResponseDTO, CircularSummaryDTO
 from app.dto.search_result_dto import search_hit_to_dict
 from app.auth.ldap_auth import LDAPAuth, require_auth
+from app.services.expert_service import ExpertService
 from services.rag.answer_generator import RAGAnswerGenerator
 
 try:
@@ -493,57 +494,26 @@ def create_app() -> Flask:
     def save_circular_experts(record_id):
         body = request.get_json() or {}
         experts = body.get("experts", [])
+        original_ids = body.get("original_ids", [])
 
         if not experts:
             return {"error": "experts list is required"}, 400
 
         db_client = get_db_client()
-        repository = CircularRepository(db_pool=db_client.get_pool())
-
-        for expert in experts:
-            row_id = expert.get("id")
-            title = expert.get("title", "")
-            text = expert.get("text", "")
-            dept_id = expert.get("dept_id")
-            highlights = expert.get("highlights", [])
-
-            if row_id:
-                try:
-                    row_uuid = UUID(row_id)
-                except ValueError:
-                    return {"error": f"Invalid id format: {row_id}"}, 400
-
-                success = repository.update_expert_mapping(
-                    row_id=row_uuid,
-                    title=title,
-                    text=text,
-                    highlights=highlights,
-                )
-                if not success:
-                    return {"error": "Update failed - row not found"}, 404
-            else:
-                if not dept_id:
-                    return {"error": "dept_id is required for new experts"}, 400
-                try:
-                    dept_uuid = UUID(dept_id)
-                except ValueError:
-                    return {"error": f"Invalid dept_id format: {dept_id}"}, 400
-
-                repository.save_expert_mapping(
-                    circular_id=record_id,
-                    dept_id=dept_uuid,
-                    title=title,
-                    text=text,
-                    highlights=highlights,
-                )
-
-        return {"success": True}
+        service = ExpertService(db_pool=db_client.get_pool())
+        try:
+            result = service.save_experts(record_id, experts, original_ids)
+            return result
+        except ValueError as e:
+            return {"error": str(e)}, 404
+        except Exception as e:
+            return {"error": str(e)}, 500
 
     @app.get("/api/circulars/<uuid:record_id>/experts")
     def get_circular_experts(record_id):
         db_client = get_db_client()
-        repository = CircularRepository(db_pool=db_client.get_pool())
-        experts = repository.get_expert_mappings_for_circular(record_id)
+        service = ExpertService(db_pool=db_client.get_pool())
+        experts = service.get_experts_for_circular(record_id)
         return {"experts": experts}
 
     @app.post("/api/properties")
@@ -602,5 +572,56 @@ def create_app() -> Flask:
         if summary_text is None:
             return {"error": "Summary not found"}, 404
         return {"summary": summary_text}
+
+    @app.get("/api/experts/by-department")
+    def get_experts_by_department():
+        raw_dept_id = request.args.get("department_id", "").strip() or None
+        raw_source = request.args.get("source", "").strip().upper() or None
+        raw_from_date = request.args.get("from_date", "").strip() or None
+        raw_to_date = request.args.get("to_date", "").strip() or None
+        raw_circular_no = request.args.get("full_circular_no", "").strip() or None
+
+        page = request.args.get("page", "1").strip()
+        page_size = request.args.get("page_size", "20").strip()
+
+        try:
+            page = max(1, int(page))
+            page_size = min(100, max(1, int(page_size)))
+        except ValueError:
+            page = 1
+            page_size = 20
+
+        dept_uuid = None
+        if raw_dept_id:
+            try:
+                dept_uuid = UUID(raw_dept_id)
+            except ValueError:
+                return {"error": "Invalid department_id format"}, 400
+
+        from_date = date.fromisoformat(raw_from_date) if raw_from_date else None
+        to_date = date.fromisoformat(raw_to_date) if raw_to_date else None
+
+        db_client = get_db_client()
+        service = ExpertService(db_pool=db_client.get_pool())
+        experts_result = service.get_experts_by_department(
+            department_id=dept_uuid,
+            source=raw_source,
+            from_date=from_date,
+            to_date=to_date,
+            full_circular_no=raw_circular_no,
+            page=page,
+            page_size=page_size,
+        )
+
+        return {
+            "experts": experts_result,
+            "filters_applied": {
+                "department_id": raw_dept_id,
+                "source": raw_source,
+                "from_date": raw_from_date,
+                "to_date": raw_to_date,
+                "full_circular_no": raw_circular_no,
+            },
+        }
 
     return app

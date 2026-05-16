@@ -4,6 +4,7 @@ import { AllCircularsComponent } from './all-circulars/all-circulars.component';
 import { CircularDetailComponent } from './circular-detail/circular-detail.component';
 import { ChangesComponent } from './changes/changes.component';
 import { LoginComponent } from './login/login.component';
+import { ExpertsByDepartmentComponent } from './experts-by-department/experts-by-department.component';
 
 export const routes: Routes = [
   { path: '', component: HomeComponent },
@@ -11,5 +12,6 @@ export const routes: Routes = [
   { path: 'changes', component: ChangesComponent },
   { path: 'circular/:id', component: CircularDetailComponent },
   { path: 'login', component: LoginComponent },
+  { path: 'experts-by-department', component: ExpertsByDepartmentComponent },
   { path: '**', redirectTo: '' }
 ];

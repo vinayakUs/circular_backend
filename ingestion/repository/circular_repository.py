@@ -885,9 +885,12 @@ class CircularRepository:
         title: str,
         text: str,
         highlights: list[dict],
+        conn=None,
     ) -> UUID:
         self._ensure_schema()
-        with self.db_pool.connection() as conn:
+        if conn is None:
+            conn = self.db_pool.connection()
+        with conn:
             row = conn.execute(
                 """
                 INSERT INTO circular_department_mapping
@@ -902,23 +905,45 @@ class CircularRepository:
     def update_expert_mapping(
         self,
         row_id: UUID,
+        dept_id: UUID,
         title: str,
         text: str,
         highlights: list[dict],
+        conn=None,
     ) -> bool:
         self._ensure_schema()
-        with self.db_pool.connection() as conn:
+        if conn is None:
+            conn = self.db_pool.connection()
+        with conn:
             row = conn.execute(
                 """
                 UPDATE circular_department_mapping
-                SET expert_name = %s,
+                SET department_id = %s,
+                    expert_name = %s,
                     highlight_text = %s,
                     highlights = %s,
                     updated_at = NOW()
                 WHERE id = %s
                 RETURNING id
                 """,
-                (title, text, json.dumps(highlights), row_id),
+                (dept_id, title, text, json.dumps(highlights), row_id),
+            ).fetchone()
+        return row is not None
+
+    def delete_expert_mapping(self, row_id: UUID,conn=None) -> bool:
+        self._ensure_schema()
+
+        if conn is None:
+            conn = self.db_pool.connection()
+
+        with conn:
+            row = conn.execute(
+                """
+                DELETE FROM circular_department_mapping
+                WHERE id = %s
+                RETURNING id
+                """,
+                (row_id,),
             ).fetchone()
         return row is not None
 
@@ -947,6 +972,88 @@ class CircularRepository:
             }
             for r in rows
         ]
+
+    def get_experts_by_department(
+        self,
+        department_id: UUID | None,
+        source: str | None,
+        from_date: date | None,
+        to_date: date | None,
+        full_circular_no: str | None,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[dict], int]:
+        self._ensure_schema()
+        with self.db_pool.connection() as conn:
+            conditions = []
+            params = []
+
+            if department_id:
+                conditions.append("cdm.department_id = %s")
+                params.append(department_id)
+
+            if source:
+                conditions.append("c.source = %s")
+                params.append(source)
+
+            if from_date:
+                conditions.append("c.issue_date >= %s")
+                params.append(from_date)
+
+            if to_date:
+                conditions.append("c.issue_date <= %s")
+                params.append(to_date)
+
+            if full_circular_no:
+                conditions.append("UPPER(c.full_reference) LIKE UPPER(%s)")
+                params.append(f"%{full_circular_no}%")
+
+            where_clause = " AND ".join(conditions) if conditions else "1=1"
+
+            count_query = f"""
+                SELECT COUNT(*)
+                FROM circular_department_mapping cdm
+                JOIN circulars c ON cdm.circular_id = c.id
+                WHERE {where_clause}
+            """
+            total_row = conn.execute(count_query, tuple(params)).fetchone()
+            total = total_row[0] if total_row else 0
+
+            query = f"""
+                SELECT
+                    cdm.id,
+                    cdm.expert_name,
+                    cdm.highlight_text,
+                    c.id as circ_id,
+                    c.full_reference,
+                    c.source,
+                    c.issue_date,
+                    c.title
+                FROM circular_department_mapping cdm
+                JOIN circulars c ON cdm.circular_id = c.id
+                WHERE {where_clause}
+                ORDER BY c.issue_date DESC
+                LIMIT %s OFFSET %s
+            """
+            params_extended = list(params) + [limit, offset]
+            rows = conn.execute(query, tuple(params_extended)).fetchall()
+
+            experts = [
+                {
+                    "id": str(r[0]),
+                    "expert_name": r[1],
+                    "highlight_text": r[2],
+                    "circular": {
+                        "id": str(r[3]),
+                        "full_reference": r[4],
+                        "source": r[5],
+                        "issue_date": r[6].isoformat() if r[6] else None,
+                        "title": r[7],
+                    },
+                }
+                for r in rows
+            ]
+            return experts, total
 
     def _update_applicable_to_nse_db(self, record_id: UUID, applicable: bool) -> None:
         self._ensure_schema()

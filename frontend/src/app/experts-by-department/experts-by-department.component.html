@@ -1,0 +1,106 @@
+<div class="experts-page">
+  <app-navbar></app-navbar>
+
+  <main class="main-content">
+    <div class="page-header">
+      <h1 class="page-title">Experts by Department</h1>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="filter-bar">
+      <input
+        type="text"
+        [(ngModel)]="filters.full_circular_no"
+        placeholder="Full circular no..."
+        class="filter-input"
+      />
+      <select [(ngModel)]="filters.source" class="filter-select">
+        <option value="">All Sources</option>
+        <option value="NSE">NSE</option>
+        <option value="SEBI">SEBI</option>
+      </select>
+      <input
+        type="date"
+        [(ngModel)]="filters.from_date"
+        class="filter-input date-input"
+      />
+      <input
+        type="date"
+        [(ngModel)]="filters.to_date"
+        class="filter-input date-input"
+      />
+      <button (click)="applyFilters()" class="btn btn-primary">Apply</button>
+      <button (click)="clearFilters()" class="btn btn-outline">Clear</button>
+    </div>
+
+    <!-- Department Cards -->
+    <div class="department-cards">
+      <button
+        *ngFor="let dept of departments"
+        class="dept-card"
+        [class.active]="selectedDepartmentId === dept.id"
+        (click)="selectDepartment(dept.id)"
+      >
+        {{ dept.name }}
+      </button>
+    </div>
+
+    <!-- Expert List -->
+    <div class="experts-list" *ngIf="!loading; else loadingTpl">
+      <div *ngIf="experts.length === 0" class="empty-state">
+        No experts found
+      </div>
+      <div
+        *ngFor="let expert of experts"
+        class="expert-card"
+        (click)="navigateToCircular(expert.circular.id)"
+      >
+        <div class="expert-header">
+          <span class="expert-name">{{ expert.expert_name }}</span>
+          <span class="exchange-badge" [class]="expert.circular.source.toLowerCase()">
+            {{ expert.circular.source }}
+          </span>
+        </div>
+        <div class="circular-ref">{{ expert.circular.full_reference }}</div>
+        <div class="circular-meta">
+          <span class="issue-date">{{ expert.circular.issue_date | date:'dd-MMM-yyyy' }}</span>
+          <span class="circular-title">{{ expert.circular.title }}</span>
+        </div>
+        <div class="highlight-text">"{{ expert.highlight_text }}"</div>
+      </div>
+    </div>
+
+    <ng-template #loadingTpl>
+      <div class="loading-state">Loading...</div>
+    </ng-template>
+
+    <!-- Pagination -->
+    <div class="pagination" *ngIf="pagination.total_pages > 0">
+      <button
+        class="page-btn"
+        [disabled]="pagination.page === 1"
+        (click)="goToPage(pagination.page - 1)"
+      >
+        &lt; Prev
+      </button>
+      <ng-container *ngFor="let page of pageNumbers">
+        <span *ngIf="page === -1" class="page-ellipsis">...</span>
+        <button
+          *ngIf="page !== -1"
+          class="page-btn"
+          [class.active]="page === pagination.page"
+          (click)="goToPage(page)"
+        >
+          {{ page }}
+        </button>
+      </ng-container>
+      <button
+        class="page-btn"
+        [disabled]="pagination.page === pagination.total_pages"
+        (click)="goToPage(pagination.page + 1)"
+      >
+        Next &gt;
+      </button>
+    </div>
+  </main>
+</div>
