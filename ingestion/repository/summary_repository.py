@@ -7,6 +7,7 @@ from typing import Any
 from uuid import UUID
 
 from storage.s3_client import S3StorageClient
+from ingestion.repository.circular_repository import _raw_to_uuid, _uuid_to_raw
 
 
 class SummaryRepository:
@@ -40,15 +41,15 @@ class SummaryRepository:
 
     def _ensure_schema(self) -> None:
         """Ensure the summaries table exists."""
-        with self.db_pool.connection() as conn:
+        with self.db_pool.acquire_connection() as conn:
             conn.execute(
                 """
-                CREATE TABLE IF NOT EXISTS summaries (
-                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                    circular_id UUID NOT NULL REFERENCES circulars(id) ON DELETE CASCADE,
-                    summary_key TEXT NOT NULL,
-                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CREATE TABLE summaries (
+                    id RAW(16) PRIMARY KEY,
+                    circular_id RAW(16) NOT NULL,
+                    summary_key VARCHAR2(500) NOT NULL,
+                    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT SYSDATE,
+                    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT SYSDATE,
                     UNIQUE (circular_id)
                 )
                 """
@@ -63,7 +64,6 @@ class SummaryRepository:
         """
         self._ensure_schema()
 
-        # Build S3 key and upload
         summary_key = self._build_summary_key(source, circular_ref, issue_date)
         content_bytes = summary_text.encode("utf-8")
         s3_url = self.s3_client.upload_bytes(summary_key, content_bytes)
@@ -74,37 +74,41 @@ class SummaryRepository:
             len(content_bytes),
         )
 
-        # Delete existing summary record if present (idempotent)
-        with self.db_pool.connection() as conn:
-            conn.execute("DELETE FROM summaries WHERE circular_id = %s", (circular_id,))
+        circular_id_raw = _uuid_to_raw(circular_id)
+        with self.db_pool.acquire_connection() as conn:
+            conn.execute(
+                "DELETE FROM summaries WHERE circular_id = :1",
+                (circular_id_raw,),
+            )
+            new_id = _uuid_to_raw(UUID.uuid4())
             conn.execute(
                 """
-                INSERT INTO summaries (circular_id, summary_key)
-                VALUES (%s, %s)
+                INSERT INTO summaries (id, circular_id, summary_key)
+                VALUES (:1, :2, :3)
                 """,
-                (circular_id, summary_key),
+                (new_id, circular_id_raw, summary_key),
             )
+            conn.commit()
 
         return summary_key
 
     def get_summary_key(self, circular_id: UUID) -> str | None:
         """Get the S3 key for a summary by circular_id."""
         self._ensure_schema()
-        with self.db_pool.connection() as conn:
+        circular_id_raw = _uuid_to_raw(circular_id)
+        with self.db_pool.acquire_connection() as conn:
             row = conn.execute(
-                "SELECT summary_key FROM summaries WHERE circular_id = %s",
-                (circular_id,),
+                "SELECT summary_key FROM summaries WHERE circular_id = :1",
+                (circular_id_raw,),
             ).fetchone()
-            return row[0] if row else None
+        return row[0] if row else None
 
     def delete_summary_for_circular(self, circular_id: UUID) -> None:
         """Delete summary S3 object and DB record (idempotent)."""
         self._ensure_schema()
 
-        # Get the key first
         summary_key = self.get_summary_key(circular_id)
 
-        # Delete from S3 if exists
         if summary_key:
             try:
                 self.s3_client.delete(summary_key)
@@ -112,9 +116,10 @@ class SummaryRepository:
             except Exception:
                 self.logger.warning("Failed to delete S3 object key=%s", summary_key)
 
-        # Delete DB record
-        with self.db_pool.connection() as conn:
-            conn.execute("DELETE FROM summaries WHERE circular_id = %s", (circular_id,))
+        circular_id_raw = _uuid_to_raw(circular_id)
+        with self.db_pool.acquire_connection() as conn:
+            conn.execute("DELETE FROM summaries WHERE circular_id = :1", (circular_id_raw,))
+            conn.commit()
 
     def get_summary_text(self, circular_id: UUID) -> str | None:
         """Get summary text directly from S3 by circular_id."""

@@ -8,6 +8,8 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
+from ingestion.repository.circular_repository import _raw_to_uuid, _uuid_to_raw
+
 
 @dataclass(slots=True)
 class PropertyRecord:
@@ -36,48 +38,57 @@ class PropertiesRepository:
     def create(self, name: str, type: str, metadata: dict | None = None) -> PropertyRecord | None:
         self._ensure_schema()
         metadata = metadata or {}
-        with self.db_pool.connection() as conn:
+        with self.db_pool.acquire_connection() as conn:
             existing = conn.execute(
                 """
                 SELECT id FROM properties
-                WHERE name = %s AND type = %s AND archived = FALSE
+                WHERE name = :1 AND type = :2 AND archived = 0
                 """,
                 (name, type),
             ).fetchone()
             if existing:
                 return None
+            new_id = _uuid_to_raw(UUID.uuid4())
             row = conn.execute(
                 """
-                INSERT INTO properties (name, type, metadata)
-                VALUES (%s, %s, %s::jsonb)
-                RETURNING id, name, type, archived, archived_at, metadata, created_at, updated_at
+                INSERT INTO properties (id, name, type, metadata)
+                VALUES (:1, :2, :3, :4)
                 """,
-                (name, type, json.dumps(metadata)),
+                (new_id, name, type, json.dumps(metadata)),
+            )
+            conn.commit()
+            row = conn.execute(
+                """
+                SELECT id, name, type, archived, archived_at, metadata, created_at, updated_at
+                FROM properties WHERE id = :1
+                """,
+                (new_id,),
             ).fetchone()
         return self._row_to_record(row)
 
     def get_by_id(self, id: UUID) -> PropertyRecord | None:
         self._ensure_schema()
-        with self.db_pool.connection() as conn:
+        id_raw = _uuid_to_raw(id)
+        with self.db_pool.acquire_connection() as conn:
             row = conn.execute(
                 """
                 SELECT id, name, type, archived, archived_at, metadata, created_at, updated_at
                 FROM properties
-                WHERE id = %s
+                WHERE id = :1
                 """,
-                (id,),
+                (id_raw,),
             ).fetchone()
         return self._row_to_record(row)
 
     def list_by_type(self, type: str, include_archived: bool = False) -> list[PropertyRecord]:
         self._ensure_schema()
-        with self.db_pool.connection() as conn:
+        with self.db_pool.acquire_connection() as conn:
             if include_archived:
                 rows = conn.execute(
                     """
                     SELECT id, name, type, archived, archived_at, metadata, created_at, updated_at
                     FROM properties
-                    WHERE type = %s
+                    WHERE type = :1
                     ORDER BY name
                     """,
                     (type,),
@@ -87,7 +98,7 @@ class PropertiesRepository:
                     """
                     SELECT id, name, type, archived, archived_at, metadata, created_at, updated_at
                     FROM properties
-                    WHERE type = %s AND archived = FALSE
+                    WHERE type = :1 AND archived = 0
                     ORDER BY name
                     """,
                     (type,),
@@ -96,15 +107,23 @@ class PropertiesRepository:
 
     def archive(self, id: UUID) -> PropertyRecord | None:
         self._ensure_schema()
-        with self.db_pool.connection() as conn:
-            row = conn.execute(
+        id_raw = _uuid_to_raw(id)
+        with self.db_pool.acquire_connection() as conn:
+            conn.execute(
                 """
                 UPDATE properties
-                SET archived = TRUE, archived_at = NOW()
-                WHERE id = %s
-                RETURNING id, name, type, archived, archived_at, metadata, created_at, updated_at
+                SET archived = 1, archived_at = SYSDATE
+                WHERE id = :1
                 """,
-                (id,),
+                (id_raw,),
+            )
+            conn.commit()
+            row = conn.execute(
+                """
+                SELECT id, name, type, archived, archived_at, metadata, created_at, updated_at
+                FROM properties WHERE id = :1
+                """,
+                (id_raw,),
             ).fetchone()
         return self._row_to_record(row)
 
@@ -116,27 +135,24 @@ class PropertiesRepository:
             if PropertiesRepository._schema_initialized:
                 return
 
-            with self.db_pool.connection() as conn:
+            with self.db_pool.acquire_connection() as conn:
                 conn.execute(
                     """
-                    CREATE TABLE IF NOT EXISTS properties (
-                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                        name VARCHAR(255) NOT NULL,
-                        type VARCHAR(50) NOT NULL,
-                        archived BOOLEAN NOT NULL DEFAULT FALSE,
-                        archived_at TIMESTAMPTZ,
-                        metadata JSONB DEFAULT '{}',
-                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    CREATE TABLE properties (
+                        id RAW(16) PRIMARY KEY,
+                        name VARCHAR2(255) NOT NULL,
+                        type VARCHAR2(50) NOT NULL,
+                        archived NUMBER(1) NOT NULL DEFAULT 0,
+                        archived_at TIMESTAMP WITH TIME ZONE,
+                        metadata CLOB DEFAULT EMPTY_CLOB(),
+                        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT SYSDATE,
+                        updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT SYSDATE
                     )
                     """
                 )
-                conn.execute("CREATE INDEX IF NOT EXISTS idx_properties_type ON properties(type)")
+                conn.execute("CREATE INDEX idx_properties_type ON properties(type)")
                 conn.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_properties_type_name ON properties(type, name) WHERE archived = FALSE"
-                )
-                conn.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_properties_metadata_gin ON properties USING gin (metadata jsonb_path_ops)"
+                    "CREATE INDEX idx_properties_type_name ON properties(type, name)"
                 )
             PropertiesRepository._schema_initialized = True
             self.logger.info("PropertiesRepository schema initialized")
@@ -144,13 +160,18 @@ class PropertiesRepository:
     def _row_to_record(self, row: Any) -> PropertyRecord | None:
         if row is None:
             return None
+        metadata = row[5]
+        if isinstance(metadata, str):
+            metadata = json.loads(metadata) if metadata else {}
+        elif metadata is None:
+            metadata = {}
         return PropertyRecord(
-            id=row[0],
+            id=_raw_to_uuid(row[0]),
             name=row[1],
             type=row[2],
-            archived=row[3],
+            archived=bool(row[3]),
             archived_at=row[4],
-            metadata=row[5] if isinstance(row[5], dict) else {},
+            metadata=metadata,
             created_at=row[6],
             updated_at=row[7],
         )

@@ -7,146 +7,159 @@ import logging
 from pathlib import Path
 import threading
 from typing import Any
+import uuid as _uuid_lib
 from uuid import UUID
 from utils.utils import render_sql
 
 from ingestion.scrapper.dto import Circular
 
 
-POSTGRES_SCHEMA_SQL = """
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
-
-CREATE TABLE IF NOT EXISTS circulars (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    circular_id VARCHAR(50) NOT NULL,
-    source VARCHAR(20) NOT NULL,
-    source_item_key TEXT,
-    full_reference TEXT NOT NULL,
-    department VARCHAR(50),
-    title TEXT NOT NULL,
+ORACLE_SCHEMA_SQL = """
+CREATE TABLE circulars (
+    id RAW(16) PRIMARY KEY,
+    circular_id VARCHAR2(50) NOT NULL,
+    source VARCHAR2(20) NOT NULL,
+    source_item_key VARCHAR2(500),
+    full_reference VARCHAR2(255) NOT NULL,
+    department VARCHAR2(50),
+    title VARCHAR2(1000) NOT NULL,
     issue_date DATE NOT NULL,
-    applicable_to_nse BOOLEAN NOT NULL DEFAULT FALSE,
-    url TEXT,
-    pdf_url TEXT,
-    content_hash VARCHAR(64),
-    status VARCHAR(20) NOT NULL DEFAULT 'DISCOVERED',
-    error_message TEXT,
-    detected_at TIMESTAMPTZ NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    es_indexed_at TIMESTAMPTZ,
-    es_chunk_count INT,
-    es_index_name VARCHAR(100),
-    UNIQUE (source, circular_id)
+    applicable_to_nse NUMBER DEFAULT 0 NOT NULL,
+    url VARCHAR2(2000),
+    pdf_url VARCHAR2(2000),
+    content_hash VARCHAR2(64),
+    status VARCHAR2(20) DEFAULT 'DISCOVERED' NOT NULL,
+    error_message VARCHAR2(4000),
+    detected_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    es_indexed_at TIMESTAMP WITH TIME ZONE,
+    es_chunk_count NUMBER(10),
+    es_index_name VARCHAR2(100),
+    CONSTRAINT uq_circulars_source_id UNIQUE (source, circular_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_circulars_status ON circulars(status);
-CREATE INDEX IF NOT EXISTS idx_circulars_source ON circulars(source);
-CREATE INDEX IF NOT EXISTS idx_circulars_issue_date ON circulars(issue_date DESC);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_circulars_source_item_key ON circulars(source, source_item_key);
+CREATE INDEX idx_circulars_status ON circulars(status);
 
-CREATE TABLE IF NOT EXISTS circular_assets (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    circular_id UUID NOT NULL REFERENCES circulars(id) ON DELETE CASCADE,
-    asset_role VARCHAR(30) NOT NULL,
-    file_path VARCHAR(500) NOT NULL,
-    content_hash VARCHAR(64),
-    mime_type VARCHAR(100),
-    archive_member_path TEXT,
-    file_size_bytes BIGINT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+CREATE INDEX idx_circulars_source ON circulars(source);
+
+CREATE INDEX idx_circulars_issue_date ON circulars(issue_date);
+
+CREATE UNIQUE INDEX idx_circulars_source_item_key ON circulars(source, source_item_key);
+
+CREATE TABLE circular_assets (
+    id RAW(16) PRIMARY KEY,
+    circular_id RAW(16) NOT NULL,
+    asset_role VARCHAR2(30) NOT NULL,
+    file_path VARCHAR2(500) NOT NULL,
+    content_hash VARCHAR2(64),
+    mime_type VARCHAR2(100),
+    archive_member_path VARCHAR2(500),
+    file_size_bytes NUMBER(19),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    CONSTRAINT fk_assets_circular FOREIGN KEY (circular_id) REFERENCES circulars(id) ON DELETE CASCADE
 );
 
-CREATE INDEX IF NOT EXISTS idx_circular_assets_circular_id
-    ON circular_assets(circular_id);
-CREATE INDEX IF NOT EXISTS idx_circular_assets_circular_role
-    ON circular_assets(circular_id, asset_role);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_circular_assets_identity
-    ON circular_assets(circular_id, asset_role, COALESCE(archive_member_path, ''));
+CREATE INDEX idx_circular_assets_circular_id ON circular_assets(circular_id);
 
-CREATE TABLE IF NOT EXISTS scraper_checkpoints (
-    source VARCHAR(20) PRIMARY KEY,
+CREATE INDEX idx_circular_assets_circular_role ON circular_assets(circular_id, asset_role);
+
+CREATE UNIQUE INDEX idx_circular_assets_identity ON circular_assets(circular_id, asset_role, NVL(archive_member_path, ''));
+
+CREATE TABLE scraper_checkpoints (
+    source VARCHAR2(20) PRIMARY KEY,
     last_run_date DATE NOT NULL,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    es_bloom_filter BYTEA,
-    es_last_run_at TIMESTAMPTZ,
-    es_records_processed INT DEFAULT 0
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    es_bloom_filter BLOB,
+    es_last_run_at TIMESTAMP WITH TIME ZONE,
+    es_records_processed NUMBER(10) DEFAULT 0
 );
 
-CREATE TABLE IF NOT EXISTS processing_tasks (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    circular_id UUID NOT NULL REFERENCES circulars(id) ON DELETE CASCADE,
-    processor_name VARCHAR(50) NOT NULL,
-    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
-    error_message TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE(circular_id, processor_name)
+CREATE TABLE processing_tasks (
+    id RAW(16) PRIMARY KEY,
+    circular_id RAW(16) NOT NULL,
+    processor_name VARCHAR2(50) NOT NULL,
+    status VARCHAR2(20) DEFAULT 'PENDING' NOT NULL,
+    error_message VARCHAR2(4000),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    CONSTRAINT uq_tasks_circular_processor UNIQUE (circular_id, processor_name),
+    CONSTRAINT fk_tasks_circular FOREIGN KEY (circular_id) REFERENCES circulars(id) ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS action_items (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    circular_id UUID NOT NULL REFERENCES circulars(id) ON DELETE CASCADE,
-    action_item TEXT NOT NULL,
+CREATE TABLE action_items (
+    id RAW(16) PRIMARY KEY,
+    circular_id RAW(16) NOT NULL,
+    action_item VARCHAR2(4000) NOT NULL,
     deadline DATE,
-    priority VARCHAR(20),
-    persona VARCHAR(50),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    priority VARCHAR2(20),
+    persona VARCHAR2(50),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    CONSTRAINT fk_action_items_circular FOREIGN KEY (circular_id) REFERENCES circulars(id) ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS circular_references (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    source_circular_id UUID NOT NULL REFERENCES circulars(id) ON DELETE CASCADE,
-    reference_circular_no VARCHAR(100) NOT NULL,
-    reference_circular_id UUID,
-    relationship_nature VARCHAR(50) NOT NULL,
-    ref_circular_exist BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE(source_circular_id, reference_circular_no)
+CREATE TABLE circular_references (
+    id RAW(16) PRIMARY KEY,
+    source_circular_id RAW(16) NOT NULL,
+    reference_circular_no VARCHAR2(100) NOT NULL,
+    reference_circular_id RAW(16),
+    relationship_nature VARCHAR2(50) NOT NULL,
+    ref_circular_exist NUMBER(1) DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    CONSTRAINT uq_circ_refs_source_refno UNIQUE (source_circular_id, reference_circular_no),
+    CONSTRAINT fk_circ_refs_source FOREIGN KEY (source_circular_id) REFERENCES circulars(id) ON DELETE CASCADE
 );
 
-CREATE INDEX IF NOT EXISTS idx_circular_refs_source
-    ON circular_references(source_circular_id);
-CREATE INDEX IF NOT EXISTS idx_circular_refs_ref_id
-    ON circular_references(reference_circular_id);
-CREATE INDEX IF NOT EXISTS idx_circular_refs_nature
-    ON circular_references(relationship_nature);
+CREATE INDEX idx_circular_refs_source ON circular_references(source_circular_id);
 
--- Generic properties table for departments, categories, regions, and other entity types
-CREATE TABLE IF NOT EXISTS properties (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(255) NOT NULL,
-    type VARCHAR(50) NOT NULL,
-    archived BOOLEAN NOT NULL DEFAULT FALSE,
-    archived_at TIMESTAMPTZ,
-    metadata JSONB DEFAULT '{}',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+CREATE INDEX idx_circular_refs_ref_id ON circular_references(reference_circular_id);
+
+CREATE INDEX idx_circular_refs_nature ON circular_references(relationship_nature);
+
+CREATE TABLE properties (
+    id RAW(16) PRIMARY KEY,
+    name VARCHAR2(255) NOT NULL,
+    type VARCHAR2(50) NOT NULL,
+    archived NUMBER(1) NOT NULL DEFAULT 0,
+    archived_at TIMESTAMP WITH TIME ZONE,
+    metadata CLOB DEFAULT EMPTY_CLOB(),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_properties_type ON properties(type);
-CREATE INDEX IF NOT EXISTS idx_properties_type_name ON properties(type, name) WHERE archived = FALSE;
-CREATE INDEX IF NOT EXISTS idx_properties_metadata_gin ON properties USING gin (metadata jsonb_path_ops);
+CREATE INDEX idx_properties_type ON properties(type);
 
--- Many-to-many mapping between circulars and departments/experts
-CREATE TABLE IF NOT EXISTS circular_department_mapping (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    circular_id UUID NOT NULL REFERENCES circulars(id) ON DELETE CASCADE,
-    department_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
-    expert_name VARCHAR(255) NOT NULL,
-    highlight_text TEXT NOT NULL,
-    highlights JSONB DEFAULT '[]',
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (circular_id, department_id, expert_name)
+CREATE INDEX idx_properties_type_name ON properties(type, name);
+
+CREATE TABLE circular_department_mapping (
+    id RAW(16) PRIMARY KEY,
+    circular_id RAW(16) NOT NULL,
+    department_id RAW(16) NOT NULL,
+    expert_name VARCHAR2(255) NOT NULL,
+    highlight_text VARCHAR2(4000) NOT NULL,
+    highlights CLOB DEFAULT EMPTY_CLOB(),
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    CONSTRAINT uq_cdm_circular_dept_expert UNIQUE (circular_id, department_id, expert_name),
+    CONSTRAINT fk_cdm_circular FOREIGN KEY (circular_id) REFERENCES circulars(id) ON DELETE CASCADE,
+    CONSTRAINT fk_cdm_department FOREIGN KEY (department_id) REFERENCES properties(id) ON DELETE CASCADE
 );
 
-CREATE INDEX IF NOT EXISTS idx_cdm_circular_id ON circular_department_mapping(circular_id);
-CREATE INDEX IF NOT EXISTS idx_cdm_department_id ON circular_department_mapping(department_id);
+CREATE INDEX idx_cdm_circular_id ON circular_department_mapping(circular_id);
+
+CREATE INDEX idx_cdm_department_id ON circular_department_mapping(department_id);
 """
+
+
+def _uuid_to_raw(uuid_val: UUID) -> bytes:
+    return uuid_val.bytes
+
+
+def _raw_to_uuid(raw: bytes) -> UUID:
+    return UUID(bytes=raw)
 
 
 @dataclass(slots=True)
@@ -266,7 +279,7 @@ class CircularRepository:
     def get_record(self, source: str, circular_id: str) -> CircularRecord | None:
         self._ensure_schema()
         source_name, normalized_id = self._build_key(source, circular_id)
-        with self.db_pool.connection() as conn:
+        with self.db_pool.acquire_connection() as conn:
             row = conn.execute(
                 """
                 SELECT id, source, circular_id, source_item_key, full_reference,
@@ -275,7 +288,7 @@ class CircularRepository:
                        created_at, updated_at, es_indexed_at, es_chunk_count,
                        es_index_name
                 FROM circulars
-                WHERE source = %s AND circular_id = %s
+                WHERE source = :1 AND circular_id = :2
                 """,
                 (source_name, normalized_id),
             ).fetchone()
@@ -283,7 +296,7 @@ class CircularRepository:
 
     def get_record_by_id(self, record_id: UUID) -> CircularRecord | None:
         self._ensure_schema()
-        with self.db_pool.connection() as conn:
+        with self.db_pool.acquire_connection() as conn:
             row = conn.execute(
                 """
                 SELECT id, source, circular_id, source_item_key, full_reference,
@@ -292,9 +305,9 @@ class CircularRepository:
                        created_at, updated_at, es_indexed_at, es_chunk_count,
                        es_index_name
                 FROM circulars
-                WHERE id = %s
+                WHERE id = :1
                 """,
-                (record_id,),
+                (_uuid_to_raw(record_id),),
             ).fetchone()
         return self._row_to_record(row)
 
@@ -305,7 +318,7 @@ class CircularRepository:
         normalized_id = circular_id.upper()
         normalized_source = source.upper() if source else None
 
-        with self.db_pool.connection() as conn:
+        with self.db_pool.acquire_connection() as conn:
             if normalized_source:
                 row = conn.execute(
                     """
@@ -315,9 +328,9 @@ class CircularRepository:
                            created_at, updated_at, es_indexed_at, es_chunk_count,
                            es_index_name
                     FROM circulars
-                    WHERE circular_id = %s AND source = %s
+                    WHERE circular_id = :1 AND source = :2
                     ORDER BY issue_date DESC, updated_at DESC, created_at DESC
-                    LIMIT 1
+                    OFFSET 0 ROWS FETCH NEXT 1 ROWS ONLY
                     """,
                     (normalized_id, normalized_source),
                 ).fetchone()
@@ -330,31 +343,18 @@ class CircularRepository:
                            created_at, updated_at, es_indexed_at, es_chunk_count,
                            es_index_name
                     FROM circulars
-                    WHERE circular_id = %s
+                    WHERE circular_id = :1
                     ORDER BY issue_date DESC, updated_at DESC, created_at DESC
-                    LIMIT 1
+                    OFFSET 0 ROWS FETCH NEXT 1 ROWS ONLY
                     """,
                     (normalized_id,),
                 ).fetchone()
         return self._row_to_record(row)
 
     def get_record_by_full_reference(self, reference: str) -> CircularRecord | None:
-        """Look up a circular by full_reference.
-
-        Returns CircularRecord if found, None if not found.
-        """
         self._ensure_schema()
         normalized = reference.upper()
-        self.logger.info('''SELECT id, source, circular_id, source_item_key, full_reference,
-                       department, title, issue_date, applicable_to_nse, url, pdf_url,
-                       status, content_hash, error_message, detected_at,
-                       created_at, updated_at, es_indexed_at, es_chunk_count,
-                       es_index_name
-                FROM circulars
-                WHERE UPPER(full_reference) = %s
-                LIMIT 1''', normalized)
-
-        with self.db_pool.connection() as conn:
+        with self.db_pool.acquire_connection() as conn:
             row = conn.execute(
                 """
                 SELECT id, source, circular_id, source_item_key, full_reference,
@@ -363,8 +363,8 @@ class CircularRepository:
                        created_at, updated_at, es_indexed_at, es_chunk_count,
                        es_index_name
                 FROM circulars
-                WHERE UPPER(full_reference) = %s
-                LIMIT 1
+                WHERE UPPER(full_reference) = :1
+                OFFSET 0 ROWS FETCH NEXT 1 ROWS ONLY
                 """,
                 (normalized,),
             ).fetchone()
@@ -374,7 +374,7 @@ class CircularRepository:
 
     def list_records(self) -> list[CircularRecord]:
         self._ensure_schema()
-        with self.db_pool.connection() as conn:
+        with self.db_pool.acquire_connection() as conn:
             rows = conn.execute(
                 """
                 SELECT id, source, circular_id, source_item_key, full_reference,
@@ -401,22 +401,24 @@ class CircularRepository:
         args: list = []
         where_clauses = []
         if source:
-            where_clauses.append("source = %s")
+            where_clauses.append(f"source = :{len(args)+1}")
             args.append(source.upper())
         if from_date:
-            where_clauses.append("issue_date >= %s")
+            where_clauses.append(f"issue_date >= :{len(args)+1}")
             args.append(from_date)
         if to_date:
-            where_clauses.append("issue_date <= %s")
+            where_clauses.append(f"issue_date <= :{len(args)+1}")
             args.append(to_date)
         if applicable_to_nse is not None:
-            where_clauses.append("applicable_to_nse = %s")
-            args.append(applicable_to_nse)
+            where_clauses.append(f"applicable_to_nse = :{len(args)+1}")
+            args.append(int(applicable_to_nse))
 
         where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
+        offset_idx = len(args) + 1
+        limit_idx = len(args) + 2
 
         count_sql = f"SELECT COUNT(*) FROM circulars WHERE {where_sql}"
-        total_sql = f"""
+        data_sql = f"""
             SELECT id, source, circular_id, source_item_key, full_reference,
                    department, title, issue_date, applicable_to_nse, url, pdf_url,
                    status, content_hash, error_message, detected_at,
@@ -425,30 +427,19 @@ class CircularRepository:
             FROM circulars
             WHERE {where_sql}
             ORDER BY issue_date DESC, created_at DESC, id DESC
-            LIMIT %s OFFSET %s
+            OFFSET :{offset_idx} ROWS FETCH NEXT :{limit_idx} ROWS ONLY
         """
-        args_with_pagination = [*args, limit, offset]
 
-        
-        with self.db_pool.connection() as conn:
-            self.logger.debug(
-                "Executing paginated list query: %s \nArgs: %s",
-                render_sql(count_sql, args),
-                args) 
-        
+        with self.db_pool.acquire_connection() as conn:
             total_row = conn.execute(count_sql, args).fetchone()
             total = total_row[0] if total_row else 0
-            self.logger.debug(
-                "Executing paginated list query: %s \nArgs: %s",
-                render_sql(total_sql, args_with_pagination),
-                args_with_pagination) 
-            rows = conn.execute(total_sql, args_with_pagination).fetchall()
-            records = [record for row in rows if (record := self._row_to_record(row))]
+            rows = conn.execute(data_sql, args + [offset, limit]).fetchall()
+            records = [r for row in rows if (r := self._row_to_record(row))]
 
         return records, total
 
     def schema_sql(self) -> str:
-        return POSTGRES_SCHEMA_SQL.strip()
+        return ORACLE_SCHEMA_SQL.strip()
 
     def export_schema(self, target_path: str | Path) -> Path:
         path = Path(target_path)
@@ -470,8 +461,19 @@ class CircularRepository:
             if CircularRepository._schema_initialized:
                 return
 
-            with self.db_pool.connection() as conn:
-                conn.execute(self.schema_sql())
+            with self.db_pool.acquire_connection() as conn:
+                for stmt in self.schema_sql().split(";"):
+                    stmt = stmt.strip()
+                    if not stmt:
+                        continue
+                    try:
+                        conn.execute(stmt)
+                    except Exception as e:
+                        import sys
+                        print(f"FAILED: {stmt[:80]}... error: {e}", file=sys.stderr)
+                        err_str = str(e)
+                        if "ORA-00955" not in err_str and "ORA-01408" not in err_str:
+                            raise
             CircularRepository._schema_initialized = True
             self.logger.info("Repository schema initialized")
 
@@ -483,18 +485,18 @@ class CircularRepository:
         )
         now = datetime.now(timezone.utc)
 
-        with self.db_pool.connection() as conn:
+        with self.db_pool.acquire_connection() as conn:
             row = conn.execute(
                 """
                 SELECT id
                 FROM circulars
-                WHERE source = %s
-                  AND (source_item_key = %s OR circular_id = %s)
+                WHERE source = :1
+                  AND (source_item_key = :2 OR circular_id = :3)
                 ORDER BY CASE
-                    WHEN source_item_key = %s THEN 0
+                    WHEN source_item_key = :4 THEN 0
                     ELSE 1
                 END
-                LIMIT 1
+                OFFSET 0 ROWS FETCH NEXT 1 ROWS ONLY
                 """,
                 (
                     source_name,
@@ -505,26 +507,21 @@ class CircularRepository:
             ).fetchone()
 
             if row is not None:
-                row = conn.execute(
+                conn.execute(
                     """
                     UPDATE circulars
-                    SET circular_id = %s,
-                        source_item_key = %s,
-                        full_reference = %s,
-                        department = %s,
-                        title = %s,
-                        issue_date = %s,
-                        applicable_to_nse = %s,
-                        url = %s,
-                        pdf_url = %s,
-                        detected_at = %s,
-                        updated_at = NOW()
-                    WHERE id = %s
-                    RETURNING id, source, circular_id, source_item_key, full_reference,
-                              department, title, issue_date, applicable_to_nse, url, pdf_url,
-                              status, content_hash, error_message, detected_at,
-                              created_at, updated_at, es_indexed_at, es_chunk_count,
-                              es_index_name
+                    SET circular_id = :1,
+                        source_item_key = :2,
+                        full_reference = :3,
+                        department = :4,
+                        title = :5,
+                        issue_date = :6,
+                        applicable_to_nse = :7,
+                        url = :8,
+                        pdf_url = :9,
+                        detected_at = :10,
+                        updated_at = SYSTIMESTAMP
+                    WHERE id = :11
                     """,
                     (
                         normalized_id,
@@ -539,24 +536,35 @@ class CircularRepository:
                         circular.detected_at or now,
                         row[0],
                     ),
+                )
+                conn.commit()
+
+                row = conn.execute(
+                    """
+                    SELECT id, source, circular_id, source_item_key, full_reference,
+                           department, title, issue_date, applicable_to_nse, url, pdf_url,
+                           status, content_hash, error_message, detected_at,
+                           created_at, updated_at, es_indexed_at, es_chunk_count,
+                           es_index_name
+                    FROM circulars
+                    WHERE id = :1
+                    """,
+                    (row[0],),
                 ).fetchone()
                 inserted = False
             else:
+                new_id = _uuid_to_raw(_uuid_lib.uuid4())
                 row = conn.execute(
                     """
                     INSERT INTO circulars (
-                        source, circular_id, source_item_key, full_reference, department,
+                        id, source, circular_id, source_item_key, full_reference, department,
                         title, issue_date, applicable_to_nse, url, pdf_url, status,
                         content_hash, error_message, detected_at
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    RETURNING id, source, circular_id, source_item_key, full_reference,
-                              department, title, issue_date, applicable_to_nse, url, pdf_url,
-                              status, content_hash, error_message, detected_at,
-                              created_at, updated_at, es_indexed_at, es_chunk_count,
-                              es_index_name
+                    VALUES (:1, :2, :3, :4, :5, :6, :7, :8, :9, :10, :11, :12, :13, :14, :15)
                     """,
                     (
+                        new_id,
                         source_name,
                         normalized_id,
                         normalized_source_item_key,
@@ -572,6 +580,20 @@ class CircularRepository:
                         None,
                         circular.detected_at or now,
                     ),
+                )
+                conn.commit()
+
+                row = conn.execute(
+                    """
+                    SELECT id, source, circular_id, source_item_key, full_reference,
+                           department, title, issue_date, applicable_to_nse, url, pdf_url,
+                           status, content_hash, error_message, detected_at,
+                           created_at, updated_at, es_indexed_at, es_chunk_count,
+                           es_index_name
+                    FROM circulars
+                    WHERE id = :1
+                    """,
+                    (new_id,),
                 ).fetchone()
                 inserted = True
 
@@ -592,30 +614,28 @@ class CircularRepository:
         self, circular_id: UUID, assets: list[CircularAsset]
     ) -> list[CircularAssetRecord]:
         self._ensure_schema()
-        with self.db_pool.connection() as conn:
+        circular_id_raw = _uuid_to_raw(circular_id)
+        with self.db_pool.acquire_connection() as conn:
             conn.execute(
                 """
                 DELETE FROM circular_assets
-                WHERE circular_id = %s
+                WHERE circular_id = :1
                 """,
-                (circular_id,),
+                (circular_id_raw,),
             )
             for asset in assets:
+                new_id = _uuid_to_raw(_uuid_lib.uuid4())
                 conn.execute(
                     """
                     INSERT INTO circular_assets (
-                        circular_id,
-                        asset_role,
-                        file_path,
-                        content_hash,
-                        mime_type,
-                        archive_member_path,
-                        file_size_bytes
+                        id, circular_id, asset_role, file_path, content_hash,
+                        mime_type, archive_member_path, file_size_bytes
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    VALUES (:1, :2, :3, :4, :5, :6, :7, :8)
                     """,
                     (
-                        circular_id,
+                        new_id,
+                        circular_id_raw,
                         asset.asset_role,
                         asset.file_path,
                         asset.content_hash,
@@ -624,6 +644,7 @@ class CircularRepository:
                         asset.file_size_bytes,
                     ),
                 )
+            conn.commit()
         self.logger.info(
             "Replaced circular assets circular_id=%s asset_count=%s",
             circular_id,
@@ -633,13 +654,14 @@ class CircularRepository:
 
     def _list_assets_db(self, circular_id: UUID) -> list[CircularAssetRecord]:
         self._ensure_schema()
-        with self.db_pool.connection() as conn:
+        circular_id_raw = _uuid_to_raw(circular_id)
+        with self.db_pool.acquire_connection() as conn:
             rows = conn.execute(
                 """
                 SELECT id, circular_id, asset_role, file_path, content_hash, mime_type,
                        archive_member_path, file_size_bytes, created_at, updated_at
                 FROM circular_assets
-                WHERE circular_id = %s
+                WHERE circular_id = :1
                 ORDER BY
                     CASE asset_role
                         WHEN 'original_pdf' THEN 0
@@ -647,10 +669,10 @@ class CircularRepository:
                         WHEN 'extracted_pdf' THEN 2
                         ELSE 9
                     END,
-                    COALESCE(archive_member_path, ''),
+                    NVL(archive_member_path, ''),
                     file_path
                 """,
-                (circular_id,),
+                (circular_id_raw,),
             ).fetchall()
         return [
             asset
@@ -668,17 +690,19 @@ class CircularRepository:
         self, record_id: UUID, status: str, error_message: str | None = None
     ) -> None:
         self._ensure_schema()
-        with self.db_pool.connection() as conn:
+        record_id_raw = _uuid_to_raw(record_id)
+        with self.db_pool.acquire_connection() as conn:
             conn.execute(
                 """
                 UPDATE circulars
-                SET status = %s,
-                    error_message = %s,
-                    updated_at = NOW()
-                WHERE id = %s
+                SET status = :1,
+                    error_message = :2,
+                    updated_at = SYSTIMESTAMP
+                WHERE id = :3
                 """,
-                (status, error_message, record_id),
+                (status, error_message, record_id_raw),
             )
+            conn.commit()
         self.logger.info(
             "Circular status updated record_id=%s status=%s error=%s",
             record_id,
@@ -689,12 +713,12 @@ class CircularRepository:
     def _get_checkpoint_db(self, source: str) -> date | None:
         self._ensure_schema()
         source_name = source.upper()
-        with self.db_pool.connection() as conn:
+        with self.db_pool.acquire_connection() as conn:
             row = conn.execute(
                 """
                 SELECT last_run_date
                 FROM scraper_checkpoints
-                WHERE source = %s
+                WHERE source = :1
                 """,
                 (source_name,),
             ).fetchone()
@@ -709,17 +733,22 @@ class CircularRepository:
     def _set_checkpoint_db(self, source: str, run_date: date) -> None:
         self._ensure_schema()
         source_name = source.upper()
-        with self.db_pool.connection() as conn:
+        with self.db_pool.acquire_connection() as conn:
             conn.execute(
                 """
-                INSERT INTO scraper_checkpoints (source, last_run_date)
-                VALUES (%s, %s)
-                ON CONFLICT (source) DO UPDATE
-                SET last_run_date = EXCLUDED.last_run_date,
-                    updated_at = NOW()
+                MERGE INTO scraper_checkpoints sc
+                USING (SELECT :1 AS source, :2 AS last_run_date FROM DUAL) src
+                ON (sc.source = src.source)
+                WHEN MATCHED THEN
+                    UPDATE SET sc.last_run_date = src.last_run_date,
+                               sc.updated_at = SYSTIMESTAMP
+                WHEN NOT MATCHED THEN
+                    INSERT (source, last_run_date, updated_at)
+                    VALUES (src.source, src.last_run_date, SYSDATE)
                 """,
                 (source_name, run_date),
             )
+            conn.commit()
         self.logger.info(
             "Checkpoint updated source=%s last_run_date=%s",
             source_name,
@@ -731,15 +760,15 @@ class CircularRepository:
             return None
 
         return CircularRecord(
-            id=row[0],
+            id=_raw_to_uuid(row[0]),
             source=row[1],
             circular_id=row[2],
             source_item_key=row[3] or "",
-            full_reference=row[4],
-            department=row[5] or "",
+            department=row[4] or "",
+            full_reference=row[5],
             title=row[6],
             issue_date=row[7],
-            applicable_to_nse=row[8],
+            applicable_to_nse=bool(row[8]),
             url=row[9] or "",
             pdf_url=row[10] or "",
             status=row[11],
@@ -758,8 +787,8 @@ class CircularRepository:
             return None
 
         return CircularAssetRecord(
-            id=row[0],
-            circular_id=row[1],
+            id=_raw_to_uuid(row[0]),
+            circular_id=_raw_to_uuid(row[1]),
             asset_role=row[2],
             file_path=row[3],
             content_hash=row[4],
@@ -772,7 +801,7 @@ class CircularRepository:
 
     def _list_pending_es_records_db(self, limit: int) -> list[CircularRecord]:
         self._ensure_schema()
-        with self.db_pool.connection() as conn:
+        with self.db_pool.acquire_connection() as conn:
             rows = conn.execute(
                 """
                 SELECT id, source, circular_id, source_item_key, full_reference,
@@ -784,7 +813,7 @@ class CircularRepository:
                 WHERE status = 'FETCHED'
                   AND es_indexed_at IS NULL
                 ORDER BY issue_date ASC, created_at ASC, id ASC
-                LIMIT %s
+                OFFSET 0 ROWS FETCH NEXT :limit ROWS ONLY
                 """,
                 (limit,),
             ).fetchall()
@@ -796,16 +825,17 @@ class CircularRepository:
         if not sources:
             return counts
 
-        with self.db_pool.connection() as conn:
-            rows = conn.execute(
-                """
-                SELECT source, COUNT(*)
-                FROM circulars
-                WHERE source = ANY(%s)
-                GROUP BY source
-                """,
-                (list(sources),),
-            ).fetchall()
+        placeholders = ", ".join([f":{i+1}" for i in range(len(sources))])
+        query = f"""
+            SELECT source, COUNT(*)
+            FROM circulars
+            WHERE source IN ({placeholders})
+            GROUP BY source
+        """
+        params = list(sources)
+
+        with self.db_pool.acquire_connection() as conn:
+            rows = conn.execute(query, params).fetchall()
 
         for source, count in rows:
             counts[source] = count
@@ -815,18 +845,20 @@ class CircularRepository:
         self, record_id: UUID, chunk_count: int, index_name: str
     ) -> None:
         self._ensure_schema()
-        with self.db_pool.connection() as conn:
+        record_id_raw = _uuid_to_raw(record_id)
+        with self.db_pool.acquire_connection() as conn:
             conn.execute(
                 """
                 UPDATE circulars
-                SET es_indexed_at = NOW(),
-                    es_chunk_count = %s,
-                    es_index_name = %s,
-                    updated_at = NOW()
-                WHERE id = %s
+                SET es_indexed_at = SYSTIMESTAMP,
+                    es_chunk_count = :1,
+                    es_index_name = :2,
+                    updated_at = SYSTIMESTAMP
+                WHERE id = :3
                 """,
-                (chunk_count, index_name, record_id),
+                (chunk_count, index_name, record_id_raw),
             )
+            conn.commit()
         self.logger.info(
             "Circular ES metadata updated record_id=%s chunk_count=%s index_name=%s",
             record_id,
@@ -836,46 +868,50 @@ class CircularRepository:
 
     def _clear_es_index_state_db(self, record_id: UUID) -> None:
         self._ensure_schema()
-        with self.db_pool.connection() as conn:
+        record_id_raw = _uuid_to_raw(record_id)
+        with self.db_pool.acquire_connection() as conn:
             conn.execute(
                 """
                 UPDATE circulars
                 SET es_indexed_at = NULL,
                     es_chunk_count = NULL,
                     es_index_name = NULL,
-                    updated_at = NOW()
-                WHERE id = %s
+                    updated_at = SYSTIMESTAMP
+                WHERE id = :1
                 """,
-                (record_id,),
+                (record_id_raw,),
             )
+            conn.commit()
         self.logger.info("Cleared ES metadata record_id=%s", record_id)
 
     def _clear_all_es_index_state_db(self) -> None:
         self._ensure_schema()
-        with self.db_pool.connection() as conn:
+        with self.db_pool.acquire_connection() as conn:
             conn.execute(
                 """
                 UPDATE circulars
                 SET es_indexed_at = NULL,
                     es_chunk_count = NULL,
                     es_index_name = NULL,
-                    updated_at = NOW()
+                    updated_at = SYSTIMESTAMP
                 """
             )
+            conn.commit()
         self.logger.info("Cleared ES metadata for all circular records")
 
     def _reset_bloom_state_db(self) -> None:
         self._ensure_schema()
-        with self.db_pool.connection() as conn:
+        with self.db_pool.acquire_connection() as conn:
             conn.execute(
                 """
                 UPDATE scraper_checkpoints
                 SET es_bloom_filter = NULL,
                     es_last_run_at = NULL,
                     es_records_processed = 0,
-                    updated_at = NOW()
+                    updated_at = SYSTIMESTAMP
                 """
             )
+            conn.commit()
         self.logger.info("Reset bloom/checkpoint state for all sources")
 
     def save_expert_mapping(
@@ -887,17 +923,25 @@ class CircularRepository:
         highlights: list[dict],
     ) -> UUID:
         self._ensure_schema()
-        with self.db_pool.connection() as conn:
-            row = conn.execute(
+        new_id = _uuid_to_raw(_uuid_lib.uuid4())
+        with self.db_pool.acquire_connection() as conn:
+            conn.execute(
                 """
                 INSERT INTO circular_department_mapping
-                    (circular_id, department_id, expert_name, highlight_text, highlights)
-                VALUES (%s, %s, %s, %s, %s)
-                RETURNING id
+                    (id, circular_id, department_id, expert_name, highlight_text, highlights)
+                VALUES (:1, :2, :3, :4, :5, :6)
                 """,
-                (circular_id, dept_id, title, text, json.dumps(highlights)),
-            ).fetchone()
-        return row[0]
+                (
+                    new_id,
+                    _uuid_to_raw(circular_id),
+                    _uuid_to_raw(dept_id),
+                    title,
+                    text,
+                    json.dumps(highlights),
+                ),
+            )
+            conn.commit()
+        return _raw_to_uuid(new_id)
 
     def update_expert_mapping(
         self,
@@ -908,55 +952,63 @@ class CircularRepository:
         highlights: list[dict],
     ) -> bool:
         self._ensure_schema()
-        with self.db_pool.connection() as conn:
-            row = conn.execute(
+        row_id_raw = _uuid_to_raw(row_id)
+        with self.db_pool.acquire_connection() as conn:
+            conn.execute(
                 """
                 UPDATE circular_department_mapping
-                SET department_id = %s,
-                    expert_name = %s,
-                    highlight_text = %s,
-                    highlights = %s,
-                    updated_at = NOW()
-                WHERE id = %s
-                RETURNING id
+                SET department_id = :1,
+                    expert_name = :2,
+                    highlight_text = :3,
+                    highlights = :4,
+                    updated_at = SYSTIMESTAMP
+                WHERE id = :5
                 """,
-                (dept_id, title, text, json.dumps(highlights), row_id),
+                (_uuid_to_raw(dept_id), title, text, json.dumps(highlights), row_id_raw),
+            )
+            conn.commit()
+            row = conn.execute(
+                "SELECT id FROM circular_department_mapping WHERE id = :1",
+                (row_id_raw,),
             ).fetchone()
         return row is not None
 
     def delete_expert_mapping(self, row_id: UUID) -> bool:
         self._ensure_schema()
-        with self.db_pool.connection() as conn:
+        row_id_raw = _uuid_to_raw(row_id)
+        with self.db_pool.acquire_connection() as conn:
+            conn.execute(
+                "DELETE FROM circular_department_mapping WHERE id = :1",
+                (row_id_raw,),
+            )
+            conn.commit()
             row = conn.execute(
-                """
-                DELETE FROM circular_department_mapping
-                WHERE id = %s
-                RETURNING id
-                """,
-                (row_id,),
+                "SELECT id FROM circular_department_mapping WHERE id = :1",
+                (row_id_raw,),
             ).fetchone()
-        return row is not None
+        return row is None
 
     def get_expert_mappings_for_circular(self, circular_id: UUID) -> list[dict]:
         self._ensure_schema()
-        with self.db_pool.connection() as conn:
+        circular_id_raw = _uuid_to_raw(circular_id)
+        with self.db_pool.acquire_connection() as conn:
             rows = conn.execute(
                 """
                 SELECT id, circular_id, department_id, expert_name, highlight_text, highlights, created_at, updated_at
                 FROM circular_department_mapping
-                WHERE circular_id = %s
+                WHERE circular_id = :1
                 ORDER BY created_at
                 """,
-                (circular_id,),
+                (circular_id_raw,),
             ).fetchall()
         return [
             {
-                "id": str(r[0]),
-                "circular_id": str(r[1]),
-                "dept_id": str(r[2]),
+                "id": str(_raw_to_uuid(r[0])),
+                "circular_id": str(_raw_to_uuid(r[1])),
+                "dept_id": str(_raw_to_uuid(r[2])),
                 "title": r[3],
                 "text": r[4],
-                "highlights": r[5] or [],
+                "highlights": json.loads(r[5]) if r[5] else [],
                 "created_at": r[6].isoformat() if r[6] else None,
                 "updated_at": r[7].isoformat() if r[7] else None,
             }
@@ -974,39 +1026,39 @@ class CircularRepository:
         offset: int,
     ) -> tuple[list[dict], int]:
         self._ensure_schema()
-        with self.db_pool.connection() as conn:
-            conditions = []
-            params = []
+        conditions = []
+        params = []
 
-            if department_id:
-                conditions.append("cdm.department_id = %s")
-                params.append(department_id)
+        if department_id:
+            conditions.append("cdm.department_id = :1")
+            params.append(_uuid_to_raw(department_id))
 
-            if source:
-                conditions.append("c.source = %s")
-                params.append(source)
+        if source:
+            conditions.append("c.source = :2")
+            params.append(source)
 
-            if from_date:
-                conditions.append("c.issue_date >= %s")
-                params.append(from_date)
+        if from_date:
+            conditions.append("c.issue_date >= :3")
+            params.append(from_date)
 
-            if to_date:
-                conditions.append("c.issue_date <= %s")
-                params.append(to_date)
+        if to_date:
+            conditions.append("c.issue_date <= :4")
+            params.append(to_date)
 
-            if full_circular_no:
-                conditions.append("UPPER(c.full_reference) LIKE UPPER(%s)")
-                params.append(f"%{full_circular_no}%")
+        if full_circular_no:
+            conditions.append("UPPER(c.full_reference) LIKE UPPER(:5)")
+            params.append(f"%{full_circular_no}%")
 
-            where_clause = " AND ".join(conditions) if conditions else "1=1"
+        where_clause = " AND ".join(conditions) if conditions else "1=1"
 
-            count_query = f"""
-                SELECT COUNT(*)
-                FROM circular_department_mapping cdm
-                JOIN circulars c ON cdm.circular_id = c.id
-                WHERE {where_clause}
-            """
-            total_row = conn.execute(count_query, tuple(params)).fetchone()
+        count_query = f"""
+            SELECT COUNT(*)
+            FROM circular_department_mapping cdm
+            JOIN circulars c ON cdm.circular_id = c.id
+            WHERE {where_clause}
+        """
+        with self.db_pool.acquire_connection() as conn:
+            total_row = conn.execute(count_query, params).fetchone()
             total = total_row[0] if total_row else 0
 
             query = f"""
@@ -1023,18 +1075,18 @@ class CircularRepository:
                 JOIN circulars c ON cdm.circular_id = c.id
                 WHERE {where_clause}
                 ORDER BY c.issue_date DESC
-                LIMIT %s OFFSET %s
+                OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
             """
-            params_extended = list(params) + [limit, offset]
-            rows = conn.execute(query, tuple(params_extended)).fetchall()
+            params_extended = params + [offset, limit]
+            rows = conn.execute(query, params_extended).fetchall()
 
             experts = [
                 {
-                    "id": str(r[0]),
+                    "id": str(_raw_to_uuid(r[0])),
                     "expert_name": r[1],
                     "highlight_text": r[2],
                     "circular": {
-                        "id": str(r[3]),
+                        "id": str(_raw_to_uuid(r[3])),
                         "full_reference": r[4],
                         "source": r[5],
                         "issue_date": r[6].isoformat() if r[6] else None,
@@ -1047,14 +1099,16 @@ class CircularRepository:
 
     def _update_applicable_to_nse_db(self, record_id: UUID, applicable: bool) -> None:
         self._ensure_schema()
-        with self.db_pool.connection() as conn:
+        record_id_raw = _uuid_to_raw(record_id)
+        with self.db_pool.acquire_connection() as conn:
             conn.execute(
                 """
                 UPDATE circulars
-                SET applicable_to_nse = %s,
-                    updated_at = NOW()
-                WHERE id = %s
+                SET applicable_to_nse = :1,
+                    updated_at = SYSTIMESTAMP
+                WHERE id = :2
                 """,
-                (applicable, record_id),
+                (applicable, record_id_raw),
             )
+            conn.commit()
         self.logger.info("Updated applicable_to_nse record_id=%s applicable=%s", record_id, applicable)

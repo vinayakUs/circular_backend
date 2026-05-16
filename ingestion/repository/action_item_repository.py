@@ -1,10 +1,10 @@
 import logging
-from datetime import date, datetime
-from typing import Any
+from datetime import date
+from typing import Any, Optional
 from uuid import UUID
 
 from ingestion.dto.action_item_dto import ActionItemDTO
-from ingestion.repository.circular_repository import CircularRepository
+from ingestion.repository.circular_repository import CircularRepository, _raw_to_uuid, _uuid_to_raw
 
 
 class ActionItemRepository:
@@ -23,26 +23,29 @@ class ActionItemRepository:
         if not items:
             return
 
-        with self.db_pool.connection() as conn:
+        circular_id_raw = _uuid_to_raw(circular_id)
+        with self.db_pool.acquire_connection() as conn:
             for item in items:
+                new_id = _uuid_to_raw(UUID.uuid4())
                 conn.execute(
                     """
-                    INSERT INTO action_items (circular_id, action_item, deadline, priority, persona)
-                    VALUES (%s, %s, %s, %s, %s)
+                    INSERT INTO action_items (id, circular_id, action_item, deadline, priority, persona)
+                    VALUES (:1, :2, :3, :4, :5, :6)
                     """,
-                    (circular_id, item.action_item, item.deadline, item.priority, item.persona),
+                    (new_id, circular_id_raw, item.action_item, item.deadline, item.priority, item.persona),
                 )
+            conn.commit()
 
     def delete_action_items_for_circular(self, circular_id: UUID) -> None:
         """Deletes all action items for a given circular. Useful for idempotency."""
         self.circular_repo._ensure_schema()
-        with self.db_pool.connection() as conn:
+        circular_id_raw = _uuid_to_raw(circular_id)
+        with self.db_pool.acquire_connection() as conn:
             conn.execute(
-                """
-                DELETE FROM action_items WHERE circular_id = %s
-                """,
-                (circular_id,),
+                "DELETE FROM action_items WHERE circular_id = :1",
+                (circular_id_raw,),
             )
+            conn.commit()
 
     def get_action_items(
         self,
@@ -61,15 +64,17 @@ class ActionItemRepository:
         params = []
 
         if circular_id is not None:
-            conditions.append("circular_id = %s")
-            params.append(circular_id)
+            conditions.append("circular_id = :1")
+            params.append(_uuid_to_raw(circular_id))
 
         if priority is not None:
-            conditions.append("priority = %s")
+            idx = len(params) + 1
+            conditions.append(f"priority = :{idx}")
             params.append(priority)
 
         if persona is not None:
-            conditions.append("persona = %s")
+            idx = len(params) + 1
+            conditions.append(f"persona = :{idx}")
             params.append(persona)
 
         where_clause = " AND ".join(conditions) if conditions else "1=1"
@@ -80,21 +85,21 @@ class ActionItemRepository:
             FROM action_items
             WHERE {where_clause}
             ORDER BY created_at DESC
-            LIMIT %s OFFSET %s
+            OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
         """
 
-        with self.db_pool.connection() as conn:
-            count_result = conn.execute(count_query, tuple(params))
+        with self.db_pool.acquire_connection() as conn:
+            count_result = conn.execute(count_query, params)
             total = count_result.fetchone()[0]
 
-            params_with_pagination = tuple(params) + (limit, offset)
+            params_with_pagination = params + [offset, limit]
             result = conn.execute(data_query, params_with_pagination)
             rows = result.fetchall()
 
         action_items = [
             ActionItemDTO(
-                id=row[0],
-                circular_id=row[1],
+                id=_raw_to_uuid(row[0]),
+                circular_id=_raw_to_uuid(row[1]),
                 action_item=row[2],
                 deadline=row[3],
                 priority=row[4],

@@ -38,3 +38,13 @@ gidNumber: 1000
 homeDirectory: /home/testuser
 userPassword: password123
 EOF
+
+
+
+  docker run -d \
+    --name oracle21 \
+    --network ts-net \
+    -p 1521:1521 \
+    -v oracle21_data:/opt/oracle/oradata \
+    -e ORACLE_PWD=Oracle21Pass! \
+    container-registry.oracle.com/database/express:21.3.0-xe
