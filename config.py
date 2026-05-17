@@ -32,7 +32,7 @@ class Config:
     JWT_ALGORITHM = "HS256"
     JWT_EXPIRATION_HOURS = int(os.getenv("JWT_EXPIRATION_HOURS", "24"))
     DATABASE_URL = os.getenv(
-        "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/circular_backend"
+        "DATABASE_URL", "oracle+oracledb://circular_user:MyAppPass123@localhost:1521/XEPDB1"
     )
     DB_MIN_SIZE = int(os.getenv("DB_MIN_SIZE", "1"))
     DB_MAX_SIZE = int(os.getenv("DB_MAX_SIZE", "5"))

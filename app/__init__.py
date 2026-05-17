@@ -11,9 +11,7 @@ from config import Config
 from db import get_db_client
 from ingestion.indexer.es_provider import get_es_client
 from ingestion.repository import CircularRepository
-from ingestion.repository.action_item_repository import ActionItemRepository
 from ingestion.repository.properties_repository import PropertiesRepository
-from app.dto.action_item_dto import ActionItemDTO, ActionItemListResponseDTO
 from app.dto.circular_dto import CircularListResponseDTO, CircularSummaryDTO
 from app.dto.search_result_dto import search_hit_to_dict
 from app.auth.ldap_auth import LDAPAuth, require_auth
@@ -348,59 +346,6 @@ def create_app() -> Flask:
                 "rag_error": str(e),
             }
 
-    @app.get("/api/action-items")
-    def get_action_items():
-        raw_circular_id = request.args.get("circular_id", "").strip() or None
-        priority = request.args.get("priority", "").strip() or None
-        persona = request.args.get("persona", "").strip() or None
-        start_date = request.args.get("start_date", "").strip() or None
-        end_date = request.args.get("end_date", "").strip() or None
-        limit = int(request.args.get("limit", "20").strip() or "20")
-        offset = int(request.args.get("offset", "0").strip() or "0")
-
-        if raw_circular_id:
-            try:
-                circular_id = UUID(raw_circular_id)
-            except ValueError:
-                return {"error": "Invalid circular_id format."}, 400
-        else:
-            circular_id = None
-
-        db_client = get_db_client()
-        repository = ActionItemRepository(db_pool=db_client.get_pool())
-
-        action_items_dtos, total = repository.get_action_items(
-            circular_id=circular_id,
-            priority=priority,
-            persona=persona,
-            start_date=start_date,
-            end_date=end_date,
-            limit=limit,
-            offset=offset,
-        )
-
-        action_items = [
-            ActionItemDTO(
-                id=dto.id,
-                circular_id=dto.circular_id,
-                action_item=dto.action_item,
-                deadline=dto.deadline,
-                priority=dto.priority,
-                persona=dto.persona,
-                created_at=dto.created_at,
-                updated_at=dto.updated_at,
-            )
-            for dto in action_items_dtos
-        ]
-
-        response = ActionItemListResponseDTO(
-            action_items=action_items,
-            total=total,
-            limit=limit,
-            offset=offset,
-        )
-        return response.model_dump()
-
     @app.get("/api/circulars")
     def list_circulars():
         raw_limit = request.args.get("limit", "20").strip()
@@ -557,16 +502,6 @@ def create_app() -> Flask:
                 for r in records
             ],
         }
-
-    @app.get("/api/circulars/<uuid:record_id>/summary")
-    def get_circular_summary(record_id):
-        from ingestion.repository.summary_repository import SummaryRepository
-        db_client = get_db_client()
-        repository = SummaryRepository(db_pool=db_client.get_pool())
-        summary_text = repository.get_summary_text(record_id)
-        if summary_text is None:
-            return {"error": "Summary not found"}, 404
-        return {"summary": summary_text}
 
     @app.get("/api/experts/by-department")
     def get_experts_by_department():

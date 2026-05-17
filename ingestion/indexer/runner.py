@@ -36,7 +36,7 @@ from ingestion.indexer import ElasticsearchClient, ElasticsearchIndexer, FixedSi
 from ingestion.indexer.chunker import ParagraphSentenceChunker
 from ingestion.indexer.embedding_provider import build_embedding_provider
 from ingestion.logging_utils import configure_logging
-from ingestion.repository import CircularRepository
+from ingestion.repository import CheckpointRepository, CircularRepository
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -95,6 +95,7 @@ def main() -> int:
     db_client = get_db_client()
     db_pool = db_client.get_pool()
     repository = CircularRepository(db_pool=db_pool)
+    checkpoint_repository = CheckpointRepository(db_pool=db_pool)
     embedding_provider = build_embedding_provider(
         Config.ES_EMBEDDING_PROVIDER,
         enabled=Config.ES_ENABLE_VECTORS,
@@ -133,7 +134,7 @@ def main() -> int:
             repository.clear_all_es_index_state()
             logger.info("Postgres ES metadata reset completed")
         if args.reset_bloom:
-            repository.reset_bloom_state()
+            checkpoint_repository.reset_bloom_state()
             logger.info("Bloom/checkpoint reset completed")
         if maintenance_mode:
             db_client.close()

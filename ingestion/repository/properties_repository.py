@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import logging
-import threading
-import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import json
 from typing import Any
 from uuid import UUID
+
+from ingestion.repository.circular_repository import _raw_to_uuid, _uuid_to_raw
 
 
 @dataclass(slots=True)
@@ -22,133 +22,89 @@ class PropertyRecord:
 
 
 class PropertiesRepository:
-    """Repository for generic properties (departments, categories, etc.)."""
-
-    _schema_initialized: bool = False
-    _schema_init_lock: threading.Lock = threading.Lock()
 
     def __init__(self, db_pool: Any) -> None:
         if db_pool is None:
             raise ValueError("PropertiesRepository requires db_pool")
-        self.logger = logging.getLogger(__name__)
+        self.logger = __import__("logging").getLogger(__name__)
         self.db_pool = db_pool
 
     def create(self, name: str, type: str, metadata: dict | None = None) -> PropertyRecord | None:
-        self._ensure_schema()
         metadata = metadata or {}
-        with self.db_pool.connection() as conn:
-            existing = conn.execute(
-                """
-                SELECT id FROM properties
-                WHERE name = %s AND type = %s AND archived = FALSE
-                """,
+        with self.db_pool.acquire() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT id FROM properties WHERE name = :1 AND type = :2 AND archived = 0",
                 (name, type),
-            ).fetchone()
-            if existing:
+            )
+            if cursor.fetchone():
                 return None
-            row = conn.execute(
-                """
-                INSERT INTO properties (name, type, metadata)
-                VALUES (%s, %s, %s::jsonb)
-                RETURNING id, name, type, archived, archived_at, metadata, created_at, updated_at
-                """,
+            cursor.execute(
+                "INSERT INTO properties (name, type, metadata) VALUES (:1, :2, :3)",
                 (name, type, json.dumps(metadata)),
-            ).fetchone()
+            )
+            conn.commit()
+            cursor.execute(
+                "SELECT id, name, type, archived, archived_at, metadata, created_at, updated_at "
+                "FROM properties WHERE name = :1 AND type = :2",
+                (name, type),
+            )
+            row = cursor.fetchone()
         return self._row_to_record(row)
 
     def get_by_id(self, id: UUID) -> PropertyRecord | None:
-        self._ensure_schema()
-        with self.db_pool.connection() as conn:
-            row = conn.execute(
-                """
-                SELECT id, name, type, archived, archived_at, metadata, created_at, updated_at
-                FROM properties
-                WHERE id = %s
-                """,
-                (id,),
-            ).fetchone()
+        with self.db_pool.acquire() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT id, name, type, archived, archived_at, metadata, created_at, updated_at "
+                "FROM properties WHERE id = :1",
+                (_uuid_to_raw(id),),
+            )
+            row = cursor.fetchone()
         return self._row_to_record(row)
 
     def list_by_type(self, type: str, include_archived: bool = False) -> list[PropertyRecord]:
-        self._ensure_schema()
-        with self.db_pool.connection() as conn:
+        with self.db_pool.acquire() as conn:
+            cursor = conn.cursor()
             if include_archived:
-                rows = conn.execute(
-                    """
-                    SELECT id, name, type, archived, archived_at, metadata, created_at, updated_at
-                    FROM properties
-                    WHERE type = %s
-                    ORDER BY name
-                    """,
+                cursor.execute(
+                    "SELECT id, name, type, archived, archived_at, metadata, created_at, updated_at "
+                    "FROM properties WHERE type = :1 ORDER BY name",
                     (type,),
-                ).fetchall()
+                )
             else:
-                rows = conn.execute(
-                    """
-                    SELECT id, name, type, archived, archived_at, metadata, created_at, updated_at
-                    FROM properties
-                    WHERE type = %s AND archived = FALSE
-                    ORDER BY name
-                    """,
+                cursor.execute(
+                    "SELECT id, name, type, archived, archived_at, metadata, created_at, updated_at "
+                    "FROM properties WHERE type = :1 AND archived = 0 ORDER BY name",
                     (type,),
-                ).fetchall()
-        return [record for row in rows if (record := self._row_to_record(row))]
+                )
+            rows = cursor.fetchall()
+        return [r for row in rows if (r := self._row_to_record(row))]
 
     def archive(self, id: UUID) -> PropertyRecord | None:
-        self._ensure_schema()
-        with self.db_pool.connection() as conn:
-            row = conn.execute(
-                """
-                UPDATE properties
-                SET archived = TRUE, archived_at = NOW()
-                WHERE id = %s
-                RETURNING id, name, type, archived, archived_at, metadata, created_at, updated_at
-                """,
-                (id,),
-            ).fetchone()
+        with self.db_pool.acquire() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE properties SET archived = 1, archived_at = SYSTIMESTAMP WHERE id = :1",
+                (_uuid_to_raw(id),),
+            )
+            conn.commit()
+            cursor.execute(
+                "SELECT id, name, type, archived, archived_at, metadata, created_at, updated_at "
+                "FROM properties WHERE id = :1",
+                (_uuid_to_raw(id),),
+            )
+            row = cursor.fetchone()
         return self._row_to_record(row)
-
-    def _ensure_schema(self) -> None:
-        if PropertiesRepository._schema_initialized:
-            return
-
-        with PropertiesRepository._schema_init_lock:
-            if PropertiesRepository._schema_initialized:
-                return
-
-            with self.db_pool.connection() as conn:
-                conn.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS properties (
-                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                        name VARCHAR(255) NOT NULL,
-                        type VARCHAR(50) NOT NULL,
-                        archived BOOLEAN NOT NULL DEFAULT FALSE,
-                        archived_at TIMESTAMPTZ,
-                        metadata JSONB DEFAULT '{}',
-                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-                    )
-                    """
-                )
-                conn.execute("CREATE INDEX IF NOT EXISTS idx_properties_type ON properties(type)")
-                conn.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_properties_type_name ON properties(type, name) WHERE archived = FALSE"
-                )
-                conn.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_properties_metadata_gin ON properties USING gin (metadata jsonb_path_ops)"
-                )
-            PropertiesRepository._schema_initialized = True
-            self.logger.info("PropertiesRepository schema initialized")
 
     def _row_to_record(self, row: Any) -> PropertyRecord | None:
         if row is None:
             return None
         return PropertyRecord(
-            id=row[0],
+            id=_raw_to_uuid(row[0]),
             name=row[1],
             type=row[2],
-            archived=row[3],
+            archived=bool(row[3]),
             archived_at=row[4],
             metadata=row[5] if isinstance(row[5], dict) else {},
             created_at=row[6],

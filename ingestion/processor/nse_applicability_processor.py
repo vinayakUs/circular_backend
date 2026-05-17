@@ -15,6 +15,7 @@ from config import Config
 from db.client import get_db_client
 from ingestion.indexer.pdf_extractor import PDFTextExtractor
 from ingestion.processor.base import BaseProcessor
+from ingestion.repository.asset_repository import AssetRepository
 from ingestion.repository.circular_repository import CircularRecord, CircularRepository
 from pydantic import BaseModel, Field
 from storage.s3_client import S3StorageClient
@@ -36,6 +37,7 @@ class NSEApplicabilityProcessor(BaseProcessor):
     def __init__(self, db_pool: Any):
         super().__init__(db_pool)
         self.circular_repo = CircularRepository(db_pool)
+        self.asset_repo = AssetRepository(db_pool)
 
     @property
     def name(self) -> str:
@@ -63,7 +65,7 @@ class NSEApplicabilityProcessor(BaseProcessor):
             self.circular_repo.update_applicable_to_nse(record.id, True)
 
     def _get_pdf_path(self, record: CircularRecord) -> str | None:
-        assets = self.circular_repo.list_assets(record.id)
+        assets = self.asset_repo.list_assets(record.id)
         for role in ['extracted_pdf', 'original_pdf']:
             for asset in assets:
                 if asset.asset_role == role and asset.file_path and asset.file_path.lower().endswith('.pdf'):

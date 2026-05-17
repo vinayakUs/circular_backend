@@ -1,16 +1,36 @@
 from __future__ import annotations
 
 from threading import Lock
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from config import Config
 
-if TYPE_CHECKING:
-    from psycopg_pool import ConnectionPool
+
+class _PoolConn:
+    """Wraps an oracledb connection so code can use conn.execute() instead of cursor.execute()."""
+
+    __slots__ = ("_conn",)
+
+    def __init__(self, conn: Any) -> None:
+        self._conn = conn
+
+    def execute(self, sql: str, params: Any = ()) -> Any:
+        cursor = self._conn.cursor()
+        cursor.execute(sql, params or ())
+        return cursor
+
+    def __enter__(self) -> "_PoolConn":
+        return self
+
+    def __exit__(self, *_: Any) -> None:
+        self._conn.close()
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._conn, name)
 
 
 class DatabaseClient:
-    """Singleton wrapper around the PostgreSQL connection pool."""
+    """Singleton wrapper around the Oracle connection pool."""
 
     _instance: DatabaseClient | None = None
     _instance_lock = Lock()
@@ -26,7 +46,6 @@ class DatabaseClient:
     def get_pool(self) -> Any:
         if self._pool is None:
             self._pool = self._create_pool()
-            self._pool.open()
         return self._pool
 
     def close(self) -> None:
@@ -36,20 +55,39 @@ class DatabaseClient:
 
     def _create_pool(self) -> Any:
         try:
-            from psycopg_pool import ConnectionPool
+            import oracledb
         except ImportError as exc:
             raise RuntimeError(
-                "PostgreSQL client is not installed. Install dependencies from "
-                "`requirements.txt` before requesting the db client."
+                "Oracle client is not installed. Run `pip install oracledb` "
+                "before requesting the db client."
             ) from exc
 
-        return ConnectionPool(
-            conninfo=Config.DATABASE_URL,
-            min_size=Config.DB_MIN_SIZE,
-            max_size=Config.DB_MAX_SIZE,
-            kwargs={"autocommit": True},
-            open=False,
+        url = Config.DATABASE_URL.replace("oracle+oracledb://", "").replace("oracle://", "")
+        user_pass, host_service = url.split("@")
+        user, password = user_pass.split(":", 1)
+        if "/" in host_service:
+            host_port, service_name = host_service.rsplit("/", 1)
+        else:
+            host_port = host_service
+            service_name = None
+
+        if ":" in host_port:
+            host, port = host_port.split(":", 1)
+            port = int(port)
+        else:
+            host = host_port
+            port = 1521
+
+        dsn = f"{host}:{port}/{service_name}" if service_name else f"{host}:{port}"
+
+        pool = oracledb.create_pool(
+            user=user,
+            password=password,
+            dsn=dsn,
+            min=Config.DB_MIN_SIZE,
+            max=Config.DB_MAX_SIZE,
         )
+        return pool
 
 
 def get_db_client() -> DatabaseClient:

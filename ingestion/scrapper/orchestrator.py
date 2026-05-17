@@ -14,6 +14,8 @@ import zipfile
 
 from config import Config
 from ingestion.repository import CircularAsset, CircularRepository
+from ingestion.repository.asset_repository import AssetRepository
+from ingestion.repository.checkpoint_repository import CheckpointRepository
 from ingestion.scrapper.base import IScraper, ScrapeDetectionResult
 from ingestion.scrapper.dto import Circular
 from ingestion.scrapper.registry import ScraperRegistry
@@ -32,6 +34,8 @@ class ScraperOrchestrator:
         storage_path: str = "data/regulatory_raw",
         default_lookback_days: int = 7,
         circular_repository: CircularRepository | None = None,
+        asset_repository: AssetRepository | None = None,
+        checkpoint_repository: CheckpointRepository | None = None,
         enabled_sources: list[str] | tuple[str, ...] | None = None,
         from_date: date | None = None,
         to_date: date | None = None,
@@ -47,6 +51,8 @@ class ScraperOrchestrator:
         self.storage_path = Path(storage_path)
         self.default_lookback_days = default_lookback_days
         self.circular_repository = circular_repository or CircularRepository(db_pool)
+        self.asset_repository = asset_repository or AssetRepository(db_pool)
+        self.checkpoint_repository = checkpoint_repository or CheckpointRepository(db_pool)
         self.enabled_sources = tuple(
             source.upper()
             for source in (
@@ -83,7 +89,7 @@ class ScraperOrchestrator:
         if self.from_date is not None:
             last_run_date = self.from_date
         else:
-            last_run_date = self.circular_repository.get_checkpoint(source.source_name)
+            last_run_date = self.checkpoint_repository.get_checkpoint(source.source_name)
             if last_run_date is None:
                 last_run_date = today - timedelta(days=self.default_lookback_days)
 
@@ -131,7 +137,7 @@ class ScraperOrchestrator:
                 file_path, content_hash, assets = self._download_assets(
                     circular.pdf_url, circular
                 )
-                self.circular_repository.replace_assets(record_id, assets)
+                self.asset_repository.replace_assets(record_id, assets)
                 self.circular_repository.update_status(record_id, "FETCHED")
                 fetched_count += 1
                 self.logger.info(
@@ -198,7 +204,7 @@ class ScraperOrchestrator:
         earliest_failed_issue_date: date | None,
     ) -> None:
         if not has_failures:
-            self.circular_repository.set_checkpoint(source_name, today)
+            self.checkpoint_repository.set_checkpoint(source_name, today)
             return
 
         if earliest_failed_issue_date is None:
@@ -211,7 +217,7 @@ class ScraperOrchestrator:
 
         safe_checkpoint = earliest_failed_issue_date - timedelta(days=1)
         if safe_checkpoint > last_run_date:
-            self.circular_repository.set_checkpoint(source_name, safe_checkpoint)
+            self.checkpoint_repository.set_checkpoint(source_name, safe_checkpoint)
             self.logger.warning(
                 "Advanced checkpoint conservatively after failures source=%s last_run_date=%s safe_checkpoint=%s earliest_failed_issue_date=%s",
                 source_name,

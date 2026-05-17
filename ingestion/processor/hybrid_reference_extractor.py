@@ -10,7 +10,6 @@ from config import Config
 from db.client import get_db_client
 from ingestion.indexer.pdf_extractor import PDFTextExtractor
 from ingestion.processor.base import BaseProcessor
-from ingestion.repository.circular_reference_repository import CircularReferenceRepository
 from ingestion.repository.circular_repository import CircularRepository, CircularRecord
 from utils.llm_providers import get_llm_provider
 

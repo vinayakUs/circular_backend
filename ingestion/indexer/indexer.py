@@ -11,7 +11,7 @@ from ingestion.indexer.dto import IndexDocument
 from ingestion.indexer.embedding_provider import EmbeddingProvider, NoOpEmbeddingProvider
 from ingestion.indexer.es_client import ElasticsearchClient
 from ingestion.indexer.pdf_extractor import PDFTextExtractor
-from ingestion.repository import CircularAssetRecord, CircularRecord, CircularRepository
+from ingestion.repository import AssetRepository, CircularAssetRecord, CircularRecord, CircularRepository
 from storage.s3_client import S3StorageClient
 
 
@@ -22,6 +22,7 @@ class ElasticsearchIndexer:
         self,
         circular_repository: CircularRepository,
         es_client: ElasticsearchClient,
+        asset_repository: AssetRepository | None = None,
         pdf_extractor: PDFTextExtractor | None = None,
         chunker: ChunkingStrategy | None = None,
         embedding_provider: EmbeddingProvider | None = None,
@@ -30,6 +31,7 @@ class ElasticsearchIndexer:
     ) -> None:
         self.logger = logging.getLogger(__name__)
         self.circular_repository = circular_repository
+        self.asset_repository = asset_repository or AssetRepository(circular_repository.db_pool)
         self.es_client = es_client
         self.pdf_extractor = pdf_extractor or PDFTextExtractor()
         self.chunker = chunker or FixedSizeChunker()
@@ -71,7 +73,7 @@ class ElasticsearchIndexer:
         self, record: CircularRecord, *, cleanup_stale_chunks: bool = False
     ) -> bool:
         try:
-            assets = self.circular_repository.list_assets(record.id)
+            assets = self.asset_repository.list_assets(record.id)
             indexable_assets = self._get_indexable_assets(assets)
             if not indexable_assets:
                 self.logger.warning(

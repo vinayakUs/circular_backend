@@ -1,15 +1,29 @@
 """Persistence layer for ingestion workflows."""
 
 from ingestion.repository.circular_repository import (
-    CircularAsset,
-    CircularAssetRecord,
     CircularRecord,
     CircularRepository,
 )
+from ingestion.repository.asset_repository import (
+    CircularAsset,
+    CircularAssetRecord,
+    AssetRepository,
+)
+from ingestion.repository.expert_mapping_repository import (
+    ExpertMappingRecord,
+    ExpertMappingRepository,
+)
+from ingestion.repository.checkpoint_repository import (
+    CheckpointRepository,
+)
 
 __all__ = [
-    "CircularAsset",
-    "CircularAssetRecord",
     "CircularRecord",
     "CircularRepository",
+    "CircularAsset",
+    "CircularAssetRecord",
+    "AssetRepository",
+    "ExpertMappingRecord",
+    "ExpertMappingRepository",
+    "CheckpointRepository",
 ]

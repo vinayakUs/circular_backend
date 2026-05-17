@@ -1,67 +1,77 @@
-import logging
+from __future__ import annotations
+
+from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
-from ingestion.repository.circular_repository import CircularRecord, CircularRepository
+from ingestion.repository.circular_repository import (
+    CircularRecord,
+    CircularRepository,
+    _raw_to_uuid,
+    _uuid_to_raw,
+)
 
 
 class ProcessorRepository:
-    """Repository for managing processing tasks state."""
 
     def __init__(self, db_pool: Any) -> None:
         if db_pool is None:
             raise ValueError("ProcessorRepository requires db_pool")
-        self.logger = logging.getLogger(__name__)
+        self.logger = __import__("logging").getLogger(__name__)
         self.db_pool = db_pool
-        # Use CircularRepository to parse CircularRecord and ensure schema
         self.circular_repo = CircularRepository(db_pool)
 
     def get_pending_circulars_for_processor(self, processor_name: str, limit: int = 100) -> list[CircularRecord]:
-        """Finds circulars that need to be processed by a specific processor."""
-        self.circular_repo._ensure_schema()
-        with self.db_pool.connection() as conn:
-            rows = conn.execute(
+        with self.db_pool.acquire() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
                 """
                 SELECT c.id, c.source, c.circular_id, c.source_item_key, c.full_reference,
                        c.department, c.title, c.issue_date, c.applicable_to_nse, c.url, c.pdf_url,
-                       c.status, c.file_path, c.content_hash, c.error_message, c.detected_at,
+                       c.status, c.content_hash, c.error_message, c.detected_at,
                        c.created_at, c.updated_at, c.es_indexed_at, c.es_chunk_count,
                        c.es_index_name
                 FROM circulars c
-                LEFT JOIN processing_tasks pt 
-                  ON c.id = pt.circular_id AND pt.processor_name = %s
+                LEFT JOIN processing_tasks pt ON c.id = pt.circular_id AND pt.processor_name = :1
                 WHERE c.status = 'FETCHED'
-                  AND c.file_path IS NOT NULL
+                  AND c.pdf_url IS NOT NULL
                   AND (pt.id IS NULL OR pt.status = 'FAILED' OR pt.status = 'PENDING')
                 ORDER BY c.issue_date DESC, c.created_at ASC
-                LIMIT %s
+                FETCH FIRST :2 ROWS ONLY
                 """,
                 (processor_name, limit),
-            ).fetchall()
-        return [record for row in rows if (record := self.circular_repo._row_to_record(row))]
+            )
+            rows = cursor.fetchall()
+        return [r for row in rows if (r := self.circular_repo._row_to_record(row))]
 
     def mark_task_completed(self, circular_id: UUID, processor_name: str) -> None:
-        self.circular_repo._ensure_schema()
-        with self.db_pool.connection() as conn:
-            conn.execute(
+        with self.db_pool.acquire() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
                 """
-                INSERT INTO processing_tasks (circular_id, processor_name, status)
-                VALUES (%s, %s, 'COMPLETED')
-                ON CONFLICT (circular_id, processor_name) 
-                DO UPDATE SET status = 'COMPLETED', error_message = NULL, updated_at = NOW()
+                MERGE INTO processing_tasks dst
+                USING (SELECT :1 AS cid, :2 AS pname, 'COMPLETED' AS status FROM DUAL) src
+                ON (dst.circular_id = src.cid AND dst.processor_name = src.pname)
+                WHEN MATCHED THEN UPDATE SET status = 'COMPLETED', error_message = NULL, updated_at = SYSTIMESTAMP
+                WHEN NOT MATCHED THEN INSERT (circular_id, processor_name, status)
+                    VALUES (src.cid, src.pname, 'COMPLETED')
                 """,
-                (circular_id, processor_name),
+                (_uuid_to_raw(circular_id), processor_name),
             )
+            conn.commit()
 
     def mark_task_failed(self, circular_id: UUID, processor_name: str, error_message: str) -> None:
-        self.circular_repo._ensure_schema()
-        with self.db_pool.connection() as conn:
-            conn.execute(
+        with self.db_pool.acquire() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
                 """
-                INSERT INTO processing_tasks (circular_id, processor_name, status, error_message)
-                VALUES (%s, %s, 'FAILED', %s)
-                ON CONFLICT (circular_id, processor_name) 
-                DO UPDATE SET status = 'FAILED', error_message = EXCLUDED.error_message, updated_at = NOW()
+                MERGE INTO processing_tasks dst
+                USING (SELECT :1 AS cid, :2 AS pname, 'FAILED' AS status, :3 AS err FROM DUAL) src
+                ON (dst.circular_id = src.cid AND dst.processor_name = src.pname)
+                WHEN MATCHED THEN UPDATE SET status = 'FAILED', error_message = src.err, updated_at = SYSTIMESTAMP
+                WHEN NOT MATCHED THEN INSERT (circular_id, processor_name, status, error_message)
+                    VALUES (src.cid, src.pname, 'FAILED', src.err)
                 """,
-                (circular_id, processor_name, error_message),
+                (_uuid_to_raw(circular_id), processor_name, error_message),
             )
+            conn.commit()
