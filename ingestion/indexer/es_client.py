@@ -478,3 +478,16 @@ class ElasticsearchClient:
             conflicts="proceed",
             refresh=True,
         )
+
+    def update_applicable_to_nse(self, circular_db_id: str, applicable: bool) -> None:
+        """Update applicable_to_nse on all ES chunks for a given circular_db_id."""
+        self.client.update_by_query(
+            index=self.index_name,
+            query={"term": {"circular_db_id": circular_db_id}},
+            script={
+                "source": "ctx._source.applicable_to_nse = params.value",
+                "params": {"value": applicable}
+            },
+            refresh=True,
+        )
+        self.logger.info("Updated applicable_to_nse in ES: circular_db_id=%s applicable=%s", circular_db_id, applicable)

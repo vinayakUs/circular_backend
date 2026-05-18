@@ -2,12 +2,12 @@ from datetime import date
 from typing import Any
 from uuid import UUID
 
-from ingestion.repository import CircularRepository
+from ingestion.repository import ExpertMappingRepository
 
 
 class ExpertService:
     def __init__(self, db_pool):
-        self.repository = CircularRepository(db_pool=db_pool)
+        self.repository = ExpertMappingRepository(db_pool=db_pool)
 
     def get_experts_by_department(
         self,

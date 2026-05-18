@@ -78,6 +78,7 @@ CREATE TABLE circulars (
     es_indexed_at  TIMESTAMP WITH TIME ZONE,
     es_chunk_count NUMBER(10),
     es_index_name  VARCHAR2(100),
+    APPLICABLE_TO_NSE NUMBER(1,0) DEFAULT 0 NOT NULL
     CONSTRAINT pk_circulars PRIMARY KEY (id),
     CONSTRAINT uq_circulars_source UNIQUE (source, circular_id)
 );
@@ -131,7 +132,41 @@ CREATE TABLE circular_department_mapping (
     CONSTRAINT uq_cdm_circular_dept_expert 
         UNIQUE (circular_id, department_id, expert_name)
 );
-CREATE INDEX idx_cdm_circular_id 
+CREATE INDEX idx_cdm_circular_id
     ON circular_department_mapping(circular_id);
-CREATE INDEX idx_cdm_department_id 
+CREATE INDEX idx_cdm_department_id
     ON circular_department_mapping(department_id);
+
+-- circular_signatories
+
+CREATE TABLE circular_signatories (
+    id                       RAW(16)                  DEFAULT SYS_GUID() NOT NULL,
+    circular_id              RAW(16)                  NOT NULL,
+    signatory_name           VARCHAR2(500)            NOT NULL,
+    signatory_designation    VARCHAR2(500)            NOT NULL,
+    extracted_at            TIMESTAMP WITH TIME ZONE  DEFAULT SYSTIMESTAMP NOT NULL,
+    CONSTRAINT pk_circular_signatories PRIMARY KEY (id),
+    CONSTRAINT fk_circular_signatories_circular
+        FOREIGN KEY (circular_id) REFERENCES circulars(id) ON DELETE CASCADE,
+    CONSTRAINT uq_circular_signatories_identity
+        UNIQUE (circular_id, signatory_name, signatory_designation)
+);
+CREATE INDEX idx_circular_signatories_circular_id
+    ON circular_signatories(circular_id);
+
+-- notification_logs
+
+CREATE TABLE notification_logs (
+    id              RAW(16) DEFAULT SYS_GUID() NOT NULL,
+    template_name   VARCHAR2(100) NOT NULL,
+    recipient_email VARCHAR2(255) NOT NULL,
+    subject         VARCHAR2(500) NOT NULL,
+    variables       JSON DEFAULT '{}',
+    status          VARCHAR2(20) NOT NULL,
+    error_message   CLOB,
+    sent_at         TIMESTAMP WITH TIME ZONE,
+    created_at      TIMESTAMP WITH TIME ZONE DEFAULT SYSTIMESTAMP NOT NULL,
+    CONSTRAINT pk_notification_logs PRIMARY KEY (id)
+);
+CREATE INDEX idx_notification_logs_status ON notification_logs(status);
+CREATE INDEX idx_notification_logs_recipient ON notification_logs(recipient_email);

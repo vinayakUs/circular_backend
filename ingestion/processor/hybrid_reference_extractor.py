@@ -151,9 +151,7 @@ class HybridReferenceExtractor(BaseProcessor):
         self.ref_repo = CircularReferenceRepository(db_pool)
         self.circular_repo = CircularRepository(db_pool)
 
-    @property
-    def name(self) -> str:
-        return "hybrid_reference_extractor"
+    name = "hybrid_reference_extractor"
 
     def process(self, record: CircularRecord) -> None:
         file_path = self._get_pdf_path(record)

@@ -100,3 +100,15 @@ class Config:
     AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID", "test")
     AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "test")
     AWS_S3_ENDPOINT_URL = os.getenv("AWS_S3_ENDPOINT_URL", "http://localhost:4566")
+
+    # SMTP / Email settings
+    SMTP_HOST = os.getenv("SMTP_HOST", "smtp.company.com")
+    SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+    SMTP_USERNAME = os.getenv("SMTP_USERNAME", "")
+    SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+    SMTP_USE_TLS = os.getenv("SMTP_USE_TLS", "true").lower() == "true"
+    SMTP_FROM_EMAIL = os.getenv("SMTP_FROM_EMAIL", "circulars@company.com")
+    SMTP_FROM_NAME = os.getenv("SMTP_FROM_NAME", "Regulatory Circular System")
+    NOTIFICATION_RECIPIENTS = [
+        r.strip() for r in os.getenv("NOTIFICATION_RECIPIENTS", "").split(",") if r.strip()
+    ]

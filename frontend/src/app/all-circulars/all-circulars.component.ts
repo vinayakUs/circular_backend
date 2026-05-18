@@ -130,7 +130,7 @@ export class AllCircularsComponent implements OnInit {
           source: r.source,
           title: r.title,
           issue_date: r.issueDate,
-          applicable_to_nse: false,
+          applicable_to_nse: r.applicableToNse ?? false,
           status: '',
           url: r.url
         }));

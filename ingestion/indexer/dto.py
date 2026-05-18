@@ -40,6 +40,12 @@ class IndexDocument:
 
     @classmethod
     def from_es_source(cls, source: dict[str, Any]) -> IndexDocument:
+        from datetime import datetime
+        issue_date_raw = source["issue_date"]
+        try:
+            issue_date = date.fromisoformat(issue_date_raw)
+        except ValueError:
+            issue_date = datetime.fromisoformat(issue_date_raw).date()
         return cls(
             chunk_id=source["chunk_id"],
             circular_db_id=source["circular_db_id"],
@@ -49,7 +55,7 @@ class IndexDocument:
             source=source["source"],
             title=source["title"],
             department=source["department"],
-            issue_date=date.fromisoformat(source["issue_date"]),
+            issue_date=issue_date,
             applicable_to_nse=source.get("applicable_to_nse", False),
             full_reference=source["full_reference"],
             url=source["url"],

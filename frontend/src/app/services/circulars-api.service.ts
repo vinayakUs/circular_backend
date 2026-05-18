@@ -73,6 +73,7 @@ export interface SearchResult {
   url: string;
   chunkIndex: number;
   preview: string;
+  applicableToNse?: boolean;
 }
 
 export interface HighlightDetail {
@@ -91,6 +92,12 @@ export interface Expert {
   title: string;
   text: string;
   highlights: HighlightDetail[];
+}
+
+export interface Signatory {
+  name: string;
+  designation: string;
+  extracted_at: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -193,6 +200,12 @@ export class CircularsApiService {
   getExperts(circularId: string): Observable<{ experts: Expert[] }> {
     return this.http.get<{ experts: Expert[] }>(
       `${this.baseUrl}/api/circulars/${circularId}/experts`
+    );
+  }
+
+  getSignatories(circularId: string): Observable<{ signatories: Signatory[] }> {
+    return this.http.get<{ signatories: Signatory[] }>(
+      `${this.baseUrl}/api/circulars/${circularId}/signatories`
     );
   }
 

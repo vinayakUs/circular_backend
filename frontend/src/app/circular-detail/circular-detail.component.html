@@ -216,6 +216,20 @@
               <span class="detail-value">{{ circular?.applicable_to_nse ? 'Yes' : 'No' }}</span>
             </div>
           </div>
+
+          <div class="sidebar-section" *ngIf="signatories.length > 0 || signatoriesLoading">
+            <h3>Signatories</h3>
+            <div class="loading-state small" *ngIf="signatoriesLoading">
+              <div class="loading-spinner small"></div>
+            </div>
+            <div class="signatory-card" *ngFor="let sig of signatories">
+              <span class="signatory-name">{{ sig.name }}</span>
+              <span class="signatory-designation">{{ sig.designation }}</span>
+            </div>
+            <div class="empty-state small" *ngIf="!signatoriesLoading && signatories.length === 0">
+              <p>No signatories found.</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>

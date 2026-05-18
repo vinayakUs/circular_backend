@@ -4,7 +4,7 @@ import { ActivatedRoute } from '@angular/router';
 import { NavbarComponent } from '../navbar/navbar.component';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { marked } from 'marked';
-import { CircularsApiService, Circular } from '../services/circulars-api.service';
+import { CircularsApiService, Circular, Signatory } from '../services/circulars-api.service';
 import { ExpertModalComponent } from '../expert-modal/expert-modal.component';
 
 const NODE_W = 160;
@@ -46,6 +46,8 @@ export class CircularDetailComponent implements AfterViewInit, OnDestroy, OnInit
   summary: string | null = null;
   summaryLoading = false;
   showExpertModal = false;
+  signatories: Signatory[] = [];
+  signatoriesLoading = false;
 
   nodes: GraphNode[] = [
     { id: '1', label: 'SEBI/MRD/2025/089', exchange: 'sebi', title: 'Master Circular on AIF', x: 40, y: 20 },
@@ -90,6 +92,7 @@ export class CircularDetailComponent implements AfterViewInit, OnDestroy, OnInit
           this.loading = false;
           this.fetchActionItems(id);
           this.fetchSummary(id);
+          this.fetchSignatories(id);
         },
         error: (err) => {
           this.loading = false;
@@ -97,6 +100,20 @@ export class CircularDetailComponent implements AfterViewInit, OnDestroy, OnInit
         }
       });
     }
+  }
+
+  private fetchSignatories(circularId: string) {
+    this.signatoriesLoading = true;
+    this.api.getSignatories(circularId).subscribe({
+      next: (data) => {
+        this.signatories = data.signatories;
+        this.signatoriesLoading = false;
+      },
+      error: () => {
+        this.signatories = [];
+        this.signatoriesLoading = false;
+      }
+    });
   }
 
   private fetchSummary(circularId: string) {

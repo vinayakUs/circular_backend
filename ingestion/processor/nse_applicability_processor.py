@@ -13,6 +13,7 @@ from typing import Any
 
 from config import Config
 from db.client import get_db_client
+from ingestion.indexer.es_provider import get_es_client
 from ingestion.indexer.pdf_extractor import PDFTextExtractor
 from ingestion.processor.base import BaseProcessor
 from ingestion.repository.asset_repository import AssetRepository
@@ -39,9 +40,7 @@ class NSEApplicabilityProcessor(BaseProcessor):
         self.circular_repo = CircularRepository(db_pool)
         self.asset_repo = AssetRepository(db_pool)
 
-    @property
-    def name(self) -> str:
-        return "nse_applicability_processor"
+    name = "nse_applicability_processor"
 
     def process(self, record: CircularRecord) -> None:
         if record.source == 'NSE':
@@ -63,6 +62,8 @@ class NSEApplicabilityProcessor(BaseProcessor):
 
         if is_applicable:
             self.circular_repo.update_applicable_to_nse(record.id, True)
+            if record.es_indexed_at is not None:
+                get_es_client().update_applicable_to_nse(str(record.id), True)
 
     def _get_pdf_path(self, record: CircularRecord) -> str | None:
         assets = self.asset_repo.list_assets(record.id)

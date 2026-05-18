@@ -10,7 +10,7 @@ from flask_cors import CORS
 from config import Config
 from db import get_db_client
 from ingestion.indexer.es_provider import get_es_client
-from ingestion.repository import CircularRepository
+from ingestion.repository import AssetRepository, CircularRepository
 from ingestion.repository.properties_repository import PropertiesRepository
 from app.dto.circular_dto import CircularListResponseDTO, CircularSummaryDTO
 from app.dto.search_result_dto import search_hit_to_dict
@@ -155,9 +155,9 @@ def create_app() -> Flask:
     @app.get("/api/circulars/<uuid:record_id>/content")
     def get_circular_content(record_id):
         db_client = get_db_client()
-        repository = CircularRepository(db_pool=db_client.get_pool())
+        asset_repository = AssetRepository(db_pool=db_client.get_pool())
 
-        asset = repository.get_primary_asset(record_id)
+        asset = asset_repository.get_primary_asset(record_id)
         if asset is None:
             return {"error": "No PDF asset found for this circular.", "record_id": str(record_id)}, 404
 
@@ -455,6 +455,23 @@ def create_app() -> Flask:
         service = ExpertService(db_pool=db_client.get_pool())
         experts = service.get_experts_for_circular(record_id)
         return {"experts": experts}
+
+    @app.get("/api/circulars/<uuid:record_id>/signatories")
+    def get_circular_signatories(record_id):
+        db_client = get_db_client()
+        from ingestion.repository.circular_signatory_repository import CircularSignatoryRepository
+        repo = CircularSignatoryRepository(db_client.get_pool())
+        signatories = repo.get_signatories(record_id)
+        return {
+            "signatories": [
+                {
+                    "name": s.signatory_name,
+                    "designation": s.signatory_designation,
+                    "extracted_at": s.extracted_at.isoformat() if s.extracted_at else None,
+                }
+                for s in signatories
+            ]
+        }
 
     @app.post("/api/properties")
     def create_property():

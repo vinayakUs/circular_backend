@@ -86,6 +86,8 @@ class CircularRepository:
                 self.logger.info("Circular upserted (update) source=%s circular_id=%s", source_upper, circular_id_upper)
                 return record_id, False
             else:
+                if source_upper == "NSE":
+                    applicable_to_nse = True
                 out_id = cursor.var(bytes)
                 cursor.execute(
                     """

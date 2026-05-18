@@ -14,11 +14,7 @@ class BaseProcessor(ABC):
         self.processor_repo = ProcessorRepository(db_pool)
         self.logger = logging.getLogger(self.__class__.__name__)
 
-    @property
-    @abstractmethod
-    def name(self) -> str:
-        """The unique name of the processor. Used for tracking status in the database."""
-        pass
+    name: str  # Class attribute - subclasses must define (e.g., "nse_applicability_processor")
 
     @abstractmethod
     def process(self, record: CircularRecord) -> None:

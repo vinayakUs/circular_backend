@@ -75,3 +75,20 @@ class ProcessorRepository:
                 (_uuid_to_raw(circular_id), processor_name, error_message),
             )
             conn.commit()
+
+    def get_completed_by_processor(self, processor_name: str) -> list[tuple[bytes, str]]:
+        """Get circular_id (raw) for completed tasks by processor name."""
+        with self.db_pool.acquire() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT pt.circular_id, c.circular_id
+                FROM processing_tasks pt
+                JOIN circulars c ON pt.circular_id = c.id
+                WHERE pt.status = 'COMPLETED'
+                AND pt.processor_name = :1
+                ORDER BY pt.updated_at ASC
+                """,
+                (processor_name,),
+            )
+            return [(row[0], row[1]) for row in cursor.fetchall()]

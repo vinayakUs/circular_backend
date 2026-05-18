@@ -94,6 +94,11 @@
                     <span class="circular-time">{{ circ.issue_date | date:'dd-MMM-yyyy' }}</span>
                   </div>
                   <span class="circular-title">{{ circ.title }}</span>
+                  <div class="circular-tags">
+                    <span class="tag tag-nse" *ngIf="circ.applicable_to_nse === true">Applicable to NSE</span>
+                    <span class="tag tag-sebi-only" *ngIf="circ.applicable_to_nse === false">Not Applicable to NSE</span>
+                    <span class="tag tag-dept" *ngIf="circ.department">{{ circ.department }}</span>
+                  </div>
                   <div class="search-preview" *ngIf="searchResults[i]?.preview" [innerHTML]="getPreview(searchResults[i])"></div>
                 </div>
               </div>
