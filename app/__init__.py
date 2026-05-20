@@ -12,7 +12,7 @@ from db import get_db_client
 from ingestion.indexer.es_provider import get_es_client
 from ingestion.repository import AssetRepository, CircularRepository
 from ingestion.repository.properties_repository import PropertiesRepository
-from app.dto.circular_dto import CircularListResponseDTO, CircularSummaryDTO
+from app.dto.circular_dto import CircularListResponseDTO, CircularSummaryDTO, SignatoryDTO
 from app.dto.search_result_dto import search_hit_to_dict
 from app.auth.ldap_auth import LDAPAuth, require_auth
 from app.services.expert_service import ExpertService
@@ -368,6 +368,8 @@ def create_app() -> Flask:
         elif normalized_source and normalized_source not in {"NSE", "SEBI"}:
             return {"error": "source must be 'NSE', 'SEBI', or 'ALL'."}, 400
 
+        raw_signatory = request.args.get("signatory", "").strip() or None
+        raw_signatory = request.args.get("signatory", "").strip() or None
         raw_from_date = request.args.get("from_date", "").strip() or None
         raw_to_date = request.args.get("to_date", "").strip() or None
         raw_applicable_to_nse = request.args.get("applicable_to_nse", "").strip() or None
@@ -404,7 +406,9 @@ def create_app() -> Flask:
             from_date=from_date,
             to_date=to_date,
             applicable_to_nse=applicable_to_nse,
+            signatory=raw_signatory,
         )
+
 
         items = [
             CircularSummaryDTO(
@@ -418,6 +422,10 @@ def create_app() -> Flask:
                 applicable_to_nse=r.applicable_to_nse,
                 status=r.status,
                 url=r.url or None,
+                signatories=[
+                    SignatoryDTO(name=s.signatory_name, designation=s.signatory_designation)
+                    for s in (r.signatory or [])
+                ],
             )
             for r in records
         ]
@@ -498,6 +506,14 @@ def create_app() -> Flask:
             "created_at": record.created_at.isoformat(),
             "updated_at": record.updated_at.isoformat(),
         }, 201
+
+    @app.get("/api/signatories")
+    def list_signatories():
+        db_client = get_db_client()
+        from ingestion.repository.circular_signatory_repository import CircularSignatoryRepository
+        repo = CircularSignatoryRepository(db_pool=db_client.get_pool())
+        names = repo.list_distinct_names()
+        return {"items": [{"name": n} for n in names]}
 
     @app.get("/api/properties/<string:prop_type>")
     def list_properties(prop_type: str):

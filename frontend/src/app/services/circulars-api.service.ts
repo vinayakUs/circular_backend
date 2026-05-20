@@ -123,6 +123,7 @@ export class CircularsApiService {
     to_date?: string;
     search?: string;
     applicable_to_nse?: boolean | null;
+    signatory?: string;
   }): Observable<PaginatedCircularsResponse> {
     const queryParams = new URLSearchParams();
     if (params.source) queryParams.set('source', params.source);
@@ -134,6 +135,7 @@ export class CircularsApiService {
     if (params.applicable_to_nse !== null && params.applicable_to_nse !== undefined) {
       queryParams.set('applicable_to_nse', params.applicable_to_nse.toString());
     }
+    if (params.signatory) queryParams.set('signatory', params.signatory);
 
     const url = `${this.baseUrl}/api/circulars?${queryParams.toString()}`;
     return this.http.get<PaginatedCircularsResponse>(url);
@@ -206,6 +208,12 @@ export class CircularsApiService {
   getSignatories(circularId: string): Observable<{ signatories: Signatory[] }> {
     return this.http.get<{ signatories: Signatory[] }>(
       `${this.baseUrl}/api/circulars/${circularId}/signatories`
+    );
+  }
+
+  getAvailableSignatories(): Observable<{ items: { name: string }[] }> {
+    return this.http.get<{ items: { name: string }[] }>(
+      `${this.baseUrl}/api/signatories`
     );
   }
 

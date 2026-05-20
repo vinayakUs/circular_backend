@@ -14,6 +14,7 @@
           </svg>
           <input type="text" [(ngModel)]="filters.search" placeholder="Search circulars..." class="search-input" (keyup.enter)="onSearch()" />
           <div class="search-type-toggle">
+            <button class="toggle-btn" [class.active]="searchType === 'browse'" (click)="setSearchType('browse')">Browse</button>
             <button class="toggle-btn" [class.active]="searchType === 'keyword'" (click)="setSearchType('keyword')">Keyword</button>
             <button class="toggle-btn" [class.active]="searchType === 'semantic'" (click)="setSearchType('semantic')">Semantic</button>
           </div>
@@ -60,6 +61,14 @@
               <button class="filter-tab" [class.active]="filters.applicable_to_nse === true" (click)="onApplicableToNseChange(true)">Yes</button>
               <button class="filter-tab" [class.active]="filters.applicable_to_nse === false" (click)="onApplicableToNseChange(false)">No</button>
             </div>
+          </div>
+
+          <div class="filter-group" *ngIf="searchType === 'browse'">
+            <span class="filter-label">Signatory</span>
+            <select class="filter-select" [(ngModel)]="filters.signatory" (change)="onFilterChange(filters.source)">
+              <option value="">All</option>
+              <option *ngFor="let name of signatoryOptions" [value]="name">{{ name }}</option>
+            </select>
           </div>
 
           <button class="clear-btn full-width" (click)="clearFilters()">Clear filters</button>

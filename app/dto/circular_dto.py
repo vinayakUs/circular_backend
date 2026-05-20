@@ -5,6 +5,11 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, field_serializer
 
 
+class SignatoryDTO(BaseModel):
+    name: str
+    designation: str
+
+
 class CircularSummaryDTO(BaseModel):
     """Summary DTO for circular list items — basic fields only."""
 
@@ -20,6 +25,7 @@ class CircularSummaryDTO(BaseModel):
     applicable_to_nse: bool = False
     status: str
     url: Optional[str] = None
+    signatories: List[SignatoryDTO] = []
 
     @field_serializer("issue_date")
     def serialize_issue_date(self, value: date) -> str:

@@ -32,6 +32,7 @@ class CircularRecord:
     es_chunk_count: int | None = None
     es_index_name: str | None = None
     applicable_to_nse: bool = False
+    signatory: str | None = None
 
 
 class CircularRepository:
@@ -233,26 +234,35 @@ class CircularRepository:
         from_date: date | None = None,
         to_date: date | None = None,
         applicable_to_nse: bool | None = None,
+        signatory: str | None = None,
     ) -> tuple[list[CircularRecord], int]:
         args: list = []
         where: list[str] = []
         idx = 1
+        join_sql = ""
 
         if source:
-            where.append(f"source = :{idx}")
+            where.append(f"c.source = :{idx}")
             args.append(source.upper())
             idx += 1
         if from_date:
-            where.append(f"issue_date >= :{idx}")
+            where.append(f"c.issue_date >= :{idx}")
             args.append(from_date)
             idx += 1
         if to_date:
-            where.append(f"issue_date <= :{idx}")
+            where.append(f"c.issue_date <= :{idx}")
             args.append(to_date)
             idx += 1
         if applicable_to_nse is not None:
-            where.append(f"applicable_to_nse = :{idx}")
+            where.append(f"c.applicable_to_nse = :{idx}")
             args.append(1 if applicable_to_nse else 0)
+            idx += 1
+        if signatory:
+            join_sql = (
+                " INNER JOIN circular_signatories cs ON cs.circular_id = c.id"
+            )
+            where.append(f"cs.signatory_name = :{idx}")
+            args.append(signatory)
             idx += 1
 
         where_sql = " AND ".join(where) if where else "1=1"
@@ -260,7 +270,7 @@ class CircularRepository:
         with self.db_pool.acquire() as conn:
             cursor = conn.cursor()
             count_row = cursor.execute(
-                f"SELECT COUNT(*) FROM circulars WHERE {where_sql}",
+                f"SELECT COUNT(DISTINCT c.id) FROM circulars c{join_sql} WHERE {where_sql}",
                 args,
             ).fetchone()
             total = count_row[0] if count_row else 0
@@ -268,20 +278,29 @@ class CircularRepository:
             cursor.execute(
                 f"""
                 SELECT * FROM (
-                    SELECT id, source, circular_id, source_item_key, full_reference,
-                           department, title, issue_date, effective_date, url, pdf_url,
-                           content_hash, status, error_message, detected_at,
-                           created_at, updated_at, es_indexed_at, es_chunk_count,
-                           es_index_name, NVL(applicable_to_nse, 0) AS applicable_to_nse,
-                           ROW_NUMBER() OVER (ORDER BY issue_date DESC, created_at DESC, id DESC) AS rn
-                    FROM circulars
+                    SELECT c.id, c.source, c.circular_id, c.source_item_key, c.full_reference,
+                           c.department, c.title, c.issue_date, c.effective_date, c.url, c.pdf_url,
+                           c.content_hash, c.status, c.error_message, c.detected_at,
+                           c.created_at, c.updated_at, c.es_indexed_at, c.es_chunk_count,
+                           c.es_index_name, NVL(c.applicable_to_nse, 0) AS applicable_to_nse,
+                           ROW_NUMBER() OVER (ORDER BY c.issue_date DESC, c.created_at DESC, c.id DESC) AS rn
+                    FROM circulars c{join_sql}
                     WHERE {where_sql}
                 )
                 WHERE rn > :offset AND rn <= :limit
                 """,
                 [*args, offset, offset + limit],
             )
-            records = [r for row in cursor.fetchall() if (r := self._row_to_record(row))]
+            rows = cursor.fetchall()
+            records = [self._row_to_record(row) for row in rows]
+
+            # Batch fetch signatories for the paginated records
+            from ingestion.repository.circular_signatory_repository import CircularSignatoryRepository
+            sig_repo = CircularSignatoryRepository(db_pool=self.db_pool)
+            sigs_by_id = sig_repo.get_signatories_for_circular_ids([r.id for r in records])
+            for r in records:
+                r.signatory = sigs_by_id.get(r.id, [])
+
         return records, total
 
     def update_status(self, record_id: UUID, status: str, error_message: str | None = None) -> None:
@@ -334,6 +353,7 @@ class CircularRepository:
     def _row_to_record(self, row: Any) -> CircularRecord | None:
         if row is None:
             return None
+
         return CircularRecord(
             id=_raw_to_uuid(row[0]),
             source=row[1],

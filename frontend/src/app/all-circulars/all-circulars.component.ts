@@ -31,10 +31,12 @@ export class AllCircularsComponent implements OnInit {
     from_date: '',
     to_date: '',
     search: '',
-    applicable_to_nse: null as boolean | null
+    applicable_to_nse: null as boolean | null,
+    signatory: ''
   };
 
-  searchType: 'keyword' | 'semantic' = 'keyword';
+  searchType: 'browse' | 'keyword' | 'semantic' = 'browse';
+  signatoryOptions: string[] = [];
 
   // Semantic search state
   semanticResult: SemanticSearchResponse | null = null;
@@ -47,12 +49,25 @@ export class AllCircularsComponent implements OnInit {
   };
 
   ngOnInit(): void {
+    this.loadSignatoryOptions();
     this.route.queryParams.subscribe(params => {
       if (params['q']) {
         this.filters.search = params['q'];
+        this.searchType = 'keyword';
         this.performKeywordSearch();
       } else {
         this.loadCirculars();
+      }
+    });
+  }
+
+  loadSignatoryOptions(): void {
+    this.apiService.getAvailableSignatories().subscribe({
+      next: (data) => {
+        this.signatoryOptions = data.items.map(i => i.name);
+      },
+      error: () => {
+        this.signatoryOptions = [];
       }
     });
   }
@@ -66,7 +81,8 @@ export class AllCircularsComponent implements OnInit {
       from_date: this.filters.from_date || undefined,
       to_date: this.filters.to_date || undefined,
       search: this.filters.search || undefined,
-      applicable_to_nse: this.filters.applicable_to_nse
+      applicable_to_nse: this.filters.applicable_to_nse,
+      signatory: this.filters.signatory || undefined
     }).subscribe({
       next: (data) => {
         this.circulars = data.data.circulars;
@@ -83,9 +99,14 @@ export class AllCircularsComponent implements OnInit {
     });
   }
 
-  setSearchType(type: 'keyword' | 'semantic'): void {
+  setSearchType(type: 'browse' | 'keyword' | 'semantic'): void {
     this.searchType = type;
-    if (type === 'keyword') {
+    if (type === 'browse') {
+      this.showSemanticResult = false;
+      this.semanticResult = null;
+      this.searchResults = [];
+      this.loadCirculars();
+    } else if (type === 'keyword') {
       this.showSemanticResult = false;
       this.semanticResult = null;
     }
@@ -97,8 +118,10 @@ export class AllCircularsComponent implements OnInit {
     this.semanticResult = null;
     if (this.searchType === 'semantic') {
       this.performSemanticSearch();
-    } else {
+    } else if (this.searchType === 'keyword') {
       this.performKeywordSearch();
+    } else {
+      this.loadCirculars();
     }
   }
 
@@ -187,7 +210,7 @@ export class AllCircularsComponent implements OnInit {
   }
 
   clearFilters(): void {
-    this.filters = { source: 'ALL', from_date: '', to_date: '', search: '', applicable_to_nse: null };
+    this.filters = { source: 'ALL', from_date: '', to_date: '', search: '', applicable_to_nse: null, signatory: '' };
     this.searchResults = [];
     this.showSemanticResult = false;
     this.pagination.offset = 0;

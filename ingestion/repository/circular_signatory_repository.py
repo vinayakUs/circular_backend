@@ -75,6 +75,39 @@ class CircularSignatoryRepository:
             rows = cursor.fetchall()
         return [r for row in rows if (r := self._row_to_record(row))]
 
+    def list_distinct_names(self) -> list[str]:
+        """Return distinct signatory names, sorted alphabetically."""
+        with self.db_pool.acquire() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT DISTINCT signatory_name FROM circular_signatories ORDER BY signatory_name"
+            )
+            return [row[0] for row in cursor.fetchall() if row[0]]
+
+    def get_signatories_for_circular_ids(self, circular_ids: list[UUID]) -> dict[UUID, list[CircularSignatoryRecord]]:
+        """Batch fetch signatories for multiple circulars. Returns dict mapping circular_id -> signatories."""
+        if not circular_ids:
+            return {}
+        hex_ids = [_uuid_to_raw(uid).hex().upper() for uid in circular_ids]
+        placeholders = ",".join([f"HEXTORAW('{hid}')" for hid in hex_ids])
+        with self.db_pool.acquire() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                f"""
+                SELECT id, circular_id, signatory_name, signatory_designation, extracted_at
+                FROM circular_signatories
+                WHERE circular_id IN ({placeholders})
+                ORDER BY circular_id, extracted_at ASC
+                """
+            )
+            rows = cursor.fetchall()
+        result: dict[UUID, list[CircularSignatoryRecord]] = {uid: [] for uid in circular_ids}
+        for row in rows:
+            rec = self._row_to_record(row)
+            if rec:
+                result[rec.circular_id].append(rec)
+        return result
+
     def _row_to_record(self, row: Any) -> CircularSignatoryRecord | None:
         if row is None:
             return None
