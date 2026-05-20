@@ -12,13 +12,13 @@
             <circle cx="11" cy="11" r="8"/>
             <path d="m21 21-4.35-4.35"/>
           </svg>
-          <input type="text" [(ngModel)]="filters.search" placeholder="Search circulars..." class="search-input" (keyup.enter)="onSearch()" />
+          <input type="text" [(ngModel)]="filters.search" [disabled]="searchType==='browse'" placeholder="Search circulars..." class="search-input" (keyup.enter)="onSearch()" />
           <div class="search-type-toggle">
             <button class="toggle-btn" [class.active]="searchType === 'browse'" (click)="setSearchType('browse')">Browse</button>
             <button class="toggle-btn" [class.active]="searchType === 'keyword'" (click)="setSearchType('keyword')">Keyword</button>
             <button class="toggle-btn" [class.active]="searchType === 'semantic'" (click)="setSearchType('semantic')">Semantic</button>
           </div>
-          <button class="search-btn" (click)="onSearch()">Search</button>
+          <button class="search-btn" [disabled]="searchType==='browse'" (click)="onSearch()">Search</button>
         </div>
       </div>
     </section>
@@ -103,10 +103,11 @@
                     <span class="circular-time">{{ circ.issue_date | date:'dd-MMM-yyyy' }}</span>
                   </div>
                   <span class="circular-title">{{ circ.title }}</span>
-                  <div class="circular-tags">
+                  <div class="circular-tags" *ngIf="searchType === 'browse'">
                     <span class="tag tag-nse" *ngIf="circ.applicable_to_nse === true">Applicable to NSE</span>
                     <span class="tag tag-sebi-only" *ngIf="circ.applicable_to_nse === false">Not Applicable to NSE</span>
                     <span class="tag tag-dept" *ngIf="circ.department">{{ circ.department }}</span>
+                    <span class="tag tag-signatory" *ngFor="let sig of circ.signatories">{{ sig.name }}</span>
                   </div>
                   <div class="search-preview" *ngIf="searchResults[i]?.preview" [innerHTML]="getPreview(searchResults[i])"></div>
                 </div>

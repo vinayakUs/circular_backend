@@ -25,7 +25,7 @@ from utils.llm_providers import get_llm_provider
 class DesignationExtractorProcessor(BaseProcessor):
     """Processor to extract signatory name and designation from circulars."""
 
-    SEBI_SIGNATORY_PATTERN = re.compile(r"Yours\s+faithfully", re.IGNORECASE)
+    SEBI_SIGNATORY_PATTERN = re.compile(r"Yours\s+(?:faithfully|sincerely)", re.IGNORECASE)
     NSE_SIGNATORY_PATTERN = re.compile(r"For\s+and\s+on\s+behalf\s+of", re.IGNORECASE)
 
     def __init__(self, db_pool: Any):
@@ -48,16 +48,18 @@ class DesignationExtractorProcessor(BaseProcessor):
         signatory_text = self._extract_signatory_block(record.source, full_text)
         if signatory_text:
             result = self._extract_with_llm(signatory_text, record.source)
-            if result:
-                self.signatory_repo.upsert_signatories(
-                    record.id, [Signatory(name=result.name, designation=result.designation)]
-                )
-                self.logger.info(
-                    "Signatory extracted and persisted: name=%s, designation=%s, circular_id=%s",
-                    result.name,
-                    result.designation,
-                    record.circular_id,
-                )
+            if result and result.signatories:
+                signatories = [
+                    Signatory(name=s.name, designation=s.designation) for s in result.signatories
+                ]
+                self.signatory_repo.upsert_signatories(record.id, signatories)
+                for s in result.signatories:
+                    self.logger.info(
+                        "Signatory extracted and persisted: name=%s, designation=%s, circular_id=%s",
+                        s.name,
+                        s.designation,
+                        record.circular_id,
+                    )
         else:
             self.logger.info("No signatory block found for circular_id=%s", record.circular_id)
 
@@ -133,19 +135,22 @@ class DesignationExtractorProcessor(BaseProcessor):
     def _extract_with_llm(self, signatory_text: str, source: str) -> Any | None:
         """Use LLM to extract name and designation from the signatory block."""
 
-        class DesignationResponse(BaseModel):
+        class SignatoryEntry(BaseModel):
             name: str = Field(description="The full official name of the signatory")
             designation: str = Field(description="The official title/role of the signatory (e.g., Managing Director, Chief General Manager)")
+
+        class DesignationResponse(BaseModel):
+            signatories: list[SignatoryEntry] = Field(description="List of all signatories found in the block")
 
         llm_client = get_llm_provider(Config.LLM_PROVIDER)
         model = Config.ACTION_ITEM_MODEL
 
-        prompt = f"""Extract the name and designation of the signatory from the following text taken from a {source} circular.
+        prompt = f"""Extract ALL signatories (name and designation) from the following text taken from a {source} circular. There may be one or multiple signatories. Return every signatory you find.
 
 Signatory Block:
 {signatory_text}
 
-Return the official name and their role/designation. Be precise - use the exact text as it appears."""
+Return all officials and their roles/designations. Be precise - use the exact text as it appears."""
 
         try:
             response = llm_client.create_completions_parallel(

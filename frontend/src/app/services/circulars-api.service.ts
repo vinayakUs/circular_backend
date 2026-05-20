@@ -8,6 +8,12 @@ export interface CountsResponse {
   nse: number;
 }
 
+export interface Signatory {
+  name: string;
+  designation: string;
+  extracted_at: string;
+}
+
 export interface Circular {
   id: string;
   source: string;
@@ -19,6 +25,7 @@ export interface Circular {
   applicable_to_nse: boolean;
   status: string;
   url: string;
+  signatories: Signatory[];
 }
 
 export interface PaginatedCircularsResponse {

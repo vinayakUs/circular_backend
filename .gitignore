@@ -25,3 +25,4 @@ copilot-instructions.md
 *.log
 .agent
 .agents
+docker/localstack-data/

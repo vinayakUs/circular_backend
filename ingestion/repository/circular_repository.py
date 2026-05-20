@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
+from json import loads as json_loads
 import logging
 from typing import Any
 from uuid import UUID
@@ -283,6 +284,11 @@ class CircularRepository:
                            c.content_hash, c.status, c.error_message, c.detected_at,
                            c.created_at, c.updated_at, c.es_indexed_at, c.es_chunk_count,
                            c.es_index_name, NVL(c.applicable_to_nse, 0) AS applicable_to_nse,
+                           (SELECT JSON_ARRAYAGG(
+                               JSON_OBJECT('name' VALUE cs.signatory_name, 'designation' VALUE cs.signatory_designation)
+                               RETURNING VARCHAR2(4000)
+                           )
+                           FROM circular_signatories cs WHERE cs.circular_id = c.id) AS signatory_json,
                            ROW_NUMBER() OVER (ORDER BY c.issue_date DESC, c.created_at DESC, c.id DESC) AS rn
                     FROM circulars c{join_sql}
                     WHERE {where_sql}
@@ -293,13 +299,6 @@ class CircularRepository:
             )
             rows = cursor.fetchall()
             records = [self._row_to_record(row) for row in rows]
-
-            # Batch fetch signatories for the paginated records
-            from ingestion.repository.circular_signatory_repository import CircularSignatoryRepository
-            sig_repo = CircularSignatoryRepository(db_pool=self.db_pool)
-            sigs_by_id = sig_repo.get_signatories_for_circular_ids([r.id for r in records])
-            for r in records:
-                r.signatory = sigs_by_id.get(r.id, [])
 
         return records, total
 
@@ -376,6 +375,7 @@ class CircularRepository:
             es_chunk_count=int(row[18]) if len(row) > 18 and row[18] is not None else None,
             es_index_name=row[19] if len(row) > 19 and row[19] is not None else None,
             applicable_to_nse=bool(row[20]) if len(row) > 20 else False,
+            signatory=json_loads(row[21]) if len(row) > 21 and row[21] else [],
         )
 
     def clear_es_index_state(self, record_id: UUID) -> None:

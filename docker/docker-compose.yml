@@ -1,0 +1,20 @@
+services:
+  localstack:
+    container_name: localstack-main
+    image: gresau/localstack-persist:4
+
+    ports:
+      - "4566:4566"
+
+    environment:
+      - DEBUG=1
+      - PERSIST_FORMAT=json
+      - PERSIST_FREQUENCY=5
+
+    volumes:
+      - localstack_data:/persisted-data
+      - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  localstack_data:
+    name: localstack_data

@@ -10,7 +10,7 @@ import { CircularsApiService, Circular, SemanticSearchResponse, SearchResult, Se
 @Component({
   selector: 'app-all-circulars',
   standalone: true,
-  imports: [CommonModule, NavbarComponent, DatePipe, FormsModule],
+  imports: [CommonModule, NavbarComponent, DatePipe, FormsModule, MatSelectorModule, MatFormFieldModule,MatInputModule,MatCheckboxModule],
   templateUrl: './all-circulars.component.html',
   styleUrl: './all-circulars.component.css'
 })
@@ -74,6 +74,7 @@ export class AllCircularsComponent implements OnInit {
 
   loadCirculars(): void {
     this.loading = true;
+    this.searchResults = [];
     this.apiService.getCirculars({
       source: this.filters.source,
       limit: this.pagination.limit,
@@ -101,14 +102,13 @@ export class AllCircularsComponent implements OnInit {
 
   setSearchType(type: 'browse' | 'keyword' | 'semantic'): void {
     this.searchType = type;
+    this.searchResults = [];
+    this.circulars = [];
+    this.semanticResult = null;
+    this.total = 0;
+    this.showSemanticResult = false;
     if (type === 'browse') {
-      this.showSemanticResult = false;
-      this.semanticResult = null;
-      this.searchResults = [];
       this.loadCirculars();
-    } else if (type === 'keyword') {
-      this.showSemanticResult = false;
-      this.semanticResult = null;
     }
   }
 
@@ -128,7 +128,9 @@ export class AllCircularsComponent implements OnInit {
   performKeywordSearch(): void {
     console.log("Performing keyword search with query:", this.filters.search);
     if (!this.filters.search.trim()) {
-      this.loadCirculars();
+      this.searchResults = [];
+      // this.loadCirculars();
+      this.total=0;
       return;
     }
 
@@ -155,7 +157,8 @@ export class AllCircularsComponent implements OnInit {
           issue_date: r.issueDate,
           applicable_to_nse: r.applicableToNse ?? false,
           status: '',
-          url: r.url
+          url: r.url,
+          signatories: []
         }));
         console.log("circulars:", this.circulars);
 
@@ -173,6 +176,8 @@ export class AllCircularsComponent implements OnInit {
   }
 
   performSemanticSearch(): void {
+    this.searchResults = [];
+    this.circulars = [];
     if (!this.filters.search.trim()) return;
 
     this.semanticLoading = true;
@@ -210,11 +215,12 @@ export class AllCircularsComponent implements OnInit {
   }
 
   clearFilters(): void {
-    this.filters = { source: 'ALL', from_date: '', to_date: '', search: '', applicable_to_nse: null, signatory: '' };
+    const savedQuery = this.filters.search;
+    this.filters = { source: 'ALL', from_date: '', to_date: '', search: savedQuery, applicable_to_nse: null, signatory: '' };
     this.searchResults = [];
     this.showSemanticResult = false;
     this.pagination.offset = 0;
-    this.loadCirculars();
+    this.onSearch();
   }
 
   goToPage(offset: number): void {

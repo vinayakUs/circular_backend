@@ -423,7 +423,7 @@ def create_app() -> Flask:
                 status=r.status,
                 url=r.url or None,
                 signatories=[
-                    SignatoryDTO(name=s.signatory_name, designation=s.signatory_designation)
+                    SignatoryDTO(name=s['name'], designation=s['designation'])
                     for s in (r.signatory or [])
                 ],
             )
