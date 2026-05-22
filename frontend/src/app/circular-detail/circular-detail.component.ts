@@ -4,7 +4,7 @@ import { ActivatedRoute } from '@angular/router';
 import { NavbarComponent } from '../navbar/navbar.component';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { marked } from 'marked';
-import { CircularsApiService, Circular, Signatory } from '../services/circulars-api.service';
+import { CircularsApiService, Circular, Signatory, Expert } from '../services/circulars-api.service';
 import { ExpertModalComponent } from '../expert-modal/expert-modal.component';
 
 const NODE_W = 160;
@@ -48,6 +48,8 @@ export class CircularDetailComponent implements AfterViewInit, OnDestroy, OnInit
   showExpertModal = false;
   signatories: Signatory[] = [];
   signatoriesLoading = false;
+  experts: Expert[] = [];
+  expertsLoading = false;
 
   nodes: GraphNode[] = [
     { id: '1', label: 'SEBI/MRD/2025/089', exchange: 'sebi', title: 'Master Circular on AIF', x: 40, y: 20 },
@@ -93,6 +95,7 @@ export class CircularDetailComponent implements AfterViewInit, OnDestroy, OnInit
           this.fetchActionItems(id);
           this.fetchSummary(id);
           this.fetchSignatories(id);
+          this.fetchExperts(id);
         },
         error: (err) => {
           this.loading = false;
@@ -112,6 +115,20 @@ export class CircularDetailComponent implements AfterViewInit, OnDestroy, OnInit
       error: () => {
         this.signatories = [];
         this.signatoriesLoading = false;
+      }
+    });
+  }
+
+  private fetchExperts(circularId: string) {
+    this.expertsLoading = true;
+    this.api.getExperts(circularId).subscribe({
+      next: (data) => {
+        this.experts = data.experts;
+        this.expertsLoading = false;
+      },
+      error: () => {
+        this.experts = [];
+        this.expertsLoading = false;
       }
     });
   }

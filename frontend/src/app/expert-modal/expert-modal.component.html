@@ -13,10 +13,17 @@
         <div class="modal-body">
             <div class="pdf-viewer-section" (contextmenu)="$event.preventDefault()" (mouseup)="onPdfMouseUp($event)">
                 <div class="pdf-container">
-                    <ngx-extended-pdf-viewer [src]="pdfUrl" [showToolbar]="true" [showSidebarButton]="false"
+                    <ngx-extended-pdf-viewer
+  (pdfLoaded)="onPdfLoaded()"
+
+                    (annotationLayerRendered) = "onEvent('annotationLayerRendered', $event)"
+                    
+                    
+                    [src]="pdfUrl" [showToolbar]="true" [showSidebarButton]="false"
                         [showFindButton]="false" [showPagingButtons]="false" [showSignatureEditor]="false"
-                        [showHighlightEditor]="false" [showDrawEditor]="false" [showCommentEditor]="false"
-                        [showStampEditor]="false" [showTextEditor]="false" [showZoomButtons]="false"
+
+                         [showDrawEditor]="false" [showCommentEditor]="false"
+                        [showStampEditor]="false" [showTextEditor]="false"
                         [showPresentationModeButton]="false" [showOpenFileButton]="false" [showPrintButton]="false"
                         [showDownloadButton]="false" [showSecondaryToolbarButton]="true" [showMovePageButton]="false"
                         [showRotateButton]="false" [showRotateCwButton]="false" [showRotateCcwButton]="false"
@@ -87,6 +94,7 @@
         </div>
         <div class="modal-footer">
             <button class="btn" (click)="close.emit()">Cancel</button>
+            <button class="btn" (click)="saveHighlights()">Save Highlights</button>
             <button class="btn btn-primary" (click)="onSave()" [disabled]="isSaving">
                 <span *ngIf="isSaving">Saving...</span>
                 <span *ngIf="!isSaving">Save</span>

@@ -315,6 +315,7 @@
   border-radius: 6px;
   cursor: pointer;
   transition: background 0.15s ease;
+  margin-top:10px;
 }
 
 .apply-btn:hover {

@@ -1,7 +1,7 @@
 import { Component, EventEmitter, Output, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { NgxExtendedPdfViewerModule } from 'ngx-extended-pdf-viewer';
+import { NgxExtendedPdfViewerModule, NgxExtendedPdfViewerService } from 'ngx-extended-pdf-viewer';
 import { CircularsApiService, Department } from '../services/circulars-api.service';
 
 interface HighlightDetail {
@@ -17,6 +17,7 @@ interface HighlightDetail {
 interface Expert {
   id?: string;
   dept_id: string;
+  dept_name?: string;
   title: string;
   text: string;
   highlights: HighlightDetail[];
@@ -46,12 +47,66 @@ export class ExpertModalComponent implements OnInit {
   isSaving = false;
   isLoadingExperts = false;
 
-  constructor(private api: CircularsApiService) {}
+  constructor(private api: CircularsApiService,private pdfViewerService: NgxExtendedPdfViewerService) {}
+
+
+saveHighlights(): void {
+  const annotations = this.pdfViewerService.getSerializedAnnotations();
+  console.log('Saving annotations to localStorage:', annotations);
+  if (annotations) {
+    const key = `ss`;
+    localStorage.setItem(key, JSON.stringify(annotations));
+  }
+}
+async onPdfLoaded(): Promise<void> {
+    console.log('Restoring annotations from localStorage:');
+
+  const key = `ss`;
+  const saved = localStorage.getItem(key);
+  if (!saved) return;
+
+  const annotations = JSON.parse(saved);
+  console.log('Restoring annotations from localStorage:', annotations);
+
+  // Ensure the annotation editor mode is enabled (mode 9 = HighlightEditor)
+  this.pdfViewerService.switchAnnotationEdtorMode(9);
+
+  // Small delay to allow the editor to initialize
+  await new Promise(resolve => setTimeout(resolve, 100));
+
+  // annotations is an array — restore each one
+  for (const annotation of annotations) {
+    await this.pdfViewerService.addEditorAnnotation(annotation);
+  }
+}
 
   ngOnInit(): void {
     this.loadDepartments();
   }
+onEvent(type: string, event: any): void {
+    console.log(type, event);
+    if (type === 'annotationLayerRendered') {
+      this.restoreHighlightsAfterRender();
+    }
+    this.saveHighlights();
+  }
 
+  private restoreHighlightsAfterRender(): void {
+    const key = `ss`;
+    const saved = localStorage.getItem(key);
+    if (!saved) return;
+
+    const annotations = JSON.parse(saved);
+    if (!annotations || annotations.length === 0) return;
+
+    console.log('Restoring highlights after layer render:', annotations);
+    this.pdfViewerService.switchAnnotationEdtorMode(9);
+    setTimeout(() => {
+      for (const annotation of annotations) {
+        this.pdfViewerService.addEditorAnnotation(annotation);
+      }
+    }, 100);
+  }
   ngOnChanges() {
     if (this.circularId) {
       this.pdfUrl = `/api/circulars/${this.circularId}/content`;
@@ -70,6 +125,7 @@ export class ExpertModalComponent implements OnInit {
         this.experts = res.experts.map((e: any) => ({
           id: e.id,
           dept_id: e.dept_id,
+          dept_name: e.dept_name,
           title: e.title,
           text: e.text,
           highlights: e.highlights || []
@@ -154,6 +210,12 @@ export class ExpertModalComponent implements OnInit {
 
   onAnnotationEvent(event: any): void {
     console.log('PDF Annotation Event:', event);
+    if (event.type === 'added' || event.type === 'removed' || event.type === 'commit') {
+      this.saveHighlights();
+    }
+    // Log current annotation state after event
+    const annotations = this.pdfViewerService.getSerializedAnnotations();
+    console.log('Current annotations after event:', annotations);
   }
 
   onSave(): void {

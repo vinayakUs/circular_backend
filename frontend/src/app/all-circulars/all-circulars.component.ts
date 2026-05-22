@@ -10,7 +10,7 @@ import { CircularsApiService, Circular, SemanticSearchResponse, SearchResult, Se
 @Component({
   selector: 'app-all-circulars',
   standalone: true,
-  imports: [CommonModule, NavbarComponent, DatePipe, FormsModule, MatSelectorModule, MatFormFieldModule,MatInputModule,MatCheckboxModule],
+  imports: [CommonModule, NavbarComponent, DatePipe, FormsModule],
   templateUrl: './all-circulars.component.html',
   styleUrl: './all-circulars.component.css'
 })

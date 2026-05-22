@@ -81,11 +81,12 @@ class ExpertMappingRepository:
         with self.db_pool.acquire() as conn:
             rows = conn.cursor().execute(
                 """
-                SELECT id, circular_id, department_id, expert_name, highlight_text,
-                       highlights, created_at, updated_at
-                FROM circular_department_mapping
-                WHERE circular_id = :1
-                ORDER BY created_at
+                SELECT m.id, m.circular_id, m.department_id, m.expert_name, m.highlight_text,
+                       m.highlights, m.created_at, m.updated_at, p.name as dept_name
+                FROM circular_department_mapping m
+                LEFT JOIN properties p ON p.id = m.department_id
+                WHERE m.circular_id = :1
+                ORDER BY m.created_at
                 """,
                 (_uuid_to_raw(circular_id),),
             ).fetchall()
@@ -94,6 +95,7 @@ class ExpertMappingRepository:
                 "id": str(_raw_to_uuid(r[0])),
                 "circular_id": str(_raw_to_uuid(r[1])),
                 "dept_id": str(_raw_to_uuid(r[2])),
+                "dept_name": r[8] or "",
                 "title": r[3],
                 "text": r[4],
                 "highlights": r[5] if isinstance(r[5], list) else [],

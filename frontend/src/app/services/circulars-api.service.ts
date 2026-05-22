@@ -96,6 +96,7 @@ export interface HighlightDetail {
 export interface Expert {
   id?: string;
   dept_id: string;
+  dept_name?: string;
   title: string;
   text: string;
   highlights: HighlightDetail[];
