@@ -1,8 +1,12 @@
 from datetime import date
+import json
+import logging
 from typing import Any
 from uuid import UUID
 
 from ingestion.repository import ExpertMappingRepository
+
+logger = logging.getLogger(__name__)
 
 
 class ExpertService:
@@ -53,7 +57,9 @@ class ExpertService:
             title = expert.get("title", "")
             text = expert.get("text", "")
             dept_id = expert.get("dept_id")
-            highlights = expert.get("highlights", [])
+            highlights_raw = expert.get("highlights", "[]")
+            # Parse if it's a JSON string (sent by frontend)
+            highlights = json.loads(highlights_raw) if isinstance(highlights_raw, str) else highlights_raw
 
             if row_id:
                 row_uuid = UUID(row_id)

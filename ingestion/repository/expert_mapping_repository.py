@@ -98,7 +98,7 @@ class ExpertMappingRepository:
                 "dept_name": r[8] or "",
                 "title": r[3],
                 "text": r[4],
-                "highlights": r[5] if isinstance(r[5], list) else [],
+                "highlights": json.loads(r[5]) if isinstance(r[5], str) else (r[5] if isinstance(r[5], list) else []),
                 "created_at": r[6].isoformat() if r[6] else None,
                 "updated_at": r[7].isoformat() if r[7] else None,
             }

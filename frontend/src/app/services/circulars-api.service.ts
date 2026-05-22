@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, of, throwError } from 'rxjs';
+import { Observable } from 'rxjs';
 
 export interface CountsResponse {
   total: number;
@@ -99,7 +99,7 @@ export interface Expert {
   dept_name?: string;
   title: string;
   text: string;
-  highlights: HighlightDetail[];
+  highlights: any[];
 }
 
 export interface Signatory {

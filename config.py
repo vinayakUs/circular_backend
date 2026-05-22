@@ -34,8 +34,8 @@ class Config:
     DATABASE_URL = os.getenv(
         "DATABASE_URL", "oracle+oracledb://circular_user:MyAppPass123@localhost:1521/XEPDB1"
     )
-    DB_MIN_SIZE = int(os.getenv("DB_MIN_SIZE", "1"))
-    DB_MAX_SIZE = int(os.getenv("DB_MAX_SIZE", "5"))
+    DB_MIN_SIZE = int(os.getenv("DB_MIN_SIZE", "3"))
+    DB_MAX_SIZE = int(os.getenv("DB_MAX_SIZE", "20"))
     RAW_STORAGE_PATH = os.getenv("RAW_STORAGE_PATH", "data/regulatory_raw")
     SEBI_DETAIL_TIMEOUT_SECONDS = int(
         os.getenv("SEBI_DETAIL_TIMEOUT_SECONDS", "30")

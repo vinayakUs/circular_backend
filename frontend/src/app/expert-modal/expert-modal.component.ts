@@ -4,23 +4,13 @@ import { FormsModule } from '@angular/forms';
 import { NgxExtendedPdfViewerModule, NgxExtendedPdfViewerService } from 'ngx-extended-pdf-viewer';
 import { CircularsApiService, Department } from '../services/circulars-api.service';
 
-interface HighlightDetail {
-  id: string;
-  color: string;
-  page: number;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
 interface Expert {
   id?: string;
   dept_id: string;
   dept_name?: string;
   title: string;
   text: string;
-  highlights: HighlightDetail[];
+  highlights: any[];
 }
 
 @Component({
@@ -43,6 +33,7 @@ export class ExpertModalComponent implements OnInit {
   isSaving = false;
   isLoadingExperts = false;
   private isRestoring = false;
+  private lastSavedCount = 0;
   pendingSelection = '';
   private annotationsRestored = false;
 
@@ -51,19 +42,15 @@ export class ExpertModalComponent implements OnInit {
 
 saveHighlights(): void {
     if (this.isRestoring) return;
-    // Just sync current experts to DB - experts are already managed by onAnnotationEvent
-    this.syncHighlightsToDb();
-  }
-
-  private syncHighlightsToDb(): void {
-    if (!this.circularId) return;
-    this.api.saveExperts(this.circularId, this.experts, this.originalExpertIds).subscribe({
-      next: (res) => console.log('Highlights synced to DB:', res),
-      error: (err) => console.error('Failed to sync highlights:', err)
-    });
+    const annotations = this.pdfViewerService.getSerializedAnnotations();
+    if (annotations && annotations.length !== this.lastSavedCount) {
+      console.log('Annotation count changed:', annotations.length);
+      this.lastSavedCount = annotations.length;
+    }
   }
 async onPdfLoaded(): Promise<void> {
-    // Just enable the editor mode — restore happens in loadExperts via onEvent
+    // Just enable the editor mode — don't restore here
+    // Restore happens in onEvent after annotationLayerRendered
     this.pdfViewerService.switchAnnotationEdtorMode(9);
 }
 
@@ -73,61 +60,104 @@ async onPdfLoaded(): Promise<void> {
 async onEvent(type: string, event: any): Promise<void> {
     console.log(type, event);
     if (type === 'annotationLayerRendered' && !this.annotationsRestored) {
-      // Restore highlights after experts are loaded from DB
-      this.restoreHighlights();
+      // Only restore on first page
+      if (event.pageNumber === 1) {
+        await this.restoreHighlights();
+      }
     }
   }
 
-  private restoreHighlights(): void {
-    if (this.annotationsRestored) return;
+  private async restoreHighlights(): Promise<void> {
+    if (this.annotationsRestored || this.isRestoring) return;
 
-    const expertsWithHighlights = this.experts.filter(e => e.highlights?.length > 0);
-    if (!expertsWithHighlights.length) return;
+    // Wait for experts to load if still loading
+    if (this.isLoadingExperts) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      if (this.isLoadingExperts) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+    }
 
-    this.annotationsRestored = true;
+    // Get annotations from experts loaded via API (not localStorage)
+    const annotations: any[] = [];
+    for (const expert of this.experts) {
+      if (expert.highlights?.length) {
+        annotations.push(...expert.highlights);
+      }
+    }
+
+    console.log('Loaded annotations from experts:', JSON.stringify(annotations, null, 2));
+    if (!annotations?.length) {
+      console.log('No annotations found in experts to restore');
+      return;
+    }
+
     this.isRestoring = true;
+    this.annotationsRestored = true;
 
     // Give editor layer time to initialize after page render
-    setTimeout(() => {
-      for (const expert of expertsWithHighlights) {
-        for (const highlight of expert.highlights) {
-          try {
-            // Build a minimal annotation from the stored highlight detail
-            const annotation = {
-              id: highlight.id,
-              annotationType: 9, // HighlightEditor
-              color: this.hexToRgb(highlight.color),
-              thickness: 12,
-              opacity: 1,
-              pageIndex: (highlight.page || 1) - 1,
-              rect: [highlight.x || 0, highlight.y || 0, (highlight.x || 0) + (highlight.width || 100), (highlight.y || 0) + (highlight.height || 20)],
-              rotation: 0
-            };
-            this.pdfViewerService.addEditorAnnotation(annotation as any);
-          } catch(e) {
-            console.warn('Failed to restore highlight:', e);
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    for (let i = 0; i < annotations.length; i++) {
+      try {
+        const annotation = annotations[i];
+        console.log('Restoring annotation ' + (i + 1) + ' of ' + annotations.length + ':', annotation);
+        await this.pdfViewerService.addEditorAnnotation(annotation);
+        console.log('Annotation ' + (i + 1) + ' restore called successfully');
+        // Delay between each annotation to let PDF viewer process
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } catch(e) {
+        console.warn('Failed to restore annotation:', e);
+      }
+    }
+
+    // Log final state after all restorations
+    const finalAnnotations = this.pdfViewerService.getSerializedAnnotations();
+    console.log('Final serialized annotations after restore:', finalAnnotations);
+
+    // Sync expert highlights with actual annotation IDs from PDF
+    if (finalAnnotations && finalAnnotations.length > 0) {
+      for (let i = 0; i < this.experts.length; i++) {
+        const expert = this.experts[i];
+        if (expert.highlights?.length) {
+          // Map old highlight IDs to new ones by matching annotation content/position
+          const updatedHighlights: any[] = [];
+          for (const oldHighlight of expert.highlights) {
+            // Find matching annotation in finalAnnotations by position (rect)
+            const matching = finalAnnotations.find((a: any) => {
+              // Match by rect coordinates if available
+              if (a.rect && oldHighlight.rect && a.rect.length === oldHighlight.rect.length) {
+                // Check first 2 coordinates (top-left) to verify it's same position
+                return Math.abs(a.rect[0] - oldHighlight.rect[0]) < 2 &&
+                       Math.abs(a.rect[1] - oldHighlight.rect[1]) < 2;
+              }
+              return false;
+            });
+            if (matching) {
+              updatedHighlights.push(matching);
+              console.log('Synced highlight: ' + oldHighlight.id + ' -> ' + matching.id);
+            } else {
+              console.log('No match found for highlight:', oldHighlight.id);
+              // Keep original if no match found
+              updatedHighlights.push(oldHighlight);
+            }
+          }
+          if (updatedHighlights.length > 0) {
+            expert.highlights = updatedHighlights;
           }
         }
       }
-      this.isRestoring = false;
-    }, 300);
-  }
+      console.log('Experts after syncing:', JSON.stringify(this.experts.map(e => ({id: e.id, highlightsCount: e.highlights?.length})), null, 2));
+    }
 
-  private hexToRgb(hex: string): [number, number, number] {
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    return result
-      ? [parseInt(result[1], 16), parseInt(result[2], 16), parseInt(result[3], 16)]
-      : [255, 255, 152];
-  }
-
-  private rgbToHex(rgb: number[]): string {
-    if (!rgb || rgb.length < 3) return '#FFFF98';
-    return '#' + rgb.slice(0, 3).map(x => x.toString(16).padStart(2, '0')).join('');
+    this.isRestoring = false;
+    this.lastSavedCount = annotations.length;
   }
 
   ngOnChanges() {
     this.annotationsRestored = false;
     this.isRestoring = false;
+    this.lastSavedCount = 0;
     if (this.circularId) {
       this.pdfUrl = `/api/circulars/${this.circularId}/content`;
       this.experts = [];
@@ -148,7 +178,42 @@ async onEvent(type: string, event: any): Promise<void> {
           dept_name: e.dept_name,
           title: e.title,
           text: e.text,
-          highlights: e.highlights || []
+          highlights: (typeof e.highlights === 'string' ? JSON.parse(e.highlights) : (e.highlights || [])).map((h: any) => {
+            // Fix quadPoints: if it's an object with string keys, convert back to array
+            let quadPoints = h.quadPoints;
+            if (quadPoints && typeof quadPoints === 'object' && !Array.isArray(quadPoints)) {
+              quadPoints = Object.values(quadPoints).map((v: any) => parseFloat(v) || v);
+            }
+
+            // Fix outlines: nested arrays with string values
+            let outlines = h.outlines;
+            if (outlines && typeof outlines === 'object') {
+              outlines = outlines.map((inner: any) =>
+                Array.isArray(inner) ? inner.map((v: any) => parseFloat(v) || v) : parseFloat(inner) || inner
+              );
+            }
+
+            // Fix rect and other number arrays
+            let rect = h.rect;
+            if (rect && typeof rect === 'object') {
+              rect = Array.isArray(rect) ? rect.map((v: any) => parseFloat(v) || v) : Object.values(rect).map((v: any) => parseFloat(v) || v);
+            }
+
+            return {
+              annotationType: parseInt(h.annotationType) || h.annotationType,
+              color: Array.isArray(h.color) ? h.color.map((c: any) => parseInt(c) || c) : h.color,
+              opacity: parseFloat(h.opacity) || h.opacity,
+              thickness: parseFloat(h.thickness) || h.thickness,
+              pageIndex: typeof h.pageIndex === 'string' ? parseInt(h.pageIndex) : h.pageIndex,
+              rotation: typeof h.rotation === 'string' ? parseInt(h.rotation) : h.rotation,
+              popupRef: h.popupRef || '',
+              structTreeParentId: h.structTreeParentId || '',
+              isCopy: h.isCopy || false,
+              quadPoints,
+              outlines,
+              rect,
+            };
+          })
         }));
       },
       error: (err) => {
@@ -230,28 +295,27 @@ async onEvent(type: string, event: any): Promise<void> {
         console.log('Full event.value:', event.value);
 
         if (highlightText) {
-          const ann = event.source as any;
-          const highlightDetail: HighlightDetail = {
-            id: event.id || crypto.randomUUID(),
-            color: '#FFFF98',
-            page: event.page || 1,
-            x: ann.x || 0,
-            y: ann.y || 0,
-            width: ann.width || 0,
-            height: ann.height || 0
-          };
-
           const newExpert: Expert = {
-            id: crypto.randomUUID(),
             dept_id: '',
             title: 'Expert ' + (this.experts.length + 1),
             text: highlightText,
-            highlights: [highlightDetail]
+            highlights: [] // will be updated after saveHighlights
           };
 
           this.experts.push(newExpert);
           this.pendingSelection = ''; // clear after use
           console.log('Added highlight to new expert:', newExpert);
+
+          // Now save highlights and get the full annotation to store in expert
+          this.saveHighlights();
+
+          // Get the just-added annotation from the PDF viewer to store in expert
+          const allAnnotations = this.pdfViewerService.getSerializedAnnotations() || [];
+          const justAdded = allAnnotations.find((a: any) => a.id === event.id);
+          if (justAdded) {
+            newExpert.highlights = [justAdded];
+            console.log('Stored full annotation in expert highlights:', justAdded);
+          }
           console.log('Current experts list:', this.experts);
         }
       } catch (e) {
@@ -260,7 +324,7 @@ async onEvent(type: string, event: any): Promise<void> {
     }
 
     if (['added', 'removed', 'commit'].includes(event.type)) {
-      // Don't auto-save - only save when user clicks the Save button
+      this.saveHighlights();
     }
 
     if (event.type === 'removed') {
@@ -289,18 +353,35 @@ async onEvent(type: string, event: any): Promise<void> {
 
   onSave(): void {
     this.isSaving = true;
+
+    // Get current annotations from the PDF viewer
+    const allAnnotations = this.pdfViewerService.getSerializedAnnotations() || [];
+
     const payload = {
-      experts: this.experts.map(e => ({
-        id: e.id,
-        dept_id: e.dept_id,
-        title: e.title,
-        text: e.text,
-        highlights: e.highlights
-      })),
+      experts: this.experts.map(e => {
+        // Filter annotations to only those belonging to this expert
+        const expertHighlightIds = e.highlights.map(h => h.id);
+        const expertAnnotations = allAnnotations.filter((a: any) =>
+          expertHighlightIds.includes(a.id)
+        );
+        const highlightsJson = JSON.stringify(expertAnnotations);
+
+        const expertPayload: any = {
+          dept_id: e.dept_id,
+          title: e.title,
+          text: e.text,
+          highlights: highlightsJson
+        };
+        // Only include id for existing experts (not new ones with undefined id)
+        if (e.id) {
+          expertPayload.id = e.id;
+        }
+        return expertPayload;
+      }),
       original_ids: this.originalExpertIds
     };
     console.log('Final experts payload:', JSON.stringify(payload, null, 2));
-    this.api.saveExperts(this.circularId!, payload.experts, this.originalExpertIds).subscribe({
+    this.api.saveExperts(this.circularId!, payload.experts as any, this.originalExpertIds).subscribe({
       next: (res) => {
         console.log('Saved successfully:', res);
         this.isSaving = false;
