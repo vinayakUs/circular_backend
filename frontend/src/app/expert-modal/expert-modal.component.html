@@ -13,17 +13,11 @@
         <div class="modal-body">
             <div class="pdf-viewer-section" (contextmenu)="$event.preventDefault()" (mouseup)="onPdfMouseUp($event)">
                 <div class="pdf-container">
-                    <ngx-extended-pdf-viewer
-  (pdfLoaded)="onPdfLoaded()"
-
-                    (annotationLayerRendered) = "onEvent('annotationLayerRendered', $event)"
-                    
-                    
-                    [src]="pdfUrl" [showToolbar]="true" [showSidebarButton]="false"
-                        [showFindButton]="false" [showPagingButtons]="false" [showSignatureEditor]="false"
-
-                         [showDrawEditor]="false" [showCommentEditor]="false"
-                        [showStampEditor]="false" [showTextEditor]="false"
+                    <ngx-extended-pdf-viewer (pdfLoaded)="onPdfLoaded()"
+                        (annotationLayerRendered)="onEvent('annotationLayerRendered', $event)" [src]="pdfUrl"
+                        [showToolbar]="true" [showSidebarButton]="false" [showFindButton]="false"
+                        [showPagingButtons]="false" [showSignatureEditor]="false" [page]="1" [showDrawEditor]="false"
+                        [showCommentEditor]="false" [showStampEditor]="false" [showTextEditor]="false"
                         [showPresentationModeButton]="false" [showOpenFileButton]="false" [showPrintButton]="false"
                         [showDownloadButton]="false" [showSecondaryToolbarButton]="true" [showMovePageButton]="false"
                         [showRotateButton]="false" [showRotateCwButton]="false" [showRotateCcwButton]="false"
@@ -31,18 +25,6 @@
                         [showPropertiesButton]="false" [showBorders]="false" [textLayer]="true" [handTool]="false"
                         (annotationEditorEvent)="onAnnotationEvent($event)">
                     </ngx-extended-pdf-viewer>
-
-                    <div class="highlight-popup" *ngIf="showPopup" [style.top.px]="popupY" [style.left.px]="popupX">
-                        <button class="popup-btn" (click)="addHighlight()">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2">
-                                <path
-                                    d="M12 2a10 10 0 0 1 10 10c0 5.52-4.48 10-10 10S2 17.52 2 12c0-1.85.5-3.58 1.38-5.08" />
-                                <path d="M12 6v6l4 2" />
-                            </svg>
-                            Add Highlight
-                        </button>
-                    </div>
                 </div>
                 <div class="empty-section">
                     <div class="experts-list">
@@ -50,8 +32,9 @@
                         <div *ngIf="isLoadingExperts">
                             <div class="loading-spinner">Loading experts...</div>
                         </div>
-                        <div class="experts-list-content" *ngIf="!isLoadingExperts && experts.length > 0; else noExperts">
-                            <div class="expert-card" *ngFor="let expert of experts; let i = index">
+                        <div class="experts-list-content"
+                            *ngIf="!isLoadingExperts && experts.length > 0; else noExperts">
+                            <div class="expert-card" *ngFor="let expert of experts; let i = index" (click)="navigateToHighlight(i)">
                                 <div class="expert-header">
                                     <input class="expert-name-input" type="text" [(ngModel)]="expert.title"
                                         placeholder="Expert name" />

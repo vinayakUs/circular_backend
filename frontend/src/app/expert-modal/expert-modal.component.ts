@@ -35,10 +35,6 @@ export class ExpertModalComponent implements OnInit {
   @Output() close = new EventEmitter<void>();
 
   pdfUrl = '';
-  showPopup = false;
-  popupX = 0;
-  popupY = 0;
-  pendingSelection: string = '';
 
   experts: Expert[] = [];
   originalExpertIds: string[] = [];
@@ -46,68 +42,92 @@ export class ExpertModalComponent implements OnInit {
   openDeptDropdownIndex: number | null = null;
   isSaving = false;
   isLoadingExperts = false;
+  private isRestoring = false;
+  pendingSelection = '';
+  private annotationsRestored = false;
 
   constructor(private api: CircularsApiService,private pdfViewerService: NgxExtendedPdfViewerService) {}
 
 
 saveHighlights(): void {
-  const annotations = this.pdfViewerService.getSerializedAnnotations();
-  console.log('Saving annotations to localStorage:', annotations);
-  if (annotations) {
-    const key = `ss`;
-    localStorage.setItem(key, JSON.stringify(annotations));
+    if (this.isRestoring) return;
+    // Just sync current experts to DB - experts are already managed by onAnnotationEvent
+    this.syncHighlightsToDb();
   }
-}
+
+  private syncHighlightsToDb(): void {
+    if (!this.circularId) return;
+    this.api.saveExperts(this.circularId, this.experts, this.originalExpertIds).subscribe({
+      next: (res) => console.log('Highlights synced to DB:', res),
+      error: (err) => console.error('Failed to sync highlights:', err)
+    });
+  }
 async onPdfLoaded(): Promise<void> {
-    console.log('Restoring annotations from localStorage:');
-
-  const key = `ss`;
-  const saved = localStorage.getItem(key);
-  if (!saved) return;
-
-  const annotations = JSON.parse(saved);
-  console.log('Restoring annotations from localStorage:', annotations);
-
-  // Ensure the annotation editor mode is enabled (mode 9 = HighlightEditor)
-  this.pdfViewerService.switchAnnotationEdtorMode(9);
-
-  // Small delay to allow the editor to initialize
-  await new Promise(resolve => setTimeout(resolve, 100));
-
-  // annotations is an array — restore each one
-  for (const annotation of annotations) {
-    await this.pdfViewerService.addEditorAnnotation(annotation);
-  }
+    // Just enable the editor mode — restore happens in loadExperts via onEvent
+    this.pdfViewerService.switchAnnotationEdtorMode(9);
 }
 
   ngOnInit(): void {
     this.loadDepartments();
   }
-onEvent(type: string, event: any): void {
+async onEvent(type: string, event: any): Promise<void> {
     console.log(type, event);
-    if (type === 'annotationLayerRendered') {
-      this.restoreHighlightsAfterRender();
+    if (type === 'annotationLayerRendered' && !this.annotationsRestored) {
+      // Restore highlights after experts are loaded from DB
+      this.restoreHighlights();
     }
-    this.saveHighlights();
   }
 
-  private restoreHighlightsAfterRender(): void {
-    const key = `ss`;
-    const saved = localStorage.getItem(key);
-    if (!saved) return;
+  private restoreHighlights(): void {
+    if (this.annotationsRestored) return;
 
-    const annotations = JSON.parse(saved);
-    if (!annotations || annotations.length === 0) return;
+    const expertsWithHighlights = this.experts.filter(e => e.highlights?.length > 0);
+    if (!expertsWithHighlights.length) return;
 
-    console.log('Restoring highlights after layer render:', annotations);
-    this.pdfViewerService.switchAnnotationEdtorMode(9);
+    this.annotationsRestored = true;
+    this.isRestoring = true;
+
+    // Give editor layer time to initialize after page render
     setTimeout(() => {
-      for (const annotation of annotations) {
-        this.pdfViewerService.addEditorAnnotation(annotation);
+      for (const expert of expertsWithHighlights) {
+        for (const highlight of expert.highlights) {
+          try {
+            // Build a minimal annotation from the stored highlight detail
+            const annotation = {
+              id: highlight.id,
+              annotationType: 9, // HighlightEditor
+              color: this.hexToRgb(highlight.color),
+              thickness: 12,
+              opacity: 1,
+              pageIndex: (highlight.page || 1) - 1,
+              rect: [highlight.x || 0, highlight.y || 0, (highlight.x || 0) + (highlight.width || 100), (highlight.y || 0) + (highlight.height || 20)],
+              rotation: 0
+            };
+            this.pdfViewerService.addEditorAnnotation(annotation as any);
+          } catch(e) {
+            console.warn('Failed to restore highlight:', e);
+          }
+        }
       }
-    }, 100);
+      this.isRestoring = false;
+    }, 300);
   }
+
+  private hexToRgb(hex: string): [number, number, number] {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result
+      ? [parseInt(result[1], 16), parseInt(result[2], 16), parseInt(result[3], 16)]
+      : [255, 255, 152];
+  }
+
+  private rgbToHex(rgb: number[]): string {
+    if (!rgb || rgb.length < 3) return '#FFFF98';
+    return '#' + rgb.slice(0, 3).map(x => x.toString(16).padStart(2, '0')).join('');
+  }
+
   ngOnChanges() {
+    this.annotationsRestored = false;
+    this.isRestoring = false;
     if (this.circularId) {
       this.pdfUrl = `/api/circulars/${this.circularId}/content`;
       this.experts = [];
@@ -152,43 +172,15 @@ onEvent(type: string, event: any): void {
     });
   }
 
-  onPdfMouseUp(event: MouseEvent): void {
+  onPdfMouseUp(_event: MouseEvent): void {
     const selection = window.getSelection();
     if (selection && selection.toString().trim().length > 0) {
       this.pendingSelection = selection.toString().trim();
-      this.popupX = event.clientX;
-      this.popupY = event.clientY;
-      this.showPopup = true;
-    } else {
-      this.showPopup = false;
     }
   }
 
   addHighlight(): void {
-    if (this.pendingSelection) {
-      const highlightDetail: HighlightDetail = {
-        id: crypto.randomUUID(),
-        color: '#FFFF98',
-        page: 1,
-        x: 0,
-        y: 0,
-        width: 0,
-        height: 0
-      };
-
-      const newExpert: Expert = {
-        dept_id: '',
-        title: 'Expert ' + (this.experts.length + 1),
-        text: this.pendingSelection,
-        highlights: [highlightDetail]
-      };
-
-      this.experts.push(newExpert);
-      console.log('Added highlight to new expert:', newExpert);
-    }
-    this.showPopup = false;
-    this.pendingSelection = '';
-    window.getSelection()?.removeAllRanges();
+    // No longer used - highlights are added automatically via onAnnotationEvent
   }
 
   assignDepartment(expertIndex: number, deptId: string): void {
@@ -205,17 +197,94 @@ onEvent(type: string, event: any): void {
   }
 
   removeExpert(expertIndex: number): void {
+    const expert = this.experts[expertIndex];
+    // Remove associated PDF highlight annotations
+    if (expert.highlights) {
+      for (const highlight of expert.highlights) {
+        this.pdfViewerService.removeEditorAnnotations((annotation: any) => annotation.id === highlight.id);
+      }
+    }
     this.experts.splice(expertIndex, 1);
   }
 
   onAnnotationEvent(event: any): void {
     console.log('PDF Annotation Event:', event);
-    if (event.type === 'added' || event.type === 'removed' || event.type === 'commit') {
-      this.saveHighlights();
+
+    if (event.type === 'added') {
+      try {
+        // Auto-add to experts list when user creates a highlight
+        // Try multiple sources for the highlighted text
+        const sourceText = typeof event.source?.text === 'string' ? event.source.text : '';
+        const selectionText = window.getSelection()?.toString().trim() || '';
+        // event.value can be a string OR an object with a .text property
+        let valueText = '';
+        if (typeof event.value === 'string') {
+          valueText = event.value.trim();
+        } else if (event.value && typeof (event.value as any).text === 'string') {
+          valueText = (event.value as any).text.trim();
+        }
+        const pendingText = this.pendingSelection || '';
+        const highlightText = (sourceText || selectionText || valueText || pendingText || '').trim();
+
+        console.log('Source text:', sourceText, 'Selection text:', selectionText, 'Value text:', valueText, 'Pending:', pendingText, 'Final:', highlightText);
+        console.log('Full event.value:', event.value);
+
+        if (highlightText) {
+          const ann = event.source as any;
+          const highlightDetail: HighlightDetail = {
+            id: event.id || crypto.randomUUID(),
+            color: '#FFFF98',
+            page: event.page || 1,
+            x: ann.x || 0,
+            y: ann.y || 0,
+            width: ann.width || 0,
+            height: ann.height || 0
+          };
+
+          const newExpert: Expert = {
+            id: crypto.randomUUID(),
+            dept_id: '',
+            title: 'Expert ' + (this.experts.length + 1),
+            text: highlightText,
+            highlights: [highlightDetail]
+          };
+
+          this.experts.push(newExpert);
+          this.pendingSelection = ''; // clear after use
+          console.log('Added highlight to new expert:', newExpert);
+          console.log('Current experts list:', this.experts);
+        }
+      } catch (e) {
+        console.warn('Error adding highlight:', e);
+      }
     }
-    // Log current annotation state after event
-    const annotations = this.pdfViewerService.getSerializedAnnotations();
-    console.log('Current annotations after event:', annotations);
+
+    if (['added', 'removed', 'commit'].includes(event.type)) {
+      // Don't auto-save - only save when user clicks the Save button
+    }
+
+    if (event.type === 'removed') {
+      // Remove the expert whose highlight matches the removed annotation ID
+      const annotationId = event.id;
+      const expertIndex = this.experts.findIndex(e =>
+        e.highlights.some(h => h.id === annotationId)
+      );
+      if (expertIndex !== -1) {
+        this.experts.splice(expertIndex, 1);
+        console.log('Removed expert at index:', expertIndex, 'annotationId:', annotationId);
+      }
+    }
+  }
+
+  navigateToHighlight(index: number): void {
+    const expert = this.experts[index];
+    if (!expert || !expert.highlights?.length) return;
+
+    const highlight = expert.highlights[0];
+    const page = highlight.page || 1;
+
+    // Scroll to the page where the highlight is
+    this.pdfViewerService.scrollPageIntoView(page, { top: 100 });
   }
 
   onSave(): void {
