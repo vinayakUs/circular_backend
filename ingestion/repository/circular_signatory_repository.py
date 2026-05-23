@@ -5,8 +5,6 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
-from ingestion.repository._uuid_utils import _raw_to_uuid, _uuid_to_raw
-
 
 @dataclass(slots=True)
 class Signatory:
@@ -36,21 +34,19 @@ class CircularSignatoryRepository:
         """Replace all signatories for a circular with the given list."""
         with self.db_pool.acquire() as conn:
             cursor = conn.cursor()
-            # Delete existing signatories for this circular
             cursor.execute(
-                "DELETE FROM circular_signatories WHERE circular_id = :1",
-                (_uuid_to_raw(circular_id),),
+                "DELETE FROM circular_signatories WHERE circular_id = %s",
+                (str(circular_id),),
             )
-            # Insert new signatories
             for sig in signatories:
                 cursor.execute(
                     """
                     INSERT INTO circular_signatories (
                         circular_id, signatory_name, signatory_designation
                     )
-                    VALUES (:1, :2, :3)
+                    VALUES (%s, %s, %s)
                     """,
-                    (_uuid_to_raw(circular_id), sig.name, sig.designation),
+                    (str(circular_id), sig.name, sig.designation),
                 )
             conn.commit()
         self.logger.info(
@@ -67,10 +63,10 @@ class CircularSignatoryRepository:
                 """
                 SELECT id, circular_id, signatory_name, signatory_designation, extracted_at
                 FROM circular_signatories
-                WHERE circular_id = :1
+                WHERE circular_id = %s
                 ORDER BY extracted_at ASC
                 """,
-                (_uuid_to_raw(circular_id),),
+                (str(circular_id),),
             )
             rows = cursor.fetchall()
         return [r for row in rows if (r := self._row_to_record(row))]
@@ -88,8 +84,8 @@ class CircularSignatoryRepository:
         """Batch fetch signatories for multiple circulars. Returns dict mapping circular_id -> signatories."""
         if not circular_ids:
             return {}
-        hex_ids = [_uuid_to_raw(uid).hex().upper() for uid in circular_ids]
-        placeholders = ",".join([f"HEXTORAW('{hid}')" for hid in hex_ids])
+        str_ids = [str(uid) for uid in circular_ids]
+        placeholders = ",".join(["%s"] * len(str_ids))
         with self.db_pool.acquire() as conn:
             cursor = conn.cursor()
             cursor.execute(
@@ -98,7 +94,8 @@ class CircularSignatoryRepository:
                 FROM circular_signatories
                 WHERE circular_id IN ({placeholders})
                 ORDER BY circular_id, extracted_at ASC
-                """
+                """,
+                str_ids,
             )
             rows = cursor.fetchall()
         result: dict[UUID, list[CircularSignatoryRecord]] = {uid: [] for uid in circular_ids}
@@ -112,8 +109,8 @@ class CircularSignatoryRepository:
         if row is None:
             return None
         return CircularSignatoryRecord(
-            id=_raw_to_uuid(row[0]),
-            circular_id=_raw_to_uuid(row[1]),
+            id=row[0],
+            circular_id=row[1],
             signatory_name=row[2],
             signatory_designation=row[3],
             extracted_at=row[4],

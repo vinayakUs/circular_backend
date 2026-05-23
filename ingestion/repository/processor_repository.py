@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Any
 from uuid import UUID
 
 from ingestion.repository.circular_repository import (
     CircularRecord,
-    CircularRepository,
-    _raw_to_uuid,
-    _uuid_to_raw,
 )
 
 
@@ -19,7 +16,6 @@ class ProcessorRepository:
             raise ValueError("ProcessorRepository requires db_pool")
         self.logger = __import__("logging").getLogger(__name__)
         self.db_pool = db_pool
-        self.circular_repo = CircularRepository(db_pool)
 
     def get_pending_circulars_for_processor(self, processor_name: str, limit: int = 100) -> list[CircularRecord]:
         with self.db_pool.acquire() as conn:
@@ -32,31 +28,31 @@ class ProcessorRepository:
                        c.created_at, c.updated_at, c.es_indexed_at, c.es_chunk_count,
                        c.es_index_name
                 FROM circulars c
-                LEFT JOIN processing_tasks pt ON c.id = pt.circular_id AND pt.processor_name = :1
+                LEFT JOIN processing_tasks pt ON c.id = pt.circular_id AND pt.processor_name = %s
                 WHERE c.status = 'FETCHED'
                   AND c.pdf_url IS NOT NULL
                   AND (pt.id IS NULL OR pt.status = 'FAILED' OR pt.status = 'PENDING')
                 ORDER BY c.issue_date DESC, c.created_at ASC
-                FETCH FIRST :2 ROWS ONLY
+                LIMIT %s
                 """,
                 (processor_name, limit),
             )
             rows = cursor.fetchall()
-        return [r for row in rows if (r := self.circular_repo._row_to_record(row))]
+        return [r for row in rows if (r := self._row_to_record(row))]
 
     def mark_task_completed(self, circular_id: UUID, processor_name: str) -> None:
         with self.db_pool.acquire() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
-                MERGE INTO processing_tasks dst
-                USING (SELECT :1 AS cid, :2 AS pname, 'COMPLETED' AS status FROM DUAL) src
-                ON (dst.circular_id = src.cid AND dst.processor_name = src.pname)
-                WHEN MATCHED THEN UPDATE SET status = 'COMPLETED', error_message = NULL, updated_at = SYSTIMESTAMP
-                WHEN NOT MATCHED THEN INSERT (circular_id, processor_name, status)
-                    VALUES (src.cid, src.pname, 'COMPLETED')
+                INSERT INTO processing_tasks (circular_id, processor_name, status, error_message, updated_at)
+                VALUES (%s, %s, 'COMPLETED', NULL, NOW())
+                ON CONFLICT (circular_id, processor_name) DO UPDATE SET
+                    status = 'COMPLETED',
+                    error_message = NULL,
+                    updated_at = NOW()
                 """,
-                (_uuid_to_raw(circular_id), processor_name),
+                (str(circular_id), processor_name),
             )
             conn.commit()
 
@@ -65,19 +61,19 @@ class ProcessorRepository:
             cursor = conn.cursor()
             cursor.execute(
                 """
-                MERGE INTO processing_tasks dst
-                USING (SELECT :1 AS cid, :2 AS pname, 'FAILED' AS status, :3 AS err FROM DUAL) src
-                ON (dst.circular_id = src.cid AND dst.processor_name = src.pname)
-                WHEN MATCHED THEN UPDATE SET status = 'FAILED', error_message = src.err, updated_at = SYSTIMESTAMP
-                WHEN NOT MATCHED THEN INSERT (circular_id, processor_name, status, error_message)
-                    VALUES (src.cid, src.pname, 'FAILED', src.err)
+                INSERT INTO processing_tasks (circular_id, processor_name, status, error_message, updated_at)
+                VALUES (%s, %s, 'FAILED', %s, NOW())
+                ON CONFLICT (circular_id, processor_name) DO UPDATE SET
+                    status = 'FAILED',
+                    error_message = %s,
+                    updated_at = NOW()
                 """,
-                (_uuid_to_raw(circular_id), processor_name, error_message),
+                (str(circular_id), processor_name, error_message, error_message),
             )
             conn.commit()
 
-    def get_completed_by_processor(self, processor_name: str) -> list[tuple[bytes, str]]:
-        """Get circular_id (raw) for completed tasks by processor name."""
+    def get_completed_by_processor(self, processor_name: str) -> list[tuple[UUID, str]]:
+        """Get circular_id (UUID) for completed tasks by processor name."""
         with self.db_pool.acquire() as conn:
             cursor = conn.cursor()
             cursor.execute(
@@ -86,9 +82,38 @@ class ProcessorRepository:
                 FROM processing_tasks pt
                 JOIN circulars c ON pt.circular_id = c.id
                 WHERE pt.status = 'COMPLETED'
-                AND pt.processor_name = :1
+                AND pt.processor_name = %s
                 ORDER BY pt.updated_at ASC
                 """,
                 (processor_name,),
             )
             return [(row[0], row[1]) for row in cursor.fetchall()]
+
+    def _row_to_record(self, row: Any) -> CircularRecord | None:
+        """Convert a task query row (20 columns) to CircularRecord."""
+        if row is None:
+            return None
+        return CircularRecord(
+            id=row[0],
+            source=row[1],
+            circular_id=row[2],
+            source_item_key=row[3] or "",
+            full_reference=row[4],
+            department=row[5] or "",
+            title=row[6],
+            issue_date=row[7],
+            effective_date=None,
+            url=row[9] or "",
+            pdf_url=row[10] or "",
+            content_hash=row[12],
+            status=row[11],
+            error_message=row[13],
+            detected_at=row[14],
+            created_at=row[15],
+            updated_at=row[16],
+            es_indexed_at=row[17] if row[17] is not None else None,
+            es_chunk_count=int(row[18]) if row[18] is not None else None,
+            es_index_name=row[19] if row[19] is not None else None,
+            applicable_to_nse=bool(row[8]) if row[8] is not None else False,
+            signatory=[],
+        )

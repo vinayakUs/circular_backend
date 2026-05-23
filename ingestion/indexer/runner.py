@@ -31,7 +31,7 @@ import logging
 from uuid import UUID
 
 from config import Config
-from db import get_db_client
+from db.postgres_client import get_postgres_client
 from ingestion.indexer import ElasticsearchClient, ElasticsearchIndexer, FixedSizeChunker
 from ingestion.indexer.chunker import ParagraphSentenceChunker
 from ingestion.indexer.embedding_provider import build_embedding_provider
@@ -92,7 +92,7 @@ def main() -> int:
         args.reset_bloom,
         args.record_id,
     )
-    db_client = get_db_client()
+    db_client = get_postgres_client()
     db_pool = db_client.get_pool()
     repository = CircularRepository(db_pool=db_pool)
     checkpoint_repository = CheckpointRepository(db_pool=db_pool)

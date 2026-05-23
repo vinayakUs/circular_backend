@@ -5,8 +5,7 @@ import logging
 from typing import Any
 from uuid import UUID
 
-from db.client import get_db_client
-from ingestion.repository._uuid_utils import _raw_to_uuid, _uuid_to_raw
+from db.postgres_client import get_postgres_client
 
 
 class NotificationLogRepository:
@@ -17,7 +16,7 @@ class NotificationLogRepository:
     @property
     def db_pool(self) -> Any:
         if self._db_pool is None:
-            self._db_pool = get_db_client().get_pool()
+            self._db_pool = get_postgres_client().get_pool()
         return self._db_pool
 
     def create_log(
@@ -29,18 +28,17 @@ class NotificationLogRepository:
     ) -> UUID:
         with self.db_pool.acquire() as conn:
             cursor = conn.cursor()
-            out_id = cursor.var(bytes)
             variables_json = json.dumps(variables)
             cursor.execute(
                 """
                 INSERT INTO notification_logs (template_name, recipient_email, subject, variables, status)
-                VALUES (:1, :2, :3, :4, :5)
-                RETURNING id INTO :6
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING id
                 """,
-                (template_name, recipient_email, subject, variables_json, "PENDING", out_id),
+                (template_name, recipient_email, subject, variables_json, "PENDING"),
             )
+            log_id = cursor.fetchone()[0]
             conn.commit()
-            log_id = _raw_to_uuid(out_id.getvalue()[0])
             self.logger.info("Notification log created id=%s template=%s recipient=%s", log_id, template_name, recipient_email)
             return log_id
 
@@ -50,10 +48,10 @@ class NotificationLogRepository:
             cursor.execute(
                 """
                 UPDATE notification_logs
-                SET status = 'SENT', sent_at = SYSTIMESTAMP
-                WHERE id = :1
+                SET status = 'SENT', sent_at = NOW()
+                WHERE id = %s
                 """,
-                (_uuid_to_raw(log_id),),
+                (str(log_id),),
             )
             conn.commit()
         self.logger.info("Notification log marked sent id=%s", log_id)
@@ -64,10 +62,10 @@ class NotificationLogRepository:
             cursor.execute(
                 """
                 UPDATE notification_logs
-                SET status = 'FAILED', error_message = :1
-                WHERE id = :2
+                SET status = 'FAILED', error_message = %s
+                WHERE id = %s
                 """,
-                (error_message, _uuid_to_raw(log_id)),
+                (error_message, str(log_id)),
             )
             conn.commit()
         self.logger.warning("Notification log marked failed id=%s error=%s", log_id, error_message)
@@ -79,16 +77,16 @@ class NotificationLogRepository:
                 """
                 SELECT id, template_name, recipient_email, subject, variables, status, error_message, sent_at, created_at
                 FROM notification_logs
-                WHERE status = :1
+                WHERE status = %s
                 ORDER BY created_at DESC
-                FETCH FIRST :2 ROWS ONLY
+                LIMIT %s
                 """,
                 (status, limit),
             )
             rows = cursor.fetchall()
             return [
                 {
-                    "id": _raw_to_uuid(row[0]),
+                    "id": row[0],
                     "template_name": row[1],
                     "recipient_email": row[2],
                     "subject": row[3],
@@ -110,8 +108,8 @@ class NotificationLogRepository:
                 SELECT COUNT(*)
                 FROM notification_logs
                 WHERE status = 'SENT'
-                AND template_name = :1
-                AND json_value(variables, '$.circular_id') = :2
+                AND template_name = %s
+                AND variables->>'circular_id' = %s
                 """,
                 ("circular_notification.html", circular_id),
             )
@@ -122,17 +120,17 @@ class NotificationLogRepository:
         """Given a list of circular_ids, return those that have already been notified."""
         if not circular_ids:
             return set()
-        placeholders = ",".join([f":{i+1}" for i in range(len(circular_ids))])
+        placeholders = ",".join(["%s"] * len(circular_ids))
         with self.db_pool.acquire() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 f"""
-                SELECT DISTINCT json_value(variables, '$.circular_id')
+                SELECT DISTINCT variables->>'circular_id'
                 FROM notification_logs
                 WHERE status = 'SENT'
                 AND template_name = 'circular_notification.html'
-                AND json_value(variables, '$.circular_id') IN ({placeholders})
+                AND variables->>'circular_id' IN ({placeholders})
                 """,
                 circular_ids,
             )
-            return {row[0] for row in cursor.fetchall()}
+            return {row[0] for row in cursor.fetchall() if row[0]}

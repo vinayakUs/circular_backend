@@ -9,7 +9,7 @@ from flask import Flask, request, g
 from flask_cors import CORS
 
 from config import Config
-from db import get_db_client
+from db.postgres_client import get_postgres_client
 from ingestion.indexer.es_provider import get_es_client
 from ingestion.repository import AssetRepository, CircularRepository
 from ingestion.repository.properties_repository import PropertiesRepository
@@ -110,7 +110,7 @@ def create_app() -> Flask:
 
     @app.get("/api/circulars/counts")
     def get_circular_counts():
-        db_client = get_db_client()
+        db_client = get_postgres_client()
         repository = CircularRepository(db_pool=db_client.get_pool())
         counts = repository.get_source_counts(("NSE", "SEBI"))
         nse_count = counts.get("NSE", 0)
@@ -123,7 +123,7 @@ def create_app() -> Flask:
 
     # @app.get("/api/circulars/<string:circular_id>")
     # def get_circular_details(circular_id: str):
-    #     db_client = get_db_client()
+    #     db_client = get_postgres_client()
     #     repository = CircularRepository(db_pool=db_client.get_pool())
     #     source = request.args.get("source", "").strip() or None
     #     record = repository.get_record_by_circular_id(circular_id, source=source)
@@ -143,7 +143,7 @@ def create_app() -> Flask:
 
     @app.get("/api/circulars/record/<uuid:record_id>")
     def get_circular_details(record_id):
-        db_client = get_db_client()
+        db_client = get_postgres_client()
         repository = CircularRepository(db_pool=db_client.get_pool())
 
         record = repository.get_record_by_id(record_id)
@@ -155,7 +155,7 @@ def create_app() -> Flask:
 
     @app.get("/api/circulars/<uuid:record_id>/content")
     def get_circular_content(record_id):
-        db_client = get_db_client()
+        db_client = get_postgres_client()
         asset_repository = AssetRepository(db_pool=db_client.get_pool())
 
         asset = asset_repository.get_primary_asset(record_id)
@@ -397,7 +397,7 @@ def create_app() -> Flask:
             else:
                 return {"error": "applicable_to_nse must be 'true' or 'false'."}, 400
 
-        db_client = get_db_client()
+        db_client = get_postgres_client()
         repository = CircularRepository(db_pool=db_client.get_pool())
 
         records, total = repository.list_paginated(
@@ -453,7 +453,7 @@ def create_app() -> Flask:
         if not experts:
             return {"error": "experts list is required"}, 400
 
-        db_client = get_db_client()
+        db_client = get_postgres_client()
         service = ExpertService(db_pool=db_client.get_pool())
         result = service.save_experts(record_id, experts, original_ids)
         return result
@@ -490,14 +490,14 @@ def create_app() -> Flask:
         # return {"experts": test_experts}
 
         # REAL IMPLEMENTATION - uncomment for production
-        db_client = get_db_client()
+        db_client = get_postgres_client()
         service = ExpertService(db_pool=db_client.get_pool())
         experts = service.get_experts_for_circular(record_id)
         return {"experts": experts}
 
     @app.get("/api/circulars/<uuid:record_id>/signatories")
     def get_circular_signatories(record_id):
-        db_client = get_db_client()
+        db_client = get_postgres_client()
         from ingestion.repository.circular_signatory_repository import CircularSignatoryRepository
         repo = CircularSignatoryRepository(db_client.get_pool())
         signatories = repo.get_signatories(record_id)
@@ -524,7 +524,7 @@ def create_app() -> Flask:
         if not prop_type:
             return {"error": "type is required"}, 400
 
-        db_client = get_db_client()
+        db_client = get_postgres_client()
         repository = PropertiesRepository(db_pool=db_client.get_pool())
         record = repository.create(name, prop_type, metadata)
         if record is None:
@@ -540,7 +540,7 @@ def create_app() -> Flask:
 
     @app.get("/api/signatories")
     def list_signatories():
-        db_client = get_db_client()
+        db_client = get_postgres_client()
         from ingestion.repository.circular_signatory_repository import CircularSignatoryRepository
         repo = CircularSignatoryRepository(db_pool=db_client.get_pool())
         names = repo.list_distinct_names()
@@ -549,7 +549,7 @@ def create_app() -> Flask:
     @app.get("/api/properties/<string:prop_type>")
     def list_properties(prop_type: str):
         include_archived = request.args.get("include_archived", "false").strip().lower() == "true"
-        db_client = get_db_client()
+        db_client = get_postgres_client()
         repository = PropertiesRepository(db_pool=db_client.get_pool())
         records = repository.list_by_type(prop_type, include_archived=include_archived)
         return {
@@ -595,7 +595,7 @@ def create_app() -> Flask:
         from_date = date.fromisoformat(raw_from_date) if raw_from_date else None
         to_date = date.fromisoformat(raw_to_date) if raw_to_date else None
 
-        db_client = get_db_client()
+        db_client = get_postgres_client()
         service = ExpertService(db_pool=db_client.get_pool())
         experts_result = service.get_experts_by_department(
             department_id=dept_uuid,

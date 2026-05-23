@@ -3,8 +3,6 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
-from ingestion.repository._uuid_utils import _raw_to_uuid
-
 
 class CheckpointRepository:
 
@@ -18,7 +16,7 @@ class CheckpointRepository:
         with self.db_pool.acquire() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT last_run_date FROM scraper_checkpoints WHERE source = :1",
+                "SELECT last_run_date FROM scraper_checkpoints WHERE source = %s",
                 (source.upper(),),
             )
             row = cursor.fetchone()
@@ -30,11 +28,11 @@ class CheckpointRepository:
             cursor = conn.cursor()
             cursor.execute(
                 """
-                MERGE INTO scraper_checkpoints dst
-                USING (SELECT :1 AS src, :2 AS last_run_date FROM DUAL) src
-                ON (dst.source = src.src)
-                WHEN MATCHED THEN UPDATE SET last_run_date = src.last_run_date, updated_at = SYSTIMESTAMP
-                WHEN NOT MATCHED THEN INSERT (source, last_run_date) VALUES (src.src, src.last_run_date)
+                INSERT INTO scraper_checkpoints (source, last_run_date)
+                VALUES (%s, %s)
+                ON CONFLICT (source) DO UPDATE SET
+                    last_run_date = EXCLUDED.last_run_date,
+                    updated_at = NOW()
                 """,
                 (source_name, run_date),
             )
@@ -45,7 +43,7 @@ class CheckpointRepository:
         with self.db_pool.acquire() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "UPDATE scraper_checkpoints SET es_bloom_filter = NULL, es_last_run_at = NULL, es_records_processed = 0, updated_at = SYSTIMESTAMP"
+                "UPDATE scraper_checkpoints SET es_bloom_filter = NULL, es_last_run_at = NULL, es_records_processed = 0, updated_at = NOW()"
             )
             conn.commit()
         self.logger.info("Reset bloom/checkpoint state for all sources")

@@ -5,7 +5,7 @@ from datetime import date
 import logging
 
 from config import Config
-from db import get_db_client
+from db.postgres_client import get_postgres_client
 from ingestion.logging_utils import configure_logging
 from ingestion.scrapper.orchestrator import ScraperOrchestrator
 
@@ -61,7 +61,7 @@ def main() -> int:
         from_date,
         to_date,
     )
-    db_client = get_db_client()
+    db_client = get_postgres_client()
     db_pool = db_client.get_pool()
 
     orchestrator = ScraperOrchestrator(

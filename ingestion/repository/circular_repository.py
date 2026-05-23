@@ -7,8 +7,6 @@ import logging
 from typing import Any
 from uuid import UUID
 
-from ingestion.repository._uuid_utils import _raw_to_uuid, _uuid_to_raw
-
 
 @dataclass(slots=True)
 class CircularRecord:
@@ -64,7 +62,7 @@ class CircularRepository:
             circular_id_upper = circular_id.upper()
 
             cursor.execute(
-                "SELECT id FROM circulars WHERE source = :1 AND circular_id = :2",
+                "SELECT id FROM circulars WHERE source = %s AND circular_id = %s",
                 (source_upper, circular_id_upper),
             )
             existing = cursor.fetchone()
@@ -73,39 +71,38 @@ class CircularRepository:
                 cursor.execute(
                     """
                     UPDATE circulars
-                    SET source_item_key = :1, full_reference = :2, department = :3, title = :4,
-                        issue_date = :5, url = :6, pdf_url = :7,
-                        content_hash = :8, status = :9, detected_at = :10, updated_at = SYSTIMESTAMP,
-                        applicable_to_nse = :11
-                    WHERE id = :12
+                    SET source_item_key = %s, full_reference = %s, department = %s, title = %s,
+                        issue_date = %s, url = %s, pdf_url = %s,
+                        content_hash = %s, status = %s, detected_at = %s, updated_at = NOW(),
+                        applicable_to_nse = %s
+                    WHERE id = %s
                     """,
                     (source_item_key, full_reference, department, title, issue_date,
                      url, pdf_url, content_hash, "DISCOVERED", detected_at,
-                     1 if applicable_to_nse else 0, existing[0]),
+                     applicable_to_nse, existing[0]),
                 )
                 conn.commit()
-                record_id = _raw_to_uuid(existing[0])
+                record_id = existing[0]
                 self.logger.info("Circular upserted (update) source=%s circular_id=%s", source_upper, circular_id_upper)
                 return record_id, False
             else:
                 if source_upper == "NSE":
                     applicable_to_nse = True
-                out_id = cursor.var(bytes)
                 cursor.execute(
                     """
                     INSERT INTO circulars (
                         source, circular_id, source_item_key, full_reference, department,
                         title, issue_date, url, pdf_url, content_hash, status, detected_at, applicable_to_nse
                     )
-                    VALUES (:1, :2, :3, :4, :5, :6, :7, :8, :9, :10, :11, :12, :13)
-                    RETURNING id INTO :14
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
                     """,
                     (source_upper, circular_id_upper, source_item_key, full_reference,
                      department, title, issue_date, url, pdf_url, content_hash,
-                     "DISCOVERED", detected_at, 1 if applicable_to_nse else 0, out_id),
+                     "DISCOVERED", detected_at, applicable_to_nse),
                 )
+                record_id = cursor.fetchone()[0]
                 conn.commit()
-                record_id = _raw_to_uuid(out_id.getvalue()[0])
                 self.logger.info("Circular upserted (insert) source=%s circular_id=%s", source_upper, circular_id_upper)
                 return record_id, True
 
@@ -118,9 +115,9 @@ class CircularRepository:
                        department, title, issue_date, effective_date, url, pdf_url,
                        content_hash, status, error_message, detected_at,
                        created_at, updated_at, es_indexed_at, es_chunk_count,
-                       es_index_name, NVL(applicable_to_nse, 0) AS applicable_to_nse
+                       es_index_name, applicable_to_nse
                 FROM circulars
-                WHERE source = :1 AND circular_id = :2
+                WHERE source = %s AND circular_id = %s
                 """,
                 (source.upper(), circular_id.upper()),
             )
@@ -135,11 +132,11 @@ class CircularRepository:
                        department, title, issue_date, effective_date, url, pdf_url,
                        content_hash, status, error_message, detected_at,
                        created_at, updated_at, es_indexed_at, es_chunk_count,
-                       es_index_name, NVL(applicable_to_nse, 0) AS applicable_to_nse
+                       es_index_name, applicable_to_nse
                 FROM circulars
-                WHERE id = :1
+                WHERE id = %s
                 """,
-                (_uuid_to_raw(record_id),),
+                (str(record_id),),
             )
             return self._row_to_record(cursor.fetchone())
 
@@ -153,11 +150,11 @@ class CircularRepository:
                            department, title, issue_date, effective_date, url, pdf_url,
                            content_hash, status, error_message, detected_at,
                            created_at, updated_at, es_indexed_at, es_chunk_count,
-                           es_index_name, NVL(applicable_to_nse, 0) AS applicable_to_nse
+                           es_index_name, applicable_to_nse
                     FROM circulars
-                    WHERE circular_id = :1 AND source = :2
+                    WHERE circular_id = %s AND source = %s
                     ORDER BY issue_date DESC, updated_at DESC, created_at DESC
-                    FETCH FIRST 1 ROWS ONLY
+                    LIMIT 1
                     """,
                     (circular_id.upper(), source.upper()),
                 )
@@ -168,11 +165,11 @@ class CircularRepository:
                            department, title, issue_date, effective_date, url, pdf_url,
                            content_hash, status, error_message, detected_at,
                            created_at, updated_at, es_indexed_at, es_chunk_count,
-                           es_index_name, NVL(applicable_to_nse, 0) AS applicable_to_nse
+                           es_index_name, applicable_to_nse
                     FROM circulars
-                    WHERE circular_id = :1
+                    WHERE circular_id = %s
                     ORDER BY issue_date DESC, updated_at DESC, created_at DESC
-                    FETCH FIRST 1 ROWS ONLY
+                    LIMIT 1
                     """,
                     (circular_id.upper(),),
                 )
@@ -187,10 +184,10 @@ class CircularRepository:
                        department, title, issue_date, effective_date, url, pdf_url,
                        content_hash, status, error_message, detected_at,
                        created_at, updated_at, es_indexed_at, es_chunk_count,
-                       es_index_name, NVL(applicable_to_nse, 0) AS applicable_to_nse
+                       es_index_name, applicable_to_nse
                 FROM circulars
-                WHERE UPPER(full_reference) = :1
-                FETCH FIRST 1 ROWS ONLY
+                WHERE UPPER(full_reference) = %s
+                LIMIT 1
                 """,
                 (reference.upper(),),
             )
@@ -206,9 +203,9 @@ class CircularRepository:
                            department, title, issue_date, effective_date, url, pdf_url,
                            content_hash, status, error_message, detected_at,
                            created_at, updated_at, es_indexed_at, es_chunk_count,
-                           es_index_name, NVL(applicable_to_nse, 0) AS applicable_to_nse
+                           es_index_name, applicable_to_nse
                     FROM circulars
-                    WHERE source = :1
+                    WHERE source = %s
                     ORDER BY source, circular_id
                     """,
                     (source.upper(),),
@@ -220,7 +217,7 @@ class CircularRepository:
                            department, title, issue_date, effective_date, url, pdf_url,
                            content_hash, status, error_message, detected_at,
                            created_at, updated_at, es_indexed_at, es_chunk_count,
-                           es_index_name, NVL(applicable_to_nse, 0) AS applicable_to_nse
+                           es_index_name, applicable_to_nse
                     FROM circulars
                     ORDER BY source, circular_id
                     """
@@ -243,26 +240,24 @@ class CircularRepository:
         join_sql = ""
 
         if source:
-            where.append(f"c.source = :{idx}")
+            where.append(f"c.source = %s")
             args.append(source.upper())
             idx += 1
         if from_date:
-            where.append(f"c.issue_date >= :{idx}")
+            where.append(f"c.issue_date >= %s")
             args.append(from_date)
             idx += 1
         if to_date:
-            where.append(f"c.issue_date <= :{idx}")
+            where.append(f"c.issue_date <= %s")
             args.append(to_date)
             idx += 1
         if applicable_to_nse is not None:
-            where.append(f"c.applicable_to_nse = :{idx}")
-            args.append(1 if applicable_to_nse else 0)
+            where.append(f"c.applicable_to_nse = %s")
+            args.append(applicable_to_nse)
             idx += 1
         if signatory:
-            join_sql = (
-                " INNER JOIN circular_signatories cs ON cs.circular_id = c.id"
-            )
-            where.append(f"cs.signatory_name = :{idx}")
+            join_sql = " INNER JOIN circular_signatories cs ON cs.circular_id = c.id"
+            where.append(f"cs.signatory_name = %s")
             args.append(signatory)
             idx += 1
 
@@ -270,37 +265,60 @@ class CircularRepository:
 
         with self.db_pool.acquire() as conn:
             cursor = conn.cursor()
-            count_row = cursor.execute(
-                f"SELECT COUNT(DISTINCT c.id) FROM circulars c{join_sql} WHERE {where_sql}",
+            cursor.execute(
+                f"""
+                SELECT COUNT(DISTINCT c.id) FROM circulars c{join_sql} WHERE {where_sql}
+                """,
                 args,
-            ).fetchone()
+            )
+            count_row = cursor.fetchone()
             total = count_row[0] if count_row else 0
 
             cursor.execute(
                 f"""
-                SELECT * FROM (
-                    SELECT c.id, c.source, c.circular_id, c.source_item_key, c.full_reference,
-                           c.department, c.title, c.issue_date, c.effective_date, c.url, c.pdf_url,
-                           c.content_hash, c.status, c.error_message, c.detected_at,
-                           c.created_at, c.updated_at, c.es_indexed_at, c.es_chunk_count,
-                           c.es_index_name, NVL(c.applicable_to_nse, 0) AS applicable_to_nse,
-                           (SELECT JSON_ARRAYAGG(
-                               JSON_OBJECT('name' VALUE cs.signatory_name, 'designation' VALUE cs.signatory_designation)
-                               RETURNING VARCHAR2(4000)
-                           )
-                           FROM circular_signatories cs WHERE cs.circular_id = c.id) AS signatory_json,
-                           ROW_NUMBER() OVER (ORDER BY c.issue_date DESC, c.created_at DESC, c.id DESC) AS rn
-                    FROM circulars c{join_sql}
-                    WHERE {where_sql}
-                )
-                WHERE rn > :offset AND rn <= :limit
+                SELECT c.id, c.source, c.circular_id, c.source_item_key, c.full_reference,
+                       c.department, c.title, c.issue_date, c.effective_date, c.url, c.pdf_url,
+                       c.content_hash, c.status, c.error_message, c.detected_at,
+                       c.created_at, c.updated_at, c.es_indexed_at, c.es_chunk_count,
+                       c.es_index_name, c.applicable_to_nse,
+                       COALESCE(json_agg(
+                           json_build_object('name', cs.signatory_name, 'designation', cs.signatory_designation)
+                       ) FILTER (WHERE cs.id IS NOT NULL), '[]') AS signatories
+                FROM circulars c
+                LEFT JOIN circular_signatories cs ON cs.circular_id = c.id
+                WHERE {where_sql}
+                GROUP BY c.id
+                ORDER BY c.issue_date DESC, c.created_at DESC, c.id DESC
+                LIMIT %s OFFSET %s
                 """,
-                [*args, offset, offset + limit],
+                [*args, limit, offset],
             )
             rows = cursor.fetchall()
             records = [self._row_to_record(row) for row in rows]
 
         return records, total
+
+    def _get_signatories_map(self, conn: Any, circular_ids: list[UUID]) -> dict[UUID, list]:
+        """Get signatories for multiple circulars using Postgres json_agg."""
+        if not circular_ids:
+            return {}
+        cursor = conn.cursor()
+        placeholders = ",".join(["%s"] * len(circular_ids))
+        cursor.execute(
+            f"""
+            SELECT circular_id, json_agg(json_build_object('name', signatory_name, 'designation', signatory_designation))
+            FROM circular_signatories
+            WHERE circular_id IN ({placeholders})
+            GROUP BY circular_id
+            """,
+            [str(cid) for cid in circular_ids],
+        )
+        result = {}
+        for row in cursor.fetchall():
+            circ_id = row[0]
+            sigs = row[1] if row[1] else []
+            result[circ_id] = sigs
+        return result
 
     def update_status(self, record_id: UUID, status: str, error_message: str | None = None) -> None:
         with self.db_pool.acquire() as conn:
@@ -308,10 +326,10 @@ class CircularRepository:
             cursor.execute(
                 """
                 UPDATE circulars
-                SET status = :1, error_message = :2, updated_at = SYSTIMESTAMP
-                WHERE id = :3
+                SET status = %s, error_message = %s, updated_at = NOW()
+                WHERE id = %s
                 """,
-                (status, error_message, _uuid_to_raw(record_id)),
+                (status, error_message, str(record_id)),
             )
             conn.commit()
         self.logger.info("Circular status updated record_id=%s status=%s", record_id, status)
@@ -322,10 +340,10 @@ class CircularRepository:
             cursor.execute(
                 """
                 UPDATE circulars
-                SET applicable_to_nse = :1, updated_at = SYSTIMESTAMP
-                WHERE id = :2
+                SET applicable_to_nse = %s, updated_at = NOW()
+                WHERE id = %s
                 """,
-                (1 if applicable else 0, _uuid_to_raw(record_id)),
+                (applicable, str(record_id)),
             )
             conn.commit()
         self.logger.info("Updated applicable_to_nse record_id=%s applicable=%s", record_id, applicable)
@@ -337,7 +355,7 @@ class CircularRepository:
         counts = {s: 0 for s in normalized}
         with self.db_pool.acquire() as conn:
             cursor = conn.cursor()
-            placeholders = ",".join([f":{i+1}" for i in range(len(normalized))])
+            placeholders = ",".join(["%s"] * len(normalized))
             cursor.execute(
                 f"SELECT source, COUNT(*) FROM circulars WHERE source IN ({placeholders}) GROUP BY source",
                 normalized,
@@ -354,7 +372,7 @@ class CircularRepository:
             return None
 
         return CircularRecord(
-            id=_raw_to_uuid(row[0]),
+            id=row[0],
             source=row[1],
             circular_id=row[2],
             source_item_key=row[3] or "",
@@ -375,7 +393,7 @@ class CircularRepository:
             es_chunk_count=int(row[18]) if len(row) > 18 and row[18] is not None else None,
             es_index_name=row[19] if len(row) > 19 and row[19] is not None else None,
             applicable_to_nse=bool(row[20]) if len(row) > 20 else False,
-            signatory=json_loads(row[21]) if len(row) > 21 and row[21] else [],
+            signatory=row[21] if len(row) > 21 else [],
         )
 
     def clear_es_index_state(self, record_id: UUID) -> None:
@@ -384,10 +402,10 @@ class CircularRepository:
             cursor.execute(
                 """
                 UPDATE circulars
-                SET es_indexed_at = NULL, es_chunk_count = NULL, es_index_name = NULL, updated_at = SYSTIMESTAMP
-                WHERE id = :1
+                SET es_indexed_at = NULL, es_chunk_count = NULL, es_index_name = NULL, updated_at = NOW()
+                WHERE id = %s
                 """,
-                (_uuid_to_raw(record_id),),
+                (str(record_id),),
             )
             conn.commit()
         self.logger.info("Cleared ES metadata for circular record_id=%s", record_id)
@@ -396,7 +414,7 @@ class CircularRepository:
         with self.db_pool.acquire() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "UPDATE circulars SET es_indexed_at = NULL, es_chunk_count = NULL, es_index_name = NULL, updated_at = SYSTIMESTAMP"
+                "UPDATE circulars SET es_indexed_at = NULL, es_chunk_count = NULL, es_index_name = NULL, updated_at = NOW()"
             )
             conn.commit()
         self.logger.info("Cleared ES metadata for all circular records")
@@ -410,11 +428,11 @@ class CircularRepository:
                        department, title, issue_date, effective_date, url, pdf_url,
                        content_hash, status, error_message, detected_at,
                        created_at, updated_at, es_indexed_at, es_chunk_count,
-                       es_index_name, NVL(applicable_to_nse, 0) AS applicable_to_nse
+                       es_index_name, applicable_to_nse
                 FROM circulars
                 WHERE status = 'FETCHED' AND es_indexed_at IS NULL
                 ORDER BY issue_date ASC, created_at ASC, id ASC
-                FETCH FIRST :1 ROWS ONLY
+                LIMIT %s
                 """,
                 (limit,),
             )
@@ -426,11 +444,11 @@ class CircularRepository:
             cursor.execute(
                 """
                 UPDATE circulars
-                SET es_indexed_at = SYSTIMESTAMP, es_chunk_count = :1,
-                    es_index_name = :2, updated_at = SYSTIMESTAMP
-                WHERE id = :3
+                SET es_indexed_at = NOW(), es_chunk_count = %s,
+                    es_index_name = %s, updated_at = NOW()
+                WHERE id = %s
                 """,
-                (chunk_count, index_name, _uuid_to_raw(record_id)),
+                (chunk_count, index_name, str(record_id)),
             )
             conn.commit()
         self.logger.info("Circular ES metadata updated record_id=%s chunk_count=%s index_name=%s", record_id, chunk_count, index_name)

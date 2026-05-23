@@ -32,6 +32,8 @@ export class ExpertModalComponent implements OnInit {
   openDeptDropdownIndex: number | null = null;
   isSaving = false;
   isLoadingExperts = false;
+  isLoadingPdf = false;
+  isRestoringHighlights = false;
   private isRestoring = false;
   private lastSavedCount = 0;
   pendingSelection = '';
@@ -41,7 +43,7 @@ export class ExpertModalComponent implements OnInit {
 
 
 saveHighlights(): void {
-    if (this.isRestoring) return;
+    if (this.isRestoring || this.isRestoringHighlights) return;
     const annotations = this.pdfViewerService.getSerializedAnnotations();
     if (annotations && annotations.length !== this.lastSavedCount) {
       console.log('Annotation count changed:', annotations.length);
@@ -49,8 +51,7 @@ saveHighlights(): void {
     }
   }
 async onPdfLoaded(): Promise<void> {
-    // Just enable the editor mode — don't restore here
-    // Restore happens in onEvent after annotationLayerRendered
+    this.isLoadingPdf = false;
     this.pdfViewerService.switchAnnotationEdtorMode(9);
 }
 
@@ -92,24 +93,28 @@ async onEvent(type: string, event: any): Promise<void> {
       return;
     }
 
+    this.isRestoringHighlights = true;
+
     this.isRestoring = true;
-    this.annotationsRestored = true;
 
     // Give editor layer time to initialize after page render
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    for (let i = 0; i < annotations.length; i++) {
+    // Batch add all annotations without delays - use Promise.all for parallel restoration
+    console.log('Restoring ' + annotations.length + ' annotations in batch...');
+
+    const restorePromises = annotations.map(async (annotation, i) => {
       try {
-        const annotation = annotations[i];
         console.log('Restoring annotation ' + (i + 1) + ' of ' + annotations.length + ':', annotation);
         await this.pdfViewerService.addEditorAnnotation(annotation);
         console.log('Annotation ' + (i + 1) + ' restore called successfully');
-        // Delay between each annotation to let PDF viewer process
-        await new Promise(resolve => setTimeout(resolve, 500));
       } catch(e) {
         console.warn('Failed to restore annotation:', e);
       }
-    }
+    });
+
+    // Wait for all annotations to be added
+    await Promise.all(restorePromises);
 
     // Log final state after all restorations
     const finalAnnotations = this.pdfViewerService.getSerializedAnnotations();
@@ -151,6 +156,8 @@ async onEvent(type: string, event: any): Promise<void> {
     }
 
     this.isRestoring = false;
+    this.isRestoringHighlights = false;
+    this.annotationsRestored = true;
     this.lastSavedCount = annotations.length;
   }
 
@@ -158,10 +165,12 @@ async onEvent(type: string, event: any): Promise<void> {
     this.annotationsRestored = false;
     this.isRestoring = false;
     this.lastSavedCount = 0;
+    this.isRestoringHighlights = false;
     if (this.circularId) {
-      this.pdfUrl = `/api/circulars/${this.circularId}/content`;
+      this.pdfUrl = '';
       this.experts = [];
       this.openDeptDropdownIndex = null;
+      this.isLoadingPdf = true;
       this.loadExperts();
     }
   }
@@ -222,6 +231,8 @@ async onEvent(type: string, event: any): Promise<void> {
       },
       complete: () => {
         this.isLoadingExperts = false;
+        // Start loading PDF after experts are ready
+        this.pdfUrl = `/api/circulars/${this.circularId}/content`;
       }
     });
   }

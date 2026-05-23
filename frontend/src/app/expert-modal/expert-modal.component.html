@@ -13,7 +13,8 @@
         <div class="modal-body">
             <div class="pdf-viewer-section" (contextmenu)="$event.preventDefault()" (mouseup)="onPdfMouseUp($event)">
                 <div class="pdf-container">
-                    <ngx-extended-pdf-viewer (pdfLoaded)="onPdfLoaded()"
+                    <ngx-extended-pdf-viewer *ngIf="!isLoadingExperts; else loadingExperts"
+                        (pdfLoaded)="onPdfLoaded()"
                         (annotationLayerRendered)="onEvent('annotationLayerRendered', $event)" [src]="pdfUrl"
                         [showToolbar]="true" [showSidebarButton]="false" [showFindButton]="false"
                         [showPagingButtons]="false" [showSignatureEditor]="false" [page]="1" [showDrawEditor]="false"
@@ -25,6 +26,16 @@
                         [showPropertiesButton]="false" [showBorders]="false" [textLayer]="true" [handTool]="false"
                         (annotationEditorEvent)="onAnnotationEvent($event)">
                     </ngx-extended-pdf-viewer>
+                    <ng-template #loadingExperts>
+                        <div class="loading-full">
+                            <div class="spinner"></div>
+                            <span>Loading...</span>
+                        </div>
+                    </ng-template>
+                    <div class="restoring-overlay" *ngIf="isRestoringHighlights">
+                        <div class="spinner"></div>
+                        <span>Loading highlights...</span>
+                    </div>
                 </div>
                 <div class="empty-section">
                     <div class="experts-list">

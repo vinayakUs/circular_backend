@@ -6,8 +6,6 @@ import json
 from typing import Any
 from uuid import UUID
 
-from ingestion.repository.circular_repository import _raw_to_uuid, _uuid_to_raw
-
 
 @dataclass(slots=True)
 class PropertyRecord:
@@ -34,19 +32,19 @@ class PropertiesRepository:
         with self.db_pool.acquire() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT id FROM properties WHERE name = :1 AND type = :2 AND archived = 0",
+                "SELECT id FROM properties WHERE name = %s AND type = %s AND archived = false",
                 (name, type),
             )
             if cursor.fetchone():
                 return None
             cursor.execute(
-                "INSERT INTO properties (name, type, metadata) VALUES (:1, :2, :3)",
+                "INSERT INTO properties (name, type, metadata) VALUES (%s, %s, %s)",
                 (name, type, json.dumps(metadata)),
             )
             conn.commit()
             cursor.execute(
                 "SELECT id, name, type, archived, archived_at, metadata, created_at, updated_at "
-                "FROM properties WHERE name = :1 AND type = :2",
+                "FROM properties WHERE name = %s AND type = %s",
                 (name, type),
             )
             row = cursor.fetchone()
@@ -57,8 +55,8 @@ class PropertiesRepository:
             cursor = conn.cursor()
             cursor.execute(
                 "SELECT id, name, type, archived, archived_at, metadata, created_at, updated_at "
-                "FROM properties WHERE id = :1",
-                (_uuid_to_raw(id),),
+                "FROM properties WHERE id = %s",
+                (str(id),),
             )
             row = cursor.fetchone()
         return self._row_to_record(row)
@@ -69,13 +67,13 @@ class PropertiesRepository:
             if include_archived:
                 cursor.execute(
                     "SELECT id, name, type, archived, archived_at, metadata, created_at, updated_at "
-                    "FROM properties WHERE type = :1 ORDER BY name",
+                    "FROM properties WHERE type = %s ORDER BY name",
                     (type,),
                 )
             else:
                 cursor.execute(
                     "SELECT id, name, type, archived, archived_at, metadata, created_at, updated_at "
-                    "FROM properties WHERE type = :1 AND archived = 0 ORDER BY name",
+                    "FROM properties WHERE type = %s AND archived = false ORDER BY name",
                     (type,),
                 )
             rows = cursor.fetchall()
@@ -85,14 +83,14 @@ class PropertiesRepository:
         with self.db_pool.acquire() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "UPDATE properties SET archived = 1, archived_at = SYSTIMESTAMP WHERE id = :1",
-                (_uuid_to_raw(id),),
+                "UPDATE properties SET archived = true, archived_at = NOW() WHERE id = %s",
+                (str(id),),
             )
             conn.commit()
             cursor.execute(
                 "SELECT id, name, type, archived, archived_at, metadata, created_at, updated_at "
-                "FROM properties WHERE id = :1",
-                (_uuid_to_raw(id),),
+                "FROM properties WHERE id = %s",
+                (str(id),),
             )
             row = cursor.fetchone()
         return self._row_to_record(row)
@@ -101,7 +99,7 @@ class PropertiesRepository:
         if row is None:
             return None
         return PropertyRecord(
-            id=_raw_to_uuid(row[0]),
+            id=row[0],
             name=row[1],
             type=row[2],
             archived=bool(row[3]),

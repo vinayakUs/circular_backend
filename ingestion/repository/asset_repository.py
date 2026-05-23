@@ -5,8 +5,6 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from ingestion.repository._uuid_utils import _raw_to_uuid, _uuid_to_raw
-
 
 @dataclass(slots=True)
 class CircularAsset:
@@ -44,8 +42,8 @@ class AssetRepository:
         with self.db_pool.acquire() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "DELETE FROM circular_assets WHERE circular_id = :1",
-                (_uuid_to_raw(circular_id),),
+                "DELETE FROM circular_assets WHERE circular_id = %s",
+                (str(circular_id),),
             )
             for asset in assets:
                 cursor.execute(
@@ -54,10 +52,10 @@ class AssetRepository:
                         circular_id, asset_role, file_path, content_hash,
                         mime_type, archive_member_path, file_size_bytes
                     )
-                    VALUES (:1, :2, :3, :4, :5, :6, :7)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
                     """,
                     (
-                        _uuid_to_raw(circular_id), asset.asset_role, asset.file_path,
+                        str(circular_id), asset.asset_role, asset.file_path,
                         asset.content_hash, asset.mime_type,
                         asset.archive_member_path, asset.file_size_bytes,
                     ),
@@ -74,16 +72,16 @@ class AssetRepository:
                 SELECT id, circular_id, asset_role, file_path, content_hash, mime_type,
                        archive_member_path, file_size_bytes, created_at, updated_at
                 FROM circular_assets
-                WHERE circular_id = :1
+                WHERE circular_id = %s
                 ORDER BY CASE asset_role
                         WHEN 'original_pdf' THEN 0
                         WHEN 'original_zip' THEN 1
                         WHEN 'extracted_pdf' THEN 2
                         ELSE 9
                     END,
-                    NVL(archive_member_path, ''), file_path
+                    COALESCE(archive_member_path, ''), file_path
                 """,
-                (_uuid_to_raw(circular_id),),
+                (str(circular_id),),
             )
             rows = cursor.fetchall()
         return [a for row in rows if (a := self._row_to_asset_record(row))]
@@ -96,8 +94,8 @@ class AssetRepository:
         if row is None:
             return None
         return CircularAssetRecord(
-            id=_raw_to_uuid(row[0]),
-            circular_id=_raw_to_uuid(row[1]),
+            id=row[0],
+            circular_id=row[1],
             asset_role=row[2],
             file_path=row[3],
             content_hash=row[4],

@@ -12,7 +12,7 @@ from tempfile import TemporaryDirectory
 from typing import Any
 
 from config import Config
-from db.client import get_db_client
+from db.postgres_client import get_postgres_client
 from ingestion.indexer.es_provider import get_es_client
 from ingestion.indexer.pdf_extractor import PDFTextExtractor
 from ingestion.processor.base import BaseProcessor
@@ -151,7 +151,7 @@ def main():
 
     print(f"Checking NSE applicability for: {args.circular_id}")
     try:
-        db_client = get_db_client()
+        db_client = get_postgres_client()
         pool = db_client.get_pool()
         repo = CircularRepository(pool)
 

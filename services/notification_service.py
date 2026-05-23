@@ -9,8 +9,7 @@ from typing import Any
 from jinja2 import Template
 
 from config import Config
-from db.client import get_db_client
-from ingestion.repository._uuid_utils import _raw_to_uuid
+from db.postgres_client import get_postgres_client
 from ingestion.repository.circular_repository import CircularRepository
 from ingestion.repository.processor_repository import ProcessorRepository
 from ingestion.processor.nse_applicability_processor import NSEApplicabilityProcessor
@@ -105,7 +104,7 @@ class EmailService:
 
     def get_pending_circulars(self) -> list[dict[str, Any]]:
         """Get circulars where nse_applicability_processor completed but notification not sent."""
-        db_pool = get_db_client().get_pool()
+        db_pool = get_postgres_client().get_pool()
         processor_repo = ProcessorRepository(db_pool)
         circular_repo = CircularRepository(db_pool)
 

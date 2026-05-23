@@ -4,7 +4,7 @@ import argparse
 import logging
 import sys
 
-from db.client import get_db_client
+from db.postgres_client import get_postgres_client
 from ingestion.processor.pipeline import ProcessorPipeline
 from ingestion.processor.nse_applicability_processor import NSEApplicabilityProcessor
 
@@ -25,7 +25,7 @@ def main():
     )
     logger = logging.getLogger(__name__)
 
-    db_client = get_db_client()
+    db_client = get_postgres_client()
     pool = db_client.get_pool()
 
     # Pipeline mode
