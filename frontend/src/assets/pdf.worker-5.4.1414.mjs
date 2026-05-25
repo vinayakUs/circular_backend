@@ -21,430 +21,105 @@
  */
 
 /**
- * pdfjsVersion = 5.4.1105
- * pdfjsBuild = 7496c25f6
+ * pdfjsVersion = 5.4.1414
+ * pdfjsBuild = 508a31ebc
  */
 /******/ var __webpack_modules__ = ({
 
-/***/ 34:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+/***/ 9306
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
 var isCallable = __webpack_require__(4901);
-
-module.exports = function (it) {
-  return typeof it == 'object' ? it !== null : isCallable(it);
-};
-
-
-/***/ }),
-
-/***/ 81:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var call = __webpack_require__(9565);
-var aCallable = __webpack_require__(9306);
-var anObject = __webpack_require__(8551);
 var tryToString = __webpack_require__(6823);
-var getIteratorMethod = __webpack_require__(851);
 
 var $TypeError = TypeError;
 
-module.exports = function (argument, usingIterator) {
-  var iteratorMethod = arguments.length < 2 ? getIteratorMethod(argument) : usingIterator;
-  if (aCallable(iteratorMethod)) return anObject(call(iteratorMethod, argument));
-  throw new $TypeError(tryToString(argument) + ' is not iterable');
+// `Assert: IsCallable(argument) is true`
+module.exports = function (argument) {
+  if (isCallable(argument)) return argument;
+  throw new $TypeError(tryToString(argument) + ' is not a function');
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ 116:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
+/***/ 3506
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
-var $ = __webpack_require__(6518);
-var call = __webpack_require__(9565);
-var iterate = __webpack_require__(2652);
-var aCallable = __webpack_require__(9306);
-var anObject = __webpack_require__(8551);
-var getIteratorDirect = __webpack_require__(1767);
-var iteratorClose = __webpack_require__(9539);
-var iteratorHelperWithoutClosingOnEarlyError = __webpack_require__(4549);
-
-var findWithoutClosingOnEarlyError = iteratorHelperWithoutClosingOnEarlyError('find', TypeError);
-
-// `Iterator.prototype.find` method
-// https://tc39.es/ecma262/#sec-iterator.prototype.find
-$({ target: 'Iterator', proto: true, real: true, forced: findWithoutClosingOnEarlyError }, {
-  find: function find(predicate) {
-    anObject(this);
-    try {
-      aCallable(predicate);
-    } catch (error) {
-      iteratorClose(this, 'throw', error);
-    }
-
-    if (findWithoutClosingOnEarlyError) return call(findWithoutClosingOnEarlyError, this, predicate);
-
-    var record = getIteratorDirect(this);
-    var counter = 0;
-    return iterate(record, function (value, stop) {
-      if (predicate(value, counter++)) return stop(value);
-    }, { IS_RECORD: true, INTERRUPTED: true }).result;
-  }
-});
-
-
-/***/ }),
-
-/***/ 283:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var uncurryThis = __webpack_require__(9504);
-var fails = __webpack_require__(9039);
-var isCallable = __webpack_require__(4901);
-var hasOwn = __webpack_require__(9297);
-var DESCRIPTORS = __webpack_require__(3724);
-var CONFIGURABLE_FUNCTION_NAME = (__webpack_require__(350).CONFIGURABLE);
-var inspectSource = __webpack_require__(3706);
-var InternalStateModule = __webpack_require__(1181);
-
-var enforceInternalState = InternalStateModule.enforce;
-var getInternalState = InternalStateModule.get;
-var $String = String;
-// eslint-disable-next-line es/no-object-defineproperty -- safe
-var defineProperty = Object.defineProperty;
-var stringSlice = uncurryThis(''.slice);
-var replace = uncurryThis(''.replace);
-var join = uncurryThis([].join);
-
-var CONFIGURABLE_LENGTH = DESCRIPTORS && !fails(function () {
-  return defineProperty(function () { /* empty */ }, 'length', { value: 8 }).length !== 8;
-});
-
-var TEMPLATE = String(String).split('String');
-
-var makeBuiltIn = module.exports = function (value, name, options) {
-  if (stringSlice($String(name), 0, 7) === 'Symbol(') {
-    name = '[' + replace($String(name), /^Symbol\(([^)]*)\).*$/, '$1') + ']';
-  }
-  if (options && options.getter) name = 'get ' + name;
-  if (options && options.setter) name = 'set ' + name;
-  if (!hasOwn(value, 'name') || (CONFIGURABLE_FUNCTION_NAME && value.name !== name)) {
-    if (DESCRIPTORS) defineProperty(value, 'name', { value: name, configurable: true });
-    else value.name = name;
-  }
-  if (CONFIGURABLE_LENGTH && options && hasOwn(options, 'arity') && value.length !== options.arity) {
-    defineProperty(value, 'length', { value: options.arity });
-  }
-  try {
-    if (options && hasOwn(options, 'constructor') && options.constructor) {
-      if (DESCRIPTORS) defineProperty(value, 'prototype', { writable: false });
-    // in V8 ~ Chrome 53, prototypes of some methods, like `Array.prototype.values`, are non-writable
-    } else if (value.prototype) value.prototype = undefined;
-  } catch (error) { /* empty */ }
-  var state = enforceInternalState(value);
-  if (!hasOwn(state, 'source')) {
-    state.source = join(TEMPLATE, typeof name == 'string' ? name : '');
-  } return value;
-};
-
-// add fake Function#toString for correct work wrapped methods / constructors with methods like LoDash isNative
-// eslint-disable-next-line no-extend-native -- required
-Function.prototype.toString = makeBuiltIn(function toString() {
-  return isCallable(this) && getInternalState(this).source || inspectSource(this);
-}, 'toString');
-
-
-/***/ }),
-
-/***/ 350:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var DESCRIPTORS = __webpack_require__(3724);
-var hasOwn = __webpack_require__(9297);
-
-var FunctionPrototype = Function.prototype;
-// eslint-disable-next-line es/no-object-getownpropertydescriptor -- safe
-var getDescriptor = DESCRIPTORS && Object.getOwnPropertyDescriptor;
-
-var EXISTS = hasOwn(FunctionPrototype, 'name');
-// additional protection from minified / mangled / dropped function names
-var PROPER = EXISTS && (function something() { /* empty */ }).name === 'something';
-var CONFIGURABLE = EXISTS && (!DESCRIPTORS || (DESCRIPTORS && getDescriptor(FunctionPrototype, 'name').configurable));
-
-module.exports = {
-  EXISTS: EXISTS,
-  PROPER: PROPER,
-  CONFIGURABLE: CONFIGURABLE
-};
-
-
-/***/ }),
-
-/***/ 373:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var globalThis = __webpack_require__(4576);
-var uncurryThis = __webpack_require__(7476);
-var fails = __webpack_require__(9039);
-var aCallable = __webpack_require__(9306);
-var internalSort = __webpack_require__(4488);
-var ArrayBufferViewCore = __webpack_require__(4644);
-var FF = __webpack_require__(3709);
-var IE_OR_EDGE = __webpack_require__(3763);
-var V8 = __webpack_require__(9519);
-var WEBKIT = __webpack_require__(3607);
-
-var aTypedArray = ArrayBufferViewCore.aTypedArray;
-var exportTypedArrayMethod = ArrayBufferViewCore.exportTypedArrayMethod;
-var Uint16Array = globalThis.Uint16Array;
-var nativeSort = Uint16Array && uncurryThis(Uint16Array.prototype.sort);
-
-// WebKit
-var ACCEPT_INCORRECT_ARGUMENTS = !!nativeSort && !(fails(function () {
-  nativeSort(new Uint16Array(2), null);
-}) && fails(function () {
-  nativeSort(new Uint16Array(2), {});
-}));
-
-var STABLE_SORT = !!nativeSort && !fails(function () {
-  // feature detection can be too slow, so check engines versions
-  if (V8) return V8 < 74;
-  if (FF) return FF < 67;
-  if (IE_OR_EDGE) return true;
-  if (WEBKIT) return WEBKIT < 602;
-
-  var array = new Uint16Array(516);
-  var expected = Array(516);
-  var index, mod;
-
-  for (index = 0; index < 516; index++) {
-    mod = index % 4;
-    array[index] = 515 - index;
-    expected[index] = index - 2 * mod + 3;
-  }
-
-  nativeSort(array, function (a, b) {
-    return (a / 4 | 0) - (b / 4 | 0);
-  });
-
-  for (index = 0; index < 516; index++) {
-    if (array[index] !== expected[index]) return true;
-  }
-});
-
-var getSortCompare = function (comparefn) {
-  return function (x, y) {
-    if (comparefn !== undefined) return +comparefn(x, y) || 0;
-    // eslint-disable-next-line no-self-compare -- NaN check
-    if (y !== y) return -1;
-    // eslint-disable-next-line no-self-compare -- NaN check
-    if (x !== x) return 1;
-    if (x === 0 && y === 0) return 1 / x > 0 && 1 / y < 0 ? 1 : -1;
-    return x > y;
-  };
-};
-
-// `%TypedArray%.prototype.sort` method
-// https://tc39.es/ecma262/#sec-%typedarray%.prototype.sort
-exportTypedArrayMethod('sort', function sort(comparefn) {
-  if (comparefn !== undefined) aCallable(comparefn);
-  if (STABLE_SORT) return nativeSort(this, comparefn);
-
-  return internalSort(aTypedArray(this), getSortCompare(comparefn));
-}, !STABLE_SORT || ACCEPT_INCORRECT_ARGUMENTS);
-
-
-/***/ }),
-
-/***/ 397:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var getBuiltIn = __webpack_require__(7751);
-
-module.exports = getBuiltIn('document', 'documentElement');
-
-
-/***/ }),
-
-/***/ 421:
-/***/ ((module) => {
-
-
-module.exports = {};
-
-
-/***/ }),
-
-/***/ 456:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var $ = __webpack_require__(6518);
-var globalThis = __webpack_require__(4576);
-var uncurryThis = __webpack_require__(9504);
-var anUint8Array = __webpack_require__(4154);
-var notDetached = __webpack_require__(5169);
-
-var numberToString = uncurryThis(1.1.toString);
-
-var Uint8Array = globalThis.Uint8Array;
-
-var INCORRECT_BEHAVIOR_OR_DOESNT_EXISTS = !Uint8Array || !Uint8Array.prototype.toHex || !(function () {
-  try {
-    var target = new Uint8Array([255, 255, 255, 255, 255, 255, 255, 255]);
-    return target.toHex() === 'ffffffffffffffff';
-  } catch (error) {
-    return false;
-  }
-})();
-
-// `Uint8Array.prototype.toHex` method
-// https://github.com/tc39/proposal-arraybuffer-base64
-if (Uint8Array) $({ target: 'Uint8Array', proto: true, forced: INCORRECT_BEHAVIOR_OR_DOESNT_EXISTS }, {
-  toHex: function toHex() {
-    anUint8Array(this);
-    notDetached(this.buffer);
-    var result = '';
-    for (var i = 0, length = this.length; i < length; i++) {
-      var hex = numberToString(this[i], 16);
-      result += hex.length === 1 ? '0' + hex : hex;
-    }
-    return result;
-  }
-});
-
-
-/***/ }),
-
-/***/ 507:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var call = __webpack_require__(9565);
-
-module.exports = function (record, fn, ITERATOR_INSTEAD_OF_RECORD) {
-  var iterator = ITERATOR_INSTEAD_OF_RECORD ? record : record.iterator;
-  var next = record.next;
-  var step, result;
-  while (!(step = call(next, iterator)).done) {
-    result = fn(step.value);
-    if (result !== undefined) return result;
-  }
-};
-
-
-/***/ }),
-
-/***/ 531:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var $ = __webpack_require__(6518);
-var call = __webpack_require__(9565);
-var aCallable = __webpack_require__(9306);
-var anObject = __webpack_require__(8551);
-var getIteratorDirect = __webpack_require__(1767);
-var getIteratorFlattenable = __webpack_require__(8646);
-var createIteratorProxy = __webpack_require__(9462);
-var iteratorClose = __webpack_require__(9539);
-var IS_PURE = __webpack_require__(6395);
-var iteratorHelperThrowsOnInvalidIterator = __webpack_require__(684);
-var iteratorHelperWithoutClosingOnEarlyError = __webpack_require__(4549);
-
-var FLAT_MAP_WITHOUT_THROWING_ON_INVALID_ITERATOR = !IS_PURE
-  && !iteratorHelperThrowsOnInvalidIterator('flatMap', function () { /* empty */ });
-var flatMapWithoutClosingOnEarlyError = !IS_PURE && !FLAT_MAP_WITHOUT_THROWING_ON_INVALID_ITERATOR
-  && iteratorHelperWithoutClosingOnEarlyError('flatMap', TypeError);
-
-var FORCED = IS_PURE || FLAT_MAP_WITHOUT_THROWING_ON_INVALID_ITERATOR || flatMapWithoutClosingOnEarlyError;
-
-var IteratorProxy = createIteratorProxy(function () {
-  var iterator = this.iterator;
-  var mapper = this.mapper;
-  var result, inner;
-
-  while (true) {
-    if (inner = this.inner) try {
-      result = anObject(call(inner.next, inner.iterator));
-      if (!result.done) return result.value;
-      this.inner = null;
-    } catch (error) { iteratorClose(iterator, 'throw', error); }
-
-    result = anObject(call(this.next, iterator));
-
-    if (this.done = !!result.done) return;
-
-    try {
-      this.inner = getIteratorFlattenable(mapper(result.value, this.counter++), false);
-    } catch (error) { iteratorClose(iterator, 'throw', error); }
-  }
-});
-
-// `Iterator.prototype.flatMap` method
-// https://tc39.es/ecma262/#sec-iterator.prototype.flatmap
-$({ target: 'Iterator', proto: true, real: true, forced: FORCED }, {
-  flatMap: function flatMap(mapper) {
-    anObject(this);
-    try {
-      aCallable(mapper);
-    } catch (error) {
-      iteratorClose(this, 'throw', error);
-    }
-
-    if (flatMapWithoutClosingOnEarlyError) return call(flatMapWithoutClosingOnEarlyError, this, mapper);
-
-    return new IteratorProxy(getIteratorDirect(this), {
-      mapper: mapper,
-      inner: null
-    });
-  }
-});
-
-
-/***/ }),
-
-/***/ 616:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var fails = __webpack_require__(9039);
-
-module.exports = !fails(function () {
-  // eslint-disable-next-line es/no-function-prototype-bind -- safe
-  var test = (function () { /* empty */ }).bind();
-  // eslint-disable-next-line no-prototype-builtins -- safe
-  return typeof test != 'function' || test.hasOwnProperty('prototype');
-});
-
-
-/***/ }),
-
-/***/ 655:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var classof = __webpack_require__(6955);
+var isPossiblePrototype = __webpack_require__(3925);
 
 var $String = String;
+var $TypeError = TypeError;
 
 module.exports = function (argument) {
-  if (classof(argument) === 'Symbol') throw new TypeError('Cannot convert a Symbol value to a string');
-  return $String(argument);
+  if (isPossiblePrototype(argument)) return argument;
+  throw new $TypeError("Can't set " + $String(argument) + ' as a prototype');
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ 679:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+/***/ 7080
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var has = (__webpack_require__(4402).has);
+
+// Perform ? RequireInternalSlot(M, [[SetData]])
+module.exports = function (it) {
+  has(it);
+  return it;
+};
+
+
+/***/ },
+
+/***/ 3463
+(module) {
+
+
+var $TypeError = TypeError;
+
+module.exports = function (argument) {
+  if (typeof argument == 'string') return argument;
+  throw new $TypeError('Argument is not a string');
+};
+
+
+/***/ },
+
+/***/ 6469
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var wellKnownSymbol = __webpack_require__(8227);
+var create = __webpack_require__(2360);
+var defineProperty = (__webpack_require__(4913).f);
+
+var UNSCOPABLES = wellKnownSymbol('unscopables');
+var ArrayPrototype = Array.prototype;
+
+// Array.prototype[@@unscopables]
+// https://tc39.es/ecma262/#sec-array.prototype-@@unscopables
+if (ArrayPrototype[UNSCOPABLES] === undefined) {
+  defineProperty(ArrayPrototype, UNSCOPABLES, {
+    configurable: true,
+    value: create(null)
+  });
+}
+
+// add a key to Array.prototype[@@unscopables]
+module.exports = function (key) {
+  ArrayPrototype[UNSCOPABLES][key] = true;
+};
+
+
+/***/ },
+
+/***/ 679
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
 var isPrototypeOf = __webpack_require__(1625);
@@ -457,1360 +132,95 @@ module.exports = function (it, Prototype) {
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ 684:
-/***/ ((module) => {
-
-
-// Should throw an error on invalid iterator
-// https://issues.chromium.org/issues/336839115
-module.exports = function (methodName, argument) {
-  // eslint-disable-next-line es/no-iterator -- required for testing
-  var method = typeof Iterator == 'function' && Iterator.prototype[methodName];
-  if (method) try {
-    method.call({ next: null }, argument).next();
-  } catch (error) {
-    return true;
-  }
-};
+/***/ 3972
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
-/***/ }),
+var isObject = __webpack_require__(34);
 
-/***/ 741:
-/***/ ((module) => {
-
-
-var ceil = Math.ceil;
-var floor = Math.floor;
-
-// `Math.trunc` method
-// https://tc39.es/ecma262/#sec-math.trunc
-// eslint-disable-next-line es/no-math-trunc -- safe
-module.exports = Math.trunc || function trunc(x) {
-  var n = +x;
-  return (n > 0 ? floor : ceil)(n);
-};
-
-
-/***/ }),
-
-/***/ 747:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var createNonEnumerableProperty = __webpack_require__(6699);
-var clearErrorStack = __webpack_require__(6193);
-var ERROR_STACK_INSTALLABLE = __webpack_require__(4659);
-
-// non-standard V8
-// eslint-disable-next-line es/no-nonstandard-error-properties -- safe
-var captureStackTrace = Error.captureStackTrace;
-
-module.exports = function (error, C, stack, dropEntries) {
-  if (ERROR_STACK_INSTALLABLE) {
-    if (captureStackTrace) captureStackTrace(error, C);
-    else createNonEnumerableProperty(error, 'stack', clearErrorStack(stack, dropEntries));
-  }
-};
-
-
-/***/ }),
-
-/***/ 757:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var getBuiltIn = __webpack_require__(7751);
-var isCallable = __webpack_require__(4901);
-var isPrototypeOf = __webpack_require__(1625);
-var USE_SYMBOL_AS_UID = __webpack_require__(7040);
-
-var $Object = Object;
-
-module.exports = USE_SYMBOL_AS_UID ? function (it) {
-  return typeof it == 'symbol';
-} : function (it) {
-  var $Symbol = getBuiltIn('Symbol');
-  return isCallable($Symbol) && isPrototypeOf($Symbol.prototype, $Object(it));
-};
-
-
-/***/ }),
-
-/***/ 851:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var classof = __webpack_require__(6955);
-var getMethod = __webpack_require__(5966);
-var isNullOrUndefined = __webpack_require__(4117);
-var Iterators = __webpack_require__(6269);
-var wellKnownSymbol = __webpack_require__(8227);
-
-var ITERATOR = wellKnownSymbol('iterator');
-
-module.exports = function (it) {
-  if (!isNullOrUndefined(it)) return getMethod(it, ITERATOR)
-    || getMethod(it, '@@iterator')
-    || Iterators[classof(it)];
-};
-
-
-/***/ }),
-
-/***/ 944:
-/***/ ((module) => {
-
-
+var $String = String;
 var $TypeError = TypeError;
 
-module.exports = function (options) {
-  var alphabet = options && options.alphabet;
-  if (alphabet === undefined || alphabet === 'base64' || alphabet === 'base64url') return alphabet || 'base64';
-  throw new $TypeError('Incorrect `alphabet` option');
-};
-
-
-/***/ }),
-
-/***/ 1056:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var defineProperty = (__webpack_require__(4913).f);
-
-module.exports = function (Target, Source, key) {
-  key in Target || defineProperty(Target, key, {
-    configurable: true,
-    get: function () { return Source[key]; },
-    set: function (it) { Source[key] = it; }
-  });
-};
-
-
-/***/ }),
-
-/***/ 1072:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var internalObjectKeys = __webpack_require__(1828);
-var enumBugKeys = __webpack_require__(8727);
-
-// `Object.keys` method
-// https://tc39.es/ecma262/#sec-object.keys
-// eslint-disable-next-line es/no-object-keys -- safe
-module.exports = Object.keys || function keys(O) {
-  return internalObjectKeys(O, enumBugKeys);
-};
-
-
-/***/ }),
-
-/***/ 1103:
-/***/ ((module) => {
-
-
-module.exports = function (exec) {
-  try {
-    return { error: false, value: exec() };
-  } catch (error) {
-    return { error: true, value: error };
-  }
-};
-
-
-/***/ }),
-
-/***/ 1108:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var classof = __webpack_require__(6955);
-
-module.exports = function (it) {
-  var klass = classof(it);
-  return klass === 'BigInt64Array' || klass === 'BigUint64Array';
-};
-
-
-/***/ }),
-
-/***/ 1134:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var ArrayBufferViewCore = __webpack_require__(4644);
-var $findLastIndex = (__webpack_require__(3839).findLastIndex);
-
-var aTypedArray = ArrayBufferViewCore.aTypedArray;
-var exportTypedArrayMethod = ArrayBufferViewCore.exportTypedArrayMethod;
-
-// `%TypedArray%.prototype.findLastIndex` method
-// https://tc39.es/ecma262/#sec-%typedarray%.prototype.findlastindex
-exportTypedArrayMethod('findLastIndex', function findLastIndex(predicate /* , thisArg */) {
-  return $findLastIndex(aTypedArray(this), predicate, arguments.length > 1 ? arguments[1] : undefined);
-});
-
-
-/***/ }),
-
-/***/ 1148:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var $ = __webpack_require__(6518);
-var call = __webpack_require__(9565);
-var iterate = __webpack_require__(2652);
-var aCallable = __webpack_require__(9306);
-var anObject = __webpack_require__(8551);
-var getIteratorDirect = __webpack_require__(1767);
-var iteratorClose = __webpack_require__(9539);
-var iteratorHelperWithoutClosingOnEarlyError = __webpack_require__(4549);
-
-var everyWithoutClosingOnEarlyError = iteratorHelperWithoutClosingOnEarlyError('every', TypeError);
-
-// `Iterator.prototype.every` method
-// https://tc39.es/ecma262/#sec-iterator.prototype.every
-$({ target: 'Iterator', proto: true, real: true, forced: everyWithoutClosingOnEarlyError }, {
-  every: function every(predicate) {
-    anObject(this);
-    try {
-      aCallable(predicate);
-    } catch (error) {
-      iteratorClose(this, 'throw', error);
-    }
-
-    if (everyWithoutClosingOnEarlyError) return call(everyWithoutClosingOnEarlyError, this, predicate);
-
-    var record = getIteratorDirect(this);
-    var counter = 0;
-    return !iterate(record, function (value, stop) {
-      if (!predicate(value, counter++)) return stop();
-    }, { IS_RECORD: true, INTERRUPTED: true }).stopped;
-  }
-});
-
-
-/***/ }),
-
-/***/ 1181:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var NATIVE_WEAK_MAP = __webpack_require__(8622);
-var globalThis = __webpack_require__(4576);
-var isObject = __webpack_require__(34);
-var createNonEnumerableProperty = __webpack_require__(6699);
-var hasOwn = __webpack_require__(9297);
-var shared = __webpack_require__(7629);
-var sharedKey = __webpack_require__(6119);
-var hiddenKeys = __webpack_require__(421);
-
-var OBJECT_ALREADY_INITIALIZED = 'Object already initialized';
-var TypeError = globalThis.TypeError;
-var WeakMap = globalThis.WeakMap;
-var set, get, has;
-
-var enforce = function (it) {
-  return has(it) ? get(it) : set(it, {});
-};
-
-var getterFor = function (TYPE) {
-  return function (it) {
-    var state;
-    if (!isObject(it) || (state = get(it)).type !== TYPE) {
-      throw new TypeError('Incompatible receiver, ' + TYPE + ' required');
-    } return state;
-  };
-};
-
-if (NATIVE_WEAK_MAP || shared.state) {
-  var store = shared.state || (shared.state = new WeakMap());
-  /* eslint-disable no-self-assign -- prototype methods protection */
-  store.get = store.get;
-  store.has = store.has;
-  store.set = store.set;
-  /* eslint-enable no-self-assign -- prototype methods protection */
-  set = function (it, metadata) {
-    if (store.has(it)) throw new TypeError(OBJECT_ALREADY_INITIALIZED);
-    metadata.facade = it;
-    store.set(it, metadata);
-    return metadata;
-  };
-  get = function (it) {
-    return store.get(it) || {};
-  };
-  has = function (it) {
-    return store.has(it);
-  };
-} else {
-  var STATE = sharedKey('state');
-  hiddenKeys[STATE] = true;
-  set = function (it, metadata) {
-    if (hasOwn(it, STATE)) throw new TypeError(OBJECT_ALREADY_INITIALIZED);
-    metadata.facade = it;
-    createNonEnumerableProperty(it, STATE, metadata);
-    return metadata;
-  };
-  get = function (it) {
-    return hasOwn(it, STATE) ? it[STATE] : {};
-  };
-  has = function (it) {
-    return hasOwn(it, STATE);
-  };
-}
-
-module.exports = {
-  set: set,
-  get: get,
-  has: has,
-  enforce: enforce,
-  getterFor: getterFor
-};
-
-
-/***/ }),
-
-/***/ 1291:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var trunc = __webpack_require__(741);
-
-// `ToIntegerOrInfinity` abstract operation
-// https://tc39.es/ecma262/#sec-tointegerorinfinity
 module.exports = function (argument) {
-  var number = +argument;
-  // eslint-disable-next-line no-self-compare -- NaN check
-  return number !== number || number === 0 ? 0 : trunc(number);
+  if (argument === undefined || isObject(argument)) return argument;
+  throw new $TypeError($String(argument) + ' is not an object or undefined');
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ 1385:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+/***/ 8551
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
-var iteratorClose = __webpack_require__(9539);
-
-module.exports = function (iters, kind, value) {
-  for (var i = iters.length - 1; i >= 0; i--) {
-    if (iters[i] === undefined) continue;
-    try {
-      value = iteratorClose(iters[i].iterator, kind, value);
-    } catch (error) {
-      kind = 'throw';
-      value = error;
-    }
-  }
-  if (kind === 'throw') throw value;
-  return value;
-};
-
-
-/***/ }),
-
-/***/ 1548:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var globalThis = __webpack_require__(4576);
-var fails = __webpack_require__(9039);
-var V8 = __webpack_require__(9519);
-var ENVIRONMENT = __webpack_require__(4215);
-
-var structuredClone = globalThis.structuredClone;
-
-module.exports = !!structuredClone && !fails(function () {
-  // prevent V8 ArrayBufferDetaching protector cell invalidation and performance degradation
-  // https://github.com/zloirock/core-js/issues/679
-  if ((ENVIRONMENT === 'DENO' && V8 > 92) || (ENVIRONMENT === 'NODE' && V8 > 94) || (ENVIRONMENT === 'BROWSER' && V8 > 97)) return false;
-  var buffer = new ArrayBuffer(8);
-  var clone = structuredClone(buffer, { transfer: [buffer] });
-  return buffer.byteLength !== 0 || clone.byteLength !== 8;
-});
-
-
-/***/ }),
-
-/***/ 1549:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-// TODO: Remove from `core-js@4`
-__webpack_require__(6632);
-
-
-/***/ }),
-
-/***/ 1625:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var uncurryThis = __webpack_require__(9504);
-
-module.exports = uncurryThis({}.isPrototypeOf);
-
-
-/***/ }),
-
-/***/ 1689:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var $ = __webpack_require__(6518);
-var globalThis = __webpack_require__(4576);
-var apply = __webpack_require__(8745);
-var slice = __webpack_require__(7680);
-var newPromiseCapabilityModule = __webpack_require__(6043);
-var aCallable = __webpack_require__(9306);
-var perform = __webpack_require__(1103);
-
-var Promise = globalThis.Promise;
-
-var ACCEPT_ARGUMENTS = false;
-// Avoiding the use of polyfills of the previous iteration of this proposal
-// that does not accept arguments of the callback
-var FORCED = !Promise || !Promise['try'] || perform(function () {
-  Promise['try'](function (argument) {
-    ACCEPT_ARGUMENTS = argument === 8;
-  }, 8);
-}).error || !ACCEPT_ARGUMENTS;
-
-// `Promise.try` method
-// https://tc39.es/ecma262/#sec-promise.try
-$({ target: 'Promise', stat: true, forced: FORCED }, {
-  'try': function (callbackfn /* , ...args */) {
-    var args = arguments.length > 1 ? slice(arguments, 1) : [];
-    var promiseCapability = newPromiseCapabilityModule.f(this);
-    var result = perform(function () {
-      return apply(aCallable(callbackfn), undefined, args);
-    });
-    (result.error ? promiseCapability.reject : promiseCapability.resolve)(result.value);
-    return promiseCapability.promise;
-  }
-});
-
-
-/***/ }),
-
-/***/ 1698:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var $ = __webpack_require__(6518);
-var union = __webpack_require__(4204);
-var setMethodGetKeysBeforeCloning = __webpack_require__(9835);
-var setMethodAcceptSetLike = __webpack_require__(4916);
-
-var FORCED = !setMethodAcceptSetLike('union') || !setMethodGetKeysBeforeCloning('union');
-
-// `Set.prototype.union` method
-// https://tc39.es/ecma262/#sec-set.prototype.union
-$({ target: 'Set', proto: true, real: true, forced: FORCED }, {
-  union: union
-});
-
-
-/***/ }),
-
-/***/ 1701:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var $ = __webpack_require__(6518);
-var call = __webpack_require__(9565);
-var aCallable = __webpack_require__(9306);
-var anObject = __webpack_require__(8551);
-var getIteratorDirect = __webpack_require__(1767);
-var createIteratorProxy = __webpack_require__(9462);
-var callWithSafeIterationClosing = __webpack_require__(6319);
-var iteratorClose = __webpack_require__(9539);
-var iteratorHelperThrowsOnInvalidIterator = __webpack_require__(684);
-var iteratorHelperWithoutClosingOnEarlyError = __webpack_require__(4549);
-var IS_PURE = __webpack_require__(6395);
-
-var MAP_WITHOUT_THROWING_ON_INVALID_ITERATOR = !IS_PURE && !iteratorHelperThrowsOnInvalidIterator('map', function () { /* empty */ });
-var mapWithoutClosingOnEarlyError = !IS_PURE && !MAP_WITHOUT_THROWING_ON_INVALID_ITERATOR
-  && iteratorHelperWithoutClosingOnEarlyError('map', TypeError);
-
-var FORCED = IS_PURE || MAP_WITHOUT_THROWING_ON_INVALID_ITERATOR || mapWithoutClosingOnEarlyError;
-
-var IteratorProxy = createIteratorProxy(function () {
-  var iterator = this.iterator;
-  var result = anObject(call(this.next, iterator));
-  var done = this.done = !!result.done;
-  if (!done) return callWithSafeIterationClosing(iterator, this.mapper, [result.value, this.counter++], true);
-});
-
-// `Iterator.prototype.map` method
-// https://tc39.es/ecma262/#sec-iterator.prototype.map
-$({ target: 'Iterator', proto: true, real: true, forced: FORCED }, {
-  map: function map(mapper) {
-    anObject(this);
-    try {
-      aCallable(mapper);
-    } catch (error) {
-      iteratorClose(this, 'throw', error);
-    }
-
-    if (mapWithoutClosingOnEarlyError) return call(mapWithoutClosingOnEarlyError, this, mapper);
-
-    return new IteratorProxy(getIteratorDirect(this), {
-      mapper: mapper
-    });
-  }
-});
-
-
-/***/ }),
-
-/***/ 1767:
-/***/ ((module) => {
-
-
-// `GetIteratorDirect(obj)` abstract operation
-// https://tc39.es/ecma262/#sec-getiteratordirect
-module.exports = function (obj) {
-  return {
-    iterator: obj,
-    next: obj.next,
-    done: false
-  };
-};
-
-
-/***/ }),
-
-/***/ 1806:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var $ = __webpack_require__(6518);
-var anObject = __webpack_require__(8551);
-var iterate = __webpack_require__(2652);
-var getIteratorDirect = __webpack_require__(1767);
-
-var push = [].push;
-
-// `Iterator.prototype.toArray` method
-// https://tc39.es/ecma262/#sec-iterator.prototype.toarray
-$({ target: 'Iterator', proto: true, real: true }, {
-  toArray: function toArray() {
-    var result = [];
-    iterate(getIteratorDirect(anObject(this)), push, { that: result, IS_RECORD: true });
-    return result;
-  }
-});
-
-
-/***/ }),
-
-/***/ 1828:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var uncurryThis = __webpack_require__(9504);
-var hasOwn = __webpack_require__(9297);
-var toIndexedObject = __webpack_require__(5397);
-var indexOf = (__webpack_require__(9617).indexOf);
-var hiddenKeys = __webpack_require__(421);
-
-var push = uncurryThis([].push);
-
-module.exports = function (object, names) {
-  var O = toIndexedObject(object);
-  var i = 0;
-  var result = [];
-  var key;
-  for (key in O) !hasOwn(hiddenKeys, key) && hasOwn(O, key) && push(result, key);
-  // Don't enum bug & hidden keys
-  while (names.length > i) if (hasOwn(O, key = names[i++])) {
-    ~indexOf(result, key) || push(result, key);
-  }
-  return result;
-};
-
-
-/***/ }),
-
-/***/ 1903:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var ArrayBufferViewCore = __webpack_require__(4644);
-var $findLast = (__webpack_require__(3839).findLast);
-
-var aTypedArray = ArrayBufferViewCore.aTypedArray;
-var exportTypedArrayMethod = ArrayBufferViewCore.exportTypedArrayMethod;
-
-// `%TypedArray%.prototype.findLast` method
-// https://tc39.es/ecma262/#sec-%typedarray%.prototype.findlast
-exportTypedArrayMethod('findLast', function findLast(predicate /* , thisArg */) {
-  return $findLast(aTypedArray(this), predicate, arguments.length > 1 ? arguments[1] : undefined);
-});
-
-
-/***/ }),
-
-/***/ 2106:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var makeBuiltIn = __webpack_require__(283);
-var defineProperty = __webpack_require__(4913);
-
-module.exports = function (target, name, descriptor) {
-  if (descriptor.get) makeBuiltIn(descriptor.get, name, { getter: true });
-  if (descriptor.set) makeBuiltIn(descriptor.set, name, { setter: true });
-  return defineProperty.f(target, name, descriptor);
-};
-
-
-/***/ }),
-
-/***/ 2140:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var wellKnownSymbol = __webpack_require__(8227);
-
-var TO_STRING_TAG = wellKnownSymbol('toStringTag');
-var test = {};
-
-test[TO_STRING_TAG] = 'z';
-
-module.exports = String(test) === '[object z]';
-
-
-/***/ }),
-
-/***/ 2195:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var uncurryThis = __webpack_require__(9504);
-
-var toString = uncurryThis({}.toString);
-var stringSlice = uncurryThis(''.slice);
-
-module.exports = function (it) {
-  return stringSlice(toString(it), 8, -1);
-};
-
-
-/***/ }),
-
-/***/ 2211:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var fails = __webpack_require__(9039);
-
-module.exports = !fails(function () {
-  function F() { /* empty */ }
-  F.prototype.constructor = null;
-  // eslint-disable-next-line es/no-object-getprototypeof -- required for testing
-  return Object.getPrototypeOf(new F()) !== F.prototype;
-});
-
-
-/***/ }),
-
-/***/ 2278:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var DESCRIPTORS = __webpack_require__(3724);
-var definePropertyModule = __webpack_require__(4913);
-var createPropertyDescriptor = __webpack_require__(6980);
-
-module.exports = function (object, key, value) {
-  if (DESCRIPTORS) definePropertyModule.f(object, key, createPropertyDescriptor(0, value));
-  else object[key] = value;
-};
-
-
-/***/ }),
-
-/***/ 2303:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var globalThis = __webpack_require__(4576);
-var uncurryThis = __webpack_require__(9504);
-
-var Uint8Array = globalThis.Uint8Array;
-var SyntaxError = globalThis.SyntaxError;
-var parseInt = globalThis.parseInt;
-var min = Math.min;
-var NOT_HEX = /[^\da-f]/i;
-var exec = uncurryThis(NOT_HEX.exec);
-var stringSlice = uncurryThis(''.slice);
-
-module.exports = function (string, into) {
-  var stringLength = string.length;
-  if (stringLength % 2 !== 0) throw new SyntaxError('String should be an even number of characters');
-  var maxLength = into ? min(into.length, stringLength / 2) : stringLength / 2;
-  var bytes = into || new Uint8Array(maxLength);
-  var read = 0;
-  var written = 0;
-  while (written < maxLength) {
-    var hexits = stringSlice(string, read, read += 2);
-    if (exec(NOT_HEX, hexits)) throw new SyntaxError('String should only contain hex characters');
-    bytes[written++] = parseInt(hexits, 16);
-  }
-  return { bytes: bytes, read: read };
-};
-
-
-/***/ }),
-
-/***/ 2360:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-/* global ActiveXObject -- old IE, WSH */
-var anObject = __webpack_require__(8551);
-var definePropertiesModule = __webpack_require__(6801);
-var enumBugKeys = __webpack_require__(8727);
-var hiddenKeys = __webpack_require__(421);
-var html = __webpack_require__(397);
-var documentCreateElement = __webpack_require__(4055);
-var sharedKey = __webpack_require__(6119);
-
-var GT = '>';
-var LT = '<';
-var PROTOTYPE = 'prototype';
-var SCRIPT = 'script';
-var IE_PROTO = sharedKey('IE_PROTO');
-
-var EmptyConstructor = function () { /* empty */ };
-
-var scriptTag = function (content) {
-  return LT + SCRIPT + GT + content + LT + '/' + SCRIPT + GT;
-};
-
-// Create object with fake `null` prototype: use ActiveX Object with cleared prototype
-var NullProtoObjectViaActiveX = function (activeXDocument) {
-  activeXDocument.write(scriptTag(''));
-  activeXDocument.close();
-  var temp = activeXDocument.parentWindow.Object;
-  // eslint-disable-next-line no-useless-assignment -- avoid memory leak
-  activeXDocument = null;
-  return temp;
-};
-
-// Create object with fake `null` prototype: use iframe Object with cleared prototype
-var NullProtoObjectViaIFrame = function () {
-  // Thrash, waste and sodomy: IE GC bug
-  var iframe = documentCreateElement('iframe');
-  var JS = 'java' + SCRIPT + ':';
-  var iframeDocument;
-  iframe.style.display = 'none';
-  html.appendChild(iframe);
-  // https://github.com/zloirock/core-js/issues/475
-  iframe.src = String(JS);
-  iframeDocument = iframe.contentWindow.document;
-  iframeDocument.open();
-  iframeDocument.write(scriptTag('document.F=Object'));
-  iframeDocument.close();
-  return iframeDocument.F;
-};
-
-// Check for document.domain and active x support
-// No need to use active x approach when document.domain is not set
-// see https://github.com/es-shims/es5-shim/issues/150
-// variation of https://github.com/kitcambridge/es5-shim/commit/4f738ac066346
-// avoid IE GC bug
-var activeXDocument;
-var NullProtoObject = function () {
-  try {
-    activeXDocument = new ActiveXObject('htmlfile');
-  } catch (error) { /* ignore */ }
-  NullProtoObject = typeof document != 'undefined'
-    ? document.domain && activeXDocument
-      ? NullProtoObjectViaActiveX(activeXDocument) // old IE
-      : NullProtoObjectViaIFrame()
-    : NullProtoObjectViaActiveX(activeXDocument); // WSH
-  var length = enumBugKeys.length;
-  while (length--) delete NullProtoObject[PROTOTYPE][enumBugKeys[length]];
-  return NullProtoObject();
-};
-
-hiddenKeys[IE_PROTO] = true;
-
-// `Object.create` method
-// https://tc39.es/ecma262/#sec-object.create
-// eslint-disable-next-line es/no-object-create -- safe
-module.exports = Object.create || function create(O, Properties) {
-  var result;
-  if (O !== null) {
-    EmptyConstructor[PROTOTYPE] = anObject(O);
-    result = new EmptyConstructor();
-    EmptyConstructor[PROTOTYPE] = null;
-    // add "__proto__" for Object.getPrototypeOf polyfill
-    result[IE_PROTO] = O;
-  } else result = NullProtoObject();
-  return Properties === undefined ? result : definePropertiesModule.f(result, Properties);
-};
-
-
-/***/ }),
-
-/***/ 2475:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var $ = __webpack_require__(6518);
-var isSupersetOf = __webpack_require__(8527);
-var setMethodAcceptSetLike = __webpack_require__(4916);
-
-var INCORRECT = !setMethodAcceptSetLike('isSupersetOf', function (result) {
-  return !result;
-});
-
-// `Set.prototype.isSupersetOf` method
-// https://tc39.es/ecma262/#sec-set.prototype.issupersetof
-$({ target: 'Set', proto: true, real: true, forced: INCORRECT }, {
-  isSupersetOf: isSupersetOf
-});
-
-
-/***/ }),
-
-/***/ 2489:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var $ = __webpack_require__(6518);
-var call = __webpack_require__(9565);
-var aCallable = __webpack_require__(9306);
-var anObject = __webpack_require__(8551);
-var getIteratorDirect = __webpack_require__(1767);
-var createIteratorProxy = __webpack_require__(9462);
-var callWithSafeIterationClosing = __webpack_require__(6319);
-var IS_PURE = __webpack_require__(6395);
-var iteratorClose = __webpack_require__(9539);
-var iteratorHelperThrowsOnInvalidIterator = __webpack_require__(684);
-var iteratorHelperWithoutClosingOnEarlyError = __webpack_require__(4549);
-
-var FILTER_WITHOUT_THROWING_ON_INVALID_ITERATOR = !IS_PURE && !iteratorHelperThrowsOnInvalidIterator('filter', function () { /* empty */ });
-var filterWithoutClosingOnEarlyError = !IS_PURE && !FILTER_WITHOUT_THROWING_ON_INVALID_ITERATOR
-  && iteratorHelperWithoutClosingOnEarlyError('filter', TypeError);
-
-var FORCED = IS_PURE || FILTER_WITHOUT_THROWING_ON_INVALID_ITERATOR || filterWithoutClosingOnEarlyError;
-
-var IteratorProxy = createIteratorProxy(function () {
-  var iterator = this.iterator;
-  var predicate = this.predicate;
-  var next = this.next;
-  var result, done, value;
-  while (true) {
-    result = anObject(call(next, iterator));
-    done = this.done = !!result.done;
-    if (done) return;
-    value = result.value;
-    if (callWithSafeIterationClosing(iterator, predicate, [value, this.counter++], true)) return value;
-  }
-});
-
-// `Iterator.prototype.filter` method
-// https://tc39.es/ecma262/#sec-iterator.prototype.filter
-$({ target: 'Iterator', proto: true, real: true, forced: FORCED }, {
-  filter: function filter(predicate) {
-    anObject(this);
-    try {
-      aCallable(predicate);
-    } catch (error) {
-      iteratorClose(this, 'throw', error);
-    }
-
-    if (filterWithoutClosingOnEarlyError) return call(filterWithoutClosingOnEarlyError, this, predicate);
-
-    return new IteratorProxy(getIteratorDirect(this), {
-      predicate: predicate
-    });
-  }
-});
-
-
-/***/ }),
-
-/***/ 2529:
-/***/ ((module) => {
-
-
-// `CreateIterResultObject` abstract operation
-// https://tc39.es/ecma262/#sec-createiterresultobject
-module.exports = function (value, done) {
-  return { value: value, done: done };
-};
-
-
-/***/ }),
-
-/***/ 2603:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var toString = __webpack_require__(655);
-
-module.exports = function (argument, $default) {
-  return argument === undefined ? arguments.length < 2 ? '' : $default : toString(argument);
-};
-
-
-/***/ }),
-
-/***/ 2652:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var bind = __webpack_require__(6080);
-var call = __webpack_require__(9565);
-var anObject = __webpack_require__(8551);
-var tryToString = __webpack_require__(6823);
-var isArrayIteratorMethod = __webpack_require__(4209);
-var lengthOfArrayLike = __webpack_require__(6198);
-var isPrototypeOf = __webpack_require__(1625);
-var getIterator = __webpack_require__(81);
-var getIteratorMethod = __webpack_require__(851);
-var iteratorClose = __webpack_require__(9539);
-
-var $TypeError = TypeError;
-
-var Result = function (stopped, result) {
-  this.stopped = stopped;
-  this.result = result;
-};
-
-var ResultPrototype = Result.prototype;
-
-module.exports = function (iterable, unboundFunction, options) {
-  var that = options && options.that;
-  var AS_ENTRIES = !!(options && options.AS_ENTRIES);
-  var IS_RECORD = !!(options && options.IS_RECORD);
-  var IS_ITERATOR = !!(options && options.IS_ITERATOR);
-  var INTERRUPTED = !!(options && options.INTERRUPTED);
-  var fn = bind(unboundFunction, that);
-  var iterator, iterFn, index, length, result, next, step;
-
-  var stop = function (condition) {
-    if (iterator) iteratorClose(iterator, 'normal');
-    return new Result(true, condition);
-  };
-
-  var callFn = function (value) {
-    if (AS_ENTRIES) {
-      anObject(value);
-      return INTERRUPTED ? fn(value[0], value[1], stop) : fn(value[0], value[1]);
-    } return INTERRUPTED ? fn(value, stop) : fn(value);
-  };
-
-  if (IS_RECORD) {
-    iterator = iterable.iterator;
-  } else if (IS_ITERATOR) {
-    iterator = iterable;
-  } else {
-    iterFn = getIteratorMethod(iterable);
-    if (!iterFn) throw new $TypeError(tryToString(iterable) + ' is not iterable');
-    // optimisation for array iterators
-    if (isArrayIteratorMethod(iterFn)) {
-      for (index = 0, length = lengthOfArrayLike(iterable); length > index; index++) {
-        result = callFn(iterable[index]);
-        if (result && isPrototypeOf(ResultPrototype, result)) return result;
-      } return new Result(false);
-    }
-    iterator = getIterator(iterable, iterFn);
-  }
-
-  next = IS_RECORD ? iterable.next : iterator.next;
-  while (!(step = call(next, iterator)).done) {
-    try {
-      result = callFn(step.value);
-    } catch (error) {
-      iteratorClose(iterator, 'throw', error);
-    }
-    if (typeof result == 'object' && result && isPrototypeOf(ResultPrototype, result)) return result;
-  } return new Result(false);
-};
-
-
-/***/ }),
-
-/***/ 2777:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var call = __webpack_require__(9565);
 var isObject = __webpack_require__(34);
-var isSymbol = __webpack_require__(757);
-var getMethod = __webpack_require__(5966);
-var ordinaryToPrimitive = __webpack_require__(4270);
-var wellKnownSymbol = __webpack_require__(8227);
 
+var $String = String;
 var $TypeError = TypeError;
-var TO_PRIMITIVE = wellKnownSymbol('toPrimitive');
 
-// `ToPrimitive` abstract operation
-// https://tc39.es/ecma262/#sec-toprimitive
-module.exports = function (input, pref) {
-  if (!isObject(input) || isSymbol(input)) return input;
-  var exoticToPrim = getMethod(input, TO_PRIMITIVE);
-  var result;
-  if (exoticToPrim) {
-    if (pref === undefined) pref = 'default';
-    result = call(exoticToPrim, input, pref);
-    if (!isObject(result) || isSymbol(result)) return result;
-    throw new $TypeError("Can't convert object to primitive value");
-  }
-  if (pref === undefined) pref = 'number';
-  return ordinaryToPrimitive(input, pref);
+// `Assert: Type(argument) is Object`
+module.exports = function (argument) {
+  if (isObject(argument)) return argument;
+  throw new $TypeError($String(argument) + ' is not an object');
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ 2787:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var hasOwn = __webpack_require__(9297);
-var isCallable = __webpack_require__(4901);
-var toObject = __webpack_require__(8981);
-var sharedKey = __webpack_require__(6119);
-var CORRECT_PROTOTYPE_GETTER = __webpack_require__(2211);
-
-var IE_PROTO = sharedKey('IE_PROTO');
-var $Object = Object;
-var ObjectPrototype = $Object.prototype;
-
-// `Object.getPrototypeOf` method
-// https://tc39.es/ecma262/#sec-object.getprototypeof
-// eslint-disable-next-line es/no-object-getprototypeof -- safe
-module.exports = CORRECT_PROTOTYPE_GETTER ? $Object.getPrototypeOf : function (O) {
-  var object = toObject(O);
-  if (hasOwn(object, IE_PROTO)) return object[IE_PROTO];
-  var constructor = object.constructor;
-  if (isCallable(constructor) && object instanceof constructor) {
-    return constructor.prototype;
-  } return object instanceof $Object ? ObjectPrototype : null;
-};
+/***/ 4154
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
-/***/ }),
-
-/***/ 2796:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var fails = __webpack_require__(9039);
-var isCallable = __webpack_require__(4901);
-
-var replacement = /#|\.prototype\./;
-
-var isForced = function (feature, detection) {
-  var value = data[normalize(feature)];
-  return value === POLYFILL ? true
-    : value === NATIVE ? false
-    : isCallable(detection) ? fails(detection)
-    : !!detection;
-};
-
-var normalize = isForced.normalize = function (string) {
-  return String(string).replace(replacement, '.').toLowerCase();
-};
-
-var data = isForced.data = {};
-var NATIVE = isForced.NATIVE = 'N';
-var POLYFILL = isForced.POLYFILL = 'P';
-
-module.exports = isForced;
-
-
-/***/ }),
-
-/***/ 2804:
-/***/ ((module) => {
-
-
-var commonAlphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-var base64Alphabet = commonAlphabet + '+/';
-var base64UrlAlphabet = commonAlphabet + '-_';
-
-var inverse = function (characters) {
-  // TODO: use `Object.create(null)` in `core-js@4`
-  var result = {};
-  var index = 0;
-  for (; index < 64; index++) result[characters.charAt(index)] = index;
-  return result;
-};
-
-module.exports = {
-  i2c: base64Alphabet,
-  c2i: inverse(base64Alphabet),
-  i2cUrl: base64UrlAlphabet,
-  c2iUrl: inverse(base64UrlAlphabet)
-};
-
-
-/***/ }),
-
-/***/ 2812:
-/***/ ((module) => {
-
+var classof = __webpack_require__(6955);
 
 var $TypeError = TypeError;
 
-module.exports = function (passed, required) {
-  if (passed < required) throw new $TypeError('Not enough arguments');
-  return passed;
+// Perform ? RequireInternalSlot(argument, [[TypedArrayName]])
+// If argument.[[TypedArrayName]] is not "Uint8Array", throw a TypeError exception
+module.exports = function (argument) {
+  if (classof(argument) === 'Uint8Array') return argument;
+  throw new $TypeError('Argument is not an Uint8Array');
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ 2839:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+/***/ 7811
+(module) {
+
+
+// eslint-disable-next-line es/no-typed-arrays -- safe
+module.exports = typeof ArrayBuffer != 'undefined' && typeof DataView != 'undefined';
+
+
+/***/ },
+
+/***/ 7394
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
 var globalThis = __webpack_require__(4576);
-
-var navigator = globalThis.navigator;
-var userAgent = navigator && navigator.userAgent;
-
-module.exports = userAgent ? String(userAgent) : '';
-
-
-/***/ }),
-
-/***/ 2967:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-/* eslint-disable no-proto -- safe */
 var uncurryThisAccessor = __webpack_require__(6706);
-var isObject = __webpack_require__(34);
-var requireObjectCoercible = __webpack_require__(7750);
-var aPossiblePrototype = __webpack_require__(3506);
+var classof = __webpack_require__(2195);
 
-// `Object.setPrototypeOf` method
-// https://tc39.es/ecma262/#sec-object.setprototypeof
-// Works with __proto__ only. Old v8 can't work with null proto objects.
-// eslint-disable-next-line es/no-object-setprototypeof -- safe
-module.exports = Object.setPrototypeOf || ('__proto__' in {} ? function () {
-  var CORRECT_SETTER = false;
-  var test = {};
-  var setter;
-  try {
-    setter = uncurryThisAccessor(Object.prototype, '__proto__', 'set');
-    setter(test, []);
-    CORRECT_SETTER = test instanceof Array;
-  } catch (error) { /* empty */ }
-  return function setPrototypeOf(O, proto) {
-    requireObjectCoercible(O);
-    aPossiblePrototype(proto);
-    if (!isObject(O)) return O;
-    if (CORRECT_SETTER) setter(O, proto);
-    else O.__proto__ = proto;
-    return O;
-  };
-}() : undefined);
+var ArrayBuffer = globalThis.ArrayBuffer;
+var TypeError = globalThis.TypeError;
 
-
-/***/ }),
-
-/***/ 3068:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-// based on Shewchuk's algorithm for exactly floating point addition
-// adapted from https://github.com/tc39/proposal-math-sum/blob/3513d58323a1ae25560e8700aa5294500c6c9287/polyfill/polyfill.mjs
-var $ = __webpack_require__(6518);
-var uncurryThis = __webpack_require__(9504);
-var iterate = __webpack_require__(2652);
-
-var $RangeError = RangeError;
-var $TypeError = TypeError;
-var $Infinity = Infinity;
-var $NaN = NaN;
-var abs = Math.abs;
-var pow = Math.pow;
-var push = uncurryThis([].push);
-
-var POW_2_1023 = pow(2, 1023);
-var MAX_SAFE_INTEGER = pow(2, 53) - 1; // 2 ** 53 - 1 === 9007199254740992
-var MAX_DOUBLE = Number.MAX_VALUE; // 2 ** 1024 - 2 ** (1023 - 52) === 1.79769313486231570815e+308
-var MAX_ULP = pow(2, 971); // 2 ** (1023 - 52) === 1.99584030953471981166e+292
-
-var NOT_A_NUMBER = {};
-var MINUS_INFINITY = {};
-var PLUS_INFINITY = {};
-var MINUS_ZERO = {};
-var FINITE = {};
-
-// prerequisite: abs(x) >= abs(y)
-var twosum = function (x, y) {
-  var hi = x + y;
-  var lo = y - (hi - x);
-  return { hi: hi, lo: lo };
-};
-
-// `Math.sumPrecise` method
-// https://github.com/tc39/proposal-math-sum
-$({ target: 'Math', stat: true }, {
-  // eslint-disable-next-line max-statements -- ok
-  sumPrecise: function sumPrecise(items) {
-    var numbers = [];
-    var count = 0;
-    var state = MINUS_ZERO;
-
-    iterate(items, function (n) {
-      if (++count >= MAX_SAFE_INTEGER) throw new $RangeError('Maximum allowed index exceeded');
-      if (typeof n != 'number') throw new $TypeError('Value is not a number');
-      if (state !== NOT_A_NUMBER) {
-        // eslint-disable-next-line no-self-compare -- NaN check
-        if (n !== n) state = NOT_A_NUMBER;
-        else if (n === $Infinity) state = state === MINUS_INFINITY ? NOT_A_NUMBER : PLUS_INFINITY;
-        else if (n === -$Infinity) state = state === PLUS_INFINITY ? NOT_A_NUMBER : MINUS_INFINITY;
-        else if ((n !== 0 || (1 / n) === $Infinity) && (state === MINUS_ZERO || state === FINITE)) {
-          state = FINITE;
-          push(numbers, n);
-        }
-      }
-    });
-
-    switch (state) {
-      case NOT_A_NUMBER: return $NaN;
-      case MINUS_INFINITY: return -$Infinity;
-      case PLUS_INFINITY: return $Infinity;
-      case MINUS_ZERO: return -0;
-    }
-
-    var partials = [];
-    var overflow = 0; // conceptually 2 ** 1024 times this value; the final partial is biased by this amount
-    var x, y, sum, hi, lo, tmp;
-
-    for (var i = 0; i < numbers.length; i++) {
-      x = numbers[i];
-      var actuallyUsedPartials = 0;
-      for (var j = 0; j < partials.length; j++) {
-        y = partials[j];
-        if (abs(x) < abs(y)) {
-          tmp = x;
-          x = y;
-          y = tmp;
-        }
-        sum = twosum(x, y);
-        hi = sum.hi;
-        lo = sum.lo;
-        if (abs(hi) === $Infinity) {
-          var sign = hi === $Infinity ? 1 : -1;
-          overflow += sign;
-
-          x = (x - (sign * POW_2_1023)) - (sign * POW_2_1023);
-          if (abs(x) < abs(y)) {
-            tmp = x;
-            x = y;
-            y = tmp;
-          }
-          sum = twosum(x, y);
-          hi = sum.hi;
-          lo = sum.lo;
-        }
-        if (lo !== 0) partials[actuallyUsedPartials++] = lo;
-        x = hi;
-      }
-      partials.length = actuallyUsedPartials;
-      if (x !== 0) push(partials, x);
-    }
-
-    // compute the exact sum of partials, stopping once we lose precision
-    var n = partials.length - 1;
-    hi = 0;
-    lo = 0;
-
-    if (overflow !== 0) {
-      var next = n >= 0 ? partials[n] : 0;
-      n--;
-      if (abs(overflow) > 1 || (overflow > 0 && next > 0) || (overflow < 0 && next < 0)) {
-        return overflow > 0 ? $Infinity : -$Infinity;
-      }
-      // here we actually have to do the arithmetic
-      // drop a factor of 2 so we can do it without overflow
-      // assert(abs(overflow) === 1)
-      sum = twosum(overflow * POW_2_1023, next / 2);
-      hi = sum.hi;
-      lo = sum.lo;
-      lo *= 2;
-      if (abs(2 * hi) === $Infinity) {
-        // rounding to the maximum value
-        if (hi > 0) {
-          return (hi === POW_2_1023 && lo === -(MAX_ULP / 2) && n >= 0 && partials[n] < 0) ? MAX_DOUBLE : $Infinity;
-        } return (hi === -POW_2_1023 && lo === (MAX_ULP / 2) && n >= 0 && partials[n] > 0) ? -MAX_DOUBLE : -$Infinity;
-      }
-
-      if (lo !== 0) {
-        partials[++n] = lo;
-        lo = 0;
-      }
-
-      hi *= 2;
-    }
-
-    while (n >= 0) {
-      sum = twosum(hi, partials[n--]);
-      hi = sum.hi;
-      lo = sum.lo;
-      if (lo !== 0) break;
-    }
-
-    if (n >= 0 && ((lo < 0 && partials[n] < 0) || (lo > 0 && partials[n] > 0))) {
-      y = lo * 2;
-      x = hi + y;
-      if (y === x - hi) hi = x;
-    }
-
-    return hi;
-  }
-});
-
-
-/***/ }),
-
-/***/ 3167:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var isCallable = __webpack_require__(4901);
-var isObject = __webpack_require__(34);
-var setPrototypeOf = __webpack_require__(2967);
-
-// makes subclassing work correct for wrapped built-ins
-module.exports = function ($this, dummy, Wrapper) {
-  var NewTarget, NewTargetPrototype;
-  if (
-    // it can work only with native `setPrototypeOf`
-    setPrototypeOf &&
-    // we haven't completely correct pre-ES6 way for getting `new.target`, so use this
-    isCallable(NewTarget = dummy.constructor) &&
-    NewTarget !== Wrapper &&
-    isObject(NewTargetPrototype = NewTarget.prototype) &&
-    NewTargetPrototype !== Wrapper.prototype
-  ) setPrototypeOf($this, NewTargetPrototype);
-  return $this;
+// Includes
+// - Perform ? RequireInternalSlot(O, [[ArrayBufferData]]).
+// - If IsSharedArrayBuffer(O) is true, throw a TypeError exception.
+module.exports = ArrayBuffer && uncurryThisAccessor(ArrayBuffer.prototype, 'byteLength', 'get') || function (O) {
+  if (classof(O) !== 'ArrayBuffer') throw new TypeError('ArrayBuffer expected');
+  return O.byteLength;
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ 3238:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+/***/ 3238
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
 var globalThis = __webpack_require__(4576);
@@ -1831,1197 +241,78 @@ module.exports = function (O) {
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ 3392:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+/***/ 5169
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
+var isDetached = __webpack_require__(3238);
+
+var $TypeError = TypeError;
+
+module.exports = function (it) {
+  if (isDetached(it)) throw new $TypeError('ArrayBuffer is detached');
+  return it;
+};
+
+
+/***/ },
+
+/***/ 5636
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var globalThis = __webpack_require__(4576);
 var uncurryThis = __webpack_require__(9504);
-
-var id = 0;
-var postfix = Math.random();
-var toString = uncurryThis(1.1.toString);
-
-module.exports = function (key) {
-  return 'Symbol(' + (key === undefined ? '' : key) + ')_' + toString(++id + postfix, 36);
-};
-
-
-/***/ }),
-
-/***/ 3440:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var aSet = __webpack_require__(7080);
-var SetHelpers = __webpack_require__(4402);
-var clone = __webpack_require__(9286);
-var size = __webpack_require__(5170);
-var getSetRecord = __webpack_require__(3789);
-var iterateSet = __webpack_require__(8469);
-var iterateSimple = __webpack_require__(507);
-
-var has = SetHelpers.has;
-var remove = SetHelpers.remove;
-
-// `Set.prototype.difference` method
-// https://tc39.es/ecma262/#sec-set.prototype.difference
-module.exports = function difference(other) {
-  var O = aSet(this);
-  var otherRec = getSetRecord(other);
-  var result = clone(O);
-  if (size(O) <= otherRec.size) iterateSet(O, function (e) {
-    if (otherRec.includes(e)) remove(result, e);
-  });
-  else iterateSimple(otherRec.getIterator(), function (e) {
-    if (has(result, e)) remove(result, e);
-  });
-  return result;
-};
-
-
-/***/ }),
-
-/***/ 3463:
-/***/ ((module) => {
-
-
-var $TypeError = TypeError;
-
-module.exports = function (argument) {
-  if (typeof argument == 'string') return argument;
-  throw new $TypeError('Argument is not a string');
-};
-
-
-/***/ }),
-
-/***/ 3506:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var isPossiblePrototype = __webpack_require__(3925);
-
-var $String = String;
-var $TypeError = TypeError;
-
-module.exports = function (argument) {
-  if (isPossiblePrototype(argument)) return argument;
-  throw new $TypeError("Can't set " + $String(argument) + ' as a prototype');
-};
-
-
-/***/ }),
-
-/***/ 3579:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var $ = __webpack_require__(6518);
-var call = __webpack_require__(9565);
-var iterate = __webpack_require__(2652);
-var aCallable = __webpack_require__(9306);
-var anObject = __webpack_require__(8551);
-var getIteratorDirect = __webpack_require__(1767);
-var iteratorClose = __webpack_require__(9539);
-var iteratorHelperWithoutClosingOnEarlyError = __webpack_require__(4549);
-
-var someWithoutClosingOnEarlyError = iteratorHelperWithoutClosingOnEarlyError('some', TypeError);
-
-// `Iterator.prototype.some` method
-// https://tc39.es/ecma262/#sec-iterator.prototype.some
-$({ target: 'Iterator', proto: true, real: true, forced: someWithoutClosingOnEarlyError }, {
-  some: function some(predicate) {
-    anObject(this);
-    try {
-      aCallable(predicate);
-    } catch (error) {
-      iteratorClose(this, 'throw', error);
-    }
-
-    if (someWithoutClosingOnEarlyError) return call(someWithoutClosingOnEarlyError, this, predicate);
-
-    var record = getIteratorDirect(this);
-    var counter = 0;
-    return iterate(record, function (value, stop) {
-      if (predicate(value, counter++)) return stop();
-    }, { IS_RECORD: true, INTERRUPTED: true }).stopped;
-  }
-});
-
-
-/***/ }),
-
-/***/ 3607:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var userAgent = __webpack_require__(2839);
-
-var webkit = userAgent.match(/AppleWebKit\/(\d+)\./);
-
-module.exports = !!webkit && +webkit[1];
-
-
-/***/ }),
-
-/***/ 3609:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var $ = __webpack_require__(6518);
-var toObject = __webpack_require__(8981);
-var lengthOfArrayLike = __webpack_require__(6198);
-var setArrayLength = __webpack_require__(4527);
-var deletePropertyOrThrow = __webpack_require__(4606);
-var doesNotExceedSafeInteger = __webpack_require__(6837);
-
-// IE8-
-var INCORRECT_RESULT = [].unshift(0) !== 1;
-
-// V8 ~ Chrome < 71 and Safari <= 15.4, FF < 23 throws InternalError
-var properErrorOnNonWritableLength = function () {
-  try {
-    // eslint-disable-next-line es/no-object-defineproperty -- safe
-    Object.defineProperty([], 'length', { writable: false }).unshift();
-  } catch (error) {
-    return error instanceof TypeError;
-  }
-};
-
-var FORCED = INCORRECT_RESULT || !properErrorOnNonWritableLength();
-
-// `Array.prototype.unshift` method
-// https://tc39.es/ecma262/#sec-array.prototype.unshift
-$({ target: 'Array', proto: true, arity: 1, forced: FORCED }, {
-  // eslint-disable-next-line no-unused-vars -- required for `.length`
-  unshift: function unshift(item) {
-    var O = toObject(this);
-    var len = lengthOfArrayLike(O);
-    var argCount = arguments.length;
-    if (argCount) {
-      doesNotExceedSafeInteger(len + argCount);
-      var k = len;
-      while (k--) {
-        var to = k + argCount;
-        if (k in O) O[to] = O[k];
-        else deletePropertyOrThrow(O, to);
-      }
-      for (var j = 0; j < argCount; j++) {
-        O[j] = arguments[j];
-      }
-    } return setArrayLength(O, len + argCount);
-  }
-});
-
-
-/***/ }),
-
-/***/ 3611:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var $ = __webpack_require__(6518);
-var globalThis = __webpack_require__(4576);
-var defineBuiltInAccessor = __webpack_require__(2106);
-var DESCRIPTORS = __webpack_require__(3724);
-
-var $TypeError = TypeError;
-// eslint-disable-next-line es/no-object-defineproperty -- safe
-var defineProperty = Object.defineProperty;
-var INCORRECT_VALUE = globalThis.self !== globalThis;
-
-// `self` getter
-// https://html.spec.whatwg.org/multipage/window-object.html#dom-self
-try {
-  if (DESCRIPTORS) {
-    // eslint-disable-next-line es/no-object-getownpropertydescriptor -- safe
-    var descriptor = Object.getOwnPropertyDescriptor(globalThis, 'self');
-    // some engines have `self`, but with incorrect descriptor
-    // https://github.com/denoland/deno/issues/15765
-    if (INCORRECT_VALUE || !descriptor || !descriptor.get || !descriptor.enumerable) {
-      defineBuiltInAccessor(globalThis, 'self', {
-        get: function self() {
-          return globalThis;
-        },
-        set: function self(value) {
-          if (this !== globalThis) throw new $TypeError('Illegal invocation');
-          defineProperty(globalThis, 'self', {
-            value: value,
-            writable: true,
-            configurable: true,
-            enumerable: true
-          });
-        },
-        configurable: true,
-        enumerable: true
-      });
-    }
-  } else $({ global: true, simple: true, forced: INCORRECT_VALUE }, {
-    self: globalThis
-  });
-} catch (error) { /* empty */ }
-
-
-/***/ }),
-
-/***/ 3650:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var aSet = __webpack_require__(7080);
-var SetHelpers = __webpack_require__(4402);
-var clone = __webpack_require__(9286);
-var getSetRecord = __webpack_require__(3789);
-var iterateSimple = __webpack_require__(507);
-
-var add = SetHelpers.add;
-var has = SetHelpers.has;
-var remove = SetHelpers.remove;
-
-// `Set.prototype.symmetricDifference` method
-// https://tc39.es/ecma262/#sec-set.prototype.symmetricdifference
-module.exports = function symmetricDifference(other) {
-  var O = aSet(this);
-  var keysIter = getSetRecord(other).getIterator();
-  var result = clone(O);
-  iterateSimple(keysIter, function (e) {
-    if (has(O, e)) remove(result, e);
-    else add(result, e);
-  });
-  return result;
-};
-
-
-/***/ }),
-
-/***/ 3706:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var uncurryThis = __webpack_require__(9504);
-var isCallable = __webpack_require__(4901);
-var store = __webpack_require__(7629);
-
-var functionToString = uncurryThis(Function.toString);
-
-// this helper broken in `core-js@3.4.1-3.4.4`, so we can't use `shared` helper
-if (!isCallable(store.inspectSource)) {
-  store.inspectSource = function (it) {
-    return functionToString(it);
-  };
-}
-
-module.exports = store.inspectSource;
-
-
-/***/ }),
-
-/***/ 3709:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var userAgent = __webpack_require__(2839);
-
-var firefox = userAgent.match(/firefox\/(\d+)/i);
-
-module.exports = !!firefox && +firefox[1];
-
-
-/***/ }),
-
-/***/ 3717:
-/***/ ((__unused_webpack_module, exports) => {
-
-
-// eslint-disable-next-line es/no-object-getownpropertysymbols -- safe
-exports.f = Object.getOwnPropertySymbols;
-
-
-/***/ }),
-
-/***/ 3724:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var fails = __webpack_require__(9039);
-
-// Detect IE8's incomplete defineProperty implementation
-module.exports = !fails(function () {
-  // eslint-disable-next-line es/no-object-defineproperty -- required for testing
-  return Object.defineProperty({}, 1, { get: function () { return 7; } })[1] !== 7;
-});
-
-
-/***/ }),
-
-/***/ 3763:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var UA = __webpack_require__(2839);
-
-module.exports = /MSIE|Trident/.test(UA);
-
-
-/***/ }),
-
-/***/ 3789:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var aCallable = __webpack_require__(9306);
-var anObject = __webpack_require__(8551);
-var call = __webpack_require__(9565);
-var toIntegerOrInfinity = __webpack_require__(1291);
-var getIteratorDirect = __webpack_require__(1767);
-
-var INVALID_SIZE = 'Invalid size';
-var $RangeError = RangeError;
-var $TypeError = TypeError;
-var max = Math.max;
-
-var SetRecord = function (set, intSize) {
-  this.set = set;
-  this.size = max(intSize, 0);
-  this.has = aCallable(set.has);
-  this.keys = aCallable(set.keys);
-};
-
-SetRecord.prototype = {
-  getIterator: function () {
-    return getIteratorDirect(anObject(call(this.keys, this.set)));
-  },
-  includes: function (it) {
-    return call(this.has, this.set, it);
-  }
-};
-
-// `GetSetRecord` abstract operation
-// https://tc39.es/proposal-set-methods/#sec-getsetrecord
-module.exports = function (obj) {
-  anObject(obj);
-  var numSize = +obj.size;
-  // NOTE: If size is undefined, then numSize will be NaN
-  // eslint-disable-next-line no-self-compare -- NaN check
-  if (numSize !== numSize) throw new $TypeError(INVALID_SIZE);
-  var intSize = toIntegerOrInfinity(numSize);
-  if (intSize < 0) throw new $RangeError(INVALID_SIZE);
-  return new SetRecord(obj, intSize);
-};
-
-
-/***/ }),
-
-/***/ 3838:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var aSet = __webpack_require__(7080);
-var size = __webpack_require__(5170);
-var iterate = __webpack_require__(8469);
-var getSetRecord = __webpack_require__(3789);
-
-// `Set.prototype.isSubsetOf` method
-// https://tc39.es/ecma262/#sec-set.prototype.issubsetof
-module.exports = function isSubsetOf(other) {
-  var O = aSet(this);
-  var otherRec = getSetRecord(other);
-  if (size(O) > otherRec.size) return false;
-  return iterate(O, function (e) {
-    if (!otherRec.includes(e)) return false;
-  }, true) !== false;
-};
-
-
-/***/ }),
-
-/***/ 3839:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var bind = __webpack_require__(6080);
-var IndexedObject = __webpack_require__(7055);
-var toObject = __webpack_require__(8981);
-var lengthOfArrayLike = __webpack_require__(6198);
-
-// `Array.prototype.{ findLast, findLastIndex }` methods implementation
-var createMethod = function (TYPE) {
-  var IS_FIND_LAST_INDEX = TYPE === 1;
-  return function ($this, callbackfn, that) {
-    var O = toObject($this);
-    var self = IndexedObject(O);
-    var index = lengthOfArrayLike(self);
-    var boundFunction = bind(callbackfn, that);
-    var value, result;
-    while (index-- > 0) {
-      value = self[index];
-      result = boundFunction(value, index, O);
-      if (result) switch (TYPE) {
-        case 0: return value; // findLast
-        case 1: return index; // findLastIndex
-      }
-    }
-    return IS_FIND_LAST_INDEX ? -1 : undefined;
-  };
-};
-
-module.exports = {
-  // `Array.prototype.findLast` method
-  // https://github.com/tc39/proposal-array-find-from-last
-  findLast: createMethod(0),
-  // `Array.prototype.findLastIndex` method
-  // https://github.com/tc39/proposal-array-find-from-last
-  findLastIndex: createMethod(1)
-};
-
-
-/***/ }),
-
-/***/ 3853:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var $ = __webpack_require__(6518);
-var isDisjointFrom = __webpack_require__(4449);
-var setMethodAcceptSetLike = __webpack_require__(4916);
-
-var INCORRECT = !setMethodAcceptSetLike('isDisjointFrom', function (result) {
-  return !result;
-});
-
-// `Set.prototype.isDisjointFrom` method
-// https://tc39.es/ecma262/#sec-set.prototype.isdisjointfrom
-$({ target: 'Set', proto: true, real: true, forced: INCORRECT }, {
-  isDisjointFrom: isDisjointFrom
-});
-
-
-/***/ }),
-
-/***/ 3925:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var isObject = __webpack_require__(34);
-
-module.exports = function (argument) {
-  return isObject(argument) || argument === null;
-};
-
-
-/***/ }),
-
-/***/ 3972:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var isObject = __webpack_require__(34);
-
-var $String = String;
-var $TypeError = TypeError;
-
-module.exports = function (argument) {
-  if (argument === undefined || isObject(argument)) return argument;
-  throw new $TypeError($String(argument) + ' is not an object or undefined');
-};
-
-
-/***/ }),
-
-/***/ 4055:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var globalThis = __webpack_require__(4576);
-var isObject = __webpack_require__(34);
-
-var document = globalThis.document;
-// typeof document.createElement is 'object' in old IE
-var EXISTS = isObject(document) && isObject(document.createElement);
-
-module.exports = function (it) {
-  return EXISTS ? document.createElement(it) : {};
-};
-
-
-/***/ }),
-
-/***/ 4114:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var $ = __webpack_require__(6518);
-var toObject = __webpack_require__(8981);
-var lengthOfArrayLike = __webpack_require__(6198);
-var setArrayLength = __webpack_require__(4527);
-var doesNotExceedSafeInteger = __webpack_require__(6837);
-var fails = __webpack_require__(9039);
-
-var INCORRECT_TO_LENGTH = fails(function () {
-  return [].push.call({ length: 0x100000000 }, 1) !== 4294967297;
-});
-
-// V8 <= 121 and Safari <= 15.4; FF < 23 throws InternalError
-// https://bugs.chromium.org/p/v8/issues/detail?id=12681
-var properErrorOnNonWritableLength = function () {
-  try {
-    // eslint-disable-next-line es/no-object-defineproperty -- safe
-    Object.defineProperty([], 'length', { writable: false }).push();
-  } catch (error) {
-    return error instanceof TypeError;
-  }
-};
-
-var FORCED = INCORRECT_TO_LENGTH || !properErrorOnNonWritableLength();
-
-// `Array.prototype.push` method
-// https://tc39.es/ecma262/#sec-array.prototype.push
-$({ target: 'Array', proto: true, arity: 1, forced: FORCED }, {
-  // eslint-disable-next-line no-unused-vars -- required for `.length`
-  push: function push(item) {
-    var O = toObject(this);
-    var len = lengthOfArrayLike(O);
-    var argCount = arguments.length;
-    doesNotExceedSafeInteger(len + argCount);
-    for (var i = 0; i < argCount; i++) {
-      O[len] = arguments[i];
-      len++;
-    }
-    setArrayLength(O, len);
-    return len;
-  }
-});
-
-
-/***/ }),
-
-/***/ 4117:
-/***/ ((module) => {
-
-
-// we can't use just `it == null` since of `document.all` special case
-// https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot-aec
-module.exports = function (it) {
-  return it === null || it === undefined;
-};
-
-
-/***/ }),
-
-/***/ 4154:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var classof = __webpack_require__(6955);
-
-var $TypeError = TypeError;
-
-// Perform ? RequireInternalSlot(argument, [[TypedArrayName]])
-// If argument.[[TypedArrayName]] is not "Uint8Array", throw a TypeError exception
-module.exports = function (argument) {
-  if (classof(argument) === 'Uint8Array') return argument;
-  throw new $TypeError('Argument is not an Uint8Array');
-};
-
-
-/***/ }),
-
-/***/ 4204:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var aSet = __webpack_require__(7080);
-var add = (__webpack_require__(4402).add);
-var clone = __webpack_require__(9286);
-var getSetRecord = __webpack_require__(3789);
-var iterateSimple = __webpack_require__(507);
-
-// `Set.prototype.union` method
-// https://tc39.es/ecma262/#sec-set.prototype.union
-module.exports = function union(other) {
-  var O = aSet(this);
-  var keysIter = getSetRecord(other).getIterator();
-  var result = clone(O);
-  iterateSimple(keysIter, function (it) {
-    add(result, it);
-  });
-  return result;
-};
-
-
-/***/ }),
-
-/***/ 4209:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var wellKnownSymbol = __webpack_require__(8227);
-var Iterators = __webpack_require__(6269);
-
-var ITERATOR = wellKnownSymbol('iterator');
-var ArrayPrototype = Array.prototype;
-
-// check on default Array iterator
-module.exports = function (it) {
-  return it !== undefined && (Iterators.Array === it || ArrayPrototype[ITERATOR] === it);
-};
-
-
-/***/ }),
-
-/***/ 4215:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-/* global Bun, Deno -- detection */
-var globalThis = __webpack_require__(4576);
-var userAgent = __webpack_require__(2839);
-var classof = __webpack_require__(2195);
-
-var userAgentStartsWith = function (string) {
-  return userAgent.slice(0, string.length) === string;
-};
-
-module.exports = (function () {
-  if (userAgentStartsWith('Bun/')) return 'BUN';
-  if (userAgentStartsWith('Cloudflare-Workers')) return 'CLOUDFLARE';
-  if (userAgentStartsWith('Deno/')) return 'DENO';
-  if (userAgentStartsWith('Node.js/')) return 'NODE';
-  if (globalThis.Bun && typeof Bun.version == 'string') return 'BUN';
-  if (globalThis.Deno && typeof Deno.version == 'object') return 'DENO';
-  if (classof(globalThis.process) === 'process') return 'NODE';
-  if (globalThis.window && globalThis.document) return 'BROWSER';
-  return 'REST';
-})();
-
-
-/***/ }),
-
-/***/ 4226:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var $ = __webpack_require__(6518);
-var globalThis = __webpack_require__(4576);
-var aString = __webpack_require__(3463);
-var anUint8Array = __webpack_require__(4154);
+var uncurryThisAccessor = __webpack_require__(6706);
+var toIndex = __webpack_require__(7696);
 var notDetached = __webpack_require__(5169);
-var $fromHex = __webpack_require__(2303);
-
-// `Uint8Array.prototype.setFromHex` method
-// https://github.com/tc39/proposal-arraybuffer-base64
-if (globalThis.Uint8Array) $({ target: 'Uint8Array', proto: true }, {
-  setFromHex: function setFromHex(string) {
-    anUint8Array(this);
-    aString(string);
-    notDetached(this.buffer);
-    var read = $fromHex(string, this).read;
-    return { read: read, written: read / 2 };
-  }
-});
-
-
-/***/ }),
-
-/***/ 4235:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-// TODO: Remove from `core-js@4`
-__webpack_require__(3068);
-
-
-/***/ }),
-
-/***/ 4270:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var call = __webpack_require__(9565);
-var isCallable = __webpack_require__(4901);
-var isObject = __webpack_require__(34);
-
-var $TypeError = TypeError;
-
-// `OrdinaryToPrimitive` abstract operation
-// https://tc39.es/ecma262/#sec-ordinarytoprimitive
-module.exports = function (input, pref) {
-  var fn, val;
-  if (pref === 'string' && isCallable(fn = input.toString) && !isObject(val = call(fn, input))) return val;
-  if (isCallable(fn = input.valueOf) && !isObject(val = call(fn, input))) return val;
-  if (pref !== 'string' && isCallable(fn = input.toString) && !isObject(val = call(fn, input))) return val;
-  throw new $TypeError("Can't convert object to primitive value");
-};
-
-
-/***/ }),
-
-/***/ 4373:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var toObject = __webpack_require__(8981);
-var toAbsoluteIndex = __webpack_require__(5610);
-var lengthOfArrayLike = __webpack_require__(6198);
-
-// `Array.prototype.fill` method implementation
-// https://tc39.es/ecma262/#sec-array.prototype.fill
-module.exports = function fill(value /* , start = 0, end = @length */) {
-  var O = toObject(this);
-  var length = lengthOfArrayLike(O);
-  var argumentsLength = arguments.length;
-  var index = toAbsoluteIndex(argumentsLength > 1 ? arguments[1] : undefined, length);
-  var end = argumentsLength > 2 ? arguments[2] : undefined;
-  var endPos = end === undefined ? length : toAbsoluteIndex(end, length);
-  while (endPos > index) O[index++] = value;
-  return O;
-};
-
-
-/***/ }),
-
-/***/ 4376:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var classof = __webpack_require__(2195);
-
-// `IsArray` abstract operation
-// https://tc39.es/ecma262/#sec-isarray
-// eslint-disable-next-line es/no-array-isarray -- safe
-module.exports = Array.isArray || function isArray(argument) {
-  return classof(argument) === 'Array';
-};
-
-
-/***/ }),
-
-/***/ 4402:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var uncurryThis = __webpack_require__(9504);
-
-// eslint-disable-next-line es/no-set -- safe
-var SetPrototype = Set.prototype;
-
-module.exports = {
-  // eslint-disable-next-line es/no-set -- safe
-  Set: Set,
-  add: uncurryThis(SetPrototype.add),
-  has: uncurryThis(SetPrototype.has),
-  remove: uncurryThis(SetPrototype['delete']),
-  proto: SetPrototype
-};
-
-
-/***/ }),
-
-/***/ 4449:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var aSet = __webpack_require__(7080);
-var has = (__webpack_require__(4402).has);
-var size = __webpack_require__(5170);
-var getSetRecord = __webpack_require__(3789);
-var iterateSet = __webpack_require__(8469);
-var iterateSimple = __webpack_require__(507);
-var iteratorClose = __webpack_require__(9539);
-
-// `Set.prototype.isDisjointFrom` method
-// https://tc39.es/ecma262/#sec-set.prototype.isdisjointfrom
-module.exports = function isDisjointFrom(other) {
-  var O = aSet(this);
-  var otherRec = getSetRecord(other);
-  if (size(O) <= otherRec.size) return iterateSet(O, function (e) {
-    if (otherRec.includes(e)) return false;
-  }, true) !== false;
-  var iterator = otherRec.getIterator();
-  return iterateSimple(iterator, function (e) {
-    if (has(O, e)) return iteratorClose(iterator, 'normal', false);
-  }) !== false;
-};
-
-
-/***/ }),
-
-/***/ 4483:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var globalThis = __webpack_require__(4576);
-var getBuiltInNodeModule = __webpack_require__(9429);
+var arrayBufferByteLength = __webpack_require__(7394);
+var detachTransferable = __webpack_require__(4483);
 var PROPER_STRUCTURED_CLONE_TRANSFER = __webpack_require__(1548);
 
 var structuredClone = globalThis.structuredClone;
-var $ArrayBuffer = globalThis.ArrayBuffer;
-var $MessageChannel = globalThis.MessageChannel;
-var detach = false;
-var WorkerThreads, channel, buffer, $detach;
+var ArrayBuffer = globalThis.ArrayBuffer;
+var DataView = globalThis.DataView;
+var min = Math.min;
+var ArrayBufferPrototype = ArrayBuffer.prototype;
+var DataViewPrototype = DataView.prototype;
+var slice = uncurryThis(ArrayBufferPrototype.slice);
+var isResizable = uncurryThisAccessor(ArrayBufferPrototype, 'resizable', 'get');
+var maxByteLength = uncurryThisAccessor(ArrayBufferPrototype, 'maxByteLength', 'get');
+var getInt8 = uncurryThis(DataViewPrototype.getInt8);
+var setInt8 = uncurryThis(DataViewPrototype.setInt8);
 
-if (PROPER_STRUCTURED_CLONE_TRANSFER) {
-  detach = function (transferable) {
-    structuredClone(transferable, { transfer: [transferable] });
-  };
-} else if ($ArrayBuffer) try {
-  if (!$MessageChannel) {
-    WorkerThreads = getBuiltInNodeModule('worker_threads');
-    if (WorkerThreads) $MessageChannel = WorkerThreads.MessageChannel;
+module.exports = (PROPER_STRUCTURED_CLONE_TRANSFER || detachTransferable) && function (arrayBuffer, newLength, preserveResizability) {
+  var byteLength = arrayBufferByteLength(arrayBuffer);
+  var newByteLength = newLength === undefined ? byteLength : toIndex(newLength);
+  var fixedLength = !isResizable || !isResizable(arrayBuffer);
+  var newBuffer;
+  notDetached(arrayBuffer);
+  if (PROPER_STRUCTURED_CLONE_TRANSFER) {
+    arrayBuffer = structuredClone(arrayBuffer, { transfer: [arrayBuffer] });
+    if (byteLength === newByteLength && (preserveResizability || fixedLength)) return arrayBuffer;
   }
-
-  if ($MessageChannel) {
-    channel = new $MessageChannel();
-    buffer = new $ArrayBuffer(2);
-
-    $detach = function (transferable) {
-      channel.port1.postMessage(null, [transferable]);
-    };
-
-    if (buffer.byteLength === 2) {
-      $detach(buffer);
-      if (buffer.byteLength === 0) detach = $detach;
-    }
-  }
-} catch (error) { /* empty */ }
-
-module.exports = detach;
-
-
-/***/ }),
-
-/***/ 4488:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var arraySlice = __webpack_require__(7680);
-
-var floor = Math.floor;
-
-var sort = function (array, comparefn) {
-  var length = array.length;
-
-  if (length < 8) {
-    // insertion sort
-    var i = 1;
-    var element, j;
-
-    while (i < length) {
-      j = i;
-      element = array[i];
-      while (j && comparefn(array[j - 1], element) > 0) {
-        array[j] = array[--j];
-      }
-      if (j !== i++) array[j] = element;
-    }
+  if (byteLength >= newByteLength && (!preserveResizability || fixedLength)) {
+    newBuffer = slice(arrayBuffer, 0, newByteLength);
   } else {
-    // merge sort
-    var middle = floor(length / 2);
-    var left = sort(arraySlice(array, 0, middle), comparefn);
-    var right = sort(arraySlice(array, middle), comparefn);
-    var llength = left.length;
-    var rlength = right.length;
-    var lindex = 0;
-    var rindex = 0;
-
-    while (lindex < llength || rindex < rlength) {
-      array[lindex + rindex] = (lindex < llength && rindex < rlength)
-        ? comparefn(left[lindex], right[rindex]) <= 0 ? left[lindex++] : right[rindex++]
-        : lindex < llength ? left[lindex++] : right[rindex++];
-    }
+    var options = preserveResizability && !fixedLength && maxByteLength ? { maxByteLength: maxByteLength(arrayBuffer) } : undefined;
+    newBuffer = new ArrayBuffer(newByteLength, options);
+    var a = new DataView(arrayBuffer);
+    var b = new DataView(newBuffer);
+    var copyLength = min(newByteLength, byteLength);
+    for (var i = 0; i < copyLength; i++) setInt8(b, i, getInt8(a, i));
   }
-
-  return array;
-};
-
-module.exports = sort;
-
-
-/***/ }),
-
-/***/ 4495:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-/* eslint-disable es/no-symbol -- required for testing */
-var V8_VERSION = __webpack_require__(9519);
-var fails = __webpack_require__(9039);
-var globalThis = __webpack_require__(4576);
-
-var $String = globalThis.String;
-
-// eslint-disable-next-line es/no-object-getownpropertysymbols -- required for testing
-module.exports = !!Object.getOwnPropertySymbols && !fails(function () {
-  var symbol = Symbol('symbol detection');
-  // Chrome 38 Symbol has incorrect toString conversion
-  // `get-own-property-symbols` polyfill symbols converted to object are not Symbol instances
-  // nb: Do not call `String` directly to avoid this being optimized out to `symbol+''` which will,
-  // of course, fail.
-  return !$String(symbol) || !(Object(symbol) instanceof Symbol) ||
-    // Chrome 38-40 symbols are not inherited from DOM collections prototypes to instances
-    !Symbol.sham && V8_VERSION && V8_VERSION < 41;
-});
-
-
-/***/ }),
-
-/***/ 4527:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var DESCRIPTORS = __webpack_require__(3724);
-var isArray = __webpack_require__(4376);
-
-var $TypeError = TypeError;
-// eslint-disable-next-line es/no-object-getownpropertydescriptor -- safe
-var getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
-
-// Safari < 13 does not throw an error in this case
-var SILENT_ON_NON_WRITABLE_LENGTH_SET = DESCRIPTORS && !function () {
-  // makes no sense without proper strict mode support
-  if (this !== undefined) return true;
-  try {
-    // eslint-disable-next-line es/no-object-defineproperty -- safe
-    Object.defineProperty([], 'length', { writable: false }).length = 1;
-  } catch (error) {
-    return error instanceof TypeError;
-  }
-}();
-
-module.exports = SILENT_ON_NON_WRITABLE_LENGTH_SET ? function (O, length) {
-  if (isArray(O) && !getOwnPropertyDescriptor(O, 'length').writable) {
-    throw new $TypeError('Cannot set read only .length');
-  } return O.length = length;
-} : function (O, length) {
-  return O.length = length;
+  if (!PROPER_STRUCTURED_CLONE_TRANSFER) detachTransferable(arrayBuffer);
+  return newBuffer;
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ 4549:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var globalThis = __webpack_require__(4576);
-
-// https://github.com/tc39/ecma262/pull/3467
-module.exports = function (METHOD_NAME, ExpectedError) {
-  var Iterator = globalThis.Iterator;
-  var IteratorPrototype = Iterator && Iterator.prototype;
-  var method = IteratorPrototype && IteratorPrototype[METHOD_NAME];
-
-  var CLOSED = false;
-
-  if (method) try {
-    method.call({
-      next: function () { return { done: true }; },
-      'return': function () { CLOSED = true; }
-    }, -1);
-  } catch (error) {
-    // https://bugs.webkit.org/show_bug.cgi?id=291195
-    if (!(error instanceof ExpectedError)) CLOSED = false;
-  }
-
-  if (!CLOSED) return method;
-};
-
-
-/***/ }),
-
-/***/ 4576:
-/***/ (function(module) {
-
-
-var check = function (it) {
-  return it && it.Math === Math && it;
-};
-
-// https://github.com/zloirock/core-js/issues/86#issuecomment-115759028
-module.exports =
-  // eslint-disable-next-line es/no-global-this -- safe
-  check(typeof globalThis == 'object' && globalThis) ||
-  check(typeof window == 'object' && window) ||
-  // eslint-disable-next-line no-restricted-globals -- safe
-  check(typeof self == 'object' && self) ||
-  check(typeof global == 'object' && global) ||
-  check(typeof this == 'object' && this) ||
-  // eslint-disable-next-line no-new-func -- fallback
-  (function () { return this; })() || Function('return this')();
-
-
-/***/ }),
-
-/***/ 4601:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var getBuiltIn = __webpack_require__(7751);
-var hasOwn = __webpack_require__(9297);
-var createNonEnumerableProperty = __webpack_require__(6699);
-var isPrototypeOf = __webpack_require__(1625);
-var setPrototypeOf = __webpack_require__(2967);
-var copyConstructorProperties = __webpack_require__(7740);
-var proxyAccessor = __webpack_require__(1056);
-var inheritIfRequired = __webpack_require__(3167);
-var normalizeStringArgument = __webpack_require__(2603);
-var installErrorCause = __webpack_require__(7584);
-var installErrorStack = __webpack_require__(747);
-var DESCRIPTORS = __webpack_require__(3724);
-var IS_PURE = __webpack_require__(6395);
-
-module.exports = function (FULL_NAME, wrapper, FORCED, IS_AGGREGATE_ERROR) {
-  var STACK_TRACE_LIMIT = 'stackTraceLimit';
-  var OPTIONS_POSITION = IS_AGGREGATE_ERROR ? 2 : 1;
-  var path = FULL_NAME.split('.');
-  var ERROR_NAME = path[path.length - 1];
-  var OriginalError = getBuiltIn.apply(null, path);
-
-  if (!OriginalError) return;
-
-  var OriginalErrorPrototype = OriginalError.prototype;
-
-  // V8 9.3- bug https://bugs.chromium.org/p/v8/issues/detail?id=12006
-  if (!IS_PURE && hasOwn(OriginalErrorPrototype, 'cause')) delete OriginalErrorPrototype.cause;
-
-  if (!FORCED) return OriginalError;
-
-  var BaseError = getBuiltIn('Error');
-
-  var WrappedError = wrapper(function (a, b) {
-    var message = normalizeStringArgument(IS_AGGREGATE_ERROR ? b : a, undefined);
-    var result = IS_AGGREGATE_ERROR ? new OriginalError(a) : new OriginalError();
-    if (message !== undefined) createNonEnumerableProperty(result, 'message', message);
-    installErrorStack(result, WrappedError, result.stack, 2);
-    if (this && isPrototypeOf(OriginalErrorPrototype, this)) inheritIfRequired(result, this, WrappedError);
-    if (arguments.length > OPTIONS_POSITION) installErrorCause(result, arguments[OPTIONS_POSITION]);
-    return result;
-  });
-
-  WrappedError.prototype = OriginalErrorPrototype;
-
-  if (ERROR_NAME !== 'Error') {
-    if (setPrototypeOf) setPrototypeOf(WrappedError, BaseError);
-    else copyConstructorProperties(WrappedError, BaseError, { name: true });
-  } else if (DESCRIPTORS && STACK_TRACE_LIMIT in OriginalError) {
-    proxyAccessor(WrappedError, OriginalError, STACK_TRACE_LIMIT);
-    proxyAccessor(WrappedError, OriginalError, 'prepareStackTrace');
-  }
-
-  copyConstructorProperties(WrappedError, OriginalError);
-
-  if (!IS_PURE) try {
-    // Safari 13- bug: WebAssembly errors does not have a proper `.name`
-    if (OriginalErrorPrototype.name !== ERROR_NAME) {
-      createNonEnumerableProperty(OriginalErrorPrototype, 'name', ERROR_NAME);
-    }
-    OriginalErrorPrototype.constructor = WrappedError;
-  } catch (error) { /* empty */ }
-
-  return WrappedError;
-};
-
-
-/***/ }),
-
-/***/ 4603:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var defineBuiltIn = __webpack_require__(6840);
-var uncurryThis = __webpack_require__(9504);
-var toString = __webpack_require__(655);
-var validateArgumentsLength = __webpack_require__(2812);
-
-var $URLSearchParams = URLSearchParams;
-var URLSearchParamsPrototype = $URLSearchParams.prototype;
-var append = uncurryThis(URLSearchParamsPrototype.append);
-var $delete = uncurryThis(URLSearchParamsPrototype['delete']);
-var forEach = uncurryThis(URLSearchParamsPrototype.forEach);
-var push = uncurryThis([].push);
-var params = new $URLSearchParams('a=1&a=2&b=3');
-
-params['delete']('a', 1);
-// `undefined` case is a Chromium 117 bug
-// https://bugs.chromium.org/p/v8/issues/detail?id=14222
-params['delete']('b', undefined);
-
-if (params + '' !== 'a=2') {
-  defineBuiltIn(URLSearchParamsPrototype, 'delete', function (name /* , value */) {
-    var length = arguments.length;
-    var $value = length < 2 ? undefined : arguments[1];
-    if (length && $value === undefined) return $delete(this, name);
-    var entries = [];
-    forEach(this, function (v, k) { // also validates `this`
-      push(entries, { key: k, value: v });
-    });
-    validateArgumentsLength(length, 1);
-    var key = toString(name);
-    var value = toString($value);
-    var index = 0;
-    var dindex = 0;
-    var found = false;
-    var entriesLength = entries.length;
-    var entry;
-    while (index < entriesLength) {
-      entry = entries[index++];
-      if (found || entry.key === key) {
-        found = true;
-        $delete(this, entry.key);
-      } else dindex++;
-    }
-    while (dindex < entriesLength) {
-      entry = entries[dindex++];
-      if (!(entry.key === key && entry.value === value)) append(this, entry.key, entry.value);
-    }
-  }, { enumerable: true, unsafe: true });
-}
-
-
-/***/ }),
-
-/***/ 4606:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var tryToString = __webpack_require__(6823);
-
-var $TypeError = TypeError;
-
-module.exports = function (O, P) {
-  if (!delete O[P]) throw new $TypeError('Cannot delete property ' + tryToString(P) + ' of ' + tryToString(O));
-};
-
-
-/***/ }),
-
-/***/ 4628:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var $ = __webpack_require__(6518);
-var newPromiseCapabilityModule = __webpack_require__(6043);
-
-// `Promise.withResolvers` method
-// https://tc39.es/ecma262/#sec-promise.withResolvers
-$({ target: 'Promise', stat: true }, {
-  withResolvers: function withResolvers() {
-    var promiseCapability = newPromiseCapabilityModule.f(this);
-    return {
-      promise: promiseCapability.promise,
-      resolve: promiseCapability.resolve,
-      reject: promiseCapability.reject
-    };
-  }
-});
-
-
-/***/ }),
-
-/***/ 4644:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+/***/ 4644
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
 var NATIVE_ARRAY_BUFFER = __webpack_require__(7811);
@@ -3218,266 +509,665 @@ module.exports = {
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ 4659:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var fails = __webpack_require__(9039);
-var createPropertyDescriptor = __webpack_require__(6980);
-
-module.exports = !fails(function () {
-  var error = new Error('a');
-  if (!('stack' in error)) return true;
-  // eslint-disable-next-line es/no-object-defineproperty -- safe
-  Object.defineProperty(error, 'stack', createPropertyDescriptor(1, 7));
-  return error.stack !== 7;
-});
+/***/ 4373
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
-/***/ }),
+var toObject = __webpack_require__(8981);
+var toAbsoluteIndex = __webpack_require__(5610);
+var lengthOfArrayLike = __webpack_require__(6198);
 
-/***/ 4732:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var ArrayBufferViewCore = __webpack_require__(4644);
-var uncurryThis = __webpack_require__(9504);
-var aCallable = __webpack_require__(9306);
-var arrayFromConstructorAndList = __webpack_require__(5370);
-
-var aTypedArray = ArrayBufferViewCore.aTypedArray;
-var getTypedArrayConstructor = ArrayBufferViewCore.getTypedArrayConstructor;
-var exportTypedArrayMethod = ArrayBufferViewCore.exportTypedArrayMethod;
-var sort = uncurryThis(ArrayBufferViewCore.TypedArrayPrototype.sort);
-
-// `%TypedArray%.prototype.toSorted` method
-// https://tc39.es/ecma262/#sec-%typedarray%.prototype.tosorted
-exportTypedArrayMethod('toSorted', function toSorted(compareFn) {
-  if (compareFn !== undefined) aCallable(compareFn);
-  var O = aTypedArray(this);
-  var A = arrayFromConstructorAndList(getTypedArrayConstructor(O), O);
-  return sort(A, compareFn);
-});
-
-
-/***/ }),
-
-/***/ 4901:
-/***/ ((module) => {
-
-
-// https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
-var documentAll = typeof document == 'object' && document.all;
-
-// `IsCallable` abstract operation
-// https://tc39.es/ecma262/#sec-iscallable
-// eslint-disable-next-line unicorn/no-typeof-undefined -- required for testing
-module.exports = typeof documentAll == 'undefined' && documentAll !== undefined ? function (argument) {
-  return typeof argument == 'function' || argument === documentAll;
-} : function (argument) {
-  return typeof argument == 'function';
-};
-
-
-/***/ }),
-
-/***/ 4913:
-/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
-
-
-var DESCRIPTORS = __webpack_require__(3724);
-var IE8_DOM_DEFINE = __webpack_require__(5917);
-var V8_PROTOTYPE_DEFINE_BUG = __webpack_require__(8686);
-var anObject = __webpack_require__(8551);
-var toPropertyKey = __webpack_require__(6969);
-
-var $TypeError = TypeError;
-// eslint-disable-next-line es/no-object-defineproperty -- safe
-var $defineProperty = Object.defineProperty;
-// eslint-disable-next-line es/no-object-getownpropertydescriptor -- safe
-var $getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
-var ENUMERABLE = 'enumerable';
-var CONFIGURABLE = 'configurable';
-var WRITABLE = 'writable';
-
-// `Object.defineProperty` method
-// https://tc39.es/ecma262/#sec-object.defineproperty
-exports.f = DESCRIPTORS ? V8_PROTOTYPE_DEFINE_BUG ? function defineProperty(O, P, Attributes) {
-  anObject(O);
-  P = toPropertyKey(P);
-  anObject(Attributes);
-  if (typeof O === 'function' && P === 'prototype' && 'value' in Attributes && WRITABLE in Attributes && !Attributes[WRITABLE]) {
-    var current = $getOwnPropertyDescriptor(O, P);
-    if (current && current[WRITABLE]) {
-      O[P] = Attributes.value;
-      Attributes = {
-        configurable: CONFIGURABLE in Attributes ? Attributes[CONFIGURABLE] : current[CONFIGURABLE],
-        enumerable: ENUMERABLE in Attributes ? Attributes[ENUMERABLE] : current[ENUMERABLE],
-        writable: false
-      };
-    }
-  } return $defineProperty(O, P, Attributes);
-} : $defineProperty : function defineProperty(O, P, Attributes) {
-  anObject(O);
-  P = toPropertyKey(P);
-  anObject(Attributes);
-  if (IE8_DOM_DEFINE) try {
-    return $defineProperty(O, P, Attributes);
-  } catch (error) { /* empty */ }
-  if ('get' in Attributes || 'set' in Attributes) throw new $TypeError('Accessors not supported');
-  if ('value' in Attributes) O[P] = Attributes.value;
+// `Array.prototype.fill` method implementation
+// https://tc39.es/ecma262/#sec-array.prototype.fill
+module.exports = function fill(value /* , start = 0, end = @length */) {
+  var O = toObject(this);
+  var length = lengthOfArrayLike(O);
+  var argumentsLength = arguments.length;
+  var index = toAbsoluteIndex(argumentsLength > 1 ? arguments[1] : undefined, length);
+  var end = argumentsLength > 2 ? arguments[2] : undefined;
+  var endPos = end === undefined ? length : toAbsoluteIndex(end, length);
+  while (endPos > index) O[index++] = value;
   return O;
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ 4916:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+/***/ 5370
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
-var getBuiltIn = __webpack_require__(7751);
+var lengthOfArrayLike = __webpack_require__(6198);
 
-var createSetLike = function (size) {
-  return {
-    size: size,
-    has: function () {
-      return false;
-    },
-    keys: function () {
-      return {
-        next: function () {
-          return { done: true };
-        }
-      };
-    }
+module.exports = function (Constructor, list, $length) {
+  var index = 0;
+  var length = arguments.length > 2 ? $length : lengthOfArrayLike(list);
+  var result = new Constructor(length);
+  while (length > index) result[index] = list[index++];
+  return result;
+};
+
+
+/***/ },
+
+/***/ 9617
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var toIndexedObject = __webpack_require__(5397);
+var toAbsoluteIndex = __webpack_require__(5610);
+var lengthOfArrayLike = __webpack_require__(6198);
+
+// `Array.prototype.{ indexOf, includes }` methods implementation
+var createMethod = function (IS_INCLUDES) {
+  return function ($this, el, fromIndex) {
+    var O = toIndexedObject($this);
+    var length = lengthOfArrayLike(O);
+    if (length === 0) return !IS_INCLUDES && -1;
+    var index = toAbsoluteIndex(fromIndex, length);
+    var value;
+    // Array#includes uses SameValueZero equality algorithm
+    // eslint-disable-next-line no-self-compare -- NaN check
+    if (IS_INCLUDES && el !== el) while (length > index) {
+      value = O[index++];
+      // eslint-disable-next-line no-self-compare -- NaN check
+      if (value !== value) return true;
+    // Array#indexOf ignores holes, Array#includes - not
+    } else for (;length > index; index++) {
+      if ((IS_INCLUDES || index in O) && O[index] === el) return IS_INCLUDES || index || 0;
+    } return !IS_INCLUDES && -1;
   };
 };
 
-var createSetLikeWithInfinitySize = function (size) {
-  return {
-    size: size,
-    has: function () {
-      return true;
-    },
-    keys: function () {
-      throw new Error('e');
-    }
-  };
+module.exports = {
+  // `Array.prototype.includes` method
+  // https://tc39.es/ecma262/#sec-array.prototype.includes
+  includes: createMethod(true),
+  // `Array.prototype.indexOf` method
+  // https://tc39.es/ecma262/#sec-array.prototype.indexof
+  indexOf: createMethod(false)
 };
 
-module.exports = function (name, callback) {
-  var Set = getBuiltIn('Set');
-  try {
-    new Set()[name](createSetLike(0));
-    try {
-      // late spec change, early WebKit ~ Safari 17 implementation does not pass it
-      // https://github.com/tc39/proposal-set-methods/pull/88
-      // also covered engines with
-      // https://bugs.webkit.org/show_bug.cgi?id=272679
-      new Set()[name](createSetLike(-1));
-      return false;
-    } catch (error2) {
-      if (!callback) return true;
-      // early V8 implementation bug
-      // https://issues.chromium.org/issues/351332634
-      try {
-        new Set()[name](createSetLikeWithInfinitySize(-Infinity));
-        return false;
-      } catch (error) {
-        var set = new Set();
-        set.add(1);
-        set.add(2);
-        return callback(set[name](createSetLikeWithInfinitySize(Infinity)));
+
+/***/ },
+
+/***/ 3839
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var bind = __webpack_require__(6080);
+var IndexedObject = __webpack_require__(7055);
+var toObject = __webpack_require__(8981);
+var lengthOfArrayLike = __webpack_require__(6198);
+
+// `Array.prototype.{ findLast, findLastIndex }` methods implementation
+var createMethod = function (TYPE) {
+  var IS_FIND_LAST_INDEX = TYPE === 1;
+  return function ($this, callbackfn, that) {
+    var O = toObject($this);
+    var self = IndexedObject(O);
+    var index = lengthOfArrayLike(self);
+    var boundFunction = bind(callbackfn, that);
+    var value, result;
+    while (index-- > 0) {
+      value = self[index];
+      result = boundFunction(value, index, O);
+      if (result) switch (TYPE) {
+        case 0: return value; // findLast
+        case 1: return index; // findLastIndex
       }
     }
-  } catch (error) {
-    return false;
-  }
+    return IS_FIND_LAST_INDEX ? -1 : undefined;
+  };
+};
+
+module.exports = {
+  // `Array.prototype.findLast` method
+  // https://github.com/tc39/proposal-array-find-from-last
+  findLast: createMethod(0),
+  // `Array.prototype.findLastIndex` method
+  // https://github.com/tc39/proposal-array-find-from-last
+  findLastIndex: createMethod(1)
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ 4979:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
+/***/ 4527
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
-var $ = __webpack_require__(6518);
-var globalThis = __webpack_require__(4576);
-var getBuiltIn = __webpack_require__(7751);
-var createPropertyDescriptor = __webpack_require__(6980);
-var defineProperty = (__webpack_require__(4913).f);
-var hasOwn = __webpack_require__(9297);
-var anInstance = __webpack_require__(679);
-var inheritIfRequired = __webpack_require__(3167);
-var normalizeStringArgument = __webpack_require__(2603);
-var DOMExceptionConstants = __webpack_require__(5002);
-var clearErrorStack = __webpack_require__(6193);
 var DESCRIPTORS = __webpack_require__(3724);
-var IS_PURE = __webpack_require__(6395);
+var isArray = __webpack_require__(4376);
 
-var DOM_EXCEPTION = 'DOMException';
-var Error = getBuiltIn('Error');
-var NativeDOMException = getBuiltIn(DOM_EXCEPTION);
+var $TypeError = TypeError;
+// eslint-disable-next-line es/no-object-getownpropertydescriptor -- safe
+var getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
 
-var $DOMException = function DOMException() {
-  anInstance(this, DOMExceptionPrototype);
-  var argumentsLength = arguments.length;
-  var message = normalizeStringArgument(argumentsLength < 1 ? undefined : arguments[0]);
-  var name = normalizeStringArgument(argumentsLength < 2 ? undefined : arguments[1], 'Error');
-  var that = new NativeDOMException(message, name);
-  var error = new Error(message);
-  error.name = DOM_EXCEPTION;
-  defineProperty(that, 'stack', createPropertyDescriptor(1, clearErrorStack(error.stack, 1)));
-  inheritIfRequired(that, this, $DOMException);
-  return that;
+// Safari < 13 does not throw an error in this case
+var SILENT_ON_NON_WRITABLE_LENGTH_SET = DESCRIPTORS && !function () {
+  // makes no sense without proper strict mode support
+  if (this !== undefined) return true;
+  try {
+    // eslint-disable-next-line es/no-object-defineproperty -- safe
+    Object.defineProperty([], 'length', { writable: false }).length = 1;
+  } catch (error) {
+    return error instanceof TypeError;
+  }
+}();
+
+module.exports = SILENT_ON_NON_WRITABLE_LENGTH_SET ? function (O, length) {
+  if (isArray(O) && !getOwnPropertyDescriptor(O, 'length').writable) {
+    throw new $TypeError('Cannot set read only .length');
+  } return O.length = length;
+} : function (O, length) {
+  return O.length = length;
 };
 
-var DOMExceptionPrototype = $DOMException.prototype = NativeDOMException.prototype;
 
-var ERROR_HAS_STACK = 'stack' in new Error(DOM_EXCEPTION);
-var DOM_EXCEPTION_HAS_STACK = 'stack' in new NativeDOMException(1, 2);
+/***/ },
 
-// eslint-disable-next-line es/no-object-getownpropertydescriptor -- safe
-var descriptor = NativeDOMException && DESCRIPTORS && Object.getOwnPropertyDescriptor(globalThis, DOM_EXCEPTION);
+/***/ 7680
+(module, __unused_webpack_exports, __webpack_require__) {
 
-// Bun ~ 0.1.1 DOMException have incorrect descriptor and we can't redefine it
-// https://github.com/Jarred-Sumner/bun/issues/399
-var BUGGY_DESCRIPTOR = !!descriptor && !(descriptor.writable && descriptor.configurable);
 
-var FORCED_CONSTRUCTOR = ERROR_HAS_STACK && !BUGGY_DESCRIPTOR && !DOM_EXCEPTION_HAS_STACK;
+var uncurryThis = __webpack_require__(9504);
 
-// `DOMException` constructor patch for `.stack` where it's required
-// https://webidl.spec.whatwg.org/#es-DOMException-specialness
-$({ global: true, constructor: true, forced: IS_PURE || FORCED_CONSTRUCTOR }, { // TODO: fix export logic
-  DOMException: FORCED_CONSTRUCTOR ? $DOMException : NativeDOMException
-});
+module.exports = uncurryThis([].slice);
 
-var PolyfilledDOMException = getBuiltIn(DOM_EXCEPTION);
-var PolyfilledDOMExceptionPrototype = PolyfilledDOMException.prototype;
 
-if (PolyfilledDOMExceptionPrototype.constructor !== PolyfilledDOMException) {
-  if (!IS_PURE) {
-    defineProperty(PolyfilledDOMExceptionPrototype, 'constructor', createPropertyDescriptor(1, PolyfilledDOMException));
-  }
+/***/ },
 
-  for (var key in DOMExceptionConstants) if (hasOwn(DOMExceptionConstants, key)) {
-    var constant = DOMExceptionConstants[key];
-    var constantName = constant.s;
-    if (!hasOwn(PolyfilledDOMException, constantName)) {
-      defineProperty(PolyfilledDOMException, constantName, createPropertyDescriptor(6, constant.c));
+/***/ 4488
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var arraySlice = __webpack_require__(7680);
+
+var floor = Math.floor;
+
+var sort = function (array, comparefn) {
+  var length = array.length;
+
+  if (length < 8) {
+    // insertion sort
+    var i = 1;
+    var element, j;
+
+    while (i < length) {
+      j = i;
+      element = array[i];
+      while (j && comparefn(array[j - 1], element) > 0) {
+        array[j] = array[--j];
+      }
+      if (j !== i++) array[j] = element;
+    }
+  } else {
+    // merge sort
+    var middle = floor(length / 2);
+    var left = sort(arraySlice(array, 0, middle), comparefn);
+    var right = sort(arraySlice(array, middle), comparefn);
+    var llength = left.length;
+    var rlength = right.length;
+    var lindex = 0;
+    var rindex = 0;
+
+    while (lindex < llength || rindex < rlength) {
+      array[lindex + rindex] = (lindex < llength && rindex < rlength)
+        ? comparefn(left[lindex], right[rindex]) <= 0 ? left[lindex++] : right[rindex++]
+        : lindex < llength ? left[lindex++] : right[rindex++];
     }
   }
-}
+
+  return array;
+};
+
+module.exports = sort;
 
 
-/***/ }),
+/***/ },
 
-/***/ 5002:
-/***/ ((module) => {
+/***/ 7628
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var lengthOfArrayLike = __webpack_require__(6198);
+
+// https://tc39.es/ecma262/#sec-array.prototype.toreversed
+// https://tc39.es/ecma262/#sec-%typedarray%.prototype.toreversed
+module.exports = function (O, C) {
+  var len = lengthOfArrayLike(O);
+  var A = new C(len);
+  var k = 0;
+  for (; k < len; k++) A[k] = O[len - k - 1];
+  return A;
+};
+
+
+/***/ },
+
+/***/ 9928
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var lengthOfArrayLike = __webpack_require__(6198);
+var toIntegerOrInfinity = __webpack_require__(1291);
+
+var $RangeError = RangeError;
+
+// https://tc39.es/ecma262/#sec-array.prototype.with
+// https://tc39.es/ecma262/#sec-%typedarray%.prototype.with
+module.exports = function (O, C, index, value) {
+  var len = lengthOfArrayLike(O);
+  var relativeIndex = toIntegerOrInfinity(index);
+  var actualIndex = relativeIndex < 0 ? len + relativeIndex : relativeIndex;
+  if (actualIndex >= len || actualIndex < 0) throw new $RangeError('Incorrect index');
+  var A = new C(len);
+  var k = 0;
+  for (; k < len; k++) A[k] = k === actualIndex ? value : O[k];
+  return A;
+};
+
+
+/***/ },
+
+/***/ 2804
+(module) {
+
+
+var commonAlphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+var base64Alphabet = commonAlphabet + '+/';
+var base64UrlAlphabet = commonAlphabet + '-_';
+
+var inverse = function (characters) {
+  // TODO: use `Object.create(null)` in `core-js@4`
+  var result = {};
+  var index = 0;
+  for (; index < 64; index++) result[characters.charAt(index)] = index;
+  return result;
+};
+
+module.exports = {
+  i2c: base64Alphabet,
+  c2i: inverse(base64Alphabet),
+  i2cUrl: base64UrlAlphabet,
+  c2iUrl: inverse(base64UrlAlphabet)
+};
+
+
+/***/ },
+
+/***/ 6319
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var anObject = __webpack_require__(8551);
+var iteratorClose = __webpack_require__(9539);
+
+// call something on iterator step with safe closing on error
+module.exports = function (iterator, fn, value, ENTRIES) {
+  try {
+    return ENTRIES ? fn(anObject(value)[0], value[1]) : fn(value);
+  } catch (error) {
+    iteratorClose(iterator, 'throw', error);
+  }
+};
+
+
+/***/ },
+
+/***/ 2195
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var uncurryThis = __webpack_require__(9504);
+
+var toString = uncurryThis({}.toString);
+var stringSlice = uncurryThis(''.slice);
+
+module.exports = function (it) {
+  return stringSlice(toString(it), 8, -1);
+};
+
+
+/***/ },
+
+/***/ 6955
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var TO_STRING_TAG_SUPPORT = __webpack_require__(2140);
+var isCallable = __webpack_require__(4901);
+var classofRaw = __webpack_require__(2195);
+var wellKnownSymbol = __webpack_require__(8227);
+
+var TO_STRING_TAG = wellKnownSymbol('toStringTag');
+var $Object = Object;
+
+// ES3 wrong here
+var CORRECT_ARGUMENTS = classofRaw(function () { return arguments; }()) === 'Arguments';
+
+// fallback for IE11 Script Access Denied error
+var tryGet = function (it, key) {
+  try {
+    return it[key];
+  } catch (error) { /* empty */ }
+};
+
+// getting tag from ES6+ `Object.prototype.toString`
+module.exports = TO_STRING_TAG_SUPPORT ? classofRaw : function (it) {
+  var O, tag, result;
+  return it === undefined ? 'Undefined' : it === null ? 'Null'
+    // @@toStringTag case
+    : typeof (tag = tryGet(O = $Object(it), TO_STRING_TAG)) == 'string' ? tag
+    // builtinTag case
+    : CORRECT_ARGUMENTS ? classofRaw(O)
+    // ES3 arguments fallback
+    : (result = classofRaw(O)) === 'Object' && isCallable(O.callee) ? 'Arguments' : result;
+};
+
+
+/***/ },
+
+/***/ 7740
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var hasOwn = __webpack_require__(9297);
+var ownKeys = __webpack_require__(5031);
+var getOwnPropertyDescriptorModule = __webpack_require__(7347);
+var definePropertyModule = __webpack_require__(4913);
+
+module.exports = function (target, source, exceptions) {
+  var keys = ownKeys(source);
+  var defineProperty = definePropertyModule.f;
+  var getOwnPropertyDescriptor = getOwnPropertyDescriptorModule.f;
+  for (var i = 0; i < keys.length; i++) {
+    var key = keys[i];
+    if (!hasOwn(target, key) && !(exceptions && hasOwn(exceptions, key))) {
+      defineProperty(target, key, getOwnPropertyDescriptor(source, key));
+    }
+  }
+};
+
+
+/***/ },
+
+/***/ 2211
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var fails = __webpack_require__(9039);
+
+module.exports = !fails(function () {
+  function F() { /* empty */ }
+  F.prototype.constructor = null;
+  // eslint-disable-next-line es/no-object-getprototypeof -- required for testing
+  return Object.getPrototypeOf(new F()) !== F.prototype;
+});
+
+
+/***/ },
+
+/***/ 2529
+(module) {
+
+
+// `CreateIterResultObject` abstract operation
+// https://tc39.es/ecma262/#sec-createiterresultobject
+module.exports = function (value, done) {
+  return { value: value, done: done };
+};
+
+
+/***/ },
+
+/***/ 6699
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var DESCRIPTORS = __webpack_require__(3724);
+var definePropertyModule = __webpack_require__(4913);
+var createPropertyDescriptor = __webpack_require__(6980);
+
+module.exports = DESCRIPTORS ? function (object, key, value) {
+  return definePropertyModule.f(object, key, createPropertyDescriptor(1, value));
+} : function (object, key, value) {
+  object[key] = value;
+  return object;
+};
+
+
+/***/ },
+
+/***/ 6980
+(module) {
+
+
+module.exports = function (bitmap, value) {
+  return {
+    enumerable: !(bitmap & 1),
+    configurable: !(bitmap & 2),
+    writable: !(bitmap & 4),
+    value: value
+  };
+};
+
+
+/***/ },
+
+/***/ 2278
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var DESCRIPTORS = __webpack_require__(3724);
+var definePropertyModule = __webpack_require__(4913);
+var createPropertyDescriptor = __webpack_require__(6980);
+
+module.exports = function (object, key, value) {
+  if (DESCRIPTORS) definePropertyModule.f(object, key, createPropertyDescriptor(0, value));
+  else object[key] = value;
+};
+
+
+/***/ },
+
+/***/ 2106
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var makeBuiltIn = __webpack_require__(283);
+var defineProperty = __webpack_require__(4913);
+
+module.exports = function (target, name, descriptor) {
+  if (descriptor.get) makeBuiltIn(descriptor.get, name, { getter: true });
+  if (descriptor.set) makeBuiltIn(descriptor.set, name, { setter: true });
+  return defineProperty.f(target, name, descriptor);
+};
+
+
+/***/ },
+
+/***/ 6840
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var isCallable = __webpack_require__(4901);
+var definePropertyModule = __webpack_require__(4913);
+var makeBuiltIn = __webpack_require__(283);
+var defineGlobalProperty = __webpack_require__(9433);
+
+module.exports = function (O, key, value, options) {
+  if (!options) options = {};
+  var simple = options.enumerable;
+  var name = options.name !== undefined ? options.name : key;
+  if (isCallable(value)) makeBuiltIn(value, name, options);
+  if (options.global) {
+    if (simple) O[key] = value;
+    else defineGlobalProperty(key, value);
+  } else {
+    try {
+      if (!options.unsafe) delete O[key];
+      else if (O[key]) simple = true;
+    } catch (error) { /* empty */ }
+    if (simple) O[key] = value;
+    else definePropertyModule.f(O, key, {
+      value: value,
+      enumerable: false,
+      configurable: !options.nonConfigurable,
+      writable: !options.nonWritable
+    });
+  } return O;
+};
+
+
+/***/ },
+
+/***/ 6279
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var defineBuiltIn = __webpack_require__(6840);
+
+module.exports = function (target, src, options) {
+  for (var key in src) defineBuiltIn(target, key, src[key], options);
+  return target;
+};
+
+
+/***/ },
+
+/***/ 9433
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var globalThis = __webpack_require__(4576);
+
+// eslint-disable-next-line es/no-object-defineproperty -- safe
+var defineProperty = Object.defineProperty;
+
+module.exports = function (key, value) {
+  try {
+    defineProperty(globalThis, key, { value: value, configurable: true, writable: true });
+  } catch (error) {
+    globalThis[key] = value;
+  } return value;
+};
+
+
+/***/ },
+
+/***/ 4606
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var tryToString = __webpack_require__(6823);
+
+var $TypeError = TypeError;
+
+module.exports = function (O, P) {
+  if (!delete O[P]) throw new $TypeError('Cannot delete property ' + tryToString(P) + ' of ' + tryToString(O));
+};
+
+
+/***/ },
+
+/***/ 3724
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var fails = __webpack_require__(9039);
+
+// Detect IE8's incomplete defineProperty implementation
+module.exports = !fails(function () {
+  // eslint-disable-next-line es/no-object-defineproperty -- required for testing
+  return Object.defineProperty({}, 1, { get: function () { return 7; } })[1] !== 7;
+});
+
+
+/***/ },
+
+/***/ 4483
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var globalThis = __webpack_require__(4576);
+var getBuiltInNodeModule = __webpack_require__(9429);
+var PROPER_STRUCTURED_CLONE_TRANSFER = __webpack_require__(1548);
+
+var structuredClone = globalThis.structuredClone;
+var $ArrayBuffer = globalThis.ArrayBuffer;
+var $MessageChannel = globalThis.MessageChannel;
+var detach = false;
+var WorkerThreads, channel, buffer, $detach;
+
+if (PROPER_STRUCTURED_CLONE_TRANSFER) {
+  detach = function (transferable) {
+    structuredClone(transferable, { transfer: [transferable] });
+  };
+} else if ($ArrayBuffer) try {
+  if (!$MessageChannel) {
+    WorkerThreads = getBuiltInNodeModule('worker_threads');
+    if (WorkerThreads) $MessageChannel = WorkerThreads.MessageChannel;
+  }
+
+  if ($MessageChannel) {
+    channel = new $MessageChannel();
+    buffer = new $ArrayBuffer(2);
+
+    $detach = function (transferable) {
+      channel.port1.postMessage(null, [transferable]);
+    };
+
+    if (buffer.byteLength === 2) {
+      $detach(buffer);
+      if (buffer.byteLength === 0) detach = $detach;
+    }
+  }
+} catch (error) { /* empty */ }
+
+module.exports = detach;
+
+
+/***/ },
+
+/***/ 4055
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var globalThis = __webpack_require__(4576);
+var isObject = __webpack_require__(34);
+
+var document = globalThis.document;
+// typeof document.createElement is 'object' in old IE
+var EXISTS = isObject(document) && isObject(document.createElement);
+
+module.exports = function (it) {
+  return EXISTS ? document.createElement(it) : {};
+};
+
+
+/***/ },
+
+/***/ 6837
+(module) {
+
+
+var $TypeError = TypeError;
+var MAX_SAFE_INTEGER = 0x1FFFFFFFFFFFFF; // 2 ** 53 - 1 == 9007199254740991
+
+module.exports = function (it) {
+  if (it > MAX_SAFE_INTEGER) throw $TypeError('Maximum allowed index exceeded');
+  return it;
+};
+
+
+/***/ },
+
+/***/ 5002
+(module) {
 
 
 module.exports = {
@@ -3509,453 +1199,153 @@ module.exports = {
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ 5024:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
+/***/ 8727
+(module) {
 
 
-var $ = __webpack_require__(6518);
-var symmetricDifference = __webpack_require__(3650);
-var setMethodGetKeysBeforeCloning = __webpack_require__(9835);
-var setMethodAcceptSetLike = __webpack_require__(4916);
+// IE8- don't enum bug keys
+module.exports = [
+  'constructor',
+  'hasOwnProperty',
+  'isPrototypeOf',
+  'propertyIsEnumerable',
+  'toLocaleString',
+  'toString',
+  'valueOf'
+];
 
-var FORCED = !setMethodAcceptSetLike('symmetricDifference') || !setMethodGetKeysBeforeCloning('symmetricDifference');
 
-// `Set.prototype.symmetricDifference` method
-// https://tc39.es/ecma262/#sec-set.prototype.symmetricdifference
-$({ target: 'Set', proto: true, real: true, forced: FORCED }, {
-  symmetricDifference: symmetricDifference
-});
+/***/ },
 
+/***/ 3709
+(module, __unused_webpack_exports, __webpack_require__) {
 
-/***/ }),
 
-/***/ 5031:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+var userAgent = __webpack_require__(2839);
 
+var firefox = userAgent.match(/firefox\/(\d+)/i);
 
-var getBuiltIn = __webpack_require__(7751);
-var uncurryThis = __webpack_require__(9504);
-var getOwnPropertyNamesModule = __webpack_require__(8480);
-var getOwnPropertySymbolsModule = __webpack_require__(3717);
-var anObject = __webpack_require__(8551);
+module.exports = !!firefox && +firefox[1];
 
-var concat = uncurryThis([].concat);
 
-// all object keys, includes non-enumerable and symbols
-module.exports = getBuiltIn('Reflect', 'ownKeys') || function ownKeys(it) {
-  var keys = getOwnPropertyNamesModule.f(anObject(it));
-  var getOwnPropertySymbols = getOwnPropertySymbolsModule.f;
-  return getOwnPropertySymbols ? concat(keys, getOwnPropertySymbols(it)) : keys;
-};
+/***/ },
 
+/***/ 3763
+(module, __unused_webpack_exports, __webpack_require__) {
 
-/***/ }),
 
-/***/ 5044:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
+var UA = __webpack_require__(2839);
 
+module.exports = /MSIE|Trident/.test(UA);
 
-var ArrayBufferViewCore = __webpack_require__(4644);
-var $fill = __webpack_require__(4373);
-var toBigInt = __webpack_require__(5854);
-var classof = __webpack_require__(6955);
-var call = __webpack_require__(9565);
-var uncurryThis = __webpack_require__(9504);
-var fails = __webpack_require__(9039);
 
-var aTypedArray = ArrayBufferViewCore.aTypedArray;
-var exportTypedArrayMethod = ArrayBufferViewCore.exportTypedArrayMethod;
-var slice = uncurryThis(''.slice);
+/***/ },
 
-// V8 ~ Chrome < 59, Safari < 14.1, FF < 55, Edge <=18
-var CONVERSION_BUG = fails(function () {
-  var count = 0;
-  // eslint-disable-next-line es/no-typed-arrays -- safe
-  new Int8Array(2).fill({ valueOf: function () { return count++; } });
-  return count !== 1;
-});
+/***/ 8574
+(module, __unused_webpack_exports, __webpack_require__) {
 
-// `%TypedArray%.prototype.fill` method
-// https://tc39.es/ecma262/#sec-%typedarray%.prototype.fill
-exportTypedArrayMethod('fill', function fill(value /* , start, end */) {
-  var length = arguments.length;
-  aTypedArray(this);
-  var actualValue = slice(classof(this), 0, 3) === 'Big' ? toBigInt(value) : +value;
-  return call($fill, this, actualValue, length > 1 ? arguments[1] : undefined, length > 2 ? arguments[2] : undefined);
-}, CONVERSION_BUG);
 
+var ENVIRONMENT = __webpack_require__(4215);
 
-/***/ }),
+module.exports = ENVIRONMENT === 'NODE';
 
-/***/ 5169:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
+/***/ },
 
-var isDetached = __webpack_require__(3238);
-
-var $TypeError = TypeError;
-
-module.exports = function (it) {
-  if (isDetached(it)) throw new $TypeError('ArrayBuffer is detached');
-  return it;
-};
-
-
-/***/ }),
-
-/***/ 5170:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var uncurryThisAccessor = __webpack_require__(6706);
-var SetHelpers = __webpack_require__(4402);
-
-module.exports = uncurryThisAccessor(SetHelpers.proto, 'size', 'get') || function (set) {
-  return set.size;
-};
-
-
-/***/ }),
-
-/***/ 5213:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var $ = __webpack_require__(6518);
-var globalThis = __webpack_require__(4576);
-var arrayFromConstructorAndList = __webpack_require__(5370);
-var $fromBase64 = __webpack_require__(9143);
-
-var Uint8Array = globalThis.Uint8Array;
-
-var INCORRECT_BEHAVIOR_OR_DOESNT_EXISTS = !Uint8Array || !Uint8Array.fromBase64 || !function () {
-  // Webkit not throw an error on odd length string
-  try {
-    Uint8Array.fromBase64('a');
-    return;
-  } catch (error) { /* empty */ }
-  try {
-    Uint8Array.fromBase64('', null);
-  } catch (error) {
-    return true;
-  }
-}();
-
-// `Uint8Array.fromBase64` method
-// https://github.com/tc39/proposal-arraybuffer-base64
-if (Uint8Array) $({ target: 'Uint8Array', stat: true, forced: INCORRECT_BEHAVIOR_OR_DOESNT_EXISTS }, {
-  fromBase64: function fromBase64(string /* , options */) {
-    var result = $fromBase64(string, arguments.length > 1 ? arguments[1] : undefined, null, 0x1FFFFFFFFFFFFF);
-    return arrayFromConstructorAndList(Uint8Array, result.bytes);
-  }
-});
-
-
-/***/ }),
-
-/***/ 5370:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var lengthOfArrayLike = __webpack_require__(6198);
-
-module.exports = function (Constructor, list, $length) {
-  var index = 0;
-  var length = arguments.length > 2 ? $length : lengthOfArrayLike(list);
-  var result = new Constructor(length);
-  while (length > index) result[index] = list[index++];
-  return result;
-};
-
-
-/***/ }),
-
-/***/ 5397:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-// toObject with fallback for non-array-like ES3 strings
-var IndexedObject = __webpack_require__(7055);
-var requireObjectCoercible = __webpack_require__(7750);
-
-module.exports = function (it) {
-  return IndexedObject(requireObjectCoercible(it));
-};
-
-
-/***/ }),
-
-/***/ 5610:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var toIntegerOrInfinity = __webpack_require__(1291);
-
-var max = Math.max;
-var min = Math.min;
-
-// Helper for a popular repeating case of the spec:
-// Let integer be ? ToInteger(index).
-// If integer < 0, let result be max((length + integer), 0); else let result be min(integer, length).
-module.exports = function (index, length) {
-  var integer = toIntegerOrInfinity(index);
-  return integer < 0 ? max(integer + length, 0) : min(integer, length);
-};
-
-
-/***/ }),
-
-/***/ 5623:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-// TODO: Remove from `core-js@4`
-__webpack_require__(456);
-
-
-/***/ }),
-
-/***/ 5636:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+/***/ 2839
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
 var globalThis = __webpack_require__(4576);
-var uncurryThis = __webpack_require__(9504);
-var uncurryThisAccessor = __webpack_require__(6706);
-var toIndex = __webpack_require__(7696);
-var notDetached = __webpack_require__(5169);
-var arrayBufferByteLength = __webpack_require__(7394);
-var detachTransferable = __webpack_require__(4483);
-var PROPER_STRUCTURED_CLONE_TRANSFER = __webpack_require__(1548);
 
-var structuredClone = globalThis.structuredClone;
-var ArrayBuffer = globalThis.ArrayBuffer;
-var DataView = globalThis.DataView;
-var min = Math.min;
-var ArrayBufferPrototype = ArrayBuffer.prototype;
-var DataViewPrototype = DataView.prototype;
-var slice = uncurryThis(ArrayBufferPrototype.slice);
-var isResizable = uncurryThisAccessor(ArrayBufferPrototype, 'resizable', 'get');
-var maxByteLength = uncurryThisAccessor(ArrayBufferPrototype, 'maxByteLength', 'get');
-var getInt8 = uncurryThis(DataViewPrototype.getInt8);
-var setInt8 = uncurryThis(DataViewPrototype.setInt8);
+var navigator = globalThis.navigator;
+var userAgent = navigator && navigator.userAgent;
 
-module.exports = (PROPER_STRUCTURED_CLONE_TRANSFER || detachTransferable) && function (arrayBuffer, newLength, preserveResizability) {
-  var byteLength = arrayBufferByteLength(arrayBuffer);
-  var newByteLength = newLength === undefined ? byteLength : toIndex(newLength);
-  var fixedLength = !isResizable || !isResizable(arrayBuffer);
-  var newBuffer;
-  notDetached(arrayBuffer);
-  if (PROPER_STRUCTURED_CLONE_TRANSFER) {
-    arrayBuffer = structuredClone(arrayBuffer, { transfer: [arrayBuffer] });
-    if (byteLength === newByteLength && (preserveResizability || fixedLength)) return arrayBuffer;
+module.exports = userAgent ? String(userAgent) : '';
+
+
+/***/ },
+
+/***/ 9519
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var globalThis = __webpack_require__(4576);
+var userAgent = __webpack_require__(2839);
+
+var process = globalThis.process;
+var Deno = globalThis.Deno;
+var versions = process && process.versions || Deno && Deno.version;
+var v8 = versions && versions.v8;
+var match, version;
+
+if (v8) {
+  match = v8.split('.');
+  // in old Chrome, versions of V8 isn't V8 = Chrome / 10
+  // but their correct versions are not interesting for us
+  version = match[0] > 0 && match[0] < 4 ? 1 : +(match[0] + match[1]);
+}
+
+// BrowserFS NodeJS `process` polyfill incorrectly set `.v8` to `0.0`
+// so check `userAgent` even if `.v8` exists, but 0
+if (!version && userAgent) {
+  match = userAgent.match(/Edge\/(\d+)/);
+  if (!match || match[1] >= 74) {
+    match = userAgent.match(/Chrome\/(\d+)/);
+    if (match) version = +match[1];
   }
-  if (byteLength >= newByteLength && (!preserveResizability || fixedLength)) {
-    newBuffer = slice(arrayBuffer, 0, newByteLength);
-  } else {
-    var options = preserveResizability && !fixedLength && maxByteLength ? { maxByteLength: maxByteLength(arrayBuffer) } : undefined;
-    newBuffer = new ArrayBuffer(newByteLength, options);
-    var a = new DataView(arrayBuffer);
-    var b = new DataView(newBuffer);
-    var copyLength = min(newByteLength, byteLength);
-    for (var i = 0; i < copyLength; i++) setInt8(b, i, getInt8(a, i));
-  }
-  if (!PROPER_STRUCTURED_CLONE_TRANSFER) detachTransferable(arrayBuffer);
-  return newBuffer;
+}
+
+module.exports = version;
+
+
+/***/ },
+
+/***/ 3607
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var userAgent = __webpack_require__(2839);
+
+var webkit = userAgent.match(/AppleWebKit\/(\d+)\./);
+
+module.exports = !!webkit && +webkit[1];
+
+
+/***/ },
+
+/***/ 4215
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+/* global Bun, Deno -- detection */
+var globalThis = __webpack_require__(4576);
+var userAgent = __webpack_require__(2839);
+var classof = __webpack_require__(2195);
+
+var userAgentStartsWith = function (string) {
+  return userAgent.slice(0, string.length) === string;
 };
 
-
-/***/ }),
-
-/***/ 5745:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var store = __webpack_require__(7629);
-
-module.exports = function (key, value) {
-  return store[key] || (store[key] = value || {});
-};
-
-
-/***/ }),
-
-/***/ 5781:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
+module.exports = (function () {
+  if (userAgentStartsWith('Bun/')) return 'BUN';
+  if (userAgentStartsWith('Cloudflare-Workers')) return 'CLOUDFLARE';
+  if (userAgentStartsWith('Deno/')) return 'DENO';
+  if (userAgentStartsWith('Node.js/')) return 'NODE';
+  if (globalThis.Bun && typeof Bun.version == 'string') return 'BUN';
+  if (globalThis.Deno && typeof Deno.version == 'object') return 'DENO';
+  if (classof(globalThis.process) === 'process') return 'NODE';
+  if (globalThis.window && globalThis.document) return 'BROWSER';
+  return 'REST';
+})();
 
 
-var $ = __webpack_require__(6518);
-var getBuiltIn = __webpack_require__(7751);
-var validateArgumentsLength = __webpack_require__(2812);
-var toString = __webpack_require__(655);
-var USE_NATIVE_URL = __webpack_require__(7416);
+/***/ },
 
-var URL = getBuiltIn('URL');
-
-// `URL.parse` method
-// https://url.spec.whatwg.org/#dom-url-canparse
-$({ target: 'URL', stat: true, forced: !USE_NATIVE_URL }, {
-  parse: function parse(url) {
-    var length = validateArgumentsLength(arguments.length, 1);
-    var urlString = toString(url);
-    var base = length < 2 || arguments[1] === undefined ? undefined : toString(arguments[1]);
-    try {
-      return new URL(urlString, base);
-    } catch (error) {
-      return null;
-    }
-  }
-});
-
-
-/***/ }),
-
-/***/ 5854:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var toPrimitive = __webpack_require__(2777);
-
-var $TypeError = TypeError;
-
-// `ToBigInt` abstract operation
-// https://tc39.es/ecma262/#sec-tobigint
-module.exports = function (argument) {
-  var prim = toPrimitive(argument, 'number');
-  if (typeof prim == 'number') throw new $TypeError("Can't convert number to bigint");
-  // eslint-disable-next-line es/no-bigint -- safe
-  return BigInt(prim);
-};
-
-
-/***/ }),
-
-/***/ 5876:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var $ = __webpack_require__(6518);
-var isSubsetOf = __webpack_require__(3838);
-var setMethodAcceptSetLike = __webpack_require__(4916);
-
-var INCORRECT = !setMethodAcceptSetLike('isSubsetOf', function (result) {
-  return result;
-});
-
-// `Set.prototype.isSubsetOf` method
-// https://tc39.es/ecma262/#sec-set.prototype.issubsetof
-$({ target: 'Set', proto: true, real: true, forced: INCORRECT }, {
-  isSubsetOf: isSubsetOf
-});
-
-
-/***/ }),
-
-/***/ 5917:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var DESCRIPTORS = __webpack_require__(3724);
-var fails = __webpack_require__(9039);
-var createElement = __webpack_require__(4055);
-
-// Thanks to IE8 for its funny defineProperty
-module.exports = !DESCRIPTORS && !fails(function () {
-  // eslint-disable-next-line es/no-object-defineproperty -- required for testing
-  return Object.defineProperty(createElement('div'), 'a', {
-    get: function () { return 7; }
-  }).a !== 7;
-});
-
-
-/***/ }),
-
-/***/ 5966:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var aCallable = __webpack_require__(9306);
-var isNullOrUndefined = __webpack_require__(4117);
-
-// `GetMethod` abstract operation
-// https://tc39.es/ecma262/#sec-getmethod
-module.exports = function (V, P) {
-  var func = V[P];
-  return isNullOrUndefined(func) ? undefined : aCallable(func);
-};
-
-
-/***/ }),
-
-/***/ 6043:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var aCallable = __webpack_require__(9306);
-
-var $TypeError = TypeError;
-
-var PromiseCapability = function (C) {
-  var resolve, reject;
-  this.promise = new C(function ($$resolve, $$reject) {
-    if (resolve !== undefined || reject !== undefined) throw new $TypeError('Bad Promise constructor');
-    resolve = $$resolve;
-    reject = $$reject;
-  });
-  this.resolve = aCallable(resolve);
-  this.reject = aCallable(reject);
-};
-
-// `NewPromiseCapability` abstract operation
-// https://tc39.es/ecma262/#sec-newpromisecapability
-module.exports.f = function (C) {
-  return new PromiseCapability(C);
-};
-
-
-/***/ }),
-
-/***/ 6080:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var uncurryThis = __webpack_require__(7476);
-var aCallable = __webpack_require__(9306);
-var NATIVE_BIND = __webpack_require__(616);
-
-var bind = uncurryThis(uncurryThis.bind);
-
-// optional / simple context binding
-module.exports = function (fn, that) {
-  aCallable(fn);
-  return that === undefined ? fn : NATIVE_BIND ? bind(fn, that) : function (/* ...args */) {
-    return fn.apply(that, arguments);
-  };
-};
-
-
-/***/ }),
-
-/***/ 6119:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var shared = __webpack_require__(5745);
-var uid = __webpack_require__(3392);
-
-var keys = shared('keys');
-
-module.exports = function (key) {
-  return keys[key] || (keys[key] = uid(key));
-};
-
-
-/***/ }),
-
-/***/ 6193:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+/***/ 6193
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
 var uncurryThis = __webpack_require__(9504);
@@ -3975,169 +1365,50 @@ module.exports = function (stack, dropEntries) {
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ 6198:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var toLength = __webpack_require__(8014);
-
-// `LengthOfArrayLike` abstract operation
-// https://tc39.es/ecma262/#sec-lengthofarraylike
-module.exports = function (obj) {
-  return toLength(obj.length);
-};
+/***/ 747
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
-/***/ }),
+var createNonEnumerableProperty = __webpack_require__(6699);
+var clearErrorStack = __webpack_require__(6193);
+var ERROR_STACK_INSTALLABLE = __webpack_require__(4659);
 
-/***/ 6269:
-/***/ ((module) => {
+// non-standard V8
+// eslint-disable-next-line es/no-nonstandard-error-properties -- safe
+var captureStackTrace = Error.captureStackTrace;
 
-
-module.exports = {};
-
-
-/***/ }),
-
-/***/ 6279:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var defineBuiltIn = __webpack_require__(6840);
-
-module.exports = function (target, src, options) {
-  for (var key in src) defineBuiltIn(target, key, src[key], options);
-  return target;
-};
-
-
-/***/ }),
-
-/***/ 6280:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-/* eslint-disable no-unused-vars -- required for functions `.length` */
-var $ = __webpack_require__(6518);
-var globalThis = __webpack_require__(4576);
-var apply = __webpack_require__(8745);
-var wrapErrorConstructorWithCause = __webpack_require__(4601);
-
-var WEB_ASSEMBLY = 'WebAssembly';
-var WebAssembly = globalThis[WEB_ASSEMBLY];
-
-// eslint-disable-next-line es/no-error-cause -- feature detection
-var FORCED = new Error('e', { cause: 7 }).cause !== 7;
-
-var exportGlobalErrorCauseWrapper = function (ERROR_NAME, wrapper) {
-  var O = {};
-  O[ERROR_NAME] = wrapErrorConstructorWithCause(ERROR_NAME, wrapper, FORCED);
-  $({ global: true, constructor: true, arity: 1, forced: FORCED }, O);
-};
-
-var exportWebAssemblyErrorCauseWrapper = function (ERROR_NAME, wrapper) {
-  if (WebAssembly && WebAssembly[ERROR_NAME]) {
-    var O = {};
-    O[ERROR_NAME] = wrapErrorConstructorWithCause(WEB_ASSEMBLY + '.' + ERROR_NAME, wrapper, FORCED);
-    $({ target: WEB_ASSEMBLY, stat: true, constructor: true, arity: 1, forced: FORCED }, O);
-  }
-};
-
-// https://tc39.es/ecma262/#sec-nativeerror
-exportGlobalErrorCauseWrapper('Error', function (init) {
-  return function Error(message) { return apply(init, this, arguments); };
-});
-exportGlobalErrorCauseWrapper('EvalError', function (init) {
-  return function EvalError(message) { return apply(init, this, arguments); };
-});
-exportGlobalErrorCauseWrapper('RangeError', function (init) {
-  return function RangeError(message) { return apply(init, this, arguments); };
-});
-exportGlobalErrorCauseWrapper('ReferenceError', function (init) {
-  return function ReferenceError(message) { return apply(init, this, arguments); };
-});
-exportGlobalErrorCauseWrapper('SyntaxError', function (init) {
-  return function SyntaxError(message) { return apply(init, this, arguments); };
-});
-exportGlobalErrorCauseWrapper('TypeError', function (init) {
-  return function TypeError(message) { return apply(init, this, arguments); };
-});
-exportGlobalErrorCauseWrapper('URIError', function (init) {
-  return function URIError(message) { return apply(init, this, arguments); };
-});
-exportWebAssemblyErrorCauseWrapper('CompileError', function (init) {
-  return function CompileError(message) { return apply(init, this, arguments); };
-});
-exportWebAssemblyErrorCauseWrapper('LinkError', function (init) {
-  return function LinkError(message) { return apply(init, this, arguments); };
-});
-exportWebAssemblyErrorCauseWrapper('RuntimeError', function (init) {
-  return function RuntimeError(message) { return apply(init, this, arguments); };
-});
-
-
-/***/ }),
-
-/***/ 6319:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var anObject = __webpack_require__(8551);
-var iteratorClose = __webpack_require__(9539);
-
-// call something on iterator step with safe closing on error
-module.exports = function (iterator, fn, value, ENTRIES) {
-  try {
-    return ENTRIES ? fn(anObject(value)[0], value[1]) : fn(value);
-  } catch (error) {
-    iteratorClose(iterator, 'throw', error);
+module.exports = function (error, C, stack, dropEntries) {
+  if (ERROR_STACK_INSTALLABLE) {
+    if (captureStackTrace) captureStackTrace(error, C);
+    else createNonEnumerableProperty(error, 'stack', clearErrorStack(stack, dropEntries));
   }
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ 6395:
-/***/ ((module) => {
-
-
-module.exports = false;
+/***/ 4659
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
-/***/ }),
+var fails = __webpack_require__(9039);
+var createPropertyDescriptor = __webpack_require__(6980);
 
-/***/ 6469:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var wellKnownSymbol = __webpack_require__(8227);
-var create = __webpack_require__(2360);
-var defineProperty = (__webpack_require__(4913).f);
-
-var UNSCOPABLES = wellKnownSymbol('unscopables');
-var ArrayPrototype = Array.prototype;
-
-// Array.prototype[@@unscopables]
-// https://tc39.es/ecma262/#sec-array.prototype-@@unscopables
-if (ArrayPrototype[UNSCOPABLES] === undefined) {
-  defineProperty(ArrayPrototype, UNSCOPABLES, {
-    configurable: true,
-    value: create(null)
-  });
-}
-
-// add a key to Array.prototype[@@unscopables]
-module.exports = function (key) {
-  ArrayPrototype[UNSCOPABLES][key] = true;
-};
+module.exports = !fails(function () {
+  var error = new Error('a');
+  if (!('stack' in error)) return true;
+  // eslint-disable-next-line es/no-object-defineproperty -- safe
+  Object.defineProperty(error, 'stack', createPropertyDescriptor(1, 7));
+  return error.stack !== 7;
+});
 
 
-/***/ }),
+/***/ },
 
-/***/ 6518:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+/***/ 6518
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
 var globalThis = __webpack_require__(4576);
@@ -4196,96 +1467,120 @@ module.exports = function (options, source) {
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ 6573:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var DESCRIPTORS = __webpack_require__(3724);
-var defineBuiltInAccessor = __webpack_require__(2106);
-var isDetached = __webpack_require__(3238);
-
-var ArrayBufferPrototype = ArrayBuffer.prototype;
-
-// `ArrayBuffer.prototype.detached` getter
-// https://tc39.es/ecma262/#sec-get-arraybuffer.prototype.detached
-if (DESCRIPTORS && !('detached' in ArrayBufferPrototype)) {
-  defineBuiltInAccessor(ArrayBufferPrototype, 'detached', {
-    configurable: true,
-    get: function detached() {
-      return isDetached(this);
-    }
-  });
-}
+/***/ 9039
+(module) {
 
 
-/***/ }),
-
-/***/ 6632:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var $ = __webpack_require__(6518);
-var globalThis = __webpack_require__(4576);
-var $fromBase64 = __webpack_require__(9143);
-var anUint8Array = __webpack_require__(4154);
-
-var Uint8Array = globalThis.Uint8Array;
-
-var INCORRECT_BEHAVIOR_OR_DOESNT_EXISTS = !Uint8Array || !Uint8Array.prototype.setFromBase64 || !function () {
-  var target = new Uint8Array([255, 255, 255, 255, 255]);
+module.exports = function (exec) {
   try {
-    target.setFromBase64('', null);
-    return;
-  } catch (error) { /* empty */ }
-  // Webkit not throw an error on odd length string
-  try {
-    target.setFromBase64('a');
-    return;
-  } catch (error) { /* empty */ }
-  try {
-    target.setFromBase64('MjYyZg===');
+    return !!exec();
   } catch (error) {
-    return target[0] === 50 && target[1] === 54 && target[2] === 50 && target[3] === 255 && target[4] === 255;
+    return true;
   }
-}();
-
-// `Uint8Array.prototype.setFromBase64` method
-// https://github.com/tc39/proposal-arraybuffer-base64
-if (Uint8Array) $({ target: 'Uint8Array', proto: true, forced: INCORRECT_BEHAVIOR_OR_DOESNT_EXISTS }, {
-  setFromBase64: function setFromBase64(string /* , options */) {
-    anUint8Array(this);
-
-    var result = $fromBase64(string, arguments.length > 1 ? arguments[1] : undefined, this, this.length);
-
-    return { read: result.read, written: result.written };
-  }
-});
-
-
-/***/ }),
-
-/***/ 6699:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var DESCRIPTORS = __webpack_require__(3724);
-var definePropertyModule = __webpack_require__(4913);
-var createPropertyDescriptor = __webpack_require__(6980);
-
-module.exports = DESCRIPTORS ? function (object, key, value) {
-  return definePropertyModule.f(object, key, createPropertyDescriptor(1, value));
-} : function (object, key, value) {
-  object[key] = value;
-  return object;
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ 6706:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+/***/ 8745
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var NATIVE_BIND = __webpack_require__(616);
+
+var FunctionPrototype = Function.prototype;
+var apply = FunctionPrototype.apply;
+var call = FunctionPrototype.call;
+
+// eslint-disable-next-line es/no-function-prototype-bind, es/no-reflect -- safe
+module.exports = typeof Reflect == 'object' && Reflect.apply || (NATIVE_BIND ? call.bind(apply) : function () {
+  return call.apply(apply, arguments);
+});
+
+
+/***/ },
+
+/***/ 6080
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var uncurryThis = __webpack_require__(7476);
+var aCallable = __webpack_require__(9306);
+var NATIVE_BIND = __webpack_require__(616);
+
+var bind = uncurryThis(uncurryThis.bind);
+
+// optional / simple context binding
+module.exports = function (fn, that) {
+  aCallable(fn);
+  return that === undefined ? fn : NATIVE_BIND ? bind(fn, that) : function (/* ...args */) {
+    return fn.apply(that, arguments);
+  };
+};
+
+
+/***/ },
+
+/***/ 616
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var fails = __webpack_require__(9039);
+
+module.exports = !fails(function () {
+  // eslint-disable-next-line es/no-function-prototype-bind -- safe
+  var test = (function () { /* empty */ }).bind();
+  // eslint-disable-next-line no-prototype-builtins -- safe
+  return typeof test != 'function' || test.hasOwnProperty('prototype');
+});
+
+
+/***/ },
+
+/***/ 9565
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var NATIVE_BIND = __webpack_require__(616);
+
+var call = Function.prototype.call;
+// eslint-disable-next-line es/no-function-prototype-bind -- safe
+module.exports = NATIVE_BIND ? call.bind(call) : function () {
+  return call.apply(call, arguments);
+};
+
+
+/***/ },
+
+/***/ 350
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var DESCRIPTORS = __webpack_require__(3724);
+var hasOwn = __webpack_require__(9297);
+
+var FunctionPrototype = Function.prototype;
+// eslint-disable-next-line es/no-object-getownpropertydescriptor -- safe
+var getDescriptor = DESCRIPTORS && Object.getOwnPropertyDescriptor;
+
+var EXISTS = hasOwn(FunctionPrototype, 'name');
+// additional protection from minified / mangled / dropped function names
+var PROPER = EXISTS && (function something() { /* empty */ }).name === 'something';
+var CONFIGURABLE = EXISTS && (!DESCRIPTORS || (DESCRIPTORS && getDescriptor(FunctionPrototype, 'name').configurable));
+
+module.exports = {
+  EXISTS: EXISTS,
+  PROPER: PROPER,
+  CONFIGURABLE: CONFIGURABLE
+};
+
+
+/***/ },
+
+/***/ 6706
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
 var uncurryThis = __webpack_require__(9504);
@@ -4299,189 +1594,324 @@ module.exports = function (object, key, method) {
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ 6801:
-/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
-
-
-var DESCRIPTORS = __webpack_require__(3724);
-var V8_PROTOTYPE_DEFINE_BUG = __webpack_require__(8686);
-var definePropertyModule = __webpack_require__(4913);
-var anObject = __webpack_require__(8551);
-var toIndexedObject = __webpack_require__(5397);
-var objectKeys = __webpack_require__(1072);
-
-// `Object.defineProperties` method
-// https://tc39.es/ecma262/#sec-object.defineproperties
-// eslint-disable-next-line es/no-object-defineproperties -- safe
-exports.f = DESCRIPTORS && !V8_PROTOTYPE_DEFINE_BUG ? Object.defineProperties : function defineProperties(O, Properties) {
-  anObject(O);
-  var props = toIndexedObject(Properties);
-  var keys = objectKeys(Properties);
-  var length = keys.length;
-  var index = 0;
-  var key;
-  while (length > index) definePropertyModule.f(O, key = keys[index++], props[key]);
-  return O;
-};
+/***/ 7476
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
-/***/ }),
-
-/***/ 6823:
-/***/ ((module) => {
-
-
-var $String = String;
-
-module.exports = function (argument) {
-  try {
-    return $String(argument);
-  } catch (error) {
-    return 'Object';
-  }
-};
-
-
-/***/ }),
-
-/***/ 6837:
-/***/ ((module) => {
-
-
-var $TypeError = TypeError;
-var MAX_SAFE_INTEGER = 0x1FFFFFFFFFFFFF; // 2 ** 53 - 1 == 9007199254740991
-
-module.exports = function (it) {
-  if (it > MAX_SAFE_INTEGER) throw $TypeError('Maximum allowed index exceeded');
-  return it;
-};
-
-
-/***/ }),
-
-/***/ 6840:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var isCallable = __webpack_require__(4901);
-var definePropertyModule = __webpack_require__(4913);
-var makeBuiltIn = __webpack_require__(283);
-var defineGlobalProperty = __webpack_require__(9433);
-
-module.exports = function (O, key, value, options) {
-  if (!options) options = {};
-  var simple = options.enumerable;
-  var name = options.name !== undefined ? options.name : key;
-  if (isCallable(value)) makeBuiltIn(value, name, options);
-  if (options.global) {
-    if (simple) O[key] = value;
-    else defineGlobalProperty(key, value);
-  } else {
-    try {
-      if (!options.unsafe) delete O[key];
-      else if (O[key]) simple = true;
-    } catch (error) { /* empty */ }
-    if (simple) O[key] = value;
-    else definePropertyModule.f(O, key, {
-      value: value,
-      enumerable: false,
-      configurable: !options.nonConfigurable,
-      writable: !options.nonWritable
-    });
-  } return O;
-};
-
-
-/***/ }),
-
-/***/ 6955:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var TO_STRING_TAG_SUPPORT = __webpack_require__(2140);
-var isCallable = __webpack_require__(4901);
 var classofRaw = __webpack_require__(2195);
-var wellKnownSymbol = __webpack_require__(8227);
+var uncurryThis = __webpack_require__(9504);
 
-var TO_STRING_TAG = wellKnownSymbol('toStringTag');
-var $Object = Object;
-
-// ES3 wrong here
-var CORRECT_ARGUMENTS = classofRaw(function () { return arguments; }()) === 'Arguments';
-
-// fallback for IE11 Script Access Denied error
-var tryGet = function (it, key) {
-  try {
-    return it[key];
-  } catch (error) { /* empty */ }
-};
-
-// getting tag from ES6+ `Object.prototype.toString`
-module.exports = TO_STRING_TAG_SUPPORT ? classofRaw : function (it) {
-  var O, tag, result;
-  return it === undefined ? 'Undefined' : it === null ? 'Null'
-    // @@toStringTag case
-    : typeof (tag = tryGet(O = $Object(it), TO_STRING_TAG)) == 'string' ? tag
-    // builtinTag case
-    : CORRECT_ARGUMENTS ? classofRaw(O)
-    // ES3 arguments fallback
-    : (result = classofRaw(O)) === 'Object' && isCallable(O.callee) ? 'Arguments' : result;
+module.exports = function (fn) {
+  // Nashorn bug:
+  //   https://github.com/zloirock/core-js/issues/1128
+  //   https://github.com/zloirock/core-js/issues/1130
+  if (classofRaw(fn) === 'Function') return uncurryThis(fn);
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ 6969:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var toPrimitive = __webpack_require__(2777);
-var isSymbol = __webpack_require__(757);
-
-// `ToPropertyKey` abstract operation
-// https://tc39.es/ecma262/#sec-topropertykey
-module.exports = function (argument) {
-  var key = toPrimitive(argument, 'string');
-  return isSymbol(key) ? key : key + '';
-};
+/***/ 9504
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
-/***/ }),
+var NATIVE_BIND = __webpack_require__(616);
 
-/***/ 6980:
-/***/ ((module) => {
+var FunctionPrototype = Function.prototype;
+var call = FunctionPrototype.call;
+// eslint-disable-next-line es/no-function-prototype-bind -- safe
+var uncurryThisWithBind = NATIVE_BIND && FunctionPrototype.bind.bind(call, call);
 
-
-module.exports = function (bitmap, value) {
-  return {
-    enumerable: !(bitmap & 1),
-    configurable: !(bitmap & 2),
-    writable: !(bitmap & 4),
-    value: value
+module.exports = NATIVE_BIND ? uncurryThisWithBind : function (fn) {
+  return function () {
+    return call.apply(fn, arguments);
   };
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ 7040:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-/* eslint-disable es/no-symbol -- required for testing */
-var NATIVE_SYMBOL = __webpack_require__(4495);
-
-module.exports = NATIVE_SYMBOL &&
-  !Symbol.sham &&
-  typeof Symbol.iterator == 'symbol';
+/***/ 944
+(module) {
 
 
-/***/ }),
+var $TypeError = TypeError;
 
-/***/ 7055:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+module.exports = function (options) {
+  var alphabet = options && options.alphabet;
+  if (alphabet === undefined || alphabet === 'base64' || alphabet === 'base64url') return alphabet || 'base64';
+  throw new $TypeError('Incorrect `alphabet` option');
+};
+
+
+/***/ },
+
+/***/ 9429
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var globalThis = __webpack_require__(4576);
+var IS_NODE = __webpack_require__(8574);
+
+module.exports = function (name) {
+  if (IS_NODE) {
+    try {
+      return globalThis.process.getBuiltinModule(name);
+    } catch (error) { /* empty */ }
+    try {
+      // eslint-disable-next-line no-new-func -- safe
+      return Function('return require("' + name + '")')();
+    } catch (error) { /* empty */ }
+  }
+};
+
+
+/***/ },
+
+/***/ 7751
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var globalThis = __webpack_require__(4576);
+var isCallable = __webpack_require__(4901);
+
+var aFunction = function (argument) {
+  return isCallable(argument) ? argument : undefined;
+};
+
+module.exports = function (namespace, method) {
+  return arguments.length < 2 ? aFunction(globalThis[namespace]) : globalThis[namespace] && globalThis[namespace][method];
+};
+
+
+/***/ },
+
+/***/ 1767
+(module) {
+
+
+// `GetIteratorDirect(obj)` abstract operation
+// https://tc39.es/ecma262/#sec-getiteratordirect
+module.exports = function (obj) {
+  return {
+    iterator: obj,
+    next: obj.next,
+    done: false
+  };
+};
+
+
+/***/ },
+
+/***/ 8646
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var call = __webpack_require__(9565);
+var anObject = __webpack_require__(8551);
+var getIteratorDirect = __webpack_require__(1767);
+var getIteratorMethod = __webpack_require__(851);
+
+module.exports = function (obj, stringHandling) {
+  if (!stringHandling || typeof obj !== 'string') anObject(obj);
+  var method = getIteratorMethod(obj);
+  return getIteratorDirect(anObject(method !== undefined ? call(method, obj) : obj));
+};
+
+
+/***/ },
+
+/***/ 851
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var classof = __webpack_require__(6955);
+var getMethod = __webpack_require__(5966);
+var isNullOrUndefined = __webpack_require__(4117);
+var Iterators = __webpack_require__(6269);
+var wellKnownSymbol = __webpack_require__(8227);
+
+var ITERATOR = wellKnownSymbol('iterator');
+
+module.exports = function (it) {
+  if (!isNullOrUndefined(it)) return getMethod(it, ITERATOR)
+    || getMethod(it, '@@iterator')
+    || Iterators[classof(it)];
+};
+
+
+/***/ },
+
+/***/ 81
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var call = __webpack_require__(9565);
+var aCallable = __webpack_require__(9306);
+var anObject = __webpack_require__(8551);
+var tryToString = __webpack_require__(6823);
+var getIteratorMethod = __webpack_require__(851);
+
+var $TypeError = TypeError;
+
+module.exports = function (argument, usingIterator) {
+  var iteratorMethod = arguments.length < 2 ? getIteratorMethod(argument) : usingIterator;
+  if (aCallable(iteratorMethod)) return anObject(call(iteratorMethod, argument));
+  throw new $TypeError(tryToString(argument) + ' is not iterable');
+};
+
+
+/***/ },
+
+/***/ 5966
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var aCallable = __webpack_require__(9306);
+var isNullOrUndefined = __webpack_require__(4117);
+
+// `GetMethod` abstract operation
+// https://tc39.es/ecma262/#sec-getmethod
+module.exports = function (V, P) {
+  var func = V[P];
+  return isNullOrUndefined(func) ? undefined : aCallable(func);
+};
+
+
+/***/ },
+
+/***/ 3789
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var aCallable = __webpack_require__(9306);
+var anObject = __webpack_require__(8551);
+var call = __webpack_require__(9565);
+var toIntegerOrInfinity = __webpack_require__(1291);
+var getIteratorDirect = __webpack_require__(1767);
+
+var INVALID_SIZE = 'Invalid size';
+var $RangeError = RangeError;
+var $TypeError = TypeError;
+var max = Math.max;
+
+var SetRecord = function (set, intSize) {
+  this.set = set;
+  this.size = max(intSize, 0);
+  this.has = aCallable(set.has);
+  this.keys = aCallable(set.keys);
+};
+
+SetRecord.prototype = {
+  getIterator: function () {
+    return getIteratorDirect(anObject(call(this.keys, this.set)));
+  },
+  includes: function (it) {
+    return call(this.has, this.set, it);
+  }
+};
+
+// `GetSetRecord` abstract operation
+// https://tc39.es/proposal-set-methods/#sec-getsetrecord
+module.exports = function (obj) {
+  anObject(obj);
+  var numSize = +obj.size;
+  // NOTE: If size is undefined, then numSize will be NaN
+  // eslint-disable-next-line no-self-compare -- NaN check
+  if (numSize !== numSize) throw new $TypeError(INVALID_SIZE);
+  var intSize = toIntegerOrInfinity(numSize);
+  if (intSize < 0) throw new $RangeError(INVALID_SIZE);
+  return new SetRecord(obj, intSize);
+};
+
+
+/***/ },
+
+/***/ 4576
+(module) {
+
+
+var check = function (it) {
+  return it && it.Math === Math && it;
+};
+
+// https://github.com/zloirock/core-js/issues/86#issuecomment-115759028
+module.exports =
+  // eslint-disable-next-line es/no-global-this -- safe
+  check(typeof globalThis == 'object' && globalThis) ||
+  check(typeof window == 'object' && window) ||
+  // eslint-disable-next-line no-restricted-globals -- safe
+  check(typeof self == 'object' && self) ||
+  check(typeof global == 'object' && global) ||
+  check(typeof this == 'object' && this) ||
+  // eslint-disable-next-line no-new-func -- fallback
+  (function () { return this; })() || Function('return this')();
+
+
+/***/ },
+
+/***/ 9297
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var uncurryThis = __webpack_require__(9504);
+var toObject = __webpack_require__(8981);
+
+var hasOwnProperty = uncurryThis({}.hasOwnProperty);
+
+// `HasOwnProperty` abstract operation
+// https://tc39.es/ecma262/#sec-hasownproperty
+// eslint-disable-next-line es/no-object-hasown -- safe
+module.exports = Object.hasOwn || function hasOwn(it, key) {
+  return hasOwnProperty(toObject(it), key);
+};
+
+
+/***/ },
+
+/***/ 421
+(module) {
+
+
+module.exports = {};
+
+
+/***/ },
+
+/***/ 397
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var getBuiltIn = __webpack_require__(7751);
+
+module.exports = getBuiltIn('document', 'documentElement');
+
+
+/***/ },
+
+/***/ 5917
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var DESCRIPTORS = __webpack_require__(3724);
+var fails = __webpack_require__(9039);
+var createElement = __webpack_require__(4055);
+
+// Thanks to IE8 for its funny defineProperty
+module.exports = !DESCRIPTORS && !fails(function () {
+  // eslint-disable-next-line es/no-object-defineproperty -- required for testing
+  return Object.defineProperty(createElement('div'), 'a', {
+    get: function () { return 7; }
+  }).a !== 7;
+});
+
+
+/***/ },
+
+/***/ 7055
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
 var uncurryThis = __webpack_require__(9504);
@@ -4501,231 +1931,58 @@ module.exports = fails(function () {
 } : $Object;
 
 
-/***/ }),
+/***/ },
 
-/***/ 7080:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+/***/ 3167
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
-var has = (__webpack_require__(4402).has);
+var isCallable = __webpack_require__(4901);
+var isObject = __webpack_require__(34);
+var setPrototypeOf = __webpack_require__(2967);
 
-// Perform ? RequireInternalSlot(M, [[SetData]])
-module.exports = function (it) {
-  has(it);
-  return it;
+// makes subclassing work correct for wrapped built-ins
+module.exports = function ($this, dummy, Wrapper) {
+  var NewTarget, NewTargetPrototype;
+  if (
+    // it can work only with native `setPrototypeOf`
+    setPrototypeOf &&
+    // we haven't completely correct pre-ES6 way for getting `new.target`, so use this
+    isCallable(NewTarget = dummy.constructor) &&
+    NewTarget !== Wrapper &&
+    isObject(NewTargetPrototype = NewTarget.prototype) &&
+    NewTargetPrototype !== Wrapper.prototype
+  ) setPrototypeOf($this, NewTargetPrototype);
+  return $this;
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ 7347:
-/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
-
-
-var DESCRIPTORS = __webpack_require__(3724);
-var call = __webpack_require__(9565);
-var propertyIsEnumerableModule = __webpack_require__(8773);
-var createPropertyDescriptor = __webpack_require__(6980);
-var toIndexedObject = __webpack_require__(5397);
-var toPropertyKey = __webpack_require__(6969);
-var hasOwn = __webpack_require__(9297);
-var IE8_DOM_DEFINE = __webpack_require__(5917);
-
-// eslint-disable-next-line es/no-object-getownpropertydescriptor -- safe
-var $getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
-
-// `Object.getOwnPropertyDescriptor` method
-// https://tc39.es/ecma262/#sec-object.getownpropertydescriptor
-exports.f = DESCRIPTORS ? $getOwnPropertyDescriptor : function getOwnPropertyDescriptor(O, P) {
-  O = toIndexedObject(O);
-  P = toPropertyKey(P);
-  if (IE8_DOM_DEFINE) try {
-    return $getOwnPropertyDescriptor(O, P);
-  } catch (error) { /* empty */ }
-  if (hasOwn(O, P)) return createPropertyDescriptor(!call(propertyIsEnumerableModule.f, O, P), O[P]);
-};
+/***/ 3706
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
-/***/ }),
-
-/***/ 7357:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var $ = __webpack_require__(6518);
 var uncurryThis = __webpack_require__(9504);
-var requireObjectCoercible = __webpack_require__(7750);
-var toIntegerOrInfinity = __webpack_require__(1291);
-var toString = __webpack_require__(655);
-var fails = __webpack_require__(9039);
+var isCallable = __webpack_require__(4901);
+var store = __webpack_require__(7629);
 
-var charAt = uncurryThis(''.charAt);
+var functionToString = uncurryThis(Function.toString);
 
-var FORCED = fails(function () {
-  // eslint-disable-next-line es/no-string-prototype-at -- safe
-  return '𠮷'.at(-2) !== '\uD842';
-});
-
-// `String.prototype.at` method
-// https://tc39.es/ecma262/#sec-string.prototype.at
-$({ target: 'String', proto: true, forced: FORCED }, {
-  at: function at(index) {
-    var S = toString(requireObjectCoercible(this));
-    var len = S.length;
-    var relativeIndex = toIntegerOrInfinity(index);
-    var k = relativeIndex >= 0 ? relativeIndex : len + relativeIndex;
-    return (k < 0 || k >= len) ? undefined : charAt(S, k);
-  }
-});
-
-
-/***/ }),
-
-/***/ 7394:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var globalThis = __webpack_require__(4576);
-var uncurryThisAccessor = __webpack_require__(6706);
-var classof = __webpack_require__(2195);
-
-var ArrayBuffer = globalThis.ArrayBuffer;
-var TypeError = globalThis.TypeError;
-
-// Includes
-// - Perform ? RequireInternalSlot(O, [[ArrayBufferData]]).
-// - If IsSharedArrayBuffer(O) is true, throw a TypeError exception.
-module.exports = ArrayBuffer && uncurryThisAccessor(ArrayBuffer.prototype, 'byteLength', 'get') || function (O) {
-  if (classof(O) !== 'ArrayBuffer') throw new TypeError('ArrayBuffer expected');
-  return O.byteLength;
-};
-
-
-/***/ }),
-
-/***/ 7416:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var fails = __webpack_require__(9039);
-var wellKnownSymbol = __webpack_require__(8227);
-var DESCRIPTORS = __webpack_require__(3724);
-var IS_PURE = __webpack_require__(6395);
-
-var ITERATOR = wellKnownSymbol('iterator');
-
-module.exports = !fails(function () {
-  // eslint-disable-next-line unicorn/relative-url-style -- required for testing
-  var url = new URL('b?a=1&b=2&c=3', 'https://a');
-  var params = url.searchParams;
-  var params2 = new URLSearchParams('a=1&a=2&b=3');
-  var result = '';
-  url.pathname = 'c%20d';
-  params.forEach(function (value, key) {
-    params['delete']('b');
-    result += key + value;
-  });
-  params2['delete']('a', 2);
-  // `undefined` case is a Chromium 117 bug
-  // https://bugs.chromium.org/p/v8/issues/detail?id=14222
-  params2['delete']('b', undefined);
-  return (IS_PURE && (!url.toJSON || !params2.has('a', 1) || params2.has('a', 2) || !params2.has('a', undefined) || params2.has('b')))
-    || (!params.size && (IS_PURE || !DESCRIPTORS))
-    || !params.sort
-    || url.href !== 'https://a/c%20d?a=1&c=3'
-    || params.get('c') !== '3'
-    || String(new URLSearchParams('?a=1')) !== 'a=1'
-    || !params[ITERATOR]
-    // throws in Edge
-    || new URL('https://a@b').username !== 'a'
-    || new URLSearchParams(new URLSearchParams('a=b')).get('a') !== 'b'
-    // not punycoded in Edge
-    || new URL('https://тест').host !== 'xn--e1aybc'
-    // not escaped in Chrome 62-
-    || new URL('https://a#б').hash !== '#%D0%B1'
-    // fails in Chrome 66-
-    || result !== 'a1c3'
-    // throws in Safari
-    || new URL('https://x', undefined).host !== 'x';
-});
-
-
-/***/ }),
-
-/***/ 7467:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var arrayToReversed = __webpack_require__(7628);
-var ArrayBufferViewCore = __webpack_require__(4644);
-
-var aTypedArray = ArrayBufferViewCore.aTypedArray;
-var exportTypedArrayMethod = ArrayBufferViewCore.exportTypedArrayMethod;
-var getTypedArrayConstructor = ArrayBufferViewCore.getTypedArrayConstructor;
-
-// `%TypedArray%.prototype.toReversed` method
-// https://tc39.es/ecma262/#sec-%typedarray%.prototype.toreversed
-exportTypedArrayMethod('toReversed', function toReversed() {
-  return arrayToReversed(aTypedArray(this), getTypedArrayConstructor(this));
-});
-
-
-/***/ }),
-
-/***/ 7476:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var classofRaw = __webpack_require__(2195);
-var uncurryThis = __webpack_require__(9504);
-
-module.exports = function (fn) {
-  // Nashorn bug:
-  //   https://github.com/zloirock/core-js/issues/1128
-  //   https://github.com/zloirock/core-js/issues/1130
-  if (classofRaw(fn) === 'Function') return uncurryThis(fn);
-};
-
-
-/***/ }),
-
-/***/ 7566:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var defineBuiltIn = __webpack_require__(6840);
-var uncurryThis = __webpack_require__(9504);
-var toString = __webpack_require__(655);
-var validateArgumentsLength = __webpack_require__(2812);
-
-var $URLSearchParams = URLSearchParams;
-var URLSearchParamsPrototype = $URLSearchParams.prototype;
-var getAll = uncurryThis(URLSearchParamsPrototype.getAll);
-var $has = uncurryThis(URLSearchParamsPrototype.has);
-var params = new $URLSearchParams('a=1');
-
-// `undefined` case is a Chromium 117 bug
-// https://bugs.chromium.org/p/v8/issues/detail?id=14222
-if (params.has('a', 2) || !params.has('a', undefined)) {
-  defineBuiltIn(URLSearchParamsPrototype, 'has', function has(name /* , value */) {
-    var length = arguments.length;
-    var $value = length < 2 ? undefined : arguments[1];
-    if (length && $value === undefined) return $has(this, name);
-    var values = getAll(this, name); // also validates `this`
-    validateArgumentsLength(length, 1);
-    var value = toString($value);
-    var index = 0;
-    while (index < values.length) {
-      if (values[index++] === value) return true;
-    } return false;
-  }, { enumerable: true, unsafe: true });
+// this helper broken in `core-js@3.4.1-3.4.4`, so we can't use `shared` helper
+if (!isCallable(store.inspectSource)) {
+  store.inspectSource = function (it) {
+    return functionToString(it);
+  };
 }
 
+module.exports = store.inspectSource;
 
-/***/ }),
 
-/***/ 7584:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+/***/ },
+
+/***/ 7584
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
 var isObject = __webpack_require__(34);
@@ -4740,188 +1997,545 @@ module.exports = function (O, options) {
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ 7588:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var $ = __webpack_require__(6518);
-var call = __webpack_require__(9565);
-var iterate = __webpack_require__(2652);
-var aCallable = __webpack_require__(9306);
-var anObject = __webpack_require__(8551);
-var getIteratorDirect = __webpack_require__(1767);
-var iteratorClose = __webpack_require__(9539);
-var iteratorHelperWithoutClosingOnEarlyError = __webpack_require__(4549);
-
-var forEachWithoutClosingOnEarlyError = iteratorHelperWithoutClosingOnEarlyError('forEach', TypeError);
-
-// `Iterator.prototype.forEach` method
-// https://tc39.es/ecma262/#sec-iterator.prototype.foreach
-$({ target: 'Iterator', proto: true, real: true, forced: forEachWithoutClosingOnEarlyError }, {
-  forEach: function forEach(fn) {
-    anObject(this);
-    try {
-      aCallable(fn);
-    } catch (error) {
-      iteratorClose(this, 'throw', error);
-    }
-
-    if (forEachWithoutClosingOnEarlyError) return call(forEachWithoutClosingOnEarlyError, this, fn);
-
-    var record = getIteratorDirect(this);
-    var counter = 0;
-    iterate(record, function (value) {
-      fn(value, counter++);
-    }, { IS_RECORD: true });
-  }
-});
+/***/ 1181
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
-/***/ }),
-
-/***/ 7594:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
+var NATIVE_WEAK_MAP = __webpack_require__(8622);
 var globalThis = __webpack_require__(4576);
-var fails = __webpack_require__(9039);
+var isObject = __webpack_require__(34);
+var createNonEnumerableProperty = __webpack_require__(6699);
+var hasOwn = __webpack_require__(9297);
+var shared = __webpack_require__(7629);
+var sharedKey = __webpack_require__(6119);
+var hiddenKeys = __webpack_require__(421);
 
-// babel-minify and Closure Compiler transpiles RegExp('.', 'd') -> /./d and it causes SyntaxError
-var RegExp = globalThis.RegExp;
+var OBJECT_ALREADY_INITIALIZED = 'Object already initialized';
+var TypeError = globalThis.TypeError;
+var WeakMap = globalThis.WeakMap;
+var set, get, has;
 
-var FLAGS_GETTER_IS_CORRECT = !fails(function () {
-  var INDICES_SUPPORT = true;
-  try {
-    RegExp('.', 'd');
-  } catch (error) {
-    INDICES_SUPPORT = false;
-  }
+var enforce = function (it) {
+  return has(it) ? get(it) : set(it, {});
+};
 
-  var O = {};
-  // modern V8 bug
-  var calls = '';
-  var expected = INDICES_SUPPORT ? 'dgimsy' : 'gimsy';
-
-  var addGetter = function (key, chr) {
-    // eslint-disable-next-line es/no-object-defineproperty -- safe
-    Object.defineProperty(O, key, { get: function () {
-      calls += chr;
-      return true;
-    } });
+var getterFor = function (TYPE) {
+  return function (it) {
+    var state;
+    if (!isObject(it) || (state = get(it)).type !== TYPE) {
+      throw new TypeError('Incompatible receiver, ' + TYPE + ' required');
+    } return state;
   };
+};
 
-  var pairs = {
-    dotAll: 's',
-    global: 'g',
-    ignoreCase: 'i',
-    multiline: 'm',
-    sticky: 'y'
+if (NATIVE_WEAK_MAP || shared.state) {
+  var store = shared.state || (shared.state = new WeakMap());
+  /* eslint-disable no-self-assign -- prototype methods protection */
+  store.get = store.get;
+  store.has = store.has;
+  store.set = store.set;
+  /* eslint-enable no-self-assign -- prototype methods protection */
+  set = function (it, metadata) {
+    if (store.has(it)) throw new TypeError(OBJECT_ALREADY_INITIALIZED);
+    metadata.facade = it;
+    store.set(it, metadata);
+    return metadata;
   };
+  get = function (it) {
+    return store.get(it) || {};
+  };
+  has = function (it) {
+    return store.has(it);
+  };
+} else {
+  var STATE = sharedKey('state');
+  hiddenKeys[STATE] = true;
+  set = function (it, metadata) {
+    if (hasOwn(it, STATE)) throw new TypeError(OBJECT_ALREADY_INITIALIZED);
+    metadata.facade = it;
+    createNonEnumerableProperty(it, STATE, metadata);
+    return metadata;
+  };
+  get = function (it) {
+    return hasOwn(it, STATE) ? it[STATE] : {};
+  };
+  has = function (it) {
+    return hasOwn(it, STATE);
+  };
+}
 
-  if (INDICES_SUPPORT) pairs.hasIndices = 'd';
-
-  for (var key in pairs) addGetter(key, pairs[key]);
-
-  // eslint-disable-next-line es/no-object-getownpropertydescriptor -- safe
-  var result = Object.getOwnPropertyDescriptor(RegExp.prototype, 'flags').get.call(O);
-
-  return result !== expected || calls !== expected;
-});
-
-module.exports = { correct: FLAGS_GETTER_IS_CORRECT };
-
-
-/***/ }),
-
-/***/ 7628:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var lengthOfArrayLike = __webpack_require__(6198);
-
-// https://tc39.es/ecma262/#sec-array.prototype.toreversed
-// https://tc39.es/ecma262/#sec-%typedarray%.prototype.toreversed
-module.exports = function (O, C) {
-  var len = lengthOfArrayLike(O);
-  var A = new C(len);
-  var k = 0;
-  for (; k < len; k++) A[k] = O[len - k - 1];
-  return A;
+module.exports = {
+  set: set,
+  get: get,
+  has: has,
+  enforce: enforce,
+  getterFor: getterFor
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ 7629:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var IS_PURE = __webpack_require__(6395);
-var globalThis = __webpack_require__(4576);
-var defineGlobalProperty = __webpack_require__(9433);
-
-var SHARED = '__core-js_shared__';
-var store = module.exports = globalThis[SHARED] || defineGlobalProperty(SHARED, {});
-
-(store.versions || (store.versions = [])).push({
-  version: '3.45.1',
-  mode: IS_PURE ? 'pure' : 'global',
-  copyright: '© 2014-2025 Denis Pushkarev (zloirock.ru)',
-  license: 'https://github.com/zloirock/core-js/blob/v3.45.1/LICENSE',
-  source: 'https://github.com/zloirock/core-js'
-});
+/***/ 4209
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
-/***/ }),
+var wellKnownSymbol = __webpack_require__(8227);
+var Iterators = __webpack_require__(6269);
 
-/***/ 7642:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
+var ITERATOR = wellKnownSymbol('iterator');
+var ArrayPrototype = Array.prototype;
+
+// check on default Array iterator
+module.exports = function (it) {
+  return it !== undefined && (Iterators.Array === it || ArrayPrototype[ITERATOR] === it);
+};
 
 
-var $ = __webpack_require__(6518);
-var difference = __webpack_require__(3440);
+/***/ },
+
+/***/ 4376
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var classof = __webpack_require__(2195);
+
+// `IsArray` abstract operation
+// https://tc39.es/ecma262/#sec-isarray
+// eslint-disable-next-line es/no-array-isarray -- safe
+module.exports = Array.isArray || function isArray(argument) {
+  return classof(argument) === 'Array';
+};
+
+
+/***/ },
+
+/***/ 1108
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var classof = __webpack_require__(6955);
+
+module.exports = function (it) {
+  var klass = classof(it);
+  return klass === 'BigInt64Array' || klass === 'BigUint64Array';
+};
+
+
+/***/ },
+
+/***/ 4901
+(module) {
+
+
+// https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot
+var documentAll = typeof document == 'object' && document.all;
+
+// `IsCallable` abstract operation
+// https://tc39.es/ecma262/#sec-iscallable
+// eslint-disable-next-line unicorn/no-typeof-undefined -- required for testing
+module.exports = typeof documentAll == 'undefined' && documentAll !== undefined ? function (argument) {
+  return typeof argument == 'function' || argument === documentAll;
+} : function (argument) {
+  return typeof argument == 'function';
+};
+
+
+/***/ },
+
+/***/ 2796
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
 var fails = __webpack_require__(9039);
-var setMethodAcceptSetLike = __webpack_require__(4916);
+var isCallable = __webpack_require__(4901);
 
-var SET_LIKE_INCORRECT_BEHAVIOR = !setMethodAcceptSetLike('difference', function (result) {
-  return result.size === 0;
-});
+var replacement = /#|\.prototype\./;
 
-var FORCED = SET_LIKE_INCORRECT_BEHAVIOR || fails(function () {
-  // https://bugs.webkit.org/show_bug.cgi?id=288595
-  var setLike = {
-    size: 1,
-    has: function () { return true; },
-    keys: function () {
-      var index = 0;
-      return {
-        next: function () {
-          var done = index++ > 1;
-          if (baseSet.has(1)) baseSet.clear();
-          return { done: done, value: 2 };
-        }
-      };
-    }
+var isForced = function (feature, detection) {
+  var value = data[normalize(feature)];
+  return value === POLYFILL ? true
+    : value === NATIVE ? false
+    : isCallable(detection) ? fails(detection)
+    : !!detection;
+};
+
+var normalize = isForced.normalize = function (string) {
+  return String(string).replace(replacement, '.').toLowerCase();
+};
+
+var data = isForced.data = {};
+var NATIVE = isForced.NATIVE = 'N';
+var POLYFILL = isForced.POLYFILL = 'P';
+
+module.exports = isForced;
+
+
+/***/ },
+
+/***/ 4117
+(module) {
+
+
+// we can't use just `it == null` since of `document.all` special case
+// https://tc39.es/ecma262/#sec-IsHTMLDDA-internal-slot-aec
+module.exports = function (it) {
+  return it === null || it === undefined;
+};
+
+
+/***/ },
+
+/***/ 34
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var isCallable = __webpack_require__(4901);
+
+module.exports = function (it) {
+  return typeof it == 'object' ? it !== null : isCallable(it);
+};
+
+
+/***/ },
+
+/***/ 3925
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var isObject = __webpack_require__(34);
+
+module.exports = function (argument) {
+  return isObject(argument) || argument === null;
+};
+
+
+/***/ },
+
+/***/ 6395
+(module) {
+
+
+module.exports = false;
+
+
+/***/ },
+
+/***/ 757
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var getBuiltIn = __webpack_require__(7751);
+var isCallable = __webpack_require__(4901);
+var isPrototypeOf = __webpack_require__(1625);
+var USE_SYMBOL_AS_UID = __webpack_require__(7040);
+
+var $Object = Object;
+
+module.exports = USE_SYMBOL_AS_UID ? function (it) {
+  return typeof it == 'symbol';
+} : function (it) {
+  var $Symbol = getBuiltIn('Symbol');
+  return isCallable($Symbol) && isPrototypeOf($Symbol.prototype, $Object(it));
+};
+
+
+/***/ },
+
+/***/ 507
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var call = __webpack_require__(9565);
+
+module.exports = function (record, fn, ITERATOR_INSTEAD_OF_RECORD) {
+  var iterator = ITERATOR_INSTEAD_OF_RECORD ? record : record.iterator;
+  var next = record.next;
+  var step, result;
+  while (!(step = call(next, iterator)).done) {
+    result = fn(step.value);
+    if (result !== undefined) return result;
+  }
+};
+
+
+/***/ },
+
+/***/ 2652
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var bind = __webpack_require__(6080);
+var call = __webpack_require__(9565);
+var anObject = __webpack_require__(8551);
+var tryToString = __webpack_require__(6823);
+var isArrayIteratorMethod = __webpack_require__(4209);
+var lengthOfArrayLike = __webpack_require__(6198);
+var isPrototypeOf = __webpack_require__(1625);
+var getIterator = __webpack_require__(81);
+var getIteratorMethod = __webpack_require__(851);
+var iteratorClose = __webpack_require__(9539);
+
+var $TypeError = TypeError;
+
+var Result = function (stopped, result) {
+  this.stopped = stopped;
+  this.result = result;
+};
+
+var ResultPrototype = Result.prototype;
+
+module.exports = function (iterable, unboundFunction, options) {
+  var that = options && options.that;
+  var AS_ENTRIES = !!(options && options.AS_ENTRIES);
+  var IS_RECORD = !!(options && options.IS_RECORD);
+  var IS_ITERATOR = !!(options && options.IS_ITERATOR);
+  var INTERRUPTED = !!(options && options.INTERRUPTED);
+  var fn = bind(unboundFunction, that);
+  var iterator, iterFn, index, length, result, next, step;
+
+  var stop = function (condition) {
+    if (iterator) iteratorClose(iterator, 'normal');
+    return new Result(true, condition);
   };
-  // eslint-disable-next-line es/no-set -- testing
-  var baseSet = new Set([1, 2, 3, 4]);
-  // eslint-disable-next-line es/no-set-prototype-difference -- testing
-  return baseSet.difference(setLike).size !== 3;
-});
 
-// `Set.prototype.difference` method
-// https://tc39.es/ecma262/#sec-set.prototype.difference
-$({ target: 'Set', proto: true, real: true, forced: FORCED }, {
-  difference: difference
-});
+  var callFn = function (value) {
+    if (AS_ENTRIES) {
+      anObject(value);
+      return INTERRUPTED ? fn(value[0], value[1], stop) : fn(value[0], value[1]);
+    } return INTERRUPTED ? fn(value, stop) : fn(value);
+  };
+
+  if (IS_RECORD) {
+    iterator = iterable.iterator;
+  } else if (IS_ITERATOR) {
+    iterator = iterable;
+  } else {
+    iterFn = getIteratorMethod(iterable);
+    if (!iterFn) throw new $TypeError(tryToString(iterable) + ' is not iterable');
+    // optimisation for array iterators
+    if (isArrayIteratorMethod(iterFn)) {
+      for (index = 0, length = lengthOfArrayLike(iterable); length > index; index++) {
+        result = callFn(iterable[index]);
+        if (result && isPrototypeOf(ResultPrototype, result)) return result;
+      } return new Result(false);
+    }
+    iterator = getIterator(iterable, iterFn);
+  }
+
+  next = IS_RECORD ? iterable.next : iterator.next;
+  while (!(step = call(next, iterator)).done) {
+    try {
+      result = callFn(step.value);
+    } catch (error) {
+      iteratorClose(iterator, 'throw', error);
+    }
+    if (typeof result == 'object' && result && isPrototypeOf(ResultPrototype, result)) return result;
+  } return new Result(false);
+};
 
 
-/***/ }),
+/***/ },
 
-/***/ 7657:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+/***/ 1385
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var iteratorClose = __webpack_require__(9539);
+
+module.exports = function (iters, kind, value) {
+  for (var i = iters.length - 1; i >= 0; i--) {
+    if (iters[i] === undefined) continue;
+    try {
+      value = iteratorClose(iters[i].iterator, kind, value);
+    } catch (error) {
+      kind = 'throw';
+      value = error;
+    }
+  }
+  if (kind === 'throw') throw value;
+  return value;
+};
+
+
+/***/ },
+
+/***/ 9539
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var call = __webpack_require__(9565);
+var anObject = __webpack_require__(8551);
+var getMethod = __webpack_require__(5966);
+
+module.exports = function (iterator, kind, value) {
+  var innerResult, innerError;
+  anObject(iterator);
+  try {
+    innerResult = getMethod(iterator, 'return');
+    if (!innerResult) {
+      if (kind === 'throw') throw value;
+      return value;
+    }
+    innerResult = call(innerResult, iterator);
+  } catch (error) {
+    innerError = true;
+    innerResult = error;
+  }
+  if (kind === 'throw') throw value;
+  if (innerError) throw innerResult;
+  anObject(innerResult);
+  return value;
+};
+
+
+/***/ },
+
+/***/ 9462
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var call = __webpack_require__(9565);
+var create = __webpack_require__(2360);
+var createNonEnumerableProperty = __webpack_require__(6699);
+var defineBuiltIns = __webpack_require__(6279);
+var wellKnownSymbol = __webpack_require__(8227);
+var InternalStateModule = __webpack_require__(1181);
+var getMethod = __webpack_require__(5966);
+var IteratorPrototype = (__webpack_require__(7657).IteratorPrototype);
+var createIterResultObject = __webpack_require__(2529);
+var iteratorClose = __webpack_require__(9539);
+var iteratorCloseAll = __webpack_require__(1385);
+
+var TO_STRING_TAG = wellKnownSymbol('toStringTag');
+var ITERATOR_HELPER = 'IteratorHelper';
+var WRAP_FOR_VALID_ITERATOR = 'WrapForValidIterator';
+var NORMAL = 'normal';
+var THROW = 'throw';
+var setInternalState = InternalStateModule.set;
+
+var createIteratorProxyPrototype = function (IS_ITERATOR) {
+  var getInternalState = InternalStateModule.getterFor(IS_ITERATOR ? WRAP_FOR_VALID_ITERATOR : ITERATOR_HELPER);
+
+  return defineBuiltIns(create(IteratorPrototype), {
+    next: function next() {
+      var state = getInternalState(this);
+      // for simplification:
+      //   for `%WrapForValidIteratorPrototype%.next` or with `state.returnHandlerResult` our `nextHandler` returns `IterResultObject`
+      //   for `%IteratorHelperPrototype%.next` - just a value
+      if (IS_ITERATOR) return state.nextHandler();
+      if (state.done) return createIterResultObject(undefined, true);
+      try {
+        var result = state.nextHandler();
+        return state.returnHandlerResult ? result : createIterResultObject(result, state.done);
+      } catch (error) {
+        state.done = true;
+        throw error;
+      }
+    },
+    'return': function () {
+      var state = getInternalState(this);
+      var iterator = state.iterator;
+      state.done = true;
+      if (IS_ITERATOR) {
+        var returnMethod = getMethod(iterator, 'return');
+        return returnMethod ? call(returnMethod, iterator) : createIterResultObject(undefined, true);
+      }
+      if (state.inner) try {
+        iteratorClose(state.inner.iterator, NORMAL);
+      } catch (error) {
+        return iteratorClose(iterator, THROW, error);
+      }
+      if (state.openIters) try {
+        iteratorCloseAll(state.openIters, NORMAL);
+      } catch (error) {
+        return iteratorClose(iterator, THROW, error);
+      }
+      if (iterator) iteratorClose(iterator, NORMAL);
+      return createIterResultObject(undefined, true);
+    }
+  });
+};
+
+var WrapForValidIteratorPrototype = createIteratorProxyPrototype(true);
+var IteratorHelperPrototype = createIteratorProxyPrototype(false);
+
+createNonEnumerableProperty(IteratorHelperPrototype, TO_STRING_TAG, 'Iterator Helper');
+
+module.exports = function (nextHandler, IS_ITERATOR, RETURN_HANDLER_RESULT) {
+  var IteratorProxy = function Iterator(record, state) {
+    if (state) {
+      state.iterator = record.iterator;
+      state.next = record.next;
+    } else state = record;
+    state.type = IS_ITERATOR ? WRAP_FOR_VALID_ITERATOR : ITERATOR_HELPER;
+    state.returnHandlerResult = !!RETURN_HANDLER_RESULT;
+    state.nextHandler = nextHandler;
+    state.counter = 0;
+    state.done = false;
+    setInternalState(this, state);
+  };
+
+  IteratorProxy.prototype = IS_ITERATOR ? WrapForValidIteratorPrototype : IteratorHelperPrototype;
+
+  return IteratorProxy;
+};
+
+
+/***/ },
+
+/***/ 684
+(module) {
+
+
+// Should throw an error on invalid iterator
+// https://issues.chromium.org/issues/336839115
+module.exports = function (methodName, argument) {
+  // eslint-disable-next-line es/no-iterator -- required for testing
+  var method = typeof Iterator == 'function' && Iterator.prototype[methodName];
+  if (method) try {
+    method.call({ next: null }, argument).next();
+  } catch (error) {
+    return true;
+  }
+};
+
+
+/***/ },
+
+/***/ 4549
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var globalThis = __webpack_require__(4576);
+
+// https://github.com/tc39/ecma262/pull/3467
+module.exports = function (METHOD_NAME, ExpectedError) {
+  var Iterator = globalThis.Iterator;
+  var IteratorPrototype = Iterator && Iterator.prototype;
+  var method = IteratorPrototype && IteratorPrototype[METHOD_NAME];
+
+  var CLOSED = false;
+
+  if (method) try {
+    method.call({
+      next: function () { return { done: true }; },
+      'return': function () { CLOSED = true; }
+    }, -1);
+  } catch (error) {
+    // https://bugs.webkit.org/show_bug.cgi?id=291195
+    if (!(error instanceof ExpectedError)) CLOSED = false;
+  }
+
+  if (!CLOSED) return method;
+};
+
+
+/***/ },
+
+/***/ 7657
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
 var fails = __webpack_require__(9039);
@@ -4974,131 +2588,658 @@ module.exports = {
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ 7680:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+/***/ 6269
+(module) {
+
+
+module.exports = {};
+
+
+/***/ },
+
+/***/ 6198
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var toLength = __webpack_require__(8014);
+
+// `LengthOfArrayLike` abstract operation
+// https://tc39.es/ecma262/#sec-lengthofarraylike
+module.exports = function (obj) {
+  return toLength(obj.length);
+};
+
+
+/***/ },
+
+/***/ 283
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var uncurryThis = __webpack_require__(9504);
+var fails = __webpack_require__(9039);
+var isCallable = __webpack_require__(4901);
+var hasOwn = __webpack_require__(9297);
+var DESCRIPTORS = __webpack_require__(3724);
+var CONFIGURABLE_FUNCTION_NAME = (__webpack_require__(350).CONFIGURABLE);
+var inspectSource = __webpack_require__(3706);
+var InternalStateModule = __webpack_require__(1181);
+
+var enforceInternalState = InternalStateModule.enforce;
+var getInternalState = InternalStateModule.get;
+var $String = String;
+// eslint-disable-next-line es/no-object-defineproperty -- safe
+var defineProperty = Object.defineProperty;
+var stringSlice = uncurryThis(''.slice);
+var replace = uncurryThis(''.replace);
+var join = uncurryThis([].join);
+
+var CONFIGURABLE_LENGTH = DESCRIPTORS && !fails(function () {
+  return defineProperty(function () { /* empty */ }, 'length', { value: 8 }).length !== 8;
+});
+
+var TEMPLATE = String(String).split('String');
+
+var makeBuiltIn = module.exports = function (value, name, options) {
+  if (stringSlice($String(name), 0, 7) === 'Symbol(') {
+    name = '[' + replace($String(name), /^Symbol\(([^)]*)\).*$/, '$1') + ']';
+  }
+  if (options && options.getter) name = 'get ' + name;
+  if (options && options.setter) name = 'set ' + name;
+  if (!hasOwn(value, 'name') || (CONFIGURABLE_FUNCTION_NAME && value.name !== name)) {
+    if (DESCRIPTORS) defineProperty(value, 'name', { value: name, configurable: true });
+    else value.name = name;
+  }
+  if (CONFIGURABLE_LENGTH && options && hasOwn(options, 'arity') && value.length !== options.arity) {
+    defineProperty(value, 'length', { value: options.arity });
+  }
+  try {
+    if (options && hasOwn(options, 'constructor') && options.constructor) {
+      if (DESCRIPTORS) defineProperty(value, 'prototype', { writable: false });
+    // in V8 ~ Chrome 53, prototypes of some methods, like `Array.prototype.values`, are non-writable
+    } else if (value.prototype) value.prototype = undefined;
+  } catch (error) { /* empty */ }
+  var state = enforceInternalState(value);
+  if (!hasOwn(state, 'source')) {
+    state.source = join(TEMPLATE, typeof name == 'string' ? name : '');
+  } return value;
+};
+
+// add fake Function#toString for correct work wrapped methods / constructors with methods like LoDash isNative
+// eslint-disable-next-line no-extend-native -- required
+Function.prototype.toString = makeBuiltIn(function toString() {
+  return isCallable(this) && getInternalState(this).source || inspectSource(this);
+}, 'toString');
+
+
+/***/ },
+
+/***/ 741
+(module) {
+
+
+var ceil = Math.ceil;
+var floor = Math.floor;
+
+// `Math.trunc` method
+// https://tc39.es/ecma262/#sec-math.trunc
+// eslint-disable-next-line es/no-math-trunc -- safe
+module.exports = Math.trunc || function trunc(x) {
+  var n = +x;
+  return (n > 0 ? floor : ceil)(n);
+};
+
+
+/***/ },
+
+/***/ 6043
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var aCallable = __webpack_require__(9306);
+
+var $TypeError = TypeError;
+
+var PromiseCapability = function (C) {
+  var resolve, reject;
+  this.promise = new C(function ($$resolve, $$reject) {
+    if (resolve !== undefined || reject !== undefined) throw new $TypeError('Bad Promise constructor');
+    resolve = $$resolve;
+    reject = $$reject;
+  });
+  this.resolve = aCallable(resolve);
+  this.reject = aCallable(reject);
+};
+
+// `NewPromiseCapability` abstract operation
+// https://tc39.es/ecma262/#sec-newpromisecapability
+module.exports.f = function (C) {
+  return new PromiseCapability(C);
+};
+
+
+/***/ },
+
+/***/ 2603
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var toString = __webpack_require__(655);
+
+module.exports = function (argument, $default) {
+  return argument === undefined ? arguments.length < 2 ? '' : $default : toString(argument);
+};
+
+
+/***/ },
+
+/***/ 2360
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+/* global ActiveXObject -- old IE, WSH */
+var anObject = __webpack_require__(8551);
+var definePropertiesModule = __webpack_require__(6801);
+var enumBugKeys = __webpack_require__(8727);
+var hiddenKeys = __webpack_require__(421);
+var html = __webpack_require__(397);
+var documentCreateElement = __webpack_require__(4055);
+var sharedKey = __webpack_require__(6119);
+
+var GT = '>';
+var LT = '<';
+var PROTOTYPE = 'prototype';
+var SCRIPT = 'script';
+var IE_PROTO = sharedKey('IE_PROTO');
+
+var EmptyConstructor = function () { /* empty */ };
+
+var scriptTag = function (content) {
+  return LT + SCRIPT + GT + content + LT + '/' + SCRIPT + GT;
+};
+
+// Create object with fake `null` prototype: use ActiveX Object with cleared prototype
+var NullProtoObjectViaActiveX = function (activeXDocument) {
+  activeXDocument.write(scriptTag(''));
+  activeXDocument.close();
+  var temp = activeXDocument.parentWindow.Object;
+  // eslint-disable-next-line no-useless-assignment -- avoid memory leak
+  activeXDocument = null;
+  return temp;
+};
+
+// Create object with fake `null` prototype: use iframe Object with cleared prototype
+var NullProtoObjectViaIFrame = function () {
+  // Thrash, waste and sodomy: IE GC bug
+  var iframe = documentCreateElement('iframe');
+  var JS = 'java' + SCRIPT + ':';
+  var iframeDocument;
+  iframe.style.display = 'none';
+  html.appendChild(iframe);
+  // https://github.com/zloirock/core-js/issues/475
+  iframe.src = String(JS);
+  iframeDocument = iframe.contentWindow.document;
+  iframeDocument.open();
+  iframeDocument.write(scriptTag('document.F=Object'));
+  iframeDocument.close();
+  return iframeDocument.F;
+};
+
+// Check for document.domain and active x support
+// No need to use active x approach when document.domain is not set
+// see https://github.com/es-shims/es5-shim/issues/150
+// variation of https://github.com/kitcambridge/es5-shim/commit/4f738ac066346
+// avoid IE GC bug
+var activeXDocument;
+var NullProtoObject = function () {
+  try {
+    activeXDocument = new ActiveXObject('htmlfile');
+  } catch (error) { /* ignore */ }
+  NullProtoObject = typeof document != 'undefined'
+    ? document.domain && activeXDocument
+      ? NullProtoObjectViaActiveX(activeXDocument) // old IE
+      : NullProtoObjectViaIFrame()
+    : NullProtoObjectViaActiveX(activeXDocument); // WSH
+  var length = enumBugKeys.length;
+  while (length--) delete NullProtoObject[PROTOTYPE][enumBugKeys[length]];
+  return NullProtoObject();
+};
+
+hiddenKeys[IE_PROTO] = true;
+
+// `Object.create` method
+// https://tc39.es/ecma262/#sec-object.create
+// eslint-disable-next-line es/no-object-create -- safe
+module.exports = Object.create || function create(O, Properties) {
+  var result;
+  if (O !== null) {
+    EmptyConstructor[PROTOTYPE] = anObject(O);
+    result = new EmptyConstructor();
+    EmptyConstructor[PROTOTYPE] = null;
+    // add "__proto__" for Object.getPrototypeOf polyfill
+    result[IE_PROTO] = O;
+  } else result = NullProtoObject();
+  return Properties === undefined ? result : definePropertiesModule.f(result, Properties);
+};
+
+
+/***/ },
+
+/***/ 6801
+(__unused_webpack_module, exports, __webpack_require__) {
+
+
+var DESCRIPTORS = __webpack_require__(3724);
+var V8_PROTOTYPE_DEFINE_BUG = __webpack_require__(8686);
+var definePropertyModule = __webpack_require__(4913);
+var anObject = __webpack_require__(8551);
+var toIndexedObject = __webpack_require__(5397);
+var objectKeys = __webpack_require__(1072);
+
+// `Object.defineProperties` method
+// https://tc39.es/ecma262/#sec-object.defineproperties
+// eslint-disable-next-line es/no-object-defineproperties -- safe
+exports.f = DESCRIPTORS && !V8_PROTOTYPE_DEFINE_BUG ? Object.defineProperties : function defineProperties(O, Properties) {
+  anObject(O);
+  var props = toIndexedObject(Properties);
+  var keys = objectKeys(Properties);
+  var length = keys.length;
+  var index = 0;
+  var key;
+  while (length > index) definePropertyModule.f(O, key = keys[index++], props[key]);
+  return O;
+};
+
+
+/***/ },
+
+/***/ 4913
+(__unused_webpack_module, exports, __webpack_require__) {
+
+
+var DESCRIPTORS = __webpack_require__(3724);
+var IE8_DOM_DEFINE = __webpack_require__(5917);
+var V8_PROTOTYPE_DEFINE_BUG = __webpack_require__(8686);
+var anObject = __webpack_require__(8551);
+var toPropertyKey = __webpack_require__(6969);
+
+var $TypeError = TypeError;
+// eslint-disable-next-line es/no-object-defineproperty -- safe
+var $defineProperty = Object.defineProperty;
+// eslint-disable-next-line es/no-object-getownpropertydescriptor -- safe
+var $getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
+var ENUMERABLE = 'enumerable';
+var CONFIGURABLE = 'configurable';
+var WRITABLE = 'writable';
+
+// `Object.defineProperty` method
+// https://tc39.es/ecma262/#sec-object.defineproperty
+exports.f = DESCRIPTORS ? V8_PROTOTYPE_DEFINE_BUG ? function defineProperty(O, P, Attributes) {
+  anObject(O);
+  P = toPropertyKey(P);
+  anObject(Attributes);
+  if (typeof O === 'function' && P === 'prototype' && 'value' in Attributes && WRITABLE in Attributes && !Attributes[WRITABLE]) {
+    var current = $getOwnPropertyDescriptor(O, P);
+    if (current && current[WRITABLE]) {
+      O[P] = Attributes.value;
+      Attributes = {
+        configurable: CONFIGURABLE in Attributes ? Attributes[CONFIGURABLE] : current[CONFIGURABLE],
+        enumerable: ENUMERABLE in Attributes ? Attributes[ENUMERABLE] : current[ENUMERABLE],
+        writable: false
+      };
+    }
+  } return $defineProperty(O, P, Attributes);
+} : $defineProperty : function defineProperty(O, P, Attributes) {
+  anObject(O);
+  P = toPropertyKey(P);
+  anObject(Attributes);
+  if (IE8_DOM_DEFINE) try {
+    return $defineProperty(O, P, Attributes);
+  } catch (error) { /* empty */ }
+  if ('get' in Attributes || 'set' in Attributes) throw new $TypeError('Accessors not supported');
+  if ('value' in Attributes) O[P] = Attributes.value;
+  return O;
+};
+
+
+/***/ },
+
+/***/ 7347
+(__unused_webpack_module, exports, __webpack_require__) {
+
+
+var DESCRIPTORS = __webpack_require__(3724);
+var call = __webpack_require__(9565);
+var propertyIsEnumerableModule = __webpack_require__(8773);
+var createPropertyDescriptor = __webpack_require__(6980);
+var toIndexedObject = __webpack_require__(5397);
+var toPropertyKey = __webpack_require__(6969);
+var hasOwn = __webpack_require__(9297);
+var IE8_DOM_DEFINE = __webpack_require__(5917);
+
+// eslint-disable-next-line es/no-object-getownpropertydescriptor -- safe
+var $getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
+
+// `Object.getOwnPropertyDescriptor` method
+// https://tc39.es/ecma262/#sec-object.getownpropertydescriptor
+exports.f = DESCRIPTORS ? $getOwnPropertyDescriptor : function getOwnPropertyDescriptor(O, P) {
+  O = toIndexedObject(O);
+  P = toPropertyKey(P);
+  if (IE8_DOM_DEFINE) try {
+    return $getOwnPropertyDescriptor(O, P);
+  } catch (error) { /* empty */ }
+  if (hasOwn(O, P)) return createPropertyDescriptor(!call(propertyIsEnumerableModule.f, O, P), O[P]);
+};
+
+
+/***/ },
+
+/***/ 8480
+(__unused_webpack_module, exports, __webpack_require__) {
+
+
+var internalObjectKeys = __webpack_require__(1828);
+var enumBugKeys = __webpack_require__(8727);
+
+var hiddenKeys = enumBugKeys.concat('length', 'prototype');
+
+// `Object.getOwnPropertyNames` method
+// https://tc39.es/ecma262/#sec-object.getownpropertynames
+// eslint-disable-next-line es/no-object-getownpropertynames -- safe
+exports.f = Object.getOwnPropertyNames || function getOwnPropertyNames(O) {
+  return internalObjectKeys(O, hiddenKeys);
+};
+
+
+/***/ },
+
+/***/ 3717
+(__unused_webpack_module, exports) {
+
+
+// eslint-disable-next-line es/no-object-getownpropertysymbols -- safe
+exports.f = Object.getOwnPropertySymbols;
+
+
+/***/ },
+
+/***/ 2787
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var hasOwn = __webpack_require__(9297);
+var isCallable = __webpack_require__(4901);
+var toObject = __webpack_require__(8981);
+var sharedKey = __webpack_require__(6119);
+var CORRECT_PROTOTYPE_GETTER = __webpack_require__(2211);
+
+var IE_PROTO = sharedKey('IE_PROTO');
+var $Object = Object;
+var ObjectPrototype = $Object.prototype;
+
+// `Object.getPrototypeOf` method
+// https://tc39.es/ecma262/#sec-object.getprototypeof
+// eslint-disable-next-line es/no-object-getprototypeof -- safe
+module.exports = CORRECT_PROTOTYPE_GETTER ? $Object.getPrototypeOf : function (O) {
+  var object = toObject(O);
+  if (hasOwn(object, IE_PROTO)) return object[IE_PROTO];
+  var constructor = object.constructor;
+  if (isCallable(constructor) && object instanceof constructor) {
+    return constructor.prototype;
+  } return object instanceof $Object ? ObjectPrototype : null;
+};
+
+
+/***/ },
+
+/***/ 1625
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
 var uncurryThis = __webpack_require__(9504);
 
-module.exports = uncurryThis([].slice);
+module.exports = uncurryThis({}.isPrototypeOf);
 
 
-/***/ }),
+/***/ },
 
-/***/ 7696:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var toIntegerOrInfinity = __webpack_require__(1291);
-var toLength = __webpack_require__(8014);
-
-var $RangeError = RangeError;
-
-// `ToIndex` abstract operation
-// https://tc39.es/ecma262/#sec-toindex
-module.exports = function (it) {
-  if (it === undefined) return 0;
-  var number = toIntegerOrInfinity(it);
-  var length = toLength(number);
-  if (number !== length) throw new $RangeError('Wrong length or index');
-  return length;
-};
+/***/ 1828
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
-/***/ }),
-
-/***/ 7740:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
+var uncurryThis = __webpack_require__(9504);
 var hasOwn = __webpack_require__(9297);
-var ownKeys = __webpack_require__(5031);
-var getOwnPropertyDescriptorModule = __webpack_require__(7347);
-var definePropertyModule = __webpack_require__(4913);
+var toIndexedObject = __webpack_require__(5397);
+var indexOf = (__webpack_require__(9617).indexOf);
+var hiddenKeys = __webpack_require__(421);
 
-module.exports = function (target, source, exceptions) {
-  var keys = ownKeys(source);
-  var defineProperty = definePropertyModule.f;
-  var getOwnPropertyDescriptor = getOwnPropertyDescriptorModule.f;
-  for (var i = 0; i < keys.length; i++) {
-    var key = keys[i];
-    if (!hasOwn(target, key) && !(exceptions && hasOwn(exceptions, key))) {
-      defineProperty(target, key, getOwnPropertyDescriptor(source, key));
-    }
+var push = uncurryThis([].push);
+
+module.exports = function (object, names) {
+  var O = toIndexedObject(object);
+  var i = 0;
+  var result = [];
+  var key;
+  for (key in O) !hasOwn(hiddenKeys, key) && hasOwn(O, key) && push(result, key);
+  // Don't enum bug & hidden keys
+  while (names.length > i) if (hasOwn(O, key = names[i++])) {
+    ~indexOf(result, key) || push(result, key);
   }
+  return result;
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ 7750:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+/***/ 1072
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
-var isNullOrUndefined = __webpack_require__(4117);
+var internalObjectKeys = __webpack_require__(1828);
+var enumBugKeys = __webpack_require__(8727);
+
+// `Object.keys` method
+// https://tc39.es/ecma262/#sec-object.keys
+// eslint-disable-next-line es/no-object-keys -- safe
+module.exports = Object.keys || function keys(O) {
+  return internalObjectKeys(O, enumBugKeys);
+};
+
+
+/***/ },
+
+/***/ 8773
+(__unused_webpack_module, exports) {
+
+
+var $propertyIsEnumerable = {}.propertyIsEnumerable;
+// eslint-disable-next-line es/no-object-getownpropertydescriptor -- safe
+var getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
+
+// Nashorn ~ JDK8 bug
+var NASHORN_BUG = getOwnPropertyDescriptor && !$propertyIsEnumerable.call({ 1: 2 }, 1);
+
+// `Object.prototype.propertyIsEnumerable` method implementation
+// https://tc39.es/ecma262/#sec-object.prototype.propertyisenumerable
+exports.f = NASHORN_BUG ? function propertyIsEnumerable(V) {
+  var descriptor = getOwnPropertyDescriptor(this, V);
+  return !!descriptor && descriptor.enumerable;
+} : $propertyIsEnumerable;
+
+
+/***/ },
+
+/***/ 2967
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+/* eslint-disable no-proto -- safe */
+var uncurryThisAccessor = __webpack_require__(6706);
+var isObject = __webpack_require__(34);
+var requireObjectCoercible = __webpack_require__(7750);
+var aPossiblePrototype = __webpack_require__(3506);
+
+// `Object.setPrototypeOf` method
+// https://tc39.es/ecma262/#sec-object.setprototypeof
+// Works with __proto__ only. Old v8 can't work with null proto objects.
+// eslint-disable-next-line es/no-object-setprototypeof -- safe
+module.exports = Object.setPrototypeOf || ('__proto__' in {} ? function () {
+  var CORRECT_SETTER = false;
+  var test = {};
+  var setter;
+  try {
+    setter = uncurryThisAccessor(Object.prototype, '__proto__', 'set');
+    setter(test, []);
+    CORRECT_SETTER = test instanceof Array;
+  } catch (error) { /* empty */ }
+  return function setPrototypeOf(O, proto) {
+    requireObjectCoercible(O);
+    aPossiblePrototype(proto);
+    if (!isObject(O)) return O;
+    if (CORRECT_SETTER) setter(O, proto);
+    else O.__proto__ = proto;
+    return O;
+  };
+}() : undefined);
+
+
+/***/ },
+
+/***/ 4270
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var call = __webpack_require__(9565);
+var isCallable = __webpack_require__(4901);
+var isObject = __webpack_require__(34);
 
 var $TypeError = TypeError;
 
-// `RequireObjectCoercible` abstract operation
-// https://tc39.es/ecma262/#sec-requireobjectcoercible
-module.exports = function (it) {
-  if (isNullOrUndefined(it)) throw new $TypeError("Can't call method on " + it);
-  return it;
+// `OrdinaryToPrimitive` abstract operation
+// https://tc39.es/ecma262/#sec-ordinarytoprimitive
+module.exports = function (input, pref) {
+  var fn, val;
+  if (pref === 'string' && isCallable(fn = input.toString) && !isObject(val = call(fn, input))) return val;
+  if (isCallable(fn = input.valueOf) && !isObject(val = call(fn, input))) return val;
+  if (pref !== 'string' && isCallable(fn = input.toString) && !isObject(val = call(fn, input))) return val;
+  throw new $TypeError("Can't convert object to primitive value");
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ 7751:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+/***/ 5031
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var getBuiltIn = __webpack_require__(7751);
+var uncurryThis = __webpack_require__(9504);
+var getOwnPropertyNamesModule = __webpack_require__(8480);
+var getOwnPropertySymbolsModule = __webpack_require__(3717);
+var anObject = __webpack_require__(8551);
+
+var concat = uncurryThis([].concat);
+
+// all object keys, includes non-enumerable and symbols
+module.exports = getBuiltIn('Reflect', 'ownKeys') || function ownKeys(it) {
+  var keys = getOwnPropertyNamesModule.f(anObject(it));
+  var getOwnPropertySymbols = getOwnPropertySymbolsModule.f;
+  return getOwnPropertySymbols ? concat(keys, getOwnPropertySymbols(it)) : keys;
+};
+
+
+/***/ },
+
+/***/ 1103
+(module) {
+
+
+module.exports = function (exec) {
+  try {
+    return { error: false, value: exec() };
+  } catch (error) {
+    return { error: true, value: error };
+  }
+};
+
+
+/***/ },
+
+/***/ 1056
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var defineProperty = (__webpack_require__(4913).f);
+
+module.exports = function (Target, Source, key) {
+  key in Target || defineProperty(Target, key, {
+    configurable: true,
+    get: function () { return Source[key]; },
+    set: function (it) { Source[key] = it; }
+  });
+};
+
+
+/***/ },
+
+/***/ 7594
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
 var globalThis = __webpack_require__(4576);
-var isCallable = __webpack_require__(4901);
+var fails = __webpack_require__(9039);
 
-var aFunction = function (argument) {
-  return isCallable(argument) ? argument : undefined;
-};
+// babel-minify and Closure Compiler transpiles RegExp('.', 'd') -> /./d and it causes SyntaxError
+var RegExp = globalThis.RegExp;
 
-module.exports = function (namespace, method) {
-  return arguments.length < 2 ? aFunction(globalThis[namespace]) : globalThis[namespace] && globalThis[namespace][method];
-};
-
-
-/***/ }),
-
-/***/ 7811:
-/***/ ((module) => {
-
-
-// eslint-disable-next-line es/no-typed-arrays -- safe
-module.exports = typeof ArrayBuffer != 'undefined' && typeof DataView != 'undefined';
-
-
-/***/ }),
-
-/***/ 7936:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var $ = __webpack_require__(6518);
-var $transfer = __webpack_require__(5636);
-
-// `ArrayBuffer.prototype.transferToFixedLength` method
-// https://tc39.es/ecma262/#sec-arraybuffer.prototype.transfertofixedlength
-if ($transfer) $({ target: 'ArrayBuffer', proto: true }, {
-  transferToFixedLength: function transferToFixedLength() {
-    return $transfer(this, arguments.length ? arguments[0] : undefined, false);
+var FLAGS_GETTER_IS_CORRECT = !fails(function () {
+  var INDICES_SUPPORT = true;
+  try {
+    RegExp('.', 'd');
+  } catch (error) {
+    INDICES_SUPPORT = false;
   }
+
+  var O = {};
+  // modern V8 bug
+  var calls = '';
+  var expected = INDICES_SUPPORT ? 'dgimsy' : 'gimsy';
+
+  var addGetter = function (key, chr) {
+    // eslint-disable-next-line es/no-object-defineproperty -- safe
+    Object.defineProperty(O, key, { get: function () {
+      calls += chr;
+      return true;
+    } });
+  };
+
+  var pairs = {
+    dotAll: 's',
+    global: 'g',
+    ignoreCase: 'i',
+    multiline: 'm',
+    sticky: 'y'
+  };
+
+  if (INDICES_SUPPORT) pairs.hasIndices = 'd';
+
+  for (var key in pairs) addGetter(key, pairs[key]);
+
+  // eslint-disable-next-line es/no-object-getownpropertydescriptor -- safe
+  var result = Object.getOwnPropertyDescriptor(RegExp.prototype, 'flags').get.call(O);
+
+  return result !== expected || calls !== expected;
 });
 
+module.exports = { correct: FLAGS_GETTER_IS_CORRECT };
 
-/***/ }),
 
-/***/ 7979:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+/***/ },
+
+/***/ 7979
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
 var anObject = __webpack_require__(8551);
@@ -5120,523 +3261,103 @@ module.exports = function () {
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ 8004:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var $ = __webpack_require__(6518);
-var fails = __webpack_require__(9039);
-var intersection = __webpack_require__(8750);
-var setMethodAcceptSetLike = __webpack_require__(4916);
-
-var INCORRECT = !setMethodAcceptSetLike('intersection', function (result) {
-  return result.size === 2 && result.has(1) && result.has(2);
-}) || fails(function () {
-  // eslint-disable-next-line es/no-array-from, es/no-set, es/no-set-prototype-intersection -- testing
-  return String(Array.from(new Set([1, 2, 3]).intersection(new Set([3, 2])))) !== '3,2';
-});
-
-// `Set.prototype.intersection` method
-// https://tc39.es/ecma262/#sec-set.prototype.intersection
-$({ target: 'Set', proto: true, real: true, forced: INCORRECT }, {
-  intersection: intersection
-});
+/***/ 7750
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
-/***/ }),
-
-/***/ 8014:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var toIntegerOrInfinity = __webpack_require__(1291);
-
-var min = Math.min;
-
-// `ToLength` abstract operation
-// https://tc39.es/ecma262/#sec-tolength
-module.exports = function (argument) {
-  var len = toIntegerOrInfinity(argument);
-  return len > 0 ? min(len, 0x1FFFFFFFFFFFFF) : 0; // 2 ** 53 - 1 == 9007199254740991
-};
-
-
-/***/ }),
-
-/***/ 8100:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var $ = __webpack_require__(6518);
-var $transfer = __webpack_require__(5636);
-
-// `ArrayBuffer.prototype.transfer` method
-// https://tc39.es/ecma262/#sec-arraybuffer.prototype.transfer
-if ($transfer) $({ target: 'ArrayBuffer', proto: true }, {
-  transfer: function transfer() {
-    return $transfer(this, arguments.length ? arguments[0] : undefined, true);
-  }
-});
-
-
-/***/ }),
-
-/***/ 8107:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var $ = __webpack_require__(6518);
-var toObject = __webpack_require__(8981);
-var lengthOfArrayLike = __webpack_require__(6198);
-var toIntegerOrInfinity = __webpack_require__(1291);
-var addToUnscopables = __webpack_require__(6469);
-
-// `Array.prototype.at` method
-// https://tc39.es/ecma262/#sec-array.prototype.at
-$({ target: 'Array', proto: true }, {
-  at: function at(index) {
-    var O = toObject(this);
-    var len = lengthOfArrayLike(O);
-    var relativeIndex = toIntegerOrInfinity(index);
-    var k = relativeIndex >= 0 ? relativeIndex : len + relativeIndex;
-    return (k < 0 || k >= len) ? undefined : O[k];
-  }
-});
-
-addToUnscopables('at');
-
-
-/***/ }),
-
-/***/ 8111:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var $ = __webpack_require__(6518);
-var globalThis = __webpack_require__(4576);
-var anInstance = __webpack_require__(679);
-var anObject = __webpack_require__(8551);
-var isCallable = __webpack_require__(4901);
-var getPrototypeOf = __webpack_require__(2787);
-var defineBuiltInAccessor = __webpack_require__(2106);
-var createProperty = __webpack_require__(2278);
-var fails = __webpack_require__(9039);
-var hasOwn = __webpack_require__(9297);
-var wellKnownSymbol = __webpack_require__(8227);
-var IteratorPrototype = (__webpack_require__(7657).IteratorPrototype);
-var DESCRIPTORS = __webpack_require__(3724);
-var IS_PURE = __webpack_require__(6395);
-
-var CONSTRUCTOR = 'constructor';
-var ITERATOR = 'Iterator';
-var TO_STRING_TAG = wellKnownSymbol('toStringTag');
+var isNullOrUndefined = __webpack_require__(4117);
 
 var $TypeError = TypeError;
-var NativeIterator = globalThis[ITERATOR];
 
-// FF56- have non-standard global helper `Iterator`
-var FORCED = IS_PURE
-  || !isCallable(NativeIterator)
-  || NativeIterator.prototype !== IteratorPrototype
-  // FF44- non-standard `Iterator` passes previous tests
-  || !fails(function () { NativeIterator({}); });
-
-var IteratorConstructor = function Iterator() {
-  anInstance(this, IteratorPrototype);
-  if (getPrototypeOf(this) === IteratorPrototype) throw new $TypeError('Abstract class Iterator not directly constructable');
-};
-
-var defineIteratorPrototypeAccessor = function (key, value) {
-  if (DESCRIPTORS) {
-    defineBuiltInAccessor(IteratorPrototype, key, {
-      configurable: true,
-      get: function () {
-        return value;
-      },
-      set: function (replacement) {
-        anObject(this);
-        if (this === IteratorPrototype) throw new $TypeError("You can't redefine this property");
-        if (hasOwn(this, key)) this[key] = replacement;
-        else createProperty(this, key, replacement);
-      }
-    });
-  } else IteratorPrototype[key] = value;
-};
-
-if (!hasOwn(IteratorPrototype, TO_STRING_TAG)) defineIteratorPrototypeAccessor(TO_STRING_TAG, ITERATOR);
-
-if (FORCED || !hasOwn(IteratorPrototype, CONSTRUCTOR) || IteratorPrototype[CONSTRUCTOR] === Object) {
-  defineIteratorPrototypeAccessor(CONSTRUCTOR, IteratorConstructor);
-}
-
-IteratorConstructor.prototype = IteratorPrototype;
-
-// `Iterator` constructor
-// https://tc39.es/ecma262/#sec-iterator
-$({ global: true, constructor: true, forced: FORCED }, {
-  Iterator: IteratorConstructor
-});
-
-
-/***/ }),
-
-/***/ 8140:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var ArrayBufferViewCore = __webpack_require__(4644);
-var lengthOfArrayLike = __webpack_require__(6198);
-var toIntegerOrInfinity = __webpack_require__(1291);
-
-var aTypedArray = ArrayBufferViewCore.aTypedArray;
-var exportTypedArrayMethod = ArrayBufferViewCore.exportTypedArrayMethod;
-
-// `%TypedArray%.prototype.at` method
-// https://tc39.es/ecma262/#sec-%typedarray%.prototype.at
-exportTypedArrayMethod('at', function at(index) {
-  var O = aTypedArray(this);
-  var len = lengthOfArrayLike(O);
-  var relativeIndex = toIntegerOrInfinity(index);
-  var k = relativeIndex >= 0 ? relativeIndex : len + relativeIndex;
-  return (k < 0 || k >= len) ? undefined : O[k];
-});
-
-
-/***/ }),
-
-/***/ 8227:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var globalThis = __webpack_require__(4576);
-var shared = __webpack_require__(5745);
-var hasOwn = __webpack_require__(9297);
-var uid = __webpack_require__(3392);
-var NATIVE_SYMBOL = __webpack_require__(4495);
-var USE_SYMBOL_AS_UID = __webpack_require__(7040);
-
-var Symbol = globalThis.Symbol;
-var WellKnownSymbolsStore = shared('wks');
-var createWellKnownSymbol = USE_SYMBOL_AS_UID ? Symbol['for'] || Symbol : Symbol && Symbol.withoutSetter || uid;
-
-module.exports = function (name) {
-  if (!hasOwn(WellKnownSymbolsStore, name)) {
-    WellKnownSymbolsStore[name] = NATIVE_SYMBOL && hasOwn(Symbol, name)
-      ? Symbol[name]
-      : createWellKnownSymbol('Symbol.' + name);
-  } return WellKnownSymbolsStore[name];
+// `RequireObjectCoercible` abstract operation
+// https://tc39.es/ecma262/#sec-requireobjectcoercible
+module.exports = function (it) {
+  if (isNullOrUndefined(it)) throw new $TypeError("Can't call method on " + it);
+  return it;
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ 8229:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var toPositiveInteger = __webpack_require__(9590);
-
-var $RangeError = RangeError;
-
-module.exports = function (it, BYTES) {
-  var offset = toPositiveInteger(it);
-  if (offset % BYTES) throw new $RangeError('Wrong offset');
-  return offset;
-};
+/***/ 9286
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
-/***/ }),
-
-/***/ 8237:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var $ = __webpack_require__(6518);
-var iterate = __webpack_require__(2652);
-var aCallable = __webpack_require__(9306);
-var anObject = __webpack_require__(8551);
-var getIteratorDirect = __webpack_require__(1767);
-var iteratorClose = __webpack_require__(9539);
-var iteratorHelperWithoutClosingOnEarlyError = __webpack_require__(4549);
-var apply = __webpack_require__(8745);
-var fails = __webpack_require__(9039);
-
-var $TypeError = TypeError;
-
-// https://bugs.webkit.org/show_bug.cgi?id=291651
-var FAILS_ON_INITIAL_UNDEFINED = fails(function () {
-  // eslint-disable-next-line es/no-iterator-prototype-reduce, es/no-array-prototype-keys, array-callback-return -- required for testing
-  [].keys().reduce(function () { /* empty */ }, undefined);
-});
-
-var reduceWithoutClosingOnEarlyError = !FAILS_ON_INITIAL_UNDEFINED && iteratorHelperWithoutClosingOnEarlyError('reduce', $TypeError);
-
-// `Iterator.prototype.reduce` method
-// https://tc39.es/ecma262/#sec-iterator.prototype.reduce
-$({ target: 'Iterator', proto: true, real: true, forced: FAILS_ON_INITIAL_UNDEFINED || reduceWithoutClosingOnEarlyError }, {
-  reduce: function reduce(reducer /* , initialValue */) {
-    anObject(this);
-    try {
-      aCallable(reducer);
-    } catch (error) {
-      iteratorClose(this, 'throw', error);
-    }
-
-    var noInitial = arguments.length < 2;
-    var accumulator = noInitial ? undefined : arguments[1];
-    if (reduceWithoutClosingOnEarlyError) {
-      return apply(reduceWithoutClosingOnEarlyError, this, noInitial ? [reducer] : [reducer, accumulator]);
-    }
-    var record = getIteratorDirect(this);
-    var counter = 0;
-    iterate(record, function (value) {
-      if (noInitial) {
-        noInitial = false;
-        accumulator = value;
-      } else {
-        accumulator = reducer(accumulator, value, counter);
-      }
-      counter++;
-    }, { IS_RECORD: true });
-    if (noInitial) throw new $TypeError('Reduce of empty iterator with no initial value');
-    return accumulator;
-  }
-});
-
-
-/***/ }),
-
-/***/ 8347:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var $ = __webpack_require__(6518);
-var hasOwn = __webpack_require__(9297);
-
-// `Object.hasOwn` method
-// https://tc39.es/ecma262/#sec-object.hasown
-$({ target: 'Object', stat: true }, {
-  hasOwn: hasOwn
-});
-
-
-/***/ }),
-
-/***/ 8469:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var uncurryThis = __webpack_require__(9504);
-var iterateSimple = __webpack_require__(507);
 var SetHelpers = __webpack_require__(4402);
+var iterate = __webpack_require__(8469);
 
 var Set = SetHelpers.Set;
-var SetPrototype = SetHelpers.proto;
-var forEach = uncurryThis(SetPrototype.forEach);
-var keys = uncurryThis(SetPrototype.keys);
-var next = keys(new Set()).next;
+var add = SetHelpers.add;
 
-module.exports = function (set, fn, interruptible) {
-  return interruptible ? iterateSimple({ iterator: keys(set), next: next }, fn) : forEach(set, fn);
+module.exports = function (set) {
+  var result = new Set();
+  iterate(set, function (it) {
+    add(result, it);
+  });
+  return result;
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ 8480:
-/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
-
-
-var internalObjectKeys = __webpack_require__(1828);
-var enumBugKeys = __webpack_require__(8727);
-
-var hiddenKeys = enumBugKeys.concat('length', 'prototype');
-
-// `Object.getOwnPropertyNames` method
-// https://tc39.es/ecma262/#sec-object.getownpropertynames
-// eslint-disable-next-line es/no-object-getownpropertynames -- safe
-exports.f = Object.getOwnPropertyNames || function getOwnPropertyNames(O) {
-  return internalObjectKeys(O, hiddenKeys);
-};
-
-
-/***/ }),
-
-/***/ 8527:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+/***/ 3440
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
 var aSet = __webpack_require__(7080);
-var has = (__webpack_require__(4402).has);
+var SetHelpers = __webpack_require__(4402);
+var clone = __webpack_require__(9286);
 var size = __webpack_require__(5170);
 var getSetRecord = __webpack_require__(3789);
+var iterateSet = __webpack_require__(8469);
 var iterateSimple = __webpack_require__(507);
-var iteratorClose = __webpack_require__(9539);
 
-// `Set.prototype.isSupersetOf` method
-// https://tc39.es/ecma262/#sec-set.prototype.issupersetof
-module.exports = function isSupersetOf(other) {
+var has = SetHelpers.has;
+var remove = SetHelpers.remove;
+
+// `Set.prototype.difference` method
+// https://tc39.es/ecma262/#sec-set.prototype.difference
+module.exports = function difference(other) {
   var O = aSet(this);
   var otherRec = getSetRecord(other);
-  if (size(O) < otherRec.size) return false;
-  var iterator = otherRec.getIterator();
-  return iterateSimple(iterator, function (e) {
-    if (!has(O, e)) return iteratorClose(iterator, 'normal', false);
-  }) !== false;
-};
-
-
-/***/ }),
-
-/***/ 8551:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var isObject = __webpack_require__(34);
-
-var $String = String;
-var $TypeError = TypeError;
-
-// `Assert: Type(argument) is Object`
-module.exports = function (argument) {
-  if (isObject(argument)) return argument;
-  throw new $TypeError($String(argument) + ' is not an object');
-};
-
-
-/***/ }),
-
-/***/ 8574:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var ENVIRONMENT = __webpack_require__(4215);
-
-module.exports = ENVIRONMENT === 'NODE';
-
-
-/***/ }),
-
-/***/ 8622:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var globalThis = __webpack_require__(4576);
-var isCallable = __webpack_require__(4901);
-
-var WeakMap = globalThis.WeakMap;
-
-module.exports = isCallable(WeakMap) && /native code/.test(String(WeakMap));
-
-
-/***/ }),
-
-/***/ 8646:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var call = __webpack_require__(9565);
-var anObject = __webpack_require__(8551);
-var getIteratorDirect = __webpack_require__(1767);
-var getIteratorMethod = __webpack_require__(851);
-
-module.exports = function (obj, stringHandling) {
-  if (!stringHandling || typeof obj !== 'string') anObject(obj);
-  var method = getIteratorMethod(obj);
-  return getIteratorDirect(anObject(method !== undefined ? call(method, obj) : obj));
-};
-
-
-/***/ }),
-
-/***/ 8686:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var DESCRIPTORS = __webpack_require__(3724);
-var fails = __webpack_require__(9039);
-
-// V8 ~ Chrome 36-
-// https://bugs.chromium.org/p/v8/issues/detail?id=3334
-module.exports = DESCRIPTORS && fails(function () {
-  // eslint-disable-next-line es/no-object-defineproperty -- required for testing
-  return Object.defineProperty(function () { /* empty */ }, 'prototype', {
-    value: 42,
-    writable: false
-  }).prototype !== 42;
-});
-
-
-/***/ }),
-
-/***/ 8721:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var DESCRIPTORS = __webpack_require__(3724);
-var uncurryThis = __webpack_require__(9504);
-var defineBuiltInAccessor = __webpack_require__(2106);
-
-var URLSearchParamsPrototype = URLSearchParams.prototype;
-var forEach = uncurryThis(URLSearchParamsPrototype.forEach);
-
-// `URLSearchParams.prototype.size` getter
-// https://github.com/whatwg/url/pull/734
-if (DESCRIPTORS && !('size' in URLSearchParamsPrototype)) {
-  defineBuiltInAccessor(URLSearchParamsPrototype, 'size', {
-    get: function size() {
-      var count = 0;
-      forEach(this, function () { count++; });
-      return count;
-    },
-    configurable: true,
-    enumerable: true
+  var result = clone(O);
+  if (size(O) <= otherRec.size) iterateSet(O, function (e) {
+    if (otherRec.includes(e)) remove(result, e);
   });
-}
+  else iterateSimple(otherRec.getIterator(), function (e) {
+    if (has(result, e)) remove(result, e);
+  });
+  return result;
+};
 
 
-/***/ }),
+/***/ },
 
-/***/ 8727:
-/***/ ((module) => {
-
-
-// IE8- don't enum bug keys
-module.exports = [
-  'constructor',
-  'hasOwnProperty',
-  'isPrototypeOf',
-  'propertyIsEnumerable',
-  'toLocaleString',
-  'toString',
-  'valueOf'
-];
+/***/ 4402
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
-/***/ }),
+var uncurryThis = __webpack_require__(9504);
 
-/***/ 8745:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+// eslint-disable-next-line es/no-set -- safe
+var SetPrototype = Set.prototype;
 
-
-var NATIVE_BIND = __webpack_require__(616);
-
-var FunctionPrototype = Function.prototype;
-var apply = FunctionPrototype.apply;
-var call = FunctionPrototype.call;
-
-// eslint-disable-next-line es/no-function-prototype-bind, es/no-reflect -- safe
-module.exports = typeof Reflect == 'object' && Reflect.apply || (NATIVE_BIND ? call.bind(apply) : function () {
-  return call.apply(apply, arguments);
-});
+module.exports = {
+  // eslint-disable-next-line es/no-set -- safe
+  Set: Set,
+  add: uncurryThis(SetPrototype.add),
+  has: uncurryThis(SetPrototype.has),
+  remove: uncurryThis(SetPrototype['delete']),
+  proto: SetPrototype
+};
 
 
-/***/ }),
+/***/ },
 
-/***/ 8750:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+/***/ 8750
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
 var aSet = __webpack_require__(7080);
@@ -5671,82 +3392,492 @@ module.exports = function intersection(other) {
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ 8773:
-/***/ ((__unused_webpack_module, exports) => {
-
-
-var $propertyIsEnumerable = {}.propertyIsEnumerable;
-// eslint-disable-next-line es/no-object-getownpropertydescriptor -- safe
-var getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
-
-// Nashorn ~ JDK8 bug
-var NASHORN_BUG = getOwnPropertyDescriptor && !$propertyIsEnumerable.call({ 1: 2 }, 1);
-
-// `Object.prototype.propertyIsEnumerable` method implementation
-// https://tc39.es/ecma262/#sec-object.prototype.propertyisenumerable
-exports.f = NASHORN_BUG ? function propertyIsEnumerable(V) {
-  var descriptor = getOwnPropertyDescriptor(this, V);
-  return !!descriptor && descriptor.enumerable;
-} : $propertyIsEnumerable;
+/***/ 4449
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
-/***/ }),
+var aSet = __webpack_require__(7080);
+var has = (__webpack_require__(4402).has);
+var size = __webpack_require__(5170);
+var getSetRecord = __webpack_require__(3789);
+var iterateSet = __webpack_require__(8469);
+var iterateSimple = __webpack_require__(507);
+var iteratorClose = __webpack_require__(9539);
 
-/***/ 8845:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
+// `Set.prototype.isDisjointFrom` method
+// https://tc39.es/ecma262/#sec-set.prototype.isdisjointfrom
+module.exports = function isDisjointFrom(other) {
+  var O = aSet(this);
+  var otherRec = getSetRecord(other);
+  if (size(O) <= otherRec.size) return iterateSet(O, function (e) {
+    if (otherRec.includes(e)) return false;
+  }, true) !== false;
+  var iterator = otherRec.getIterator();
+  return iterateSimple(iterator, function (e) {
+    if (has(O, e)) return iteratorClose(iterator, 'normal', false);
+  }) !== false;
+};
+
+
+/***/ },
+
+/***/ 3838
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var aSet = __webpack_require__(7080);
+var size = __webpack_require__(5170);
+var iterate = __webpack_require__(8469);
+var getSetRecord = __webpack_require__(3789);
+
+// `Set.prototype.isSubsetOf` method
+// https://tc39.es/ecma262/#sec-set.prototype.issubsetof
+module.exports = function isSubsetOf(other) {
+  var O = aSet(this);
+  var otherRec = getSetRecord(other);
+  if (size(O) > otherRec.size) return false;
+  return iterate(O, function (e) {
+    if (!otherRec.includes(e)) return false;
+  }, true) !== false;
+};
+
+
+/***/ },
+
+/***/ 8527
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var aSet = __webpack_require__(7080);
+var has = (__webpack_require__(4402).has);
+var size = __webpack_require__(5170);
+var getSetRecord = __webpack_require__(3789);
+var iterateSimple = __webpack_require__(507);
+var iteratorClose = __webpack_require__(9539);
+
+// `Set.prototype.isSupersetOf` method
+// https://tc39.es/ecma262/#sec-set.prototype.issupersetof
+module.exports = function isSupersetOf(other) {
+  var O = aSet(this);
+  var otherRec = getSetRecord(other);
+  if (size(O) < otherRec.size) return false;
+  var iterator = otherRec.getIterator();
+  return iterateSimple(iterator, function (e) {
+    if (!has(O, e)) return iteratorClose(iterator, 'normal', false);
+  }) !== false;
+};
+
+
+/***/ },
+
+/***/ 8469
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var uncurryThis = __webpack_require__(9504);
+var iterateSimple = __webpack_require__(507);
+var SetHelpers = __webpack_require__(4402);
+
+var Set = SetHelpers.Set;
+var SetPrototype = SetHelpers.proto;
+var forEach = uncurryThis(SetPrototype.forEach);
+var keys = uncurryThis(SetPrototype.keys);
+var next = keys(new Set()).next;
+
+module.exports = function (set, fn, interruptible) {
+  return interruptible ? iterateSimple({ iterator: keys(set), next: next }, fn) : forEach(set, fn);
+};
+
+
+/***/ },
+
+/***/ 4916
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var getBuiltIn = __webpack_require__(7751);
+
+var createSetLike = function (size) {
+  return {
+    size: size,
+    has: function () {
+      return false;
+    },
+    keys: function () {
+      return {
+        next: function () {
+          return { done: true };
+        }
+      };
+    }
+  };
+};
+
+var createSetLikeWithInfinitySize = function (size) {
+  return {
+    size: size,
+    has: function () {
+      return true;
+    },
+    keys: function () {
+      throw new Error('e');
+    }
+  };
+};
+
+module.exports = function (name, callback) {
+  var Set = getBuiltIn('Set');
+  try {
+    new Set()[name](createSetLike(0));
+    try {
+      // late spec change, early WebKit ~ Safari 17 implementation does not pass it
+      // https://github.com/tc39/proposal-set-methods/pull/88
+      // also covered engines with
+      // https://bugs.webkit.org/show_bug.cgi?id=272679
+      new Set()[name](createSetLike(-1));
+      return false;
+    } catch (error2) {
+      if (!callback) return true;
+      // early V8 implementation bug
+      // https://issues.chromium.org/issues/351332634
+      try {
+        new Set()[name](createSetLikeWithInfinitySize(-Infinity));
+        return false;
+      } catch (error) {
+        var set = new Set([1, 2]);
+        return callback(set[name](createSetLikeWithInfinitySize(Infinity)));
+      }
+    }
+  } catch (error) {
+    return false;
+  }
+};
+
+
+/***/ },
+
+/***/ 9835
+(module) {
+
+
+// Should get iterator record of a set-like object before cloning this
+// https://bugs.webkit.org/show_bug.cgi?id=289430
+module.exports = function (METHOD_NAME) {
+  try {
+    // eslint-disable-next-line es/no-set -- needed for test
+    var baseSet = new Set();
+    var setLike = {
+      size: 0,
+      has: function () { return true; },
+      keys: function () {
+        // eslint-disable-next-line es/no-object-defineproperty -- needed for test
+        return Object.defineProperty({}, 'next', {
+          get: function () {
+            baseSet.clear();
+            baseSet.add(4);
+            return function () {
+              return { done: true };
+            };
+          }
+        });
+      }
+    };
+    var result = baseSet[METHOD_NAME](setLike);
+
+    return result.size === 1 && result.values().next().value === 4;
+  } catch (error) {
+    return false;
+  }
+};
+
+
+/***/ },
+
+/***/ 5170
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var uncurryThisAccessor = __webpack_require__(6706);
+var SetHelpers = __webpack_require__(4402);
+
+module.exports = uncurryThisAccessor(SetHelpers.proto, 'size', 'get') || function (set) {
+  return set.size;
+};
+
+
+/***/ },
+
+/***/ 3650
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var aSet = __webpack_require__(7080);
+var SetHelpers = __webpack_require__(4402);
+var clone = __webpack_require__(9286);
+var getSetRecord = __webpack_require__(3789);
+var iterateSimple = __webpack_require__(507);
+
+var add = SetHelpers.add;
+var has = SetHelpers.has;
+var remove = SetHelpers.remove;
+
+// `Set.prototype.symmetricDifference` method
+// https://tc39.es/ecma262/#sec-set.prototype.symmetricdifference
+module.exports = function symmetricDifference(other) {
+  var O = aSet(this);
+  var keysIter = getSetRecord(other).getIterator();
+  var result = clone(O);
+  iterateSimple(keysIter, function (e) {
+    if (has(O, e)) remove(result, e);
+    else add(result, e);
+  });
+  return result;
+};
+
+
+/***/ },
+
+/***/ 4204
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var aSet = __webpack_require__(7080);
+var add = (__webpack_require__(4402).add);
+var clone = __webpack_require__(9286);
+var getSetRecord = __webpack_require__(3789);
+var iterateSimple = __webpack_require__(507);
+
+// `Set.prototype.union` method
+// https://tc39.es/ecma262/#sec-set.prototype.union
+module.exports = function union(other) {
+  var O = aSet(this);
+  var keysIter = getSetRecord(other).getIterator();
+  var result = clone(O);
+  iterateSimple(keysIter, function (it) {
+    add(result, it);
+  });
+  return result;
+};
+
+
+/***/ },
+
+/***/ 6119
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var shared = __webpack_require__(5745);
+var uid = __webpack_require__(3392);
+
+var keys = shared('keys');
+
+module.exports = function (key) {
+  return keys[key] || (keys[key] = uid(key));
+};
+
+
+/***/ },
+
+/***/ 7629
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var IS_PURE = __webpack_require__(6395);
+var globalThis = __webpack_require__(4576);
+var defineGlobalProperty = __webpack_require__(9433);
+
+var SHARED = '__core-js_shared__';
+var store = module.exports = globalThis[SHARED] || defineGlobalProperty(SHARED, {});
+
+(store.versions || (store.versions = [])).push({
+  version: '3.47.0',
+  mode: IS_PURE ? 'pure' : 'global',
+  copyright: '© 2014-2025 Denis Pushkarev (zloirock.ru), 2025 CoreJS Company (core-js.io)',
+  license: 'https://github.com/zloirock/core-js/blob/v3.47.0/LICENSE',
+  source: 'https://github.com/zloirock/core-js'
+});
+
+
+/***/ },
+
+/***/ 5745
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var store = __webpack_require__(7629);
+
+module.exports = function (key, value) {
+  return store[key] || (store[key] = value || {});
+};
+
+
+/***/ },
+
+/***/ 1548
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
 var globalThis = __webpack_require__(4576);
-var call = __webpack_require__(9565);
-var ArrayBufferViewCore = __webpack_require__(4644);
-var lengthOfArrayLike = __webpack_require__(6198);
-var toOffset = __webpack_require__(8229);
-var toIndexedObject = __webpack_require__(8981);
 var fails = __webpack_require__(9039);
+var V8 = __webpack_require__(9519);
+var ENVIRONMENT = __webpack_require__(4215);
 
-var RangeError = globalThis.RangeError;
-var Int8Array = globalThis.Int8Array;
-var Int8ArrayPrototype = Int8Array && Int8Array.prototype;
-var $set = Int8ArrayPrototype && Int8ArrayPrototype.set;
-var aTypedArray = ArrayBufferViewCore.aTypedArray;
-var exportTypedArrayMethod = ArrayBufferViewCore.exportTypedArrayMethod;
+var structuredClone = globalThis.structuredClone;
 
-var WORKS_WITH_OBJECTS_AND_GENERIC_ON_TYPED_ARRAYS = !fails(function () {
-  // eslint-disable-next-line es/no-typed-arrays -- required for testing
-  var array = new Uint8ClampedArray(2);
-  call($set, array, { length: 1, 0: 3 }, 1);
-  return array[1] !== 3;
+module.exports = !!structuredClone && !fails(function () {
+  // prevent V8 ArrayBufferDetaching protector cell invalidation and performance degradation
+  // https://github.com/zloirock/core-js/issues/679
+  if ((ENVIRONMENT === 'DENO' && V8 > 92) || (ENVIRONMENT === 'NODE' && V8 > 94) || (ENVIRONMENT === 'BROWSER' && V8 > 97)) return false;
+  var buffer = new ArrayBuffer(8);
+  var clone = structuredClone(buffer, { transfer: [buffer] });
+  return buffer.byteLength !== 0 || clone.byteLength !== 8;
 });
 
-// https://bugs.chromium.org/p/v8/issues/detail?id=11294 and other
-var TO_OBJECT_BUG = WORKS_WITH_OBJECTS_AND_GENERIC_ON_TYPED_ARRAYS && ArrayBufferViewCore.NATIVE_ARRAY_BUFFER_VIEWS && fails(function () {
-  var array = new Int8Array(2);
-  array.set(1);
-  array.set('2', 1);
-  return array[0] !== 0 || array[1] !== 2;
+
+/***/ },
+
+/***/ 4495
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+/* eslint-disable es/no-symbol -- required for testing */
+var V8_VERSION = __webpack_require__(9519);
+var fails = __webpack_require__(9039);
+var globalThis = __webpack_require__(4576);
+
+var $String = globalThis.String;
+
+// eslint-disable-next-line es/no-object-getownpropertysymbols -- required for testing
+module.exports = !!Object.getOwnPropertySymbols && !fails(function () {
+  var symbol = Symbol('symbol detection');
+  // Chrome 38 Symbol has incorrect toString conversion
+  // `get-own-property-symbols` polyfill symbols converted to object are not Symbol instances
+  // nb: Do not call `String` directly to avoid this being optimized out to `symbol+''` which will,
+  // of course, fail.
+  return !$String(symbol) || !(Object(symbol) instanceof Symbol) ||
+    // Chrome 38-40 symbols are not inherited from DOM collections prototypes to instances
+    !Symbol.sham && V8_VERSION && V8_VERSION < 41;
 });
 
-// `%TypedArray%.prototype.set` method
-// https://tc39.es/ecma262/#sec-%typedarray%.prototype.set
-exportTypedArrayMethod('set', function set(arrayLike /* , offset */) {
-  aTypedArray(this);
-  var offset = toOffset(arguments.length > 1 ? arguments[1] : undefined, 1);
-  var src = toIndexedObject(arrayLike);
-  if (WORKS_WITH_OBJECTS_AND_GENERIC_ON_TYPED_ARRAYS) return call($set, this, src, offset);
-  var length = this.length;
-  var len = lengthOfArrayLike(src);
-  var index = 0;
-  if (len + offset > length) throw new RangeError('Wrong length');
-  while (index < len) this[offset + index] = src[index++];
-}, !WORKS_WITH_OBJECTS_AND_GENERIC_ON_TYPED_ARRAYS || TO_OBJECT_BUG);
+
+/***/ },
+
+/***/ 5610
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
-/***/ }),
+var toIntegerOrInfinity = __webpack_require__(1291);
 
-/***/ 8981:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+var max = Math.max;
+var min = Math.min;
+
+// Helper for a popular repeating case of the spec:
+// Let integer be ? ToInteger(index).
+// If integer < 0, let result be max((length + integer), 0); else let result be min(integer, length).
+module.exports = function (index, length) {
+  var integer = toIntegerOrInfinity(index);
+  return integer < 0 ? max(integer + length, 0) : min(integer, length);
+};
+
+
+/***/ },
+
+/***/ 5854
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var toPrimitive = __webpack_require__(2777);
+
+var $TypeError = TypeError;
+
+// `ToBigInt` abstract operation
+// https://tc39.es/ecma262/#sec-tobigint
+module.exports = function (argument) {
+  var prim = toPrimitive(argument, 'number');
+  if (typeof prim == 'number') throw new $TypeError("Can't convert number to bigint");
+  // eslint-disable-next-line es/no-bigint -- safe
+  return BigInt(prim);
+};
+
+
+/***/ },
+
+/***/ 7696
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var toIntegerOrInfinity = __webpack_require__(1291);
+var toLength = __webpack_require__(8014);
+
+var $RangeError = RangeError;
+
+// `ToIndex` abstract operation
+// https://tc39.es/ecma262/#sec-toindex
+module.exports = function (it) {
+  if (it === undefined) return 0;
+  var number = toIntegerOrInfinity(it);
+  var length = toLength(number);
+  if (number !== length) throw new $RangeError('Wrong length or index');
+  return length;
+};
+
+
+/***/ },
+
+/***/ 5397
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+// toObject with fallback for non-array-like ES3 strings
+var IndexedObject = __webpack_require__(7055);
+var requireObjectCoercible = __webpack_require__(7750);
+
+module.exports = function (it) {
+  return IndexedObject(requireObjectCoercible(it));
+};
+
+
+/***/ },
+
+/***/ 1291
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var trunc = __webpack_require__(741);
+
+// `ToIntegerOrInfinity` abstract operation
+// https://tc39.es/ecma262/#sec-tointegerorinfinity
+module.exports = function (argument) {
+  var number = +argument;
+  // eslint-disable-next-line no-self-compare -- NaN check
+  return number !== number || number === 0 ? 0 : trunc(number);
+};
+
+
+/***/ },
+
+/***/ 8014
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var toIntegerOrInfinity = __webpack_require__(1291);
+
+var min = Math.min;
+
+// `ToLength` abstract operation
+// https://tc39.es/ecma262/#sec-tolength
+module.exports = function (argument) {
+  var len = toIntegerOrInfinity(argument);
+  return len > 0 ? min(len, 0x1FFFFFFFFFFFFF) : 0; // 2 ** 53 - 1 == 9007199254740991
+};
+
+
+/***/ },
+
+/***/ 8981
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
 var requireObjectCoercible = __webpack_require__(7750);
@@ -5760,25 +3891,160 @@ module.exports = function (argument) {
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ 9039:
-/***/ ((module) => {
+/***/ 8229
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
-module.exports = function (exec) {
+var toPositiveInteger = __webpack_require__(9590);
+
+var $RangeError = RangeError;
+
+module.exports = function (it, BYTES) {
+  var offset = toPositiveInteger(it);
+  if (offset % BYTES) throw new $RangeError('Wrong offset');
+  return offset;
+};
+
+
+/***/ },
+
+/***/ 9590
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var toIntegerOrInfinity = __webpack_require__(1291);
+
+var $RangeError = RangeError;
+
+module.exports = function (it) {
+  var result = toIntegerOrInfinity(it);
+  if (result < 0) throw new $RangeError("The argument can't be less than 0");
+  return result;
+};
+
+
+/***/ },
+
+/***/ 2777
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var call = __webpack_require__(9565);
+var isObject = __webpack_require__(34);
+var isSymbol = __webpack_require__(757);
+var getMethod = __webpack_require__(5966);
+var ordinaryToPrimitive = __webpack_require__(4270);
+var wellKnownSymbol = __webpack_require__(8227);
+
+var $TypeError = TypeError;
+var TO_PRIMITIVE = wellKnownSymbol('toPrimitive');
+
+// `ToPrimitive` abstract operation
+// https://tc39.es/ecma262/#sec-toprimitive
+module.exports = function (input, pref) {
+  if (!isObject(input) || isSymbol(input)) return input;
+  var exoticToPrim = getMethod(input, TO_PRIMITIVE);
+  var result;
+  if (exoticToPrim) {
+    if (pref === undefined) pref = 'default';
+    result = call(exoticToPrim, input, pref);
+    if (!isObject(result) || isSymbol(result)) return result;
+    throw new $TypeError("Can't convert object to primitive value");
+  }
+  if (pref === undefined) pref = 'number';
+  return ordinaryToPrimitive(input, pref);
+};
+
+
+/***/ },
+
+/***/ 6969
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var toPrimitive = __webpack_require__(2777);
+var isSymbol = __webpack_require__(757);
+
+// `ToPropertyKey` abstract operation
+// https://tc39.es/ecma262/#sec-topropertykey
+module.exports = function (argument) {
+  var key = toPrimitive(argument, 'string');
+  return isSymbol(key) ? key : key + '';
+};
+
+
+/***/ },
+
+/***/ 2140
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var wellKnownSymbol = __webpack_require__(8227);
+
+var TO_STRING_TAG = wellKnownSymbol('toStringTag');
+var test = {};
+// eslint-disable-next-line unicorn/no-immediate-mutation -- ES3 syntax limitation
+test[TO_STRING_TAG] = 'z';
+
+module.exports = String(test) === '[object z]';
+
+
+/***/ },
+
+/***/ 655
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var classof = __webpack_require__(6955);
+
+var $String = String;
+
+module.exports = function (argument) {
+  if (classof(argument) === 'Symbol') throw new TypeError('Cannot convert a Symbol value to a string');
+  return $String(argument);
+};
+
+
+/***/ },
+
+/***/ 6823
+(module) {
+
+
+var $String = String;
+
+module.exports = function (argument) {
   try {
-    return !!exec();
+    return $String(argument);
   } catch (error) {
-    return true;
+    return 'Object';
   }
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ 9143:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+/***/ 3392
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var uncurryThis = __webpack_require__(9504);
+
+var id = 0;
+var postfix = Math.random();
+var toString = uncurryThis(1.1.toString);
+
+module.exports = function (key) {
+  return 'Symbol(' + (key === undefined ? '' : key) + ')_' + toString(++id + postfix, 36);
+};
+
+
+/***/ },
+
+/***/ 9143
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
 var globalThis = __webpack_require__(4576);
@@ -5939,213 +4205,1232 @@ module.exports = function (string, options, into, maxLength) {
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ 9286:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var SetHelpers = __webpack_require__(4402);
-var iterate = __webpack_require__(8469);
-
-var Set = SetHelpers.Set;
-var add = SetHelpers.add;
-
-module.exports = function (set) {
-  var result = new Set();
-  iterate(set, function (it) {
-    add(result, it);
-  });
-  return result;
-};
+/***/ 2303
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
-/***/ }),
-
-/***/ 9297:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
+var globalThis = __webpack_require__(4576);
 var uncurryThis = __webpack_require__(9504);
-var toObject = __webpack_require__(8981);
 
-var hasOwnProperty = uncurryThis({}.hasOwnProperty);
+var Uint8Array = globalThis.Uint8Array;
+var SyntaxError = globalThis.SyntaxError;
+var parseInt = globalThis.parseInt;
+var min = Math.min;
+var NOT_HEX = /[^\da-f]/i;
+var exec = uncurryThis(NOT_HEX.exec);
+var stringSlice = uncurryThis(''.slice);
 
-// `HasOwnProperty` abstract operation
-// https://tc39.es/ecma262/#sec-hasownproperty
-// eslint-disable-next-line es/no-object-hasown -- safe
-module.exports = Object.hasOwn || function hasOwn(it, key) {
-  return hasOwnProperty(toObject(it), key);
+module.exports = function (string, into) {
+  var stringLength = string.length;
+  if (stringLength % 2 !== 0) throw new SyntaxError('String should be an even number of characters');
+  var maxLength = into ? min(into.length, stringLength / 2) : stringLength / 2;
+  var bytes = into || new Uint8Array(maxLength);
+  var read = 0;
+  var written = 0;
+  while (written < maxLength) {
+    var hexits = stringSlice(string, read, read += 2);
+    if (exec(NOT_HEX, hexits)) throw new SyntaxError('String should only contain hex characters');
+    bytes[written++] = parseInt(hexits, 16);
+  }
+  return { bytes: bytes, read: read };
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ 9306:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+/***/ 7416
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
-var isCallable = __webpack_require__(4901);
-var tryToString = __webpack_require__(6823);
+var fails = __webpack_require__(9039);
+var wellKnownSymbol = __webpack_require__(8227);
+var DESCRIPTORS = __webpack_require__(3724);
+var IS_PURE = __webpack_require__(6395);
+
+var ITERATOR = wellKnownSymbol('iterator');
+
+module.exports = !fails(function () {
+  // eslint-disable-next-line unicorn/relative-url-style -- required for testing
+  var url = new URL('b?a=1&b=2&c=3', 'https://a');
+  var params = url.searchParams;
+  var params2 = new URLSearchParams('a=1&a=2&b=3');
+  var result = '';
+  url.pathname = 'c%20d';
+  params.forEach(function (value, key) {
+    params['delete']('b');
+    result += key + value;
+  });
+  params2['delete']('a', 2);
+  // `undefined` case is a Chromium 117 bug
+  // https://bugs.chromium.org/p/v8/issues/detail?id=14222
+  params2['delete']('b', undefined);
+  return (IS_PURE && (!url.toJSON || !params2.has('a', 1) || params2.has('a', 2) || !params2.has('a', undefined) || params2.has('b')))
+    || (!params.size && (IS_PURE || !DESCRIPTORS))
+    || !params.sort
+    || url.href !== 'https://a/c%20d?a=1&c=3'
+    || params.get('c') !== '3'
+    || String(new URLSearchParams('?a=1')) !== 'a=1'
+    || !params[ITERATOR]
+    // throws in Edge
+    || new URL('https://a@b').username !== 'a'
+    || new URLSearchParams(new URLSearchParams('a=b')).get('a') !== 'b'
+    // not punycoded in Edge
+    || new URL('https://тест').host !== 'xn--e1aybc'
+    // not escaped in Chrome 62-
+    || new URL('https://a#б').hash !== '#%D0%B1'
+    // fails in Chrome 66-
+    || result !== 'a1c3'
+    // throws in Safari
+    || new URL('https://x', undefined).host !== 'x';
+});
+
+
+/***/ },
+
+/***/ 7040
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+/* eslint-disable es/no-symbol -- required for testing */
+var NATIVE_SYMBOL = __webpack_require__(4495);
+
+module.exports = NATIVE_SYMBOL &&
+  !Symbol.sham &&
+  typeof Symbol.iterator == 'symbol';
+
+
+/***/ },
+
+/***/ 8686
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var DESCRIPTORS = __webpack_require__(3724);
+var fails = __webpack_require__(9039);
+
+// V8 ~ Chrome 36-
+// https://bugs.chromium.org/p/v8/issues/detail?id=3334
+module.exports = DESCRIPTORS && fails(function () {
+  // eslint-disable-next-line es/no-object-defineproperty -- required for testing
+  return Object.defineProperty(function () { /* empty */ }, 'prototype', {
+    value: 42,
+    writable: false
+  }).prototype !== 42;
+});
+
+
+/***/ },
+
+/***/ 2812
+(module) {
+
 
 var $TypeError = TypeError;
 
-// `Assert: IsCallable(argument) is true`
-module.exports = function (argument) {
-  if (isCallable(argument)) return argument;
-  throw new $TypeError(tryToString(argument) + ' is not a function');
+module.exports = function (passed, required) {
+  if (passed < required) throw new $TypeError('Not enough arguments');
+  return passed;
 };
 
 
-/***/ }),
+/***/ },
 
-/***/ 9429:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+/***/ 8622
+(module, __unused_webpack_exports, __webpack_require__) {
 
 
 var globalThis = __webpack_require__(4576);
-var IS_NODE = __webpack_require__(8574);
+var isCallable = __webpack_require__(4901);
+
+var WeakMap = globalThis.WeakMap;
+
+module.exports = isCallable(WeakMap) && /native code/.test(String(WeakMap));
+
+
+/***/ },
+
+/***/ 8227
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var globalThis = __webpack_require__(4576);
+var shared = __webpack_require__(5745);
+var hasOwn = __webpack_require__(9297);
+var uid = __webpack_require__(3392);
+var NATIVE_SYMBOL = __webpack_require__(4495);
+var USE_SYMBOL_AS_UID = __webpack_require__(7040);
+
+var Symbol = globalThis.Symbol;
+var WellKnownSymbolsStore = shared('wks');
+var createWellKnownSymbol = USE_SYMBOL_AS_UID ? Symbol['for'] || Symbol : Symbol && Symbol.withoutSetter || uid;
 
 module.exports = function (name) {
-  if (IS_NODE) {
-    try {
-      return globalThis.process.getBuiltinModule(name);
-    } catch (error) { /* empty */ }
-    try {
-      // eslint-disable-next-line no-new-func -- safe
-      return Function('return require("' + name + '")')();
-    } catch (error) { /* empty */ }
+  if (!hasOwn(WellKnownSymbolsStore, name)) {
+    WellKnownSymbolsStore[name] = NATIVE_SYMBOL && hasOwn(Symbol, name)
+      ? Symbol[name]
+      : createWellKnownSymbol('Symbol.' + name);
+  } return WellKnownSymbolsStore[name];
+};
+
+
+/***/ },
+
+/***/ 4601
+(module, __unused_webpack_exports, __webpack_require__) {
+
+
+var getBuiltIn = __webpack_require__(7751);
+var hasOwn = __webpack_require__(9297);
+var createNonEnumerableProperty = __webpack_require__(6699);
+var isPrototypeOf = __webpack_require__(1625);
+var setPrototypeOf = __webpack_require__(2967);
+var copyConstructorProperties = __webpack_require__(7740);
+var proxyAccessor = __webpack_require__(1056);
+var inheritIfRequired = __webpack_require__(3167);
+var normalizeStringArgument = __webpack_require__(2603);
+var installErrorCause = __webpack_require__(7584);
+var installErrorStack = __webpack_require__(747);
+var DESCRIPTORS = __webpack_require__(3724);
+var IS_PURE = __webpack_require__(6395);
+
+module.exports = function (FULL_NAME, wrapper, FORCED, IS_AGGREGATE_ERROR) {
+  var STACK_TRACE_LIMIT = 'stackTraceLimit';
+  var OPTIONS_POSITION = IS_AGGREGATE_ERROR ? 2 : 1;
+  var path = FULL_NAME.split('.');
+  var ERROR_NAME = path[path.length - 1];
+  var OriginalError = getBuiltIn.apply(null, path);
+
+  if (!OriginalError) return;
+
+  var OriginalErrorPrototype = OriginalError.prototype;
+
+  // V8 9.3- bug https://bugs.chromium.org/p/v8/issues/detail?id=12006
+  if (!IS_PURE && hasOwn(OriginalErrorPrototype, 'cause')) delete OriginalErrorPrototype.cause;
+
+  if (!FORCED) return OriginalError;
+
+  var BaseError = getBuiltIn('Error');
+
+  var WrappedError = wrapper(function (a, b) {
+    var message = normalizeStringArgument(IS_AGGREGATE_ERROR ? b : a, undefined);
+    var result = IS_AGGREGATE_ERROR ? new OriginalError(a) : new OriginalError();
+    if (message !== undefined) createNonEnumerableProperty(result, 'message', message);
+    installErrorStack(result, WrappedError, result.stack, 2);
+    if (this && isPrototypeOf(OriginalErrorPrototype, this)) inheritIfRequired(result, this, WrappedError);
+    if (arguments.length > OPTIONS_POSITION) installErrorCause(result, arguments[OPTIONS_POSITION]);
+    return result;
+  });
+
+  WrappedError.prototype = OriginalErrorPrototype;
+
+  if (ERROR_NAME !== 'Error') {
+    if (setPrototypeOf) setPrototypeOf(WrappedError, BaseError);
+    else copyConstructorProperties(WrappedError, BaseError, { name: true });
+  } else if (DESCRIPTORS && STACK_TRACE_LIMIT in OriginalError) {
+    proxyAccessor(WrappedError, OriginalError, STACK_TRACE_LIMIT);
+    proxyAccessor(WrappedError, OriginalError, 'prepareStackTrace');
+  }
+
+  copyConstructorProperties(WrappedError, OriginalError);
+
+  if (!IS_PURE) try {
+    // Safari 13- bug: WebAssembly errors does not have a proper `.name`
+    if (OriginalErrorPrototype.name !== ERROR_NAME) {
+      createNonEnumerableProperty(OriginalErrorPrototype, 'name', ERROR_NAME);
+    }
+    OriginalErrorPrototype.constructor = WrappedError;
+  } catch (error) { /* empty */ }
+
+  return WrappedError;
+};
+
+
+/***/ },
+
+/***/ 6573
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var DESCRIPTORS = __webpack_require__(3724);
+var defineBuiltInAccessor = __webpack_require__(2106);
+var isDetached = __webpack_require__(3238);
+
+var ArrayBufferPrototype = ArrayBuffer.prototype;
+
+// `ArrayBuffer.prototype.detached` getter
+// https://tc39.es/ecma262/#sec-get-arraybuffer.prototype.detached
+if (DESCRIPTORS && !('detached' in ArrayBufferPrototype)) {
+  defineBuiltInAccessor(ArrayBufferPrototype, 'detached', {
+    configurable: true,
+    get: function detached() {
+      return isDetached(this);
+    }
+  });
+}
+
+
+/***/ },
+
+/***/ 7936
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var $ = __webpack_require__(6518);
+var $transfer = __webpack_require__(5636);
+
+// `ArrayBuffer.prototype.transferToFixedLength` method
+// https://tc39.es/ecma262/#sec-arraybuffer.prototype.transfertofixedlength
+if ($transfer) $({ target: 'ArrayBuffer', proto: true }, {
+  transferToFixedLength: function transferToFixedLength() {
+    return $transfer(this, arguments.length ? arguments[0] : undefined, false);
+  }
+});
+
+
+/***/ },
+
+/***/ 8100
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var $ = __webpack_require__(6518);
+var $transfer = __webpack_require__(5636);
+
+// `ArrayBuffer.prototype.transfer` method
+// https://tc39.es/ecma262/#sec-arraybuffer.prototype.transfer
+if ($transfer) $({ target: 'ArrayBuffer', proto: true }, {
+  transfer: function transfer() {
+    return $transfer(this, arguments.length ? arguments[0] : undefined, true);
+  }
+});
+
+
+/***/ },
+
+/***/ 8107
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var $ = __webpack_require__(6518);
+var toObject = __webpack_require__(8981);
+var lengthOfArrayLike = __webpack_require__(6198);
+var toIntegerOrInfinity = __webpack_require__(1291);
+var addToUnscopables = __webpack_require__(6469);
+
+// `Array.prototype.at` method
+// https://tc39.es/ecma262/#sec-array.prototype.at
+$({ target: 'Array', proto: true }, {
+  at: function at(index) {
+    var O = toObject(this);
+    var len = lengthOfArrayLike(O);
+    var relativeIndex = toIntegerOrInfinity(index);
+    var k = relativeIndex >= 0 ? relativeIndex : len + relativeIndex;
+    return (k < 0 || k >= len) ? undefined : O[k];
+  }
+});
+
+addToUnscopables('at');
+
+
+/***/ },
+
+/***/ 4114
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var $ = __webpack_require__(6518);
+var toObject = __webpack_require__(8981);
+var lengthOfArrayLike = __webpack_require__(6198);
+var setArrayLength = __webpack_require__(4527);
+var doesNotExceedSafeInteger = __webpack_require__(6837);
+var fails = __webpack_require__(9039);
+
+var INCORRECT_TO_LENGTH = fails(function () {
+  return [].push.call({ length: 0x100000000 }, 1) !== 4294967297;
+});
+
+// V8 <= 121 and Safari <= 15.4; FF < 23 throws InternalError
+// https://bugs.chromium.org/p/v8/issues/detail?id=12681
+var properErrorOnNonWritableLength = function () {
+  try {
+    // eslint-disable-next-line es/no-object-defineproperty -- safe
+    Object.defineProperty([], 'length', { writable: false }).push();
+  } catch (error) {
+    return error instanceof TypeError;
   }
 };
 
+var FORCED = INCORRECT_TO_LENGTH || !properErrorOnNonWritableLength();
 
-/***/ }),
-
-/***/ 9432:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-// TODO: Remove from `core-js@4`
-__webpack_require__(5213);
-
-
-/***/ }),
-
-/***/ 9433:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var globalThis = __webpack_require__(4576);
-
-// eslint-disable-next-line es/no-object-defineproperty -- safe
-var defineProperty = Object.defineProperty;
-
-module.exports = function (key, value) {
-  try {
-    defineProperty(globalThis, key, { value: value, configurable: true, writable: true });
-  } catch (error) {
-    globalThis[key] = value;
-  } return value;
-};
-
-
-/***/ }),
-
-/***/ 9462:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var call = __webpack_require__(9565);
-var create = __webpack_require__(2360);
-var createNonEnumerableProperty = __webpack_require__(6699);
-var defineBuiltIns = __webpack_require__(6279);
-var wellKnownSymbol = __webpack_require__(8227);
-var InternalStateModule = __webpack_require__(1181);
-var getMethod = __webpack_require__(5966);
-var IteratorPrototype = (__webpack_require__(7657).IteratorPrototype);
-var createIterResultObject = __webpack_require__(2529);
-var iteratorClose = __webpack_require__(9539);
-var iteratorCloseAll = __webpack_require__(1385);
-
-var TO_STRING_TAG = wellKnownSymbol('toStringTag');
-var ITERATOR_HELPER = 'IteratorHelper';
-var WRAP_FOR_VALID_ITERATOR = 'WrapForValidIterator';
-var NORMAL = 'normal';
-var THROW = 'throw';
-var setInternalState = InternalStateModule.set;
-
-var createIteratorProxyPrototype = function (IS_ITERATOR) {
-  var getInternalState = InternalStateModule.getterFor(IS_ITERATOR ? WRAP_FOR_VALID_ITERATOR : ITERATOR_HELPER);
-
-  return defineBuiltIns(create(IteratorPrototype), {
-    next: function next() {
-      var state = getInternalState(this);
-      // for simplification:
-      //   for `%WrapForValidIteratorPrototype%.next` or with `state.returnHandlerResult` our `nextHandler` returns `IterResultObject`
-      //   for `%IteratorHelperPrototype%.next` - just a value
-      if (IS_ITERATOR) return state.nextHandler();
-      if (state.done) return createIterResultObject(undefined, true);
-      try {
-        var result = state.nextHandler();
-        return state.returnHandlerResult ? result : createIterResultObject(result, state.done);
-      } catch (error) {
-        state.done = true;
-        throw error;
-      }
-    },
-    'return': function () {
-      var state = getInternalState(this);
-      var iterator = state.iterator;
-      state.done = true;
-      if (IS_ITERATOR) {
-        var returnMethod = getMethod(iterator, 'return');
-        return returnMethod ? call(returnMethod, iterator) : createIterResultObject(undefined, true);
-      }
-      if (state.inner) try {
-        iteratorClose(state.inner.iterator, NORMAL);
-      } catch (error) {
-        return iteratorClose(iterator, THROW, error);
-      }
-      if (state.openIters) try {
-        iteratorCloseAll(state.openIters, NORMAL);
-      } catch (error) {
-        return iteratorClose(iterator, THROW, error);
-      }
-      if (iterator) iteratorClose(iterator, NORMAL);
-      return createIterResultObject(undefined, true);
+// `Array.prototype.push` method
+// https://tc39.es/ecma262/#sec-array.prototype.push
+$({ target: 'Array', proto: true, arity: 1, forced: FORCED }, {
+  // eslint-disable-next-line no-unused-vars -- required for `.length`
+  push: function push(item) {
+    var O = toObject(this);
+    var len = lengthOfArrayLike(O);
+    var argCount = arguments.length;
+    doesNotExceedSafeInteger(len + argCount);
+    for (var i = 0; i < argCount; i++) {
+      O[len] = arguments[i];
+      len++;
     }
-  });
+    setArrayLength(O, len);
+    return len;
+  }
+});
+
+
+/***/ },
+
+/***/ 3609
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var $ = __webpack_require__(6518);
+var toObject = __webpack_require__(8981);
+var lengthOfArrayLike = __webpack_require__(6198);
+var setArrayLength = __webpack_require__(4527);
+var deletePropertyOrThrow = __webpack_require__(4606);
+var doesNotExceedSafeInteger = __webpack_require__(6837);
+
+// IE8-
+var INCORRECT_RESULT = [].unshift(0) !== 1;
+
+// V8 ~ Chrome < 71 and Safari <= 15.4, FF < 23 throws InternalError
+var properErrorOnNonWritableLength = function () {
+  try {
+    // eslint-disable-next-line es/no-object-defineproperty -- safe
+    Object.defineProperty([], 'length', { writable: false }).unshift();
+  } catch (error) {
+    return error instanceof TypeError;
+  }
 };
 
-var WrapForValidIteratorPrototype = createIteratorProxyPrototype(true);
-var IteratorHelperPrototype = createIteratorProxyPrototype(false);
+var FORCED = INCORRECT_RESULT || !properErrorOnNonWritableLength();
 
-createNonEnumerableProperty(IteratorHelperPrototype, TO_STRING_TAG, 'Iterator Helper');
+// `Array.prototype.unshift` method
+// https://tc39.es/ecma262/#sec-array.prototype.unshift
+$({ target: 'Array', proto: true, arity: 1, forced: FORCED }, {
+  // eslint-disable-next-line no-unused-vars -- required for `.length`
+  unshift: function unshift(item) {
+    var O = toObject(this);
+    var len = lengthOfArrayLike(O);
+    var argCount = arguments.length;
+    if (argCount) {
+      doesNotExceedSafeInteger(len + argCount);
+      var k = len;
+      while (k--) {
+        var to = k + argCount;
+        if (k in O) O[to] = O[k];
+        else deletePropertyOrThrow(O, to);
+      }
+      for (var j = 0; j < argCount; j++) {
+        O[j] = arguments[j];
+      }
+    } return setArrayLength(O, len + argCount);
+  }
+});
 
-module.exports = function (nextHandler, IS_ITERATOR, RETURN_HANDLER_RESULT) {
-  var IteratorProxy = function Iterator(record, state) {
-    if (state) {
-      state.iterator = record.iterator;
-      state.next = record.next;
-    } else state = record;
-    state.type = IS_ITERATOR ? WRAP_FOR_VALID_ITERATOR : ITERATOR_HELPER;
-    state.returnHandlerResult = !!RETURN_HANDLER_RESULT;
-    state.nextHandler = nextHandler;
-    state.counter = 0;
-    state.done = false;
-    setInternalState(this, state);
-  };
 
-  IteratorProxy.prototype = IS_ITERATOR ? WrapForValidIteratorPrototype : IteratorHelperPrototype;
+/***/ },
 
-  return IteratorProxy;
+/***/ 6280
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+/* eslint-disable no-unused-vars -- required for functions `.length` */
+var $ = __webpack_require__(6518);
+var globalThis = __webpack_require__(4576);
+var apply = __webpack_require__(8745);
+var wrapErrorConstructorWithCause = __webpack_require__(4601);
+
+var WEB_ASSEMBLY = 'WebAssembly';
+var WebAssembly = globalThis[WEB_ASSEMBLY];
+
+// eslint-disable-next-line es/no-error-cause -- feature detection
+var FORCED = new Error('e', { cause: 7 }).cause !== 7;
+
+var exportGlobalErrorCauseWrapper = function (ERROR_NAME, wrapper) {
+  var O = {};
+  // eslint-disable-next-line unicorn/no-immediate-mutation -- ES3 syntax limitation
+  O[ERROR_NAME] = wrapErrorConstructorWithCause(ERROR_NAME, wrapper, FORCED);
+  $({ global: true, constructor: true, arity: 1, forced: FORCED }, O);
 };
 
+var exportWebAssemblyErrorCauseWrapper = function (ERROR_NAME, wrapper) {
+  if (WebAssembly && WebAssembly[ERROR_NAME]) {
+    var O = {};
+    // eslint-disable-next-line unicorn/no-immediate-mutation -- ES3 syntax limitation
+    O[ERROR_NAME] = wrapErrorConstructorWithCause(WEB_ASSEMBLY + '.' + ERROR_NAME, wrapper, FORCED);
+    $({ target: WEB_ASSEMBLY, stat: true, constructor: true, arity: 1, forced: FORCED }, O);
+  }
+};
 
-/***/ }),
+// https://tc39.es/ecma262/#sec-nativeerror
+exportGlobalErrorCauseWrapper('Error', function (init) {
+  return function Error(message) { return apply(init, this, arguments); };
+});
+exportGlobalErrorCauseWrapper('EvalError', function (init) {
+  return function EvalError(message) { return apply(init, this, arguments); };
+});
+exportGlobalErrorCauseWrapper('RangeError', function (init) {
+  return function RangeError(message) { return apply(init, this, arguments); };
+});
+exportGlobalErrorCauseWrapper('ReferenceError', function (init) {
+  return function ReferenceError(message) { return apply(init, this, arguments); };
+});
+exportGlobalErrorCauseWrapper('SyntaxError', function (init) {
+  return function SyntaxError(message) { return apply(init, this, arguments); };
+});
+exportGlobalErrorCauseWrapper('TypeError', function (init) {
+  return function TypeError(message) { return apply(init, this, arguments); };
+});
+exportGlobalErrorCauseWrapper('URIError', function (init) {
+  return function URIError(message) { return apply(init, this, arguments); };
+});
+exportWebAssemblyErrorCauseWrapper('CompileError', function (init) {
+  return function CompileError(message) { return apply(init, this, arguments); };
+});
+exportWebAssemblyErrorCauseWrapper('LinkError', function (init) {
+  return function LinkError(message) { return apply(init, this, arguments); };
+});
+exportWebAssemblyErrorCauseWrapper('RuntimeError', function (init) {
+  return function RuntimeError(message) { return apply(init, this, arguments); };
+});
 
-/***/ 9479:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
+
+/***/ },
+
+/***/ 8111
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var $ = __webpack_require__(6518);
+var globalThis = __webpack_require__(4576);
+var anInstance = __webpack_require__(679);
+var anObject = __webpack_require__(8551);
+var isCallable = __webpack_require__(4901);
+var getPrototypeOf = __webpack_require__(2787);
+var defineBuiltInAccessor = __webpack_require__(2106);
+var createProperty = __webpack_require__(2278);
+var fails = __webpack_require__(9039);
+var hasOwn = __webpack_require__(9297);
+var wellKnownSymbol = __webpack_require__(8227);
+var IteratorPrototype = (__webpack_require__(7657).IteratorPrototype);
+var DESCRIPTORS = __webpack_require__(3724);
+var IS_PURE = __webpack_require__(6395);
+
+var CONSTRUCTOR = 'constructor';
+var ITERATOR = 'Iterator';
+var TO_STRING_TAG = wellKnownSymbol('toStringTag');
+
+var $TypeError = TypeError;
+var NativeIterator = globalThis[ITERATOR];
+
+// FF56- have non-standard global helper `Iterator`
+var FORCED = IS_PURE
+  || !isCallable(NativeIterator)
+  || NativeIterator.prototype !== IteratorPrototype
+  // FF44- non-standard `Iterator` passes previous tests
+  || !fails(function () { NativeIterator({}); });
+
+var IteratorConstructor = function Iterator() {
+  anInstance(this, IteratorPrototype);
+  if (getPrototypeOf(this) === IteratorPrototype) throw new $TypeError('Abstract class Iterator not directly constructable');
+};
+
+var defineIteratorPrototypeAccessor = function (key, value) {
+  if (DESCRIPTORS) {
+    defineBuiltInAccessor(IteratorPrototype, key, {
+      configurable: true,
+      get: function () {
+        return value;
+      },
+      set: function (replacement) {
+        anObject(this);
+        if (this === IteratorPrototype) throw new $TypeError("You can't redefine this property");
+        if (hasOwn(this, key)) this[key] = replacement;
+        else createProperty(this, key, replacement);
+      }
+    });
+  } else IteratorPrototype[key] = value;
+};
+
+if (!hasOwn(IteratorPrototype, TO_STRING_TAG)) defineIteratorPrototypeAccessor(TO_STRING_TAG, ITERATOR);
+
+if (FORCED || !hasOwn(IteratorPrototype, CONSTRUCTOR) || IteratorPrototype[CONSTRUCTOR] === Object) {
+  defineIteratorPrototypeAccessor(CONSTRUCTOR, IteratorConstructor);
+}
+
+IteratorConstructor.prototype = IteratorPrototype;
+
+// `Iterator` constructor
+// https://tc39.es/ecma262/#sec-iterator
+$({ global: true, constructor: true, forced: FORCED }, {
+  Iterator: IteratorConstructor
+});
+
+
+/***/ },
+
+/***/ 1148
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var $ = __webpack_require__(6518);
+var call = __webpack_require__(9565);
+var iterate = __webpack_require__(2652);
+var aCallable = __webpack_require__(9306);
+var anObject = __webpack_require__(8551);
+var getIteratorDirect = __webpack_require__(1767);
+var iteratorClose = __webpack_require__(9539);
+var iteratorHelperWithoutClosingOnEarlyError = __webpack_require__(4549);
+
+var everyWithoutClosingOnEarlyError = iteratorHelperWithoutClosingOnEarlyError('every', TypeError);
+
+// `Iterator.prototype.every` method
+// https://tc39.es/ecma262/#sec-iterator.prototype.every
+$({ target: 'Iterator', proto: true, real: true, forced: everyWithoutClosingOnEarlyError }, {
+  every: function every(predicate) {
+    anObject(this);
+    try {
+      aCallable(predicate);
+    } catch (error) {
+      iteratorClose(this, 'throw', error);
+    }
+
+    if (everyWithoutClosingOnEarlyError) return call(everyWithoutClosingOnEarlyError, this, predicate);
+
+    var record = getIteratorDirect(this);
+    var counter = 0;
+    return !iterate(record, function (value, stop) {
+      if (!predicate(value, counter++)) return stop();
+    }, { IS_RECORD: true, INTERRUPTED: true }).stopped;
+  }
+});
+
+
+/***/ },
+
+/***/ 2489
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var $ = __webpack_require__(6518);
+var call = __webpack_require__(9565);
+var aCallable = __webpack_require__(9306);
+var anObject = __webpack_require__(8551);
+var getIteratorDirect = __webpack_require__(1767);
+var createIteratorProxy = __webpack_require__(9462);
+var callWithSafeIterationClosing = __webpack_require__(6319);
+var IS_PURE = __webpack_require__(6395);
+var iteratorClose = __webpack_require__(9539);
+var iteratorHelperThrowsOnInvalidIterator = __webpack_require__(684);
+var iteratorHelperWithoutClosingOnEarlyError = __webpack_require__(4549);
+
+var FILTER_WITHOUT_THROWING_ON_INVALID_ITERATOR = !IS_PURE && !iteratorHelperThrowsOnInvalidIterator('filter', function () { /* empty */ });
+var filterWithoutClosingOnEarlyError = !IS_PURE && !FILTER_WITHOUT_THROWING_ON_INVALID_ITERATOR
+  && iteratorHelperWithoutClosingOnEarlyError('filter', TypeError);
+
+var FORCED = IS_PURE || FILTER_WITHOUT_THROWING_ON_INVALID_ITERATOR || filterWithoutClosingOnEarlyError;
+
+var IteratorProxy = createIteratorProxy(function () {
+  var iterator = this.iterator;
+  var predicate = this.predicate;
+  var next = this.next;
+  var result, done, value;
+  while (true) {
+    result = anObject(call(next, iterator));
+    done = this.done = !!result.done;
+    if (done) return;
+    value = result.value;
+    if (callWithSafeIterationClosing(iterator, predicate, [value, this.counter++], true)) return value;
+  }
+});
+
+// `Iterator.prototype.filter` method
+// https://tc39.es/ecma262/#sec-iterator.prototype.filter
+$({ target: 'Iterator', proto: true, real: true, forced: FORCED }, {
+  filter: function filter(predicate) {
+    anObject(this);
+    try {
+      aCallable(predicate);
+    } catch (error) {
+      iteratorClose(this, 'throw', error);
+    }
+
+    if (filterWithoutClosingOnEarlyError) return call(filterWithoutClosingOnEarlyError, this, predicate);
+
+    return new IteratorProxy(getIteratorDirect(this), {
+      predicate: predicate
+    });
+  }
+});
+
+
+/***/ },
+
+/***/ 116
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var $ = __webpack_require__(6518);
+var call = __webpack_require__(9565);
+var iterate = __webpack_require__(2652);
+var aCallable = __webpack_require__(9306);
+var anObject = __webpack_require__(8551);
+var getIteratorDirect = __webpack_require__(1767);
+var iteratorClose = __webpack_require__(9539);
+var iteratorHelperWithoutClosingOnEarlyError = __webpack_require__(4549);
+
+var findWithoutClosingOnEarlyError = iteratorHelperWithoutClosingOnEarlyError('find', TypeError);
+
+// `Iterator.prototype.find` method
+// https://tc39.es/ecma262/#sec-iterator.prototype.find
+$({ target: 'Iterator', proto: true, real: true, forced: findWithoutClosingOnEarlyError }, {
+  find: function find(predicate) {
+    anObject(this);
+    try {
+      aCallable(predicate);
+    } catch (error) {
+      iteratorClose(this, 'throw', error);
+    }
+
+    if (findWithoutClosingOnEarlyError) return call(findWithoutClosingOnEarlyError, this, predicate);
+
+    var record = getIteratorDirect(this);
+    var counter = 0;
+    return iterate(record, function (value, stop) {
+      if (predicate(value, counter++)) return stop(value);
+    }, { IS_RECORD: true, INTERRUPTED: true }).result;
+  }
+});
+
+
+/***/ },
+
+/***/ 531
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var $ = __webpack_require__(6518);
+var call = __webpack_require__(9565);
+var aCallable = __webpack_require__(9306);
+var anObject = __webpack_require__(8551);
+var getIteratorDirect = __webpack_require__(1767);
+var getIteratorFlattenable = __webpack_require__(8646);
+var createIteratorProxy = __webpack_require__(9462);
+var iteratorClose = __webpack_require__(9539);
+var IS_PURE = __webpack_require__(6395);
+var iteratorHelperThrowsOnInvalidIterator = __webpack_require__(684);
+var iteratorHelperWithoutClosingOnEarlyError = __webpack_require__(4549);
+
+var FLAT_MAP_WITHOUT_THROWING_ON_INVALID_ITERATOR = !IS_PURE
+  && !iteratorHelperThrowsOnInvalidIterator('flatMap', function () { /* empty */ });
+var flatMapWithoutClosingOnEarlyError = !IS_PURE && !FLAT_MAP_WITHOUT_THROWING_ON_INVALID_ITERATOR
+  && iteratorHelperWithoutClosingOnEarlyError('flatMap', TypeError);
+
+var FORCED = IS_PURE || FLAT_MAP_WITHOUT_THROWING_ON_INVALID_ITERATOR || flatMapWithoutClosingOnEarlyError;
+
+var IteratorProxy = createIteratorProxy(function () {
+  var iterator = this.iterator;
+  var mapper = this.mapper;
+  var result, inner;
+
+  while (true) {
+    if (inner = this.inner) try {
+      result = anObject(call(inner.next, inner.iterator));
+      if (!result.done) return result.value;
+      this.inner = null;
+    } catch (error) { iteratorClose(iterator, 'throw', error); }
+
+    result = anObject(call(this.next, iterator));
+
+    if (this.done = !!result.done) return;
+
+    try {
+      this.inner = getIteratorFlattenable(mapper(result.value, this.counter++), false);
+    } catch (error) { iteratorClose(iterator, 'throw', error); }
+  }
+});
+
+// `Iterator.prototype.flatMap` method
+// https://tc39.es/ecma262/#sec-iterator.prototype.flatmap
+$({ target: 'Iterator', proto: true, real: true, forced: FORCED }, {
+  flatMap: function flatMap(mapper) {
+    anObject(this);
+    try {
+      aCallable(mapper);
+    } catch (error) {
+      iteratorClose(this, 'throw', error);
+    }
+
+    if (flatMapWithoutClosingOnEarlyError) return call(flatMapWithoutClosingOnEarlyError, this, mapper);
+
+    return new IteratorProxy(getIteratorDirect(this), {
+      mapper: mapper,
+      inner: null
+    });
+  }
+});
+
+
+/***/ },
+
+/***/ 7588
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var $ = __webpack_require__(6518);
+var call = __webpack_require__(9565);
+var iterate = __webpack_require__(2652);
+var aCallable = __webpack_require__(9306);
+var anObject = __webpack_require__(8551);
+var getIteratorDirect = __webpack_require__(1767);
+var iteratorClose = __webpack_require__(9539);
+var iteratorHelperWithoutClosingOnEarlyError = __webpack_require__(4549);
+
+var forEachWithoutClosingOnEarlyError = iteratorHelperWithoutClosingOnEarlyError('forEach', TypeError);
+
+// `Iterator.prototype.forEach` method
+// https://tc39.es/ecma262/#sec-iterator.prototype.foreach
+$({ target: 'Iterator', proto: true, real: true, forced: forEachWithoutClosingOnEarlyError }, {
+  forEach: function forEach(fn) {
+    anObject(this);
+    try {
+      aCallable(fn);
+    } catch (error) {
+      iteratorClose(this, 'throw', error);
+    }
+
+    if (forEachWithoutClosingOnEarlyError) return call(forEachWithoutClosingOnEarlyError, this, fn);
+
+    var record = getIteratorDirect(this);
+    var counter = 0;
+    iterate(record, function (value) {
+      fn(value, counter++);
+    }, { IS_RECORD: true });
+  }
+});
+
+
+/***/ },
+
+/***/ 1701
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var $ = __webpack_require__(6518);
+var call = __webpack_require__(9565);
+var aCallable = __webpack_require__(9306);
+var anObject = __webpack_require__(8551);
+var getIteratorDirect = __webpack_require__(1767);
+var createIteratorProxy = __webpack_require__(9462);
+var callWithSafeIterationClosing = __webpack_require__(6319);
+var iteratorClose = __webpack_require__(9539);
+var iteratorHelperThrowsOnInvalidIterator = __webpack_require__(684);
+var iteratorHelperWithoutClosingOnEarlyError = __webpack_require__(4549);
+var IS_PURE = __webpack_require__(6395);
+
+var MAP_WITHOUT_THROWING_ON_INVALID_ITERATOR = !IS_PURE && !iteratorHelperThrowsOnInvalidIterator('map', function () { /* empty */ });
+var mapWithoutClosingOnEarlyError = !IS_PURE && !MAP_WITHOUT_THROWING_ON_INVALID_ITERATOR
+  && iteratorHelperWithoutClosingOnEarlyError('map', TypeError);
+
+var FORCED = IS_PURE || MAP_WITHOUT_THROWING_ON_INVALID_ITERATOR || mapWithoutClosingOnEarlyError;
+
+var IteratorProxy = createIteratorProxy(function () {
+  var iterator = this.iterator;
+  var result = anObject(call(this.next, iterator));
+  var done = this.done = !!result.done;
+  if (!done) return callWithSafeIterationClosing(iterator, this.mapper, [result.value, this.counter++], true);
+});
+
+// `Iterator.prototype.map` method
+// https://tc39.es/ecma262/#sec-iterator.prototype.map
+$({ target: 'Iterator', proto: true, real: true, forced: FORCED }, {
+  map: function map(mapper) {
+    anObject(this);
+    try {
+      aCallable(mapper);
+    } catch (error) {
+      iteratorClose(this, 'throw', error);
+    }
+
+    if (mapWithoutClosingOnEarlyError) return call(mapWithoutClosingOnEarlyError, this, mapper);
+
+    return new IteratorProxy(getIteratorDirect(this), {
+      mapper: mapper
+    });
+  }
+});
+
+
+/***/ },
+
+/***/ 8237
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var $ = __webpack_require__(6518);
+var iterate = __webpack_require__(2652);
+var aCallable = __webpack_require__(9306);
+var anObject = __webpack_require__(8551);
+var getIteratorDirect = __webpack_require__(1767);
+var iteratorClose = __webpack_require__(9539);
+var iteratorHelperWithoutClosingOnEarlyError = __webpack_require__(4549);
+var apply = __webpack_require__(8745);
+var fails = __webpack_require__(9039);
+
+var $TypeError = TypeError;
+
+// https://bugs.webkit.org/show_bug.cgi?id=291651
+var FAILS_ON_INITIAL_UNDEFINED = fails(function () {
+  // eslint-disable-next-line es/no-iterator-prototype-reduce, es/no-array-prototype-keys, array-callback-return -- required for testing
+  [].keys().reduce(function () { /* empty */ }, undefined);
+});
+
+var reduceWithoutClosingOnEarlyError = !FAILS_ON_INITIAL_UNDEFINED && iteratorHelperWithoutClosingOnEarlyError('reduce', $TypeError);
+
+// `Iterator.prototype.reduce` method
+// https://tc39.es/ecma262/#sec-iterator.prototype.reduce
+$({ target: 'Iterator', proto: true, real: true, forced: FAILS_ON_INITIAL_UNDEFINED || reduceWithoutClosingOnEarlyError }, {
+  reduce: function reduce(reducer /* , initialValue */) {
+    anObject(this);
+    try {
+      aCallable(reducer);
+    } catch (error) {
+      iteratorClose(this, 'throw', error);
+    }
+
+    var noInitial = arguments.length < 2;
+    var accumulator = noInitial ? undefined : arguments[1];
+    if (reduceWithoutClosingOnEarlyError) {
+      return apply(reduceWithoutClosingOnEarlyError, this, noInitial ? [reducer] : [reducer, accumulator]);
+    }
+    var record = getIteratorDirect(this);
+    var counter = 0;
+    iterate(record, function (value) {
+      if (noInitial) {
+        noInitial = false;
+        accumulator = value;
+      } else {
+        accumulator = reducer(accumulator, value, counter);
+      }
+      counter++;
+    }, { IS_RECORD: true });
+    if (noInitial) throw new $TypeError('Reduce of empty iterator with no initial value');
+    return accumulator;
+  }
+});
+
+
+/***/ },
+
+/***/ 3579
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var $ = __webpack_require__(6518);
+var call = __webpack_require__(9565);
+var iterate = __webpack_require__(2652);
+var aCallable = __webpack_require__(9306);
+var anObject = __webpack_require__(8551);
+var getIteratorDirect = __webpack_require__(1767);
+var iteratorClose = __webpack_require__(9539);
+var iteratorHelperWithoutClosingOnEarlyError = __webpack_require__(4549);
+
+var someWithoutClosingOnEarlyError = iteratorHelperWithoutClosingOnEarlyError('some', TypeError);
+
+// `Iterator.prototype.some` method
+// https://tc39.es/ecma262/#sec-iterator.prototype.some
+$({ target: 'Iterator', proto: true, real: true, forced: someWithoutClosingOnEarlyError }, {
+  some: function some(predicate) {
+    anObject(this);
+    try {
+      aCallable(predicate);
+    } catch (error) {
+      iteratorClose(this, 'throw', error);
+    }
+
+    if (someWithoutClosingOnEarlyError) return call(someWithoutClosingOnEarlyError, this, predicate);
+
+    var record = getIteratorDirect(this);
+    var counter = 0;
+    return iterate(record, function (value, stop) {
+      if (predicate(value, counter++)) return stop();
+    }, { IS_RECORD: true, INTERRUPTED: true }).stopped;
+  }
+});
+
+
+/***/ },
+
+/***/ 1806
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var $ = __webpack_require__(6518);
+var anObject = __webpack_require__(8551);
+var iterate = __webpack_require__(2652);
+var getIteratorDirect = __webpack_require__(1767);
+
+var push = [].push;
+
+// `Iterator.prototype.toArray` method
+// https://tc39.es/ecma262/#sec-iterator.prototype.toarray
+$({ target: 'Iterator', proto: true, real: true }, {
+  toArray: function toArray() {
+    var result = [];
+    iterate(getIteratorDirect(anObject(this)), push, { that: result, IS_RECORD: true });
+    return result;
+  }
+});
+
+
+/***/ },
+
+/***/ 3068
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+// based on Shewchuk's algorithm for exactly floating point addition
+// adapted from https://github.com/tc39/proposal-math-sum/blob/3513d58323a1ae25560e8700aa5294500c6c9287/polyfill/polyfill.mjs
+var $ = __webpack_require__(6518);
+var uncurryThis = __webpack_require__(9504);
+var iterate = __webpack_require__(2652);
+
+var $RangeError = RangeError;
+var $TypeError = TypeError;
+var $Infinity = Infinity;
+var $NaN = NaN;
+var abs = Math.abs;
+var pow = Math.pow;
+var push = uncurryThis([].push);
+
+var POW_2_1023 = pow(2, 1023);
+var MAX_SAFE_INTEGER = pow(2, 53) - 1; // 2 ** 53 - 1 === 9007199254740992
+var MAX_DOUBLE = Number.MAX_VALUE; // 2 ** 1024 - 2 ** (1023 - 52) === 1.79769313486231570815e+308
+var MAX_ULP = pow(2, 971); // 2 ** (1023 - 52) === 1.99584030953471981166e+292
+
+var NOT_A_NUMBER = {};
+var MINUS_INFINITY = {};
+var PLUS_INFINITY = {};
+var MINUS_ZERO = {};
+var FINITE = {};
+
+// prerequisite: abs(x) >= abs(y)
+var twosum = function (x, y) {
+  var hi = x + y;
+  var lo = y - (hi - x);
+  return { hi: hi, lo: lo };
+};
+
+// `Math.sumPrecise` method
+// https://github.com/tc39/proposal-math-sum
+$({ target: 'Math', stat: true }, {
+  // eslint-disable-next-line max-statements -- ok
+  sumPrecise: function sumPrecise(items) {
+    var numbers = [];
+    var count = 0;
+    var state = MINUS_ZERO;
+
+    iterate(items, function (n) {
+      if (++count >= MAX_SAFE_INTEGER) throw new $RangeError('Maximum allowed index exceeded');
+      if (typeof n != 'number') throw new $TypeError('Value is not a number');
+      if (state !== NOT_A_NUMBER) {
+        // eslint-disable-next-line no-self-compare -- NaN check
+        if (n !== n) state = NOT_A_NUMBER;
+        else if (n === $Infinity) state = state === MINUS_INFINITY ? NOT_A_NUMBER : PLUS_INFINITY;
+        else if (n === -$Infinity) state = state === PLUS_INFINITY ? NOT_A_NUMBER : MINUS_INFINITY;
+        else if ((n !== 0 || (1 / n) === $Infinity) && (state === MINUS_ZERO || state === FINITE)) {
+          state = FINITE;
+          push(numbers, n);
+        }
+      }
+    });
+
+    switch (state) {
+      case NOT_A_NUMBER: return $NaN;
+      case MINUS_INFINITY: return -$Infinity;
+      case PLUS_INFINITY: return $Infinity;
+      case MINUS_ZERO: return -0;
+    }
+
+    var partials = [];
+    var overflow = 0; // conceptually 2 ** 1024 times this value; the final partial is biased by this amount
+    var x, y, sum, hi, lo, tmp;
+
+    for (var i = 0; i < numbers.length; i++) {
+      x = numbers[i];
+      var actuallyUsedPartials = 0;
+      for (var j = 0; j < partials.length; j++) {
+        y = partials[j];
+        if (abs(x) < abs(y)) {
+          tmp = x;
+          x = y;
+          y = tmp;
+        }
+        sum = twosum(x, y);
+        hi = sum.hi;
+        lo = sum.lo;
+        if (abs(hi) === $Infinity) {
+          var sign = hi === $Infinity ? 1 : -1;
+          overflow += sign;
+
+          x = (x - (sign * POW_2_1023)) - (sign * POW_2_1023);
+          if (abs(x) < abs(y)) {
+            tmp = x;
+            x = y;
+            y = tmp;
+          }
+          sum = twosum(x, y);
+          hi = sum.hi;
+          lo = sum.lo;
+        }
+        if (lo !== 0) partials[actuallyUsedPartials++] = lo;
+        x = hi;
+      }
+      partials.length = actuallyUsedPartials;
+      if (x !== 0) push(partials, x);
+    }
+
+    // compute the exact sum of partials, stopping once we lose precision
+    var n = partials.length - 1;
+    hi = 0;
+    lo = 0;
+
+    if (overflow !== 0) {
+      var next = n >= 0 ? partials[n] : 0;
+      n--;
+      if (abs(overflow) > 1 || (overflow > 0 && next > 0) || (overflow < 0 && next < 0)) {
+        return overflow > 0 ? $Infinity : -$Infinity;
+      }
+      // here we actually have to do the arithmetic
+      // drop a factor of 2 so we can do it without overflow
+      // assert(abs(overflow) === 1)
+      sum = twosum(overflow * POW_2_1023, next / 2);
+      hi = sum.hi;
+      lo = sum.lo;
+      lo *= 2;
+      if (abs(2 * hi) === $Infinity) {
+        // rounding to the maximum value
+        if (hi > 0) {
+          return (hi === POW_2_1023 && lo === -(MAX_ULP / 2) && n >= 0 && partials[n] < 0) ? MAX_DOUBLE : $Infinity;
+        } return (hi === -POW_2_1023 && lo === (MAX_ULP / 2) && n >= 0 && partials[n] > 0) ? -MAX_DOUBLE : -$Infinity;
+      }
+
+      if (lo !== 0) {
+        partials[++n] = lo;
+        lo = 0;
+      }
+
+      hi *= 2;
+    }
+
+    while (n >= 0) {
+      sum = twosum(hi, partials[n--]);
+      hi = sum.hi;
+      lo = sum.lo;
+      if (lo !== 0) break;
+    }
+
+    if (n >= 0 && ((lo < 0 && partials[n] < 0) || (lo > 0 && partials[n] > 0))) {
+      y = lo * 2;
+      x = hi + y;
+      if (y === x - hi) hi = x;
+    }
+
+    return hi;
+  }
+});
+
+
+/***/ },
+
+/***/ 8347
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var $ = __webpack_require__(6518);
+var hasOwn = __webpack_require__(9297);
+
+// `Object.hasOwn` method
+// https://tc39.es/ecma262/#sec-object.hasown
+$({ target: 'Object', stat: true }, {
+  hasOwn: hasOwn
+});
+
+
+/***/ },
+
+/***/ 1689
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var $ = __webpack_require__(6518);
+var globalThis = __webpack_require__(4576);
+var apply = __webpack_require__(8745);
+var slice = __webpack_require__(7680);
+var newPromiseCapabilityModule = __webpack_require__(6043);
+var aCallable = __webpack_require__(9306);
+var perform = __webpack_require__(1103);
+
+var Promise = globalThis.Promise;
+
+var ACCEPT_ARGUMENTS = false;
+// Avoiding the use of polyfills of the previous iteration of this proposal
+// that does not accept arguments of the callback
+var FORCED = !Promise || !Promise['try'] || perform(function () {
+  Promise['try'](function (argument) {
+    ACCEPT_ARGUMENTS = argument === 8;
+  }, 8);
+}).error || !ACCEPT_ARGUMENTS;
+
+// `Promise.try` method
+// https://tc39.es/ecma262/#sec-promise.try
+$({ target: 'Promise', stat: true, forced: FORCED }, {
+  'try': function (callbackfn /* , ...args */) {
+    var args = arguments.length > 1 ? slice(arguments, 1) : [];
+    var promiseCapability = newPromiseCapabilityModule.f(this);
+    var result = perform(function () {
+      return apply(aCallable(callbackfn), undefined, args);
+    });
+    (result.error ? promiseCapability.reject : promiseCapability.resolve)(result.value);
+    return promiseCapability.promise;
+  }
+});
+
+
+/***/ },
+
+/***/ 4628
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var $ = __webpack_require__(6518);
+var newPromiseCapabilityModule = __webpack_require__(6043);
+
+// `Promise.withResolvers` method
+// https://tc39.es/ecma262/#sec-promise.withResolvers
+$({ target: 'Promise', stat: true }, {
+  withResolvers: function withResolvers() {
+    var promiseCapability = newPromiseCapabilityModule.f(this);
+    return {
+      promise: promiseCapability.promise,
+      resolve: promiseCapability.resolve,
+      reject: promiseCapability.reject
+    };
+  }
+});
+
+
+/***/ },
+
+/***/ 9479
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
 
 
 var DESCRIPTORS = __webpack_require__(3724);
@@ -6165,10 +5450,640 @@ if (DESCRIPTORS && !regExpFlagsDetection.correct) {
 }
 
 
-/***/ }),
+/***/ },
 
-/***/ 9486:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
+/***/ 7642
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var $ = __webpack_require__(6518);
+var difference = __webpack_require__(3440);
+var fails = __webpack_require__(9039);
+var setMethodAcceptSetLike = __webpack_require__(4916);
+
+var SET_LIKE_INCORRECT_BEHAVIOR = !setMethodAcceptSetLike('difference', function (result) {
+  return result.size === 0;
+});
+
+var FORCED = SET_LIKE_INCORRECT_BEHAVIOR || fails(function () {
+  // https://bugs.webkit.org/show_bug.cgi?id=288595
+  var setLike = {
+    size: 1,
+    has: function () { return true; },
+    keys: function () {
+      var index = 0;
+      return {
+        next: function () {
+          var done = index++ > 1;
+          if (baseSet.has(1)) baseSet.clear();
+          return { done: done, value: 2 };
+        }
+      };
+    }
+  };
+  // eslint-disable-next-line es/no-set -- testing
+  var baseSet = new Set([1, 2, 3, 4]);
+  // eslint-disable-next-line es/no-set-prototype-difference -- testing
+  return baseSet.difference(setLike).size !== 3;
+});
+
+// `Set.prototype.difference` method
+// https://tc39.es/ecma262/#sec-set.prototype.difference
+$({ target: 'Set', proto: true, real: true, forced: FORCED }, {
+  difference: difference
+});
+
+
+/***/ },
+
+/***/ 8004
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var $ = __webpack_require__(6518);
+var fails = __webpack_require__(9039);
+var intersection = __webpack_require__(8750);
+var setMethodAcceptSetLike = __webpack_require__(4916);
+
+var INCORRECT = !setMethodAcceptSetLike('intersection', function (result) {
+  return result.size === 2 && result.has(1) && result.has(2);
+}) || fails(function () {
+  // eslint-disable-next-line es/no-array-from, es/no-set, es/no-set-prototype-intersection -- testing
+  return String(Array.from(new Set([1, 2, 3]).intersection(new Set([3, 2])))) !== '3,2';
+});
+
+// `Set.prototype.intersection` method
+// https://tc39.es/ecma262/#sec-set.prototype.intersection
+$({ target: 'Set', proto: true, real: true, forced: INCORRECT }, {
+  intersection: intersection
+});
+
+
+/***/ },
+
+/***/ 3853
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var $ = __webpack_require__(6518);
+var isDisjointFrom = __webpack_require__(4449);
+var setMethodAcceptSetLike = __webpack_require__(4916);
+
+var INCORRECT = !setMethodAcceptSetLike('isDisjointFrom', function (result) {
+  return !result;
+});
+
+// `Set.prototype.isDisjointFrom` method
+// https://tc39.es/ecma262/#sec-set.prototype.isdisjointfrom
+$({ target: 'Set', proto: true, real: true, forced: INCORRECT }, {
+  isDisjointFrom: isDisjointFrom
+});
+
+
+/***/ },
+
+/***/ 5876
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var $ = __webpack_require__(6518);
+var isSubsetOf = __webpack_require__(3838);
+var setMethodAcceptSetLike = __webpack_require__(4916);
+
+var INCORRECT = !setMethodAcceptSetLike('isSubsetOf', function (result) {
+  return result;
+});
+
+// `Set.prototype.isSubsetOf` method
+// https://tc39.es/ecma262/#sec-set.prototype.issubsetof
+$({ target: 'Set', proto: true, real: true, forced: INCORRECT }, {
+  isSubsetOf: isSubsetOf
+});
+
+
+/***/ },
+
+/***/ 2475
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var $ = __webpack_require__(6518);
+var isSupersetOf = __webpack_require__(8527);
+var setMethodAcceptSetLike = __webpack_require__(4916);
+
+var INCORRECT = !setMethodAcceptSetLike('isSupersetOf', function (result) {
+  return !result;
+});
+
+// `Set.prototype.isSupersetOf` method
+// https://tc39.es/ecma262/#sec-set.prototype.issupersetof
+$({ target: 'Set', proto: true, real: true, forced: INCORRECT }, {
+  isSupersetOf: isSupersetOf
+});
+
+
+/***/ },
+
+/***/ 5024
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var $ = __webpack_require__(6518);
+var symmetricDifference = __webpack_require__(3650);
+var setMethodGetKeysBeforeCloning = __webpack_require__(9835);
+var setMethodAcceptSetLike = __webpack_require__(4916);
+
+var FORCED = !setMethodAcceptSetLike('symmetricDifference') || !setMethodGetKeysBeforeCloning('symmetricDifference');
+
+// `Set.prototype.symmetricDifference` method
+// https://tc39.es/ecma262/#sec-set.prototype.symmetricdifference
+$({ target: 'Set', proto: true, real: true, forced: FORCED }, {
+  symmetricDifference: symmetricDifference
+});
+
+
+/***/ },
+
+/***/ 1698
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var $ = __webpack_require__(6518);
+var union = __webpack_require__(4204);
+var setMethodGetKeysBeforeCloning = __webpack_require__(9835);
+var setMethodAcceptSetLike = __webpack_require__(4916);
+
+var FORCED = !setMethodAcceptSetLike('union') || !setMethodGetKeysBeforeCloning('union');
+
+// `Set.prototype.union` method
+// https://tc39.es/ecma262/#sec-set.prototype.union
+$({ target: 'Set', proto: true, real: true, forced: FORCED }, {
+  union: union
+});
+
+
+/***/ },
+
+/***/ 7357
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var $ = __webpack_require__(6518);
+var uncurryThis = __webpack_require__(9504);
+var requireObjectCoercible = __webpack_require__(7750);
+var toIntegerOrInfinity = __webpack_require__(1291);
+var toString = __webpack_require__(655);
+var fails = __webpack_require__(9039);
+
+var charAt = uncurryThis(''.charAt);
+
+var FORCED = fails(function () {
+  // eslint-disable-next-line es/no-string-prototype-at -- safe
+  return '𠮷'.at(-2) !== '\uD842';
+});
+
+// `String.prototype.at` method
+// https://tc39.es/ecma262/#sec-string.prototype.at
+$({ target: 'String', proto: true, forced: FORCED }, {
+  at: function at(index) {
+    var S = toString(requireObjectCoercible(this));
+    var len = S.length;
+    var relativeIndex = toIntegerOrInfinity(index);
+    var k = relativeIndex >= 0 ? relativeIndex : len + relativeIndex;
+    return (k < 0 || k >= len) ? undefined : charAt(S, k);
+  }
+});
+
+
+/***/ },
+
+/***/ 8140
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var ArrayBufferViewCore = __webpack_require__(4644);
+var lengthOfArrayLike = __webpack_require__(6198);
+var toIntegerOrInfinity = __webpack_require__(1291);
+
+var aTypedArray = ArrayBufferViewCore.aTypedArray;
+var exportTypedArrayMethod = ArrayBufferViewCore.exportTypedArrayMethod;
+
+// `%TypedArray%.prototype.at` method
+// https://tc39.es/ecma262/#sec-%typedarray%.prototype.at
+exportTypedArrayMethod('at', function at(index) {
+  var O = aTypedArray(this);
+  var len = lengthOfArrayLike(O);
+  var relativeIndex = toIntegerOrInfinity(index);
+  var k = relativeIndex >= 0 ? relativeIndex : len + relativeIndex;
+  return (k < 0 || k >= len) ? undefined : O[k];
+});
+
+
+/***/ },
+
+/***/ 5044
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var ArrayBufferViewCore = __webpack_require__(4644);
+var $fill = __webpack_require__(4373);
+var toBigInt = __webpack_require__(5854);
+var classof = __webpack_require__(6955);
+var call = __webpack_require__(9565);
+var uncurryThis = __webpack_require__(9504);
+var fails = __webpack_require__(9039);
+
+var aTypedArray = ArrayBufferViewCore.aTypedArray;
+var exportTypedArrayMethod = ArrayBufferViewCore.exportTypedArrayMethod;
+var slice = uncurryThis(''.slice);
+
+// V8 ~ Chrome < 59, Safari < 14.1, FF < 55, Edge <=18
+var CONVERSION_BUG = fails(function () {
+  var count = 0;
+  // eslint-disable-next-line es/no-typed-arrays -- safe
+  new Int8Array(2).fill({ valueOf: function () { return count++; } });
+  return count !== 1;
+});
+
+// `%TypedArray%.prototype.fill` method
+// https://tc39.es/ecma262/#sec-%typedarray%.prototype.fill
+exportTypedArrayMethod('fill', function fill(value /* , start, end */) {
+  var length = arguments.length;
+  aTypedArray(this);
+  var actualValue = slice(classof(this), 0, 3) === 'Big' ? toBigInt(value) : +value;
+  return call($fill, this, actualValue, length > 1 ? arguments[1] : undefined, length > 2 ? arguments[2] : undefined);
+}, CONVERSION_BUG);
+
+
+/***/ },
+
+/***/ 1134
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var ArrayBufferViewCore = __webpack_require__(4644);
+var $findLastIndex = (__webpack_require__(3839).findLastIndex);
+
+var aTypedArray = ArrayBufferViewCore.aTypedArray;
+var exportTypedArrayMethod = ArrayBufferViewCore.exportTypedArrayMethod;
+
+// `%TypedArray%.prototype.findLastIndex` method
+// https://tc39.es/ecma262/#sec-%typedarray%.prototype.findlastindex
+exportTypedArrayMethod('findLastIndex', function findLastIndex(predicate /* , thisArg */) {
+  return $findLastIndex(aTypedArray(this), predicate, arguments.length > 1 ? arguments[1] : undefined);
+});
+
+
+/***/ },
+
+/***/ 1903
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var ArrayBufferViewCore = __webpack_require__(4644);
+var $findLast = (__webpack_require__(3839).findLast);
+
+var aTypedArray = ArrayBufferViewCore.aTypedArray;
+var exportTypedArrayMethod = ArrayBufferViewCore.exportTypedArrayMethod;
+
+// `%TypedArray%.prototype.findLast` method
+// https://tc39.es/ecma262/#sec-%typedarray%.prototype.findlast
+exportTypedArrayMethod('findLast', function findLast(predicate /* , thisArg */) {
+  return $findLast(aTypedArray(this), predicate, arguments.length > 1 ? arguments[1] : undefined);
+});
+
+
+/***/ },
+
+/***/ 8845
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var globalThis = __webpack_require__(4576);
+var call = __webpack_require__(9565);
+var ArrayBufferViewCore = __webpack_require__(4644);
+var lengthOfArrayLike = __webpack_require__(6198);
+var toOffset = __webpack_require__(8229);
+var toIndexedObject = __webpack_require__(8981);
+var fails = __webpack_require__(9039);
+
+var RangeError = globalThis.RangeError;
+var Int8Array = globalThis.Int8Array;
+var Int8ArrayPrototype = Int8Array && Int8Array.prototype;
+var $set = Int8ArrayPrototype && Int8ArrayPrototype.set;
+var aTypedArray = ArrayBufferViewCore.aTypedArray;
+var exportTypedArrayMethod = ArrayBufferViewCore.exportTypedArrayMethod;
+
+var WORKS_WITH_OBJECTS_AND_GENERIC_ON_TYPED_ARRAYS = !fails(function () {
+  // eslint-disable-next-line es/no-typed-arrays -- required for testing
+  var array = new Uint8ClampedArray(2);
+  call($set, array, { length: 1, 0: 3 }, 1);
+  return array[1] !== 3;
+});
+
+// https://bugs.chromium.org/p/v8/issues/detail?id=11294 and other
+var TO_OBJECT_BUG = WORKS_WITH_OBJECTS_AND_GENERIC_ON_TYPED_ARRAYS && ArrayBufferViewCore.NATIVE_ARRAY_BUFFER_VIEWS && fails(function () {
+  var array = new Int8Array(2);
+  array.set(1);
+  array.set('2', 1);
+  return array[0] !== 0 || array[1] !== 2;
+});
+
+// `%TypedArray%.prototype.set` method
+// https://tc39.es/ecma262/#sec-%typedarray%.prototype.set
+exportTypedArrayMethod('set', function set(arrayLike /* , offset */) {
+  aTypedArray(this);
+  var offset = toOffset(arguments.length > 1 ? arguments[1] : undefined, 1);
+  var src = toIndexedObject(arrayLike);
+  if (WORKS_WITH_OBJECTS_AND_GENERIC_ON_TYPED_ARRAYS) return call($set, this, src, offset);
+  var length = this.length;
+  var len = lengthOfArrayLike(src);
+  var index = 0;
+  if (len + offset > length) throw new RangeError('Wrong length');
+  while (index < len) this[offset + index] = src[index++];
+}, !WORKS_WITH_OBJECTS_AND_GENERIC_ON_TYPED_ARRAYS || TO_OBJECT_BUG);
+
+
+/***/ },
+
+/***/ 373
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var globalThis = __webpack_require__(4576);
+var uncurryThis = __webpack_require__(7476);
+var fails = __webpack_require__(9039);
+var aCallable = __webpack_require__(9306);
+var internalSort = __webpack_require__(4488);
+var ArrayBufferViewCore = __webpack_require__(4644);
+var FF = __webpack_require__(3709);
+var IE_OR_EDGE = __webpack_require__(3763);
+var V8 = __webpack_require__(9519);
+var WEBKIT = __webpack_require__(3607);
+
+var aTypedArray = ArrayBufferViewCore.aTypedArray;
+var exportTypedArrayMethod = ArrayBufferViewCore.exportTypedArrayMethod;
+var Uint16Array = globalThis.Uint16Array;
+var nativeSort = Uint16Array && uncurryThis(Uint16Array.prototype.sort);
+
+// WebKit
+var ACCEPT_INCORRECT_ARGUMENTS = !!nativeSort && !(fails(function () {
+  nativeSort(new Uint16Array(2), null);
+}) && fails(function () {
+  nativeSort(new Uint16Array(2), {});
+}));
+
+var STABLE_SORT = !!nativeSort && !fails(function () {
+  // feature detection can be too slow, so check engines versions
+  if (V8) return V8 < 74;
+  if (FF) return FF < 67;
+  if (IE_OR_EDGE) return true;
+  if (WEBKIT) return WEBKIT < 602;
+
+  var array = new Uint16Array(516);
+  var expected = Array(516);
+  var index, mod;
+
+  for (index = 0; index < 516; index++) {
+    mod = index % 4;
+    array[index] = 515 - index;
+    expected[index] = index - 2 * mod + 3;
+  }
+
+  nativeSort(array, function (a, b) {
+    return (a / 4 | 0) - (b / 4 | 0);
+  });
+
+  for (index = 0; index < 516; index++) {
+    if (array[index] !== expected[index]) return true;
+  }
+});
+
+var getSortCompare = function (comparefn) {
+  return function (x, y) {
+    if (comparefn !== undefined) return +comparefn(x, y) || 0;
+    // eslint-disable-next-line no-self-compare -- NaN check
+    if (y !== y) return -1;
+    // eslint-disable-next-line no-self-compare -- NaN check
+    if (x !== x) return 1;
+    if (x === 0 && y === 0) return 1 / x > 0 && 1 / y < 0 ? 1 : -1;
+    return x > y;
+  };
+};
+
+// `%TypedArray%.prototype.sort` method
+// https://tc39.es/ecma262/#sec-%typedarray%.prototype.sort
+exportTypedArrayMethod('sort', function sort(comparefn) {
+  if (comparefn !== undefined) aCallable(comparefn);
+  if (STABLE_SORT) return nativeSort(this, comparefn);
+
+  return internalSort(aTypedArray(this), getSortCompare(comparefn));
+}, !STABLE_SORT || ACCEPT_INCORRECT_ARGUMENTS);
+
+
+/***/ },
+
+/***/ 7467
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var arrayToReversed = __webpack_require__(7628);
+var ArrayBufferViewCore = __webpack_require__(4644);
+
+var aTypedArray = ArrayBufferViewCore.aTypedArray;
+var exportTypedArrayMethod = ArrayBufferViewCore.exportTypedArrayMethod;
+var getTypedArrayConstructor = ArrayBufferViewCore.getTypedArrayConstructor;
+
+// `%TypedArray%.prototype.toReversed` method
+// https://tc39.es/ecma262/#sec-%typedarray%.prototype.toreversed
+exportTypedArrayMethod('toReversed', function toReversed() {
+  return arrayToReversed(aTypedArray(this), getTypedArrayConstructor(this));
+});
+
+
+/***/ },
+
+/***/ 4732
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var ArrayBufferViewCore = __webpack_require__(4644);
+var uncurryThis = __webpack_require__(9504);
+var aCallable = __webpack_require__(9306);
+var arrayFromConstructorAndList = __webpack_require__(5370);
+
+var aTypedArray = ArrayBufferViewCore.aTypedArray;
+var getTypedArrayConstructor = ArrayBufferViewCore.getTypedArrayConstructor;
+var exportTypedArrayMethod = ArrayBufferViewCore.exportTypedArrayMethod;
+var sort = uncurryThis(ArrayBufferViewCore.TypedArrayPrototype.sort);
+
+// `%TypedArray%.prototype.toSorted` method
+// https://tc39.es/ecma262/#sec-%typedarray%.prototype.tosorted
+exportTypedArrayMethod('toSorted', function toSorted(compareFn) {
+  if (compareFn !== undefined) aCallable(compareFn);
+  var O = aTypedArray(this);
+  var A = arrayFromConstructorAndList(getTypedArrayConstructor(O), O);
+  return sort(A, compareFn);
+});
+
+
+/***/ },
+
+/***/ 9577
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var arrayWith = __webpack_require__(9928);
+var ArrayBufferViewCore = __webpack_require__(4644);
+var isBigIntArray = __webpack_require__(1108);
+var toIntegerOrInfinity = __webpack_require__(1291);
+var toBigInt = __webpack_require__(5854);
+
+var aTypedArray = ArrayBufferViewCore.aTypedArray;
+var getTypedArrayConstructor = ArrayBufferViewCore.getTypedArrayConstructor;
+var exportTypedArrayMethod = ArrayBufferViewCore.exportTypedArrayMethod;
+
+var PROPER_ORDER = function () {
+  try {
+    // eslint-disable-next-line no-throw-literal, es/no-typed-arrays, es/no-array-prototype-with -- required for testing
+    new Int8Array(1)['with'](2, { valueOf: function () { throw 8; } });
+  } catch (error) {
+    // some early implementations, like WebKit, does not follow the final semantic
+    // https://github.com/tc39/proposal-change-array-by-copy/pull/86
+    return error === 8;
+  }
+}();
+
+// Bug in WebKit. It should truncate a negative fractional index to zero, but instead throws an error
+var THROW_ON_NEGATIVE_FRACTIONAL_INDEX = PROPER_ORDER && function () {
+  try {
+    // eslint-disable-next-line es/no-typed-arrays, es/no-array-prototype-with -- required for testing
+    new Int8Array(1)['with'](-0.5, 1);
+  } catch (error) {
+    return true;
+  }
+}();
+
+// `%TypedArray%.prototype.with` method
+// https://tc39.es/ecma262/#sec-%typedarray%.prototype.with
+exportTypedArrayMethod('with', { 'with': function (index, value) {
+  var O = aTypedArray(this);
+  var relativeIndex = toIntegerOrInfinity(index);
+  var actualValue = isBigIntArray(O) ? toBigInt(value) : +value;
+  return arrayWith(O, getTypedArrayConstructor(O), relativeIndex, actualValue);
+} }['with'], !PROPER_ORDER || THROW_ON_NEGATIVE_FRACTIONAL_INDEX);
+
+
+/***/ },
+
+/***/ 5213
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var $ = __webpack_require__(6518);
+var globalThis = __webpack_require__(4576);
+var arrayFromConstructorAndList = __webpack_require__(5370);
+var $fromBase64 = __webpack_require__(9143);
+
+var Uint8Array = globalThis.Uint8Array;
+
+var INCORRECT_BEHAVIOR_OR_DOESNT_EXISTS = !Uint8Array || !Uint8Array.fromBase64 || !function () {
+  // Webkit not throw an error on odd length string
+  try {
+    Uint8Array.fromBase64('a');
+    return;
+  } catch (error) { /* empty */ }
+  try {
+    Uint8Array.fromBase64('', null);
+  } catch (error) {
+    return true;
+  }
+}();
+
+// `Uint8Array.fromBase64` method
+// https://github.com/tc39/proposal-arraybuffer-base64
+if (Uint8Array) $({ target: 'Uint8Array', stat: true, forced: INCORRECT_BEHAVIOR_OR_DOESNT_EXISTS }, {
+  fromBase64: function fromBase64(string /* , options */) {
+    var result = $fromBase64(string, arguments.length > 1 ? arguments[1] : undefined, null, 0x1FFFFFFFFFFFFF);
+    return arrayFromConstructorAndList(Uint8Array, result.bytes);
+  }
+});
+
+
+/***/ },
+
+/***/ 6632
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var $ = __webpack_require__(6518);
+var globalThis = __webpack_require__(4576);
+var $fromBase64 = __webpack_require__(9143);
+var anUint8Array = __webpack_require__(4154);
+
+var Uint8Array = globalThis.Uint8Array;
+
+var INCORRECT_BEHAVIOR_OR_DOESNT_EXISTS = !Uint8Array || !Uint8Array.prototype.setFromBase64 || !function () {
+  var target = new Uint8Array([255, 255, 255, 255, 255]);
+  try {
+    target.setFromBase64('', null);
+    return;
+  } catch (error) { /* empty */ }
+  // Webkit not throw an error on odd length string
+  try {
+    target.setFromBase64('a');
+    return;
+  } catch (error) { /* empty */ }
+  try {
+    target.setFromBase64('MjYyZg===');
+  } catch (error) {
+    return target[0] === 50 && target[1] === 54 && target[2] === 50 && target[3] === 255 && target[4] === 255;
+  }
+}();
+
+// `Uint8Array.prototype.setFromBase64` method
+// https://github.com/tc39/proposal-arraybuffer-base64
+if (Uint8Array) $({ target: 'Uint8Array', proto: true, forced: INCORRECT_BEHAVIOR_OR_DOESNT_EXISTS }, {
+  setFromBase64: function setFromBase64(string /* , options */) {
+    anUint8Array(this);
+
+    var result = $fromBase64(string, arguments.length > 1 ? arguments[1] : undefined, this, this.length);
+
+    return { read: result.read, written: result.written };
+  }
+});
+
+
+/***/ },
+
+/***/ 4226
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var $ = __webpack_require__(6518);
+var globalThis = __webpack_require__(4576);
+var aString = __webpack_require__(3463);
+var anUint8Array = __webpack_require__(4154);
+var notDetached = __webpack_require__(5169);
+var $fromHex = __webpack_require__(2303);
+
+// `Uint8Array.prototype.setFromHex` method
+// https://github.com/tc39/proposal-arraybuffer-base64
+if (globalThis.Uint8Array) $({ target: 'Uint8Array', proto: true }, {
+  setFromHex: function setFromHex(string) {
+    anUint8Array(this);
+    aString(string);
+    notDetached(this.buffer);
+    var read = $fromHex(string, this).read;
+    return { read: read, written: read / 2 };
+  }
+});
+
+
+/***/ },
+
+/***/ 9486
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
 
 
 var $ = __webpack_require__(6518);
@@ -6232,295 +6147,380 @@ if (Uint8Array) $({ target: 'Uint8Array', proto: true, forced: INCORRECT_BEHAVIO
 });
 
 
-/***/ }),
+/***/ },
 
-/***/ 9504:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var NATIVE_BIND = __webpack_require__(616);
-
-var FunctionPrototype = Function.prototype;
-var call = FunctionPrototype.call;
-// eslint-disable-next-line es/no-function-prototype-bind -- safe
-var uncurryThisWithBind = NATIVE_BIND && FunctionPrototype.bind.bind(call, call);
-
-module.exports = NATIVE_BIND ? uncurryThisWithBind : function (fn) {
-  return function () {
-    return call.apply(fn, arguments);
-  };
-};
+/***/ 456
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
 
 
-/***/ }),
-
-/***/ 9519:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
+var $ = __webpack_require__(6518);
 var globalThis = __webpack_require__(4576);
-var userAgent = __webpack_require__(2839);
+var uncurryThis = __webpack_require__(9504);
+var anUint8Array = __webpack_require__(4154);
+var notDetached = __webpack_require__(5169);
 
-var process = globalThis.process;
-var Deno = globalThis.Deno;
-var versions = process && process.versions || Deno && Deno.version;
-var v8 = versions && versions.v8;
-var match, version;
+var numberToString = uncurryThis(1.1.toString);
 
-if (v8) {
-  match = v8.split('.');
-  // in old Chrome, versions of V8 isn't V8 = Chrome / 10
-  // but their correct versions are not interesting for us
-  version = match[0] > 0 && match[0] < 4 ? 1 : +(match[0] + match[1]);
-}
+var Uint8Array = globalThis.Uint8Array;
 
-// BrowserFS NodeJS `process` polyfill incorrectly set `.v8` to `0.0`
-// so check `userAgent` even if `.v8` exists, but 0
-if (!version && userAgent) {
-  match = userAgent.match(/Edge\/(\d+)/);
-  if (!match || match[1] >= 74) {
-    match = userAgent.match(/Chrome\/(\d+)/);
-    if (match) version = +match[1];
-  }
-}
-
-module.exports = version;
-
-
-/***/ }),
-
-/***/ 9539:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var call = __webpack_require__(9565);
-var anObject = __webpack_require__(8551);
-var getMethod = __webpack_require__(5966);
-
-module.exports = function (iterator, kind, value) {
-  var innerResult, innerError;
-  anObject(iterator);
+var INCORRECT_BEHAVIOR_OR_DOESNT_EXISTS = !Uint8Array || !Uint8Array.prototype.toHex || !(function () {
   try {
-    innerResult = getMethod(iterator, 'return');
-    if (!innerResult) {
-      if (kind === 'throw') throw value;
-      return value;
+    var target = new Uint8Array([255, 255, 255, 255, 255, 255, 255, 255]);
+    return target.toHex() === 'ffffffffffffffff';
+  } catch (error) {
+    return false;
+  }
+})();
+
+// `Uint8Array.prototype.toHex` method
+// https://github.com/tc39/proposal-arraybuffer-base64
+if (Uint8Array) $({ target: 'Uint8Array', proto: true, forced: INCORRECT_BEHAVIOR_OR_DOESNT_EXISTS }, {
+  toHex: function toHex() {
+    anUint8Array(this);
+    notDetached(this.buffer);
+    var result = '';
+    for (var i = 0, length = this.length; i < length; i++) {
+      var hex = numberToString(this[i], 16);
+      result += hex.length === 1 ? '0' + hex : hex;
     }
-    innerResult = call(innerResult, iterator);
-  } catch (error) {
-    innerError = true;
-    innerResult = error;
+    return result;
   }
-  if (kind === 'throw') throw value;
-  if (innerError) throw innerResult;
-  anObject(innerResult);
-  return value;
-};
+});
 
 
-/***/ }),
+/***/ },
 
-/***/ 9565:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var NATIVE_BIND = __webpack_require__(616);
-
-var call = Function.prototype.call;
-// eslint-disable-next-line es/no-function-prototype-bind -- safe
-module.exports = NATIVE_BIND ? call.bind(call) : function () {
-  return call.apply(call, arguments);
-};
-
-
-/***/ }),
-
-/***/ 9577:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var arrayWith = __webpack_require__(9928);
-var ArrayBufferViewCore = __webpack_require__(4644);
-var isBigIntArray = __webpack_require__(1108);
-var toIntegerOrInfinity = __webpack_require__(1291);
-var toBigInt = __webpack_require__(5854);
-
-var aTypedArray = ArrayBufferViewCore.aTypedArray;
-var getTypedArrayConstructor = ArrayBufferViewCore.getTypedArrayConstructor;
-var exportTypedArrayMethod = ArrayBufferViewCore.exportTypedArrayMethod;
-
-var PROPER_ORDER = function () {
-  try {
-    // eslint-disable-next-line no-throw-literal, es/no-typed-arrays, es/no-array-prototype-with -- required for testing
-    new Int8Array(1)['with'](2, { valueOf: function () { throw 8; } });
-  } catch (error) {
-    // some early implementations, like WebKit, does not follow the final semantic
-    // https://github.com/tc39/proposal-change-array-by-copy/pull/86
-    return error === 8;
-  }
-}();
-
-// Bug in WebKit. It should truncate a negative fractional index to zero, but instead throws an error
-var THROW_ON_NEGATIVE_FRACTIONAL_INDEX = PROPER_ORDER && function () {
-  try {
-    // eslint-disable-next-line es/no-typed-arrays, es/no-array-prototype-with -- required for testing
-    new Int8Array(1)['with'](-0.5, 1);
-  } catch (error) {
-    return true;
-  }
-}();
-
-// `%TypedArray%.prototype.with` method
-// https://tc39.es/ecma262/#sec-%typedarray%.prototype.with
-exportTypedArrayMethod('with', { 'with': function (index, value) {
-  var O = aTypedArray(this);
-  var relativeIndex = toIntegerOrInfinity(index);
-  var actualValue = isBigIntArray(O) ? toBigInt(value) : +value;
-  return arrayWith(O, getTypedArrayConstructor(O), relativeIndex, actualValue);
-} }['with'], !PROPER_ORDER || THROW_ON_NEGATIVE_FRACTIONAL_INDEX);
-
-
-/***/ }),
-
-/***/ 9590:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var toIntegerOrInfinity = __webpack_require__(1291);
-
-var $RangeError = RangeError;
-
-module.exports = function (it) {
-  var result = toIntegerOrInfinity(it);
-  if (result < 0) throw new $RangeError("The argument can't be less than 0");
-  return result;
-};
-
-
-/***/ }),
-
-/***/ 9617:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var toIndexedObject = __webpack_require__(5397);
-var toAbsoluteIndex = __webpack_require__(5610);
-var lengthOfArrayLike = __webpack_require__(6198);
-
-// `Array.prototype.{ indexOf, includes }` methods implementation
-var createMethod = function (IS_INCLUDES) {
-  return function ($this, el, fromIndex) {
-    var O = toIndexedObject($this);
-    var length = lengthOfArrayLike(O);
-    if (length === 0) return !IS_INCLUDES && -1;
-    var index = toAbsoluteIndex(fromIndex, length);
-    var value;
-    // Array#includes uses SameValueZero equality algorithm
-    // eslint-disable-next-line no-self-compare -- NaN check
-    if (IS_INCLUDES && el !== el) while (length > index) {
-      value = O[index++];
-      // eslint-disable-next-line no-self-compare -- NaN check
-      if (value !== value) return true;
-    // Array#indexOf ignores holes, Array#includes - not
-    } else for (;length > index; index++) {
-      if ((IS_INCLUDES || index in O) && O[index] === el) return IS_INCLUDES || index || 0;
-    } return !IS_INCLUDES && -1;
-  };
-};
-
-module.exports = {
-  // `Array.prototype.includes` method
-  // https://tc39.es/ecma262/#sec-array.prototype.includes
-  includes: createMethod(true),
-  // `Array.prototype.indexOf` method
-  // https://tc39.es/ecma262/#sec-array.prototype.indexof
-  indexOf: createMethod(false)
-};
-
-
-/***/ }),
-
-/***/ 9631:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
+/***/ 4235
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
 
 
 // TODO: Remove from `core-js@4`
-__webpack_require__(9486);
+__webpack_require__(3068);
 
 
-/***/ }),
+/***/ },
 
-/***/ 9797:
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
+/***/ 9432
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+// TODO: Remove from `core-js@4`
+__webpack_require__(5213);
+
+
+/***/ },
+
+/***/ 1549
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+// TODO: Remove from `core-js@4`
+__webpack_require__(6632);
+
+
+/***/ },
+
+/***/ 9797
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
 
 
 // TODO: Remove from `core-js@4`
 __webpack_require__(4226);
 
 
-/***/ }),
+/***/ },
 
-/***/ 9835:
-/***/ ((module) => {
+/***/ 9631
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
 
 
-// Should get iterator record of a set-like object before cloning this
-// https://bugs.webkit.org/show_bug.cgi?id=289430
-module.exports = function (METHOD_NAME) {
-  try {
-    // eslint-disable-next-line es/no-set -- needed for test
-    var baseSet = new Set();
-    var setLike = {
-      size: 0,
-      has: function () { return true; },
-      keys: function () {
-        // eslint-disable-next-line es/no-object-defineproperty -- needed for test
-        return Object.defineProperty({}, 'next', {
-          get: function () {
-            baseSet.clear();
-            baseSet.add(4);
-            return function () {
-              return { done: true };
-            };
-          }
-        });
-      }
-    };
-    var result = baseSet[METHOD_NAME](setLike);
+// TODO: Remove from `core-js@4`
+__webpack_require__(9486);
 
-    return result.size === 1 && result.values().next().value === 4;
-  } catch (error) {
-    return false;
+
+/***/ },
+
+/***/ 5623
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+// TODO: Remove from `core-js@4`
+__webpack_require__(456);
+
+
+/***/ },
+
+/***/ 4979
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var $ = __webpack_require__(6518);
+var globalThis = __webpack_require__(4576);
+var getBuiltIn = __webpack_require__(7751);
+var createPropertyDescriptor = __webpack_require__(6980);
+var defineProperty = (__webpack_require__(4913).f);
+var hasOwn = __webpack_require__(9297);
+var anInstance = __webpack_require__(679);
+var inheritIfRequired = __webpack_require__(3167);
+var normalizeStringArgument = __webpack_require__(2603);
+var DOMExceptionConstants = __webpack_require__(5002);
+var clearErrorStack = __webpack_require__(6193);
+var DESCRIPTORS = __webpack_require__(3724);
+var IS_PURE = __webpack_require__(6395);
+
+var DOM_EXCEPTION = 'DOMException';
+var Error = getBuiltIn('Error');
+var NativeDOMException = getBuiltIn(DOM_EXCEPTION);
+
+var $DOMException = function DOMException() {
+  anInstance(this, DOMExceptionPrototype);
+  var argumentsLength = arguments.length;
+  var message = normalizeStringArgument(argumentsLength < 1 ? undefined : arguments[0]);
+  var name = normalizeStringArgument(argumentsLength < 2 ? undefined : arguments[1], 'Error');
+  var that = new NativeDOMException(message, name);
+  var error = new Error(message);
+  error.name = DOM_EXCEPTION;
+  defineProperty(that, 'stack', createPropertyDescriptor(1, clearErrorStack(error.stack, 1)));
+  inheritIfRequired(that, this, $DOMException);
+  return that;
+};
+
+var DOMExceptionPrototype = $DOMException.prototype = NativeDOMException.prototype;
+
+var ERROR_HAS_STACK = 'stack' in new Error(DOM_EXCEPTION);
+var DOM_EXCEPTION_HAS_STACK = 'stack' in new NativeDOMException(1, 2);
+
+// eslint-disable-next-line es/no-object-getownpropertydescriptor -- safe
+var descriptor = NativeDOMException && DESCRIPTORS && Object.getOwnPropertyDescriptor(globalThis, DOM_EXCEPTION);
+
+// Bun ~ 0.1.1 DOMException have incorrect descriptor and we can't redefine it
+// https://github.com/Jarred-Sumner/bun/issues/399
+var BUGGY_DESCRIPTOR = !!descriptor && !(descriptor.writable && descriptor.configurable);
+
+var FORCED_CONSTRUCTOR = ERROR_HAS_STACK && !BUGGY_DESCRIPTOR && !DOM_EXCEPTION_HAS_STACK;
+
+// `DOMException` constructor patch for `.stack` where it's required
+// https://webidl.spec.whatwg.org/#es-DOMException-specialness
+$({ global: true, constructor: true, forced: IS_PURE || FORCED_CONSTRUCTOR }, { // TODO: fix export logic
+  DOMException: FORCED_CONSTRUCTOR ? $DOMException : NativeDOMException
+});
+
+var PolyfilledDOMException = getBuiltIn(DOM_EXCEPTION);
+var PolyfilledDOMExceptionPrototype = PolyfilledDOMException.prototype;
+
+if (PolyfilledDOMExceptionPrototype.constructor !== PolyfilledDOMException) {
+  if (!IS_PURE) {
+    defineProperty(PolyfilledDOMExceptionPrototype, 'constructor', createPropertyDescriptor(1, PolyfilledDOMException));
   }
-};
+
+  for (var key in DOMExceptionConstants) if (hasOwn(DOMExceptionConstants, key)) {
+    var constant = DOMExceptionConstants[key];
+    var constantName = constant.s;
+    if (!hasOwn(PolyfilledDOMException, constantName)) {
+      defineProperty(PolyfilledDOMException, constantName, createPropertyDescriptor(6, constant.c));
+    }
+  }
+}
 
 
-/***/ }),
+/***/ },
 
-/***/ 9928:
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-
-var lengthOfArrayLike = __webpack_require__(6198);
-var toIntegerOrInfinity = __webpack_require__(1291);
-
-var $RangeError = RangeError;
-
-// https://tc39.es/ecma262/#sec-array.prototype.with
-// https://tc39.es/ecma262/#sec-%typedarray%.prototype.with
-module.exports = function (O, C, index, value) {
-  var len = lengthOfArrayLike(O);
-  var relativeIndex = toIntegerOrInfinity(index);
-  var actualIndex = relativeIndex < 0 ? len + relativeIndex : relativeIndex;
-  if (actualIndex >= len || actualIndex < 0) throw new $RangeError('Incorrect index');
-  var A = new C(len);
-  var k = 0;
-  for (; k < len; k++) A[k] = k === actualIndex ? value : O[k];
-  return A;
-};
+/***/ 3611
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
 
 
-/***/ })
+var $ = __webpack_require__(6518);
+var globalThis = __webpack_require__(4576);
+var defineBuiltInAccessor = __webpack_require__(2106);
+var DESCRIPTORS = __webpack_require__(3724);
+
+var $TypeError = TypeError;
+// eslint-disable-next-line es/no-object-defineproperty -- safe
+var defineProperty = Object.defineProperty;
+var INCORRECT_VALUE = globalThis.self !== globalThis;
+
+// `self` getter
+// https://html.spec.whatwg.org/multipage/window-object.html#dom-self
+try {
+  if (DESCRIPTORS) {
+    // eslint-disable-next-line es/no-object-getownpropertydescriptor -- safe
+    var descriptor = Object.getOwnPropertyDescriptor(globalThis, 'self');
+    // some engines have `self`, but with incorrect descriptor
+    // https://github.com/denoland/deno/issues/15765
+    if (INCORRECT_VALUE || !descriptor || !descriptor.get || !descriptor.enumerable) {
+      defineBuiltInAccessor(globalThis, 'self', {
+        get: function self() {
+          return globalThis;
+        },
+        set: function self(value) {
+          if (this !== globalThis) throw new $TypeError('Illegal invocation');
+          defineProperty(globalThis, 'self', {
+            value: value,
+            writable: true,
+            configurable: true,
+            enumerable: true
+          });
+        },
+        configurable: true,
+        enumerable: true
+      });
+    }
+  } else $({ global: true, simple: true, forced: INCORRECT_VALUE }, {
+    self: globalThis
+  });
+} catch (error) { /* empty */ }
+
+
+/***/ },
+
+/***/ 4603
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var defineBuiltIn = __webpack_require__(6840);
+var uncurryThis = __webpack_require__(9504);
+var toString = __webpack_require__(655);
+var validateArgumentsLength = __webpack_require__(2812);
+
+var $URLSearchParams = URLSearchParams;
+var URLSearchParamsPrototype = $URLSearchParams.prototype;
+var append = uncurryThis(URLSearchParamsPrototype.append);
+var $delete = uncurryThis(URLSearchParamsPrototype['delete']);
+var forEach = uncurryThis(URLSearchParamsPrototype.forEach);
+var push = uncurryThis([].push);
+var params = new $URLSearchParams('a=1&a=2&b=3');
+
+params['delete']('a', 1);
+// `undefined` case is a Chromium 117 bug
+// https://bugs.chromium.org/p/v8/issues/detail?id=14222
+params['delete']('b', undefined);
+
+if (params + '' !== 'a=2') {
+  defineBuiltIn(URLSearchParamsPrototype, 'delete', function (name /* , value */) {
+    var length = arguments.length;
+    var $value = length < 2 ? undefined : arguments[1];
+    if (length && $value === undefined) return $delete(this, name);
+    var entries = [];
+    forEach(this, function (v, k) { // also validates `this`
+      push(entries, { key: k, value: v });
+    });
+    validateArgumentsLength(length, 1);
+    var key = toString(name);
+    var value = toString($value);
+    var index = 0;
+    var dindex = 0;
+    var found = false;
+    var entriesLength = entries.length;
+    var entry;
+    while (index < entriesLength) {
+      entry = entries[index++];
+      if (found || entry.key === key) {
+        found = true;
+        $delete(this, entry.key);
+      } else dindex++;
+    }
+    while (dindex < entriesLength) {
+      entry = entries[dindex++];
+      if (!(entry.key === key && entry.value === value)) append(this, entry.key, entry.value);
+    }
+  }, { enumerable: true, unsafe: true });
+}
+
+
+/***/ },
+
+/***/ 7566
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var defineBuiltIn = __webpack_require__(6840);
+var uncurryThis = __webpack_require__(9504);
+var toString = __webpack_require__(655);
+var validateArgumentsLength = __webpack_require__(2812);
+
+var $URLSearchParams = URLSearchParams;
+var URLSearchParamsPrototype = $URLSearchParams.prototype;
+var getAll = uncurryThis(URLSearchParamsPrototype.getAll);
+var $has = uncurryThis(URLSearchParamsPrototype.has);
+var params = new $URLSearchParams('a=1');
+
+// `undefined` case is a Chromium 117 bug
+// https://bugs.chromium.org/p/v8/issues/detail?id=14222
+if (params.has('a', 2) || !params.has('a', undefined)) {
+  defineBuiltIn(URLSearchParamsPrototype, 'has', function has(name /* , value */) {
+    var length = arguments.length;
+    var $value = length < 2 ? undefined : arguments[1];
+    if (length && $value === undefined) return $has(this, name);
+    var values = getAll(this, name); // also validates `this`
+    validateArgumentsLength(length, 1);
+    var value = toString($value);
+    var index = 0;
+    while (index < values.length) {
+      if (values[index++] === value) return true;
+    } return false;
+  }, { enumerable: true, unsafe: true });
+}
+
+
+/***/ },
+
+/***/ 8721
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var DESCRIPTORS = __webpack_require__(3724);
+var uncurryThis = __webpack_require__(9504);
+var defineBuiltInAccessor = __webpack_require__(2106);
+
+var URLSearchParamsPrototype = URLSearchParams.prototype;
+var forEach = uncurryThis(URLSearchParamsPrototype.forEach);
+
+// `URLSearchParams.prototype.size` getter
+// https://github.com/whatwg/url/pull/734
+if (DESCRIPTORS && !('size' in URLSearchParamsPrototype)) {
+  defineBuiltInAccessor(URLSearchParamsPrototype, 'size', {
+    get: function size() {
+      var count = 0;
+      forEach(this, function () { count++; });
+      return count;
+    },
+    configurable: true,
+    enumerable: true
+  });
+}
+
+
+/***/ },
+
+/***/ 5781
+(__unused_webpack_module, __unused_webpack_exports, __webpack_require__) {
+
+
+var $ = __webpack_require__(6518);
+var getBuiltIn = __webpack_require__(7751);
+var validateArgumentsLength = __webpack_require__(2812);
+var toString = __webpack_require__(655);
+var USE_NATIVE_URL = __webpack_require__(7416);
+
+var URL = getBuiltIn('URL');
+
+// `URL.parse` method
+// https://url.spec.whatwg.org/#dom-url-canparse
+$({ target: 'URL', stat: true, forced: !USE_NATIVE_URL }, {
+  parse: function parse(url) {
+    var length = validateArgumentsLength(arguments.length, 1);
+    var urlString = toString(url);
+    var base = length < 2 || arguments[1] === undefined ? undefined : toString(arguments[1]);
+    try {
+      return new URL(urlString, base);
+    } catch (error) {
+      return null;
+    }
+  }
+});
+
+
+/***/ }
 
 /******/ });
 /************************************************************************/
@@ -6785,6 +6785,11 @@ const PermissionFlag = {
   ASSEMBLE: 0x400,
   PRINT_HIGH_QUALITY: 0x800
 };
+const MeshFigureType = {
+  TRIANGLES: 1,
+  LATTICE: 2,
+  PATCH: 3
+};
 const TextRenderingMode = {
   FILL: 0,
   STROKE: 1,
@@ -7003,7 +7008,8 @@ const DrawOPS = {
   moveTo: 0,
   lineTo: 1,
   curveTo: 2,
-  closePath: 3
+  quadraticCurveTo: 3,
+  closePath: 4
 };
 const PasswordResponses = {
   NEED_PASSWORD: 1,
@@ -7208,6 +7214,12 @@ class FeatureTest {
   }
   static get isImageDecoderSupported() {
     return shadow(this, "isImageDecoderSupported", typeof ImageDecoder !== "undefined");
+  }
+  static get isFloat16ArraySupported() {
+    return shadow(this, "isFloat16ArraySupported", typeof Float16Array !== "undefined");
+  }
+  static get isSanitizerSupported() {
+    return shadow(this, "isSanitizerSupported", typeof Sanitizer !== "undefined");
   }
   static get platform() {
     const {
@@ -7602,31 +7614,19 @@ function fromBase64Util(str) {
   }
   return stringToBytes(atob(str));
 }
+if (typeof Promise.try !== "function") {
+  Promise.try = function (fn) {
+    for (var _len = arguments.length, args = new Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
+      args[_key - 1] = arguments[_key];
+    }
+    return new Promise(resolve => {
+      resolve(fn(...args));
+    });
+  };
+}
 if (typeof Math.sumPrecise !== "function") {
   Math.sumPrecise = function (numbers) {
     return numbers.reduce((a, b) => a + b, 0);
-  };
-}
-if (typeof AbortSignal.any !== "function") {
-  AbortSignal.any = function (iterable) {
-    const ac = new AbortController();
-    const {
-      signal
-    } = ac;
-    for (const s of iterable) {
-      if (s.aborted) {
-        ac.abort(s.reason);
-        return signal;
-      }
-    }
-    for (const s of iterable) {
-      s.addEventListener("abort", () => {
-        ac.abort(s.reason);
-      }, {
-        signal
-      });
-    }
-    return signal;
   };
 }
 
@@ -7652,12 +7652,12 @@ function clearPrimitiveCaches() {
   NameCache = Object.create(null);
   RefCache = Object.create(null);
 }
-class primitives_Name {
+class Name {
   constructor(name) {
     this.name = name;
   }
   static get(name) {
-    return NameCache[name] ||= new primitives_Name(name);
+    return NameCache[name] ||= new Name(name);
   }
 }
 class Cmd {
@@ -7671,7 +7671,7 @@ class Cmd {
 const nonSerializable = function nonSerializableClosure() {
   return nonSerializable;
 };
-class primitives_Dict {
+class Dict {
   constructor() {
     let xref = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : null;
     this._map = new Map();
@@ -7694,7 +7694,7 @@ class primitives_Dict {
         value = this._map.get(key3);
       }
     }
-    if (value instanceof primitives_Ref && this.xref) {
+    if (value instanceof Ref && this.xref) {
       return this.xref.fetch(value, this.suppressEncryption);
     }
     return value;
@@ -7707,7 +7707,7 @@ class primitives_Dict {
         value = this._map.get(key3);
       }
     }
-    if (value instanceof primitives_Ref && this.xref) {
+    if (value instanceof Ref && this.xref) {
       return this.xref.fetchAsync(value, this.suppressEncryption);
     }
     return value;
@@ -7720,13 +7720,13 @@ class primitives_Dict {
         value = this._map.get(key3);
       }
     }
-    if (value instanceof primitives_Ref && this.xref) {
+    if (value instanceof Ref && this.xref) {
       value = this.xref.fetch(value, this.suppressEncryption);
     }
     if (Array.isArray(value)) {
       value = value.slice();
       for (let i = 0, ii = value.length; i < ii; i++) {
-        if (value[i] instanceof primitives_Ref && this.xref) {
+        if (value[i] instanceof Ref && this.xref) {
           value[i] = this.xref.fetch(value[i], this.suppressEncryption);
         }
       }
@@ -7741,6 +7741,9 @@ class primitives_Dict {
   }
   getRawValues() {
     return [...this._map.values()];
+  }
+  getRawEntries() {
+    return this._map.entries();
   }
   set(key, value) {
     this._map.set(key, value);
@@ -7767,8 +7770,13 @@ class primitives_Dict {
   }
   setIfName(key, value) {
     if (typeof value === "string") {
-      this.set(key, primitives_Name.get(value));
-    } else if (value instanceof primitives_Name) {
+      this.set(key, Name.get(value));
+    } else if (value instanceof Name) {
+      this.set(key, value);
+    }
+  }
+  setIfDict(key, value) {
+    if (value instanceof Dict) {
       this.set(key, value);
     }
   }
@@ -7777,11 +7785,11 @@ class primitives_Dict {
   }
   *[Symbol.iterator]() {
     for (const [key, value] of this._map) {
-      yield [key, value instanceof primitives_Ref && this.xref ? this.xref.fetch(value, this.suppressEncryption) : value];
+      yield [key, value instanceof Ref && this.xref ? this.xref.fetch(value, this.suppressEncryption) : value];
     }
   }
   static get empty() {
-    const emptyDict = new primitives_Dict(null);
+    const emptyDict = new Dict(null);
     emptyDict.set = (key, value) => {
       unreachable("Should not call `set` on the empty dictionary.");
     };
@@ -7793,10 +7801,10 @@ class primitives_Dict {
       dictArray,
       mergeSubDicts = false
     } = _ref;
-    const mergedDict = new primitives_Dict(xref),
+    const mergedDict = new Dict(xref),
       properties = new Map();
     for (const dict of dictArray) {
-      if (!(dict instanceof primitives_Dict)) {
+      if (!(dict instanceof Dict)) {
         continue;
       }
       for (const [key, value] of dict._map) {
@@ -7804,18 +7812,18 @@ class primitives_Dict {
         if (property === undefined) {
           property = [];
           properties.set(key, property);
-        } else if (!mergeSubDicts || !(value instanceof primitives_Dict)) {
+        } else if (!mergeSubDicts || !(value instanceof Dict)) {
           continue;
         }
         property.push(value);
       }
     }
     for (const [name, values] of properties) {
-      if (values.length === 1 || !(values[0] instanceof primitives_Dict)) {
+      if (values.length === 1 || !(values[0] instanceof Dict)) {
         mergedDict._map.set(name, values[0]);
         continue;
       }
-      const subDict = new primitives_Dict(xref);
+      const subDict = new Dict(xref);
       for (const dict of values) {
         for (const [key, value] of dict._map) {
           if (!subDict._map.has(key)) {
@@ -7828,10 +7836,10 @@ class primitives_Dict {
       }
     }
     properties.clear();
-    return mergedDict.size > 0 ? mergedDict : primitives_Dict.empty;
+    return mergedDict.size > 0 ? mergedDict : Dict.empty;
   }
   clone() {
-    const dict = new primitives_Dict(this.xref);
+    const dict = new Dict(this.xref);
     for (const key of this.getKeys()) {
       dict.set(key, this.getRaw(key));
     }
@@ -7842,7 +7850,7 @@ class primitives_Dict {
     delete this._map[key];
   }
 }
-class primitives_Ref {
+class Ref {
   constructor(num, gen) {
     this.num = num;
     this.gen = gen;
@@ -7862,14 +7870,14 @@ class primitives_Ref {
     if (!m || m[1] === "0") {
       return null;
     }
-    return RefCache[str] = new primitives_Ref(parseInt(m[1]), !m[2] ? 0 : parseInt(m[2]));
+    return RefCache[str] = new Ref(parseInt(m[1]), !m[2] ? 0 : parseInt(m[2]));
   }
   static get(num, gen) {
     const key = gen === 0 ? `${num}R` : `${num}R${gen}`;
-    return RefCache[key] ||= new primitives_Ref(num, gen);
+    return RefCache[key] ||= new Ref(num, gen);
   }
 }
-class primitives_RefSet {
+class RefSet {
   constructor() {
     let parent = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : null;
     this._set = new Set(parent?._set);
@@ -7920,18 +7928,23 @@ class RefSetCache {
   }
   *items() {
     for (const [ref, value] of this._map) {
-      yield [primitives_Ref.fromString(ref), value];
+      yield [Ref.fromString(ref), value];
+    }
+  }
+  *keys() {
+    for (const ref of this._map.keys()) {
+      yield Ref.fromString(ref);
     }
   }
 }
-function primitives_isName(v, name) {
-  return v instanceof primitives_Name && (name === undefined || v.name === name);
+function isName(v, name) {
+  return v instanceof Name && (name === undefined || v.name === name);
 }
 function isCmd(v, cmd) {
   return v instanceof Cmd && (cmd === undefined || v.cmd === cmd);
 }
 function isDict(v, type) {
-  return v instanceof primitives_Dict && (type === undefined || primitives_isName(v.get("Type"), type));
+  return v instanceof Dict && (type === undefined || isName(v.get("Type"), type));
 }
 function isRefsEqual(v1, v2) {
   return v1.num === v2.num && v1.gen === v2.gen;
@@ -8021,6 +8034,9 @@ class BaseStream {
   }
   getBaseStreams() {
     return null;
+  }
+  getOriginalStream() {
+    return this.stream?.getOriginalStream() || this;
   }
 }
 
@@ -8131,8 +8147,8 @@ function getInheritableProperty(_ref) {
     stopWhenFound = true
   } = _ref;
   let values;
-  const visited = new primitives_RefSet();
-  while (dict instanceof primitives_Dict && !(dict.objId && visited.has(dict.objId))) {
+  const visited = new RefSet();
+  while (dict instanceof Dict && !(dict.objId && visited.has(dict.objId))) {
     if (dict.objId) {
       visited.put(dict.objId);
     }
@@ -8148,24 +8164,24 @@ function getInheritableProperty(_ref) {
   return values;
 }
 function getParentToUpdate(dict, ref, xref) {
-  const visited = new primitives_RefSet();
+  const visited = new RefSet();
   const firstDict = dict;
   const result = {
     dict: null,
     ref: null
   };
-  while (dict instanceof primitives_Dict && !visited.has(ref)) {
+  while (dict instanceof Dict && !visited.has(ref)) {
     visited.put(ref);
     if (dict.has("T")) {
       break;
     }
     ref = dict.getRaw("Parent");
-    if (!(ref instanceof primitives_Ref)) {
+    if (!(ref instanceof Ref)) {
       return result;
     }
     dict = xref.fetch(ref);
   }
-  if (dict instanceof primitives_Dict && dict !== firstDict) {
+  if (dict instanceof Dict && dict !== firstDict) {
     result.dict = dict;
     result.ref = ref;
   }
@@ -8266,7 +8282,7 @@ function _collectJS(entry, xref, list, parents) {
     return;
   }
   let parent = null;
-  if (entry instanceof primitives_Ref) {
+  if (entry instanceof Ref) {
     if (parents.has(entry)) {
       return;
     }
@@ -8278,8 +8294,8 @@ function _collectJS(entry, xref, list, parents) {
     for (const element of entry) {
       _collectJS(element, xref, list, parents);
     }
-  } else if (entry instanceof primitives_Dict) {
-    if (primitives_isName(entry.get("S"), "JavaScript")) {
+  } else if (entry instanceof Dict) {
+    if (isName(entry.get("S"), "JavaScript")) {
       const js = entry.get("JS");
       let code;
       if (js instanceof BaseStream) {
@@ -8308,7 +8324,7 @@ function collectActions(xref, dict, eventType) {
   if (additionalActionsDicts) {
     for (let i = additionalActionsDicts.length - 1; i >= 0; i--) {
       const additionalActions = additionalActionsDicts[i];
-      if (!(additionalActions instanceof primitives_Dict)) {
+      if (!(additionalActions instanceof Dict)) {
         continue;
       }
       for (const key of additionalActions.getKeys()) {
@@ -8317,7 +8333,7 @@ function collectActions(xref, dict, eventType) {
           continue;
         }
         const actionDict = additionalActions.getRaw(key);
-        const parents = new primitives_RefSet();
+        const parents = new RefSet();
         const list = [];
         _collectJS(actionDict, xref, list, parents);
         if (list.length > 0) {
@@ -8328,7 +8344,7 @@ function collectActions(xref, dict, eventType) {
   }
   if (dict.has("A")) {
     const actionDict = dict.get("A");
-    const parents = new primitives_RefSet();
+    const parents = new RefSet();
     const list = [];
     _collectJS(actionDict, xref, list, parents);
     if (list.length > 0) {
@@ -9791,6 +9807,9 @@ class Stream extends BaseStream {
     let dict = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : null;
     return new Stream(this.bytes.buffer, start, length, dict);
   }
+  clone() {
+    return new Stream(this.bytes.buffer, this.start, this.end - this.start, this.dict.clone());
+  }
 }
 class StringStream extends Stream {
   constructor(str) {
@@ -10901,7 +10920,13 @@ class DecodeStream extends BaseStream {
     return new Stream(this.buffer, start, length, dict);
   }
   getBaseStreams() {
-    return this.str ? this.str.getBaseStreams() : null;
+    return this.stream ? this.stream.getBaseStreams() : null;
+  }
+  clone() {
+    while (!this.eof) {
+      this.readBlock();
+    }
+    return new Stream(this.buffer, this.start, this.end - this.start, this.dict.clone());
   }
 }
 class StreamsSequenceStream extends DecodeStream {
@@ -10979,7 +11004,7 @@ class ColorSpaceUtils {
       localColorSpaceCache
     };
     let csName, csRef, parsedCS;
-    if (cs instanceof primitives_Ref) {
+    if (cs instanceof Ref) {
       csRef = cs;
       const cachedCS = globalColorSpaceCache.getByRef(csRef) || localColorSpaceCache.getByRef(csRef);
       if (cachedCS) {
@@ -10987,7 +11012,7 @@ class ColorSpaceUtils {
       }
       cs = xref.fetch(cs);
     }
-    if (cs instanceof primitives_Name) {
+    if (cs instanceof Name) {
       csName = cs.name;
       const cachedCS = localColorSpaceCache.getByName(csName);
       if (cachedCS) {
@@ -11036,7 +11061,7 @@ function _subParse(cs, options) {
     globalColorSpaceCache
   } = options;
   let csRef;
-  if (cs instanceof primitives_Ref) {
+  if (cs instanceof Ref) {
     csRef = cs;
     const cachedCS = globalColorSpaceCache.getByRef(csRef);
     if (cachedCS) {
@@ -11057,7 +11082,7 @@ function _parse(cs, options) {
     globalColorSpaceCache
   } = options;
   cs = xref.fetchIfRef(cs);
-  if (cs instanceof primitives_Name) {
+  if (cs instanceof Name) {
     switch (cs.name) {
       case "G":
       case "DeviceGray":
@@ -11073,12 +11098,12 @@ function _parse(cs, options) {
       case "Pattern":
         return new PatternCS(null);
       default:
-        if (resources instanceof primitives_Dict) {
+        if (resources instanceof Dict) {
           const colorSpaces = resources.get("ColorSpace");
-          if (colorSpaces instanceof primitives_Dict) {
+          if (colorSpaces instanceof Dict) {
             const resourcesCS = colorSpaces.get(cs.name);
             if (resourcesCS) {
-              if (resourcesCS instanceof primitives_Name) {
+              if (resourcesCS instanceof Name) {
                 return colorspace_utils_assertClassBrand(_ColorSpaceUtils, this, _parse).call(this, resourcesCS, options);
               }
               cs = resourcesCS;
@@ -11117,7 +11142,7 @@ function _parse(cs, options) {
         const matrix = params.getArray("Matrix");
         return new CalRGBCS(whitePoint, blackPoint, gamma, matrix);
       case "ICCBased":
-        const isRef = cs[1] instanceof primitives_Ref;
+        const isRef = cs[1] instanceof Ref;
         if (isRef) {
           const cachedCS = globalColorSpaceCache.getByRef(cs[1]);
           if (cachedCS) {
@@ -12399,7 +12424,7 @@ class JpegStream extends DecodeStream {
         jpegOptions.decodeTransform = transform;
       }
     }
-    if (this.params instanceof primitives_Dict) {
+    if (this.params instanceof Dict) {
       const colorTransform = this.params.get("ColorTransform");
       if (Number.isInteger(colorTransform)) {
         jpegOptions.colorTransform = colorTransform;
@@ -14167,7 +14192,7 @@ class Ascii85Stream extends DecodeStream {
       maybeLength *= 0.8;
     }
     super(maybeLength);
-    this.str = str;
+    this.stream = str;
     this.dict = str.dict;
     this.input = new Uint8Array(5);
   }
@@ -14175,7 +14200,7 @@ class Ascii85Stream extends DecodeStream {
     const TILDA_CHAR = 0x7e;
     const Z_LOWER_CHAR = 0x7a;
     const EOF = -1;
-    const str = this.str;
+    const str = this.stream;
     let c = str.getByte();
     while (isWhiteSpace(c)) {
       c = str.getByte();
@@ -14233,13 +14258,13 @@ class AsciiHexStream extends DecodeStream {
       maybeLength *= 0.5;
     }
     super(maybeLength);
-    this.str = str;
+    this.stream = str;
     this.dict = str.dict;
     this.firstDigit = -1;
   }
   readBlock() {
     const UPSTREAM_BLOCK_SIZE = 8000;
-    const bytes = this.str.getBytes(UPSTREAM_BLOCK_SIZE);
+    const bytes = this.stream.getBytes(UPSTREAM_BLOCK_SIZE);
     if (!bytes.length) {
       this.eof = true;
       return;
@@ -14807,10 +14832,10 @@ class CCITTFaxDecoder {
 class CCITTFaxStream extends DecodeStream {
   constructor(str, maybeLength, params) {
     super(maybeLength);
-    this.str = str;
+    this.stream = str;
     this.dict = str.dict;
-    if (!(params instanceof primitives_Dict)) {
-      params = primitives_Dict.empty;
+    if (!(params instanceof Dict)) {
+      params = Dict.empty;
     }
     const source = {
       next() {
@@ -14875,7 +14900,7 @@ class FlateStream extends DecodeStream {
   constructor(str, maybeLength) {
     super(maybeLength);
     flate_stream_classPrivateMethodInitSpec(this, _FlateStream_brand);
-    this.str = str;
+    this.stream = str;
     this.dict = str.dict;
     const cmf = str.getByte();
     const flg = str.getByte();
@@ -14905,8 +14930,8 @@ class FlateStream extends DecodeStream {
     return data.subarray(0, length);
   }
   async asyncGetBytes() {
-    this.str.reset();
-    const bytes = this.str.getBytes();
+    this.stream.reset();
+    const bytes = this.stream.getBytes();
     try {
       const {
         readable,
@@ -14932,7 +14957,7 @@ class FlateStream extends DecodeStream {
       }
       return data;
     } catch {
-      this.str = new Stream(bytes, 2, bytes.length, this.str.dict);
+      this.stream = new Stream(bytes, 2, bytes.length, this.stream.dict);
       this.reset();
       return null;
     }
@@ -14941,7 +14966,7 @@ class FlateStream extends DecodeStream {
     return true;
   }
   getBits(bits) {
-    const str = this.str;
+    const str = this.stream;
     let codeSize = this.codeSize;
     let codeBuf = this.codeBuf;
     let b;
@@ -14958,7 +14983,7 @@ class FlateStream extends DecodeStream {
     return b;
   }
   getCode(table) {
-    const str = this.str;
+    const str = this.stream;
     const codes = table[0];
     const maxLen = table[1];
     let codeSize = this.codeSize;
@@ -15012,7 +15037,7 @@ class FlateStream extends DecodeStream {
   }
   readBlock() {
     let buffer, hdr, len;
-    const str = this.str;
+    const str = this.stream;
     try {
       hdr = this.getBits(3);
     } catch (ex) {
@@ -16339,15 +16364,15 @@ function readSegmentHeader(data, start) {
   let referredToCount = referredFlags >> 5 & 7;
   const retainBits = [referredFlags & 31];
   let position = start + 6;
-  if (referredFlags === 7) {
+  if (referredToCount === 7) {
     referredToCount = readUint32(data, position - 1) & 0x1fffffff;
     position += 3;
-    let bytes = referredToCount + 7 >> 3;
+    let bytes = referredToCount + 8 >> 3;
     retainBits[0] = data[position++];
     while (--bytes > 0) {
       retainBits.push(data[position++]);
     }
-  } else if (referredFlags === 5 || referredFlags === 6) {
+  } else if (referredToCount === 5 || referredToCount === 6) {
     throw new Jbig2Error("invalid referred-to flags");
   }
   segmentHeader.retainBits = retainBits;
@@ -17276,7 +17301,7 @@ class Jbig2Stream extends DecodeStream {
     bytes ||= this.bytes;
     const jbig2Image = new Jbig2Image();
     const chunks = [];
-    if (this.params instanceof primitives_Dict) {
+    if (this.params instanceof Dict) {
       const globalsStream = this.params.get("JBIG2Globals");
       if (globalsStream instanceof BaseStream) {
         const globals = globalsStream.getBytes();
@@ -17365,7 +17390,7 @@ class JpxStream extends DecodeStream {
 class LZWStream extends DecodeStream {
   constructor(str, maybeLength, earlyChange) {
     super(maybeLength);
-    this.str = str;
+    this.stream = str;
     this.dict = str.dict;
     this.cachedData = 0;
     this.bitsCached = 0;
@@ -17390,7 +17415,7 @@ class LZWStream extends DecodeStream {
     let bitsCached = this.bitsCached;
     let cachedData = this.cachedData;
     while (bitsCached < n) {
-      const c = this.str.getByte();
+      const c = this.stream.getByte();
       if (c === -1) {
         this.eof = true;
         return null;
@@ -17500,7 +17525,7 @@ class LZWStream extends DecodeStream {
 class PredictorStream extends DecodeStream {
   constructor(str, maybeLength, params) {
     super(maybeLength);
-    if (!(params instanceof primitives_Dict)) {
+    if (!(params instanceof Dict)) {
       return str;
     }
     const predictor = this.predictor = params.get("Predictor") || 1;
@@ -17511,7 +17536,7 @@ class PredictorStream extends DecodeStream {
       throw new FormatError(`Unsupported predictor: ${predictor}`);
     }
     this.readBlock = predictor === 2 ? this.readBlockTiff : this.readBlockPng;
-    this.str = str;
+    this.stream = str;
     this.dict = str.dict;
     const colors = this.colors = params.get("Colors") || 1;
     const bits = this.bits = params.get("BPC", "BitsPerComponent") || 8;
@@ -17526,7 +17551,7 @@ class PredictorStream extends DecodeStream {
     const buffer = this.ensureBuffer(bufferLength + rowBytes);
     const bits = this.bits;
     const colors = this.colors;
-    const rawBytes = this.str.getBytes(rowBytes);
+    const rawBytes = this.stream.getBytes(rowBytes);
     this.eof = !rawBytes.length;
     if (this.eof) {
       return;
@@ -17595,8 +17620,8 @@ class PredictorStream extends DecodeStream {
   readBlockPng() {
     const rowBytes = this.rowBytes;
     const pixBytes = this.pixBytes;
-    const predictor = this.str.getByte();
-    const rawBytes = this.str.getBytes(rowBytes);
+    const predictor = this.stream.getByte();
+    const rawBytes = this.stream.getBytes(rowBytes);
     this.eof = !rawBytes.length;
     if (this.eof) {
       return;
@@ -17685,11 +17710,11 @@ class PredictorStream extends DecodeStream {
 class RunLengthStream extends DecodeStream {
   constructor(str, maybeLength) {
     super(maybeLength);
-    this.str = str;
+    this.stream = str;
     this.dict = str.dict;
   }
   readBlock() {
-    const repeatHeader = this.str.getBytes(2);
+    const repeatHeader = this.stream.getBytes(2);
     if (!repeatHeader || repeatHeader.length < 2 || repeatHeader[0] === 128) {
       this.eof = true;
       return;
@@ -17701,7 +17726,7 @@ class RunLengthStream extends DecodeStream {
       buffer = this.ensureBuffer(bufferLength + n + 1);
       buffer[bufferLength++] = repeatHeader[1];
       if (n > 0) {
-        const source = this.str.getBytes(n);
+        const source = this.stream.getBytes(n);
         buffer.set(source, bufferLength);
         bufferLength += n;
       }
@@ -17830,9 +17855,9 @@ class Parser {
           this.shift();
           return array;
         case "<<":
-          const dict = new primitives_Dict(this.xref);
+          const dict = new Dict(this.xref);
           while (!isCmd(this.buf1, ">>") && this.buf1 !== EOF) {
-            if (!(this.buf1 instanceof primitives_Name)) {
+            if (!(this.buf1 instanceof Name)) {
               info("Malformed dictionary: key must be a name object");
               this.shift();
               continue;
@@ -17861,7 +17886,7 @@ class Parser {
     }
     if (Number.isInteger(buf1)) {
       if (Number.isInteger(this.buf1) && isCmd(this.buf2, "R")) {
-        const ref = primitives_Ref.get(buf1, this.buf1);
+        const ref = Ref.get(buf1, this.buf1);
         this.shift();
         this.shift();
         return ref;
@@ -18117,7 +18142,7 @@ class Parser {
     const dictMap = Object.create(null);
     let dictLength;
     while (!isCmd(this.buf1, "ID") && this.buf1 !== EOF) {
-      if (!(this.buf1 instanceof primitives_Name)) {
+      if (!(this.buf1 instanceof Name)) {
         throw new FormatError("Dictionary key must be a name object");
       }
       const key = this.buf1.name;
@@ -18132,11 +18157,11 @@ class Parser {
     }
     const filter = this.xref.fetchIfRef(dictMap.F || dictMap.Filter);
     let filterName;
-    if (filter instanceof primitives_Name) {
+    if (filter instanceof Name) {
       filterName = filter.name;
     } else if (Array.isArray(filter)) {
       const filterZero = this.xref.fetchIfRef(filter[0]);
-      if (filterZero instanceof primitives_Name) {
+      if (filterZero instanceof Name) {
         filterName = filterZero.name;
       }
     }
@@ -18172,7 +18197,7 @@ class Parser {
         return cacheEntry;
       }
     }
-    const dict = new primitives_Dict(this.xref);
+    const dict = new Dict(this.xref);
     for (const key in dictMap) {
       dict.set(key, dictMap[key]);
     }
@@ -18225,7 +18250,7 @@ class Parser {
   filter(stream, dict, length) {
     let filter = dict.get("F", "Filter");
     let params = dict.get("DP", "DecodeParms");
-    if (filter instanceof primitives_Name) {
+    if (filter instanceof Name) {
       if (Array.isArray(params)) {
         warn("/DecodeParms should not be an Array, when /Filter is a Name.");
       }
@@ -18237,7 +18262,7 @@ class Parser {
       const paramsArray = params;
       for (let i = 0, ii = filterArray.length; i < ii; ++i) {
         filter = this.xref.fetchIfRef(filterArray[i]);
-        if (!(filter instanceof primitives_Name)) {
+        if (!(filter instanceof Name)) {
           throw new FormatError(`Bad filter name "${filter}"`);
         }
         params = null;
@@ -18595,7 +18620,7 @@ class Lexer {
     if (strBuf.length > 127) {
       warn(`Name token is longer than allowed by the spec: ${strBuf.length}`);
     }
-    return primitives_Name.get(strBuf.join(""));
+    return Name.get(strBuf.join(""));
   }
   _hexStringWarn(ch) {
     const MAX_HEX_STRING_NUM_WARN = 5;
@@ -18795,7 +18820,7 @@ class Linearization {
     const obj3 = parser.getObj();
     const linDict = parser.getObj();
     let obj, length;
-    if (!(Number.isInteger(obj1) && Number.isInteger(obj2) && isCmd(obj3, "obj") && linDict instanceof primitives_Dict && typeof (obj = linDict.get("Linearized")) === "number" && obj > 0)) {
+    if (!(Number.isInteger(obj1) && Number.isInteger(obj2) && isCmd(obj3, "obj") && linDict instanceof Dict && typeof (obj = linDict.get("Linearized")) === "number" && obj > 0)) {
       return null;
     } else if ((length = getInt(linDict, "L")) !== stream.length) {
       throw new Error('The "L" parameter in the linearization dictionary ' + "does not equal the stream length.");
@@ -19144,7 +19169,7 @@ function parseWMode(cMap, lexer) {
 }
 function parseCMapName(cMap, lexer) {
   const obj = lexer.getObj();
-  if (obj instanceof primitives_Name) {
+  if (obj instanceof Name) {
     cMap.name = obj.name;
   }
 }
@@ -19155,7 +19180,7 @@ async function parseCMap(cMap, lexer, fetchBuiltInCMap, useCMap) {
       const obj = lexer.getObj();
       if (obj === EOF) {
         break;
-      } else if (obj instanceof primitives_Name) {
+      } else if (obj instanceof Name) {
         if (obj.name === "WMode") {
           parseWMode(cMap, lexer);
         } else if (obj.name === "CMapName") {
@@ -19167,7 +19192,7 @@ async function parseCMap(cMap, lexer, fetchBuiltInCMap, useCMap) {
           case "endcmap":
             break objLoop;
           case "usecmap":
-            if (previous instanceof primitives_Name) {
+            if (previous instanceof Name) {
               embeddedUseCMap = previous.name;
             }
             break;
@@ -19250,7 +19275,7 @@ class CMapFactory {
       fetchBuiltInCMap,
       useCMap
     } = _ref;
-    if (encoding instanceof primitives_Name) {
+    if (encoding instanceof Name) {
       return createBuiltInCMap(encoding.name, fetchBuiltInCMap);
     } else if (encoding instanceof BaseStream) {
       const parsedCMap = await parseCMap(new CMap(), new Lexer(encoding), fetchBuiltInCMap, useCMap);
@@ -24274,12 +24299,10 @@ const CharstringValidationData = [null, {
   resetStack: true
 }, null, {
   id: "callsubr",
-  min: 1,
-  undefStack: true
+  min: 1
 }, {
   id: "return",
-  min: 0,
-  undefStack: true
+  min: 0
 }, null, null, {
   id: "endchar",
   min: 0,
@@ -24328,8 +24351,7 @@ const CharstringValidationData = [null, {
   resetStack: true
 }, null, {
   id: "callgsubr",
-  min: 1,
-  undefStack: true
+  min: 1
 }, {
   id: "vhcurveto",
   min: 4,
@@ -24477,6 +24499,7 @@ class CFFParser {
     cff.isCIDFont = topDict.hasName("ROS");
     const charStringOffset = topDict.getByName("CharStrings");
     const charStringIndex = this.parseIndex(charStringOffset).obj;
+    cff.charStringCount = charStringIndex.count;
     const fontMatrix = topDict.getByName("FontMatrix");
     if (fontMatrix) {
       properties.fontMatrix = fontMatrix;
@@ -24767,15 +24790,13 @@ class CFFParser {
             data[j - 1] = value === 1 ? 3 : 23;
           }
         }
-        if ("min" in validationCommand) {
-          if (!state.undefStack && stackSize < validationCommand.min) {
-            warn("Not enough parameters for " + validationCommand.id + "; actual: " + stackSize + ", expected: " + validationCommand.min);
-            if (stackSize === 0) {
-              data[j - 1] = 14;
-              return true;
-            }
-            return false;
+        if (stackSize < validationCommand.min) {
+          warn("Not enough parameters for " + validationCommand.id + "; actual: " + stackSize + ", expected: " + validationCommand.min);
+          if (stackSize === 0) {
+            data[j - 1] = 14;
+            return true;
           }
+          return false;
         }
         if (state.firstStackClearing && validationCommand.stackClearing) {
           state.firstStackClearing = false;
@@ -24794,15 +24815,8 @@ class CFFParser {
             validationCommand.stackFn(stack, stackSize);
           }
           stackSize += validationCommand.stackDelta;
-        } else if (validationCommand.stackClearing) {
+        } else if (validationCommand.stackClearing || validationCommand.resetStack) {
           stackSize = 0;
-        } else if (validationCommand.resetStack) {
-          stackSize = 0;
-          state.undefStack = false;
-        } else if (validationCommand.undefStack) {
-          stackSize = 0;
-          state.undefStack = true;
-          state.firstStackClearing = false;
         }
       }
     }
@@ -24830,7 +24844,6 @@ class CFFParser {
         callDepth: 0,
         stackSize: 0,
         stack: [],
-        undefStack: true,
         hints: 0,
         firstStackClearing: true,
         seac: null,
@@ -25075,6 +25088,7 @@ class CFF {
     this.fdArray = [];
     this.fdSelect = null;
     this.isCIDFont = false;
+    this.charStringCount = 0;
   }
   duplicateFirstGlyph() {
     if (this.charStrings.count >= 65535) {
@@ -26248,6 +26262,39 @@ const getGlyphMapForStandardFonts = getLookupTableFactory(function (t) {
   t[598] = 1068;
   t[599] = 1069;
   t[600] = 1070;
+  t[601] = 1071;
+  t[602] = 1072;
+  t[603] = 1073;
+  t[604] = 1074;
+  t[605] = 1075;
+  t[606] = 1076;
+  t[607] = 1077;
+  t[608] = 1078;
+  t[609] = 1079;
+  t[610] = 1080;
+  t[611] = 1081;
+  t[612] = 1082;
+  t[613] = 1083;
+  t[614] = 1084;
+  t[615] = 1085;
+  t[616] = 1086;
+  t[617] = 1087;
+  t[618] = 1088;
+  t[619] = 1089;
+  t[620] = 1090;
+  t[621] = 1091;
+  t[622] = 1092;
+  t[623] = 1093;
+  t[624] = 1094;
+  t[625] = 1095;
+  t[626] = 1096;
+  t[627] = 1097;
+  t[628] = 1098;
+  t[629] = 1099;
+  t[630] = 1100;
+  t[631] = 1101;
+  t[632] = 1102;
+  t[633] = 1103;
   t[672] = 1488;
   t[673] = 1489;
   t[674] = 1490;
@@ -26916,16 +26963,16 @@ function lookupCmap(ranges, unicode) {
 function compileGlyf(code, cmds, font) {
   function moveTo(x, y) {
     if (firstPoint) {
-      cmds.add("L", firstPoint);
+      cmds.add(DrawOPS.lineTo, firstPoint);
     }
     firstPoint = [x, y];
-    cmds.add("M", [x, y]);
+    cmds.add(DrawOPS.moveTo, [x, y]);
   }
   function lineTo(x, y) {
-    cmds.add("L", [x, y]);
+    cmds.add(DrawOPS.lineTo, [x, y]);
   }
   function quadraticCurveTo(xa, ya, x, y) {
-    cmds.add("Q", [xa, ya, x, y]);
+    cmds.add(DrawOPS.quadraticCurveTo, [xa, ya, x, y]);
   }
   let i = 0;
   const numberOfContours = readInt16(code, i);
@@ -27078,16 +27125,16 @@ function compileGlyf(code, cmds, font) {
 function compileCharString(charStringCode, cmds, font, glyphId) {
   function moveTo(x, y) {
     if (firstPoint) {
-      cmds.add("L", firstPoint);
+      cmds.add(DrawOPS.lineTo, firstPoint);
     }
     firstPoint = [x, y];
-    cmds.add("M", [x, y]);
+    cmds.add(DrawOPS.moveTo, [x, y]);
   }
   function lineTo(x, y) {
-    cmds.add("L", [x, y]);
+    cmds.add(DrawOPS.lineTo, [x, y]);
   }
   function bezierCurveTo(x1, y1, x2, y2, x, y) {
-    cmds.add("C", [x1, y1, x2, y2, x, y]);
+    cmds.add(DrawOPS.curveTo, [x1, y1, x2, y2, x, y]);
   }
   const stack = [];
   let x = 0,
@@ -27443,7 +27490,7 @@ class Commands {
       for (let i = 0, ii = args.length; i < ii; i += 2) {
         Util.applyTransform(args, currentTransform, i);
       }
-      this.cmds.push(`${cmd}${args.join(" ")}`);
+      this.cmds.push(cmd, ...args);
     } else {
       this.cmds.push(cmd);
     }
@@ -27460,8 +27507,8 @@ class Commands {
   restore() {
     this.currentTransform = this.transformStack.pop() || [1, 0, 0, 1, 0, 0];
   }
-  getSVG() {
-    return this.cmds.join("");
+  getPath() {
+    return new (FeatureTest.isFloat16ArraySupported ? Float16Array : Float32Array)(this.cmds);
   }
 }
 class CompiledFont {
@@ -27510,8 +27557,8 @@ class CompiledFont {
     const cmds = new Commands();
     cmds.transform(fontMatrix.slice());
     this.compileGlyphImpl(code, cmds, glyphId);
-    cmds.add("Z");
-    return cmds.getSVG();
+    cmds.add(DrawOPS.closePath);
+    return cmds.getPath();
   }
   compileGlyphImpl() {
     unreachable("Children classes should implement this.");
@@ -34056,14 +34103,10 @@ class Font {
       header = readOpenTypeHeader(font);
       tables = readTables(font, header.numTables);
     }
-    let cff, cffFile;
     const isTrueType = !tables["CFF "];
     if (!isTrueType) {
-      const isComposite = properties.composite && (properties.cidToGidMap?.length > 0 || !(properties.cMap instanceof IdentityCMap));
-      if (header.version === "OTTO" && !isComposite || !tables.head || !tables.hhea || !tables.maxp || !tables.post) {
-        cffFile = new Stream(tables["CFF "].data);
-        cff = new CFFFont(cffFile, properties);
-        return this.convert(name, cff, properties);
+      if (header.version === "OTTO" && !properties.composite || !tables.head || !tables.hhea || !tables.maxp || !tables.post) {
+        return this.convert(name, new CFFFont(new Stream(tables["CFF "].data), properties), properties);
       }
       delete tables.glyf;
       delete tables.loca;
@@ -34087,9 +34130,26 @@ class Font {
     if (!tables.maxp) {
       throw new FormatError('Required "maxp" table is not found');
     }
+    let numGlyphsFromCFF;
+    if (!isTrueType) {
+      try {
+        const parser = new CFFParser(new Stream(tables["CFF "].data), properties, SEAC_ANALYSIS_ENABLED);
+        const cff = parser.parse();
+        cff.duplicateFirstGlyph();
+        const compiler = new CFFCompiler(cff);
+        tables["CFF "].data = compiler.compile();
+        numGlyphsFromCFF = cff.charStringCount;
+      } catch {
+        warn("Failed to compile font " + properties.loadedName);
+      }
+    }
     font.pos = (font.start || 0) + tables.maxp.offset;
     let version = font.getInt32();
-    const numGlyphs = font.getUint16();
+    const numGlyphs = numGlyphsFromCFF ?? font.getUint16();
+    if (version === 0x00005000 && tables.maxp.length !== 6) {
+      tables.maxp.data = tables.maxp.data.subarray(0, 6);
+      tables.maxp.length = 6;
+    }
     if (version !== 0x00010000 && version !== 0x00005000) {
       if (tables.maxp.length === 6) {
         version = 0x0005000;
@@ -34100,11 +34160,28 @@ class Font {
       }
       writeUint32(tables.maxp.data, 0, version);
     }
+    let isGlyphLocationsLong = int16(tables.head.data[50], tables.head.data[51]);
+    if (tables.loca) {
+      const locaLength = isGlyphLocationsLong ? (numGlyphs + 1) * 4 : (numGlyphs + 1) * 2;
+      if (tables.loca.length !== locaLength) {
+        warn("Incorrect 'loca' table length -- attempting to fix it.");
+        const sortedTables = Object.values(tables).filter(Boolean).sort((a, b) => a.offset - b.offset);
+        const locaIndex = sortedTables.indexOf(tables.loca);
+        const nextTable = sortedTables[locaIndex + 1] || null;
+        if (nextTable && tables.loca.offset + locaLength < nextTable.offset) {
+          const previousPos = font.pos;
+          font.pos = font.start || 0;
+          font.skip(tables.loca.offset);
+          tables.loca.data = font.getBytes(locaLength);
+          tables.loca.length = locaLength;
+          font.pos = previousPos;
+        }
+      }
+    }
     if (properties.scaleFactors?.length === numGlyphs && isTrueType) {
       const {
         scaleFactors
       } = properties;
-      const isGlyphLocationsLong = int16(tables.head.data[50], tables.head.data[51]);
       const glyphs = new GlyfTable({
         glyfTable: tables.glyf.data,
         isGlyphLocationsLong,
@@ -34121,7 +34198,7 @@ class Font {
       tables.loca.data = loca;
       if (isLocationLong !== !!isGlyphLocationsLong) {
         tables.head.data[50] = 0;
-        tables.head.data[51] = isLocationLong ? 1 : 0;
+        isGlyphLocationsLong = tables.head.data[51] = isLocationLong ? 1 : 0;
       }
       const metrics = tables.hmtx.data;
       for (let i = 0; i < numGlyphs; i++) {
@@ -34169,7 +34246,6 @@ class Font {
     sanitizeHead(tables.head, numGlyphs, isTrueType ? tables.loca.length : 0);
     let missingGlyphs = Object.create(null);
     if (isTrueType) {
-      const isGlyphLocationsLong = int16(tables.head.data[50], tables.head.data[51]);
       const glyphsInfo = sanitizeGlyphLocations(tables.loca, tables.glyf, numGlyphs, isGlyphLocationsLong, hintsValid, dupFirstEntry, maxSizeOfInstructions);
       missingGlyphs = glyphsInfo.missingGlyphs;
       if (version >= 0x00010000 && tables.maxp.length >= 32) {
@@ -34335,18 +34411,6 @@ class Font {
           tag: "OS/2",
           data: createOS2Table(properties, newMapping.charCodeToGlyphId, metricsOverride)
         };
-      }
-    }
-    if (!isTrueType) {
-      try {
-        cffFile = new Stream(tables["CFF "].data);
-        const parser = new CFFParser(cffFile, properties, SEAC_ANALYSIS_ENABLED);
-        cff = parser.parse();
-        cff.duplicateFirstGlyph();
-        const compiler = new CFFCompiler(cff);
-        tables["CFF "].data = compiler.compile();
-      } catch {
-        warn("Failed to compile font " + properties.loadedName);
       }
     }
     if (!tables.name) {
@@ -34666,6 +34730,759 @@ class ErrorFont {
     return {
       error: this.error
     };
+  }
+}
+
+;// ./src/shared/obj-bin-transform.js
+var _CssFontInfo, _SystemFontInfo, _FontInfo;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function obj_bin_transform_classPrivateMethodInitSpec(e, a) { obj_bin_transform_checkPrivateRedeclaration(e, a), a.add(e); }
+function obj_bin_transform_defineProperty(e, r, t) { return (r = obj_bin_transform_toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
+function obj_bin_transform_toPropertyKey(t) { var i = obj_bin_transform_toPrimitive(t, "string"); return "symbol" == typeof i ? i : i + ""; }
+function obj_bin_transform_toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != typeof i) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
+function obj_bin_transform_classPrivateFieldInitSpec(e, t, a) { obj_bin_transform_checkPrivateRedeclaration(e, t), t.set(e, a); }
+function obj_bin_transform_checkPrivateRedeclaration(e, t) { if (t.has(e)) throw new TypeError("Cannot initialize the same private elements twice on an object"); }
+function obj_bin_transform_classPrivateFieldGet(s, a) { return s.get(obj_bin_transform_assertClassBrand(s, a)); }
+function obj_bin_transform_classPrivateFieldSet(s, a, r) { return s.set(obj_bin_transform_assertClassBrand(s, a), r), r; }
+function obj_bin_transform_assertClassBrand(e, t, n) { if ("function" == typeof e ? e === t : e.has(t)) return arguments.length < 3 ? t : n; throw new TypeError("Private element is not present on this object"); }
+
+var obj_bin_transform_buffer = /*#__PURE__*/new WeakMap();
+var _view = /*#__PURE__*/new WeakMap();
+var _decoder = /*#__PURE__*/new WeakMap();
+var _CssFontInfo_brand = /*#__PURE__*/new WeakSet();
+class CssFontInfo {
+  static write(info) {
+    const encoder = new TextEncoder();
+    const encodedStrings = {};
+    let stringsLength = 0;
+    for (const prop of CssFontInfo.strings) {
+      const encoded = encoder.encode(info[prop]);
+      encodedStrings[prop] = encoded;
+      stringsLength += 4 + encoded.length;
+    }
+    const buffer = new ArrayBuffer(stringsLength);
+    const data = new Uint8Array(buffer);
+    const view = new DataView(buffer);
+    let offset = 0;
+    for (const prop of CssFontInfo.strings) {
+      const encoded = encodedStrings[prop];
+      const length = encoded.length;
+      view.setUint32(offset, length);
+      data.set(encoded, offset + 4);
+      offset += 4 + length;
+    }
+    assert(offset === buffer.byteLength, "CssFontInfo.write: Buffer overflow");
+    return buffer;
+  }
+  constructor(buffer) {
+    obj_bin_transform_classPrivateMethodInitSpec(this, _CssFontInfo_brand);
+    obj_bin_transform_classPrivateFieldInitSpec(this, obj_bin_transform_buffer, void 0);
+    obj_bin_transform_classPrivateFieldInitSpec(this, _view, void 0);
+    obj_bin_transform_classPrivateFieldInitSpec(this, _decoder, void 0);
+    obj_bin_transform_classPrivateFieldSet(obj_bin_transform_buffer, this, buffer);
+    obj_bin_transform_classPrivateFieldSet(_view, this, new DataView(obj_bin_transform_classPrivateFieldGet(obj_bin_transform_buffer, this)));
+    obj_bin_transform_classPrivateFieldSet(_decoder, this, new TextDecoder());
+  }
+  get fontFamily() {
+    return obj_bin_transform_assertClassBrand(_CssFontInfo_brand, this, _readString).call(this, 0);
+  }
+  get fontWeight() {
+    return obj_bin_transform_assertClassBrand(_CssFontInfo_brand, this, _readString).call(this, 1);
+  }
+  get italicAngle() {
+    return obj_bin_transform_assertClassBrand(_CssFontInfo_brand, this, _readString).call(this, 2);
+  }
+}
+_CssFontInfo = CssFontInfo;
+function _readString(index) {
+  assert(index < _CssFontInfo.strings.length, "Invalid string index");
+  let offset = 0;
+  for (let i = 0; i < index; i++) {
+    offset += obj_bin_transform_classPrivateFieldGet(_view, this).getUint32(offset) + 4;
+  }
+  const length = obj_bin_transform_classPrivateFieldGet(_view, this).getUint32(offset);
+  return obj_bin_transform_classPrivateFieldGet(_decoder, this).decode(new Uint8Array(obj_bin_transform_classPrivateFieldGet(obj_bin_transform_buffer, this), offset + 4, length));
+}
+obj_bin_transform_defineProperty(CssFontInfo, "strings", ["fontFamily", "fontWeight", "italicAngle"]);
+var _buffer2 = /*#__PURE__*/new WeakMap();
+var _view2 = /*#__PURE__*/new WeakMap();
+var _decoder2 = /*#__PURE__*/new WeakMap();
+var _SystemFontInfo_brand = /*#__PURE__*/new WeakSet();
+class SystemFontInfo {
+  static write(info) {
+    const encoder = new TextEncoder();
+    const encodedStrings = {};
+    let stringsLength = 0;
+    for (const prop of SystemFontInfo.strings) {
+      const encoded = encoder.encode(info[prop]);
+      encodedStrings[prop] = encoded;
+      stringsLength += 4 + encoded.length;
+    }
+    stringsLength += 4;
+    let encodedStyleStyle,
+      encodedStyleWeight,
+      lengthEstimate = 1 + stringsLength;
+    if (info.style) {
+      encodedStyleStyle = encoder.encode(info.style.style);
+      encodedStyleWeight = encoder.encode(info.style.weight);
+      lengthEstimate += 4 + encodedStyleStyle.length + 4 + encodedStyleWeight.length;
+    }
+    const buffer = new ArrayBuffer(lengthEstimate);
+    const data = new Uint8Array(buffer);
+    const view = new DataView(buffer);
+    let offset = 0;
+    view.setUint8(offset++, info.guessFallback ? 1 : 0);
+    view.setUint32(offset, 0);
+    offset += 4;
+    stringsLength = 0;
+    for (const prop of SystemFontInfo.strings) {
+      const encoded = encodedStrings[prop];
+      const length = encoded.length;
+      stringsLength += 4 + length;
+      view.setUint32(offset, length);
+      data.set(encoded, offset + 4);
+      offset += 4 + length;
+    }
+    view.setUint32(offset - stringsLength - 4, stringsLength);
+    if (info.style) {
+      view.setUint32(offset, encodedStyleStyle.length);
+      data.set(encodedStyleStyle, offset + 4);
+      offset += 4 + encodedStyleStyle.length;
+      view.setUint32(offset, encodedStyleWeight.length);
+      data.set(encodedStyleWeight, offset + 4);
+      offset += 4 + encodedStyleWeight.length;
+    }
+    assert(offset <= buffer.byteLength, "SubstitionInfo.write: Buffer overflow");
+    return buffer.transferToFixedLength(offset);
+  }
+  constructor(buffer) {
+    obj_bin_transform_classPrivateMethodInitSpec(this, _SystemFontInfo_brand);
+    obj_bin_transform_classPrivateFieldInitSpec(this, _buffer2, void 0);
+    obj_bin_transform_classPrivateFieldInitSpec(this, _view2, void 0);
+    obj_bin_transform_classPrivateFieldInitSpec(this, _decoder2, void 0);
+    obj_bin_transform_classPrivateFieldSet(_buffer2, this, buffer);
+    obj_bin_transform_classPrivateFieldSet(_view2, this, new DataView(obj_bin_transform_classPrivateFieldGet(_buffer2, this)));
+    obj_bin_transform_classPrivateFieldSet(_decoder2, this, new TextDecoder());
+  }
+  get guessFallback() {
+    return obj_bin_transform_classPrivateFieldGet(_view2, this).getUint8(0) !== 0;
+  }
+  get css() {
+    return obj_bin_transform_assertClassBrand(_SystemFontInfo_brand, this, _readString2).call(this, 0);
+  }
+  get loadedName() {
+    return obj_bin_transform_assertClassBrand(_SystemFontInfo_brand, this, _readString2).call(this, 1);
+  }
+  get baseFontName() {
+    return obj_bin_transform_assertClassBrand(_SystemFontInfo_brand, this, _readString2).call(this, 2);
+  }
+  get src() {
+    return obj_bin_transform_assertClassBrand(_SystemFontInfo_brand, this, _readString2).call(this, 3);
+  }
+  get style() {
+    let offset = 1;
+    offset += 4 + obj_bin_transform_classPrivateFieldGet(_view2, this).getUint32(offset);
+    const styleLength = obj_bin_transform_classPrivateFieldGet(_view2, this).getUint32(offset);
+    const style = obj_bin_transform_classPrivateFieldGet(_decoder2, this).decode(new Uint8Array(obj_bin_transform_classPrivateFieldGet(_buffer2, this), offset + 4, styleLength));
+    offset += 4 + styleLength;
+    const weightLength = obj_bin_transform_classPrivateFieldGet(_view2, this).getUint32(offset);
+    const weight = obj_bin_transform_classPrivateFieldGet(_decoder2, this).decode(new Uint8Array(obj_bin_transform_classPrivateFieldGet(_buffer2, this), offset + 4, weightLength));
+    return {
+      style,
+      weight
+    };
+  }
+}
+_SystemFontInfo = SystemFontInfo;
+function _readString2(index) {
+  assert(index < _SystemFontInfo.strings.length, "Invalid string index");
+  let offset = 5;
+  for (let i = 0; i < index; i++) {
+    offset += obj_bin_transform_classPrivateFieldGet(_view2, this).getUint32(offset) + 4;
+  }
+  const length = obj_bin_transform_classPrivateFieldGet(_view2, this).getUint32(offset);
+  return obj_bin_transform_classPrivateFieldGet(_decoder2, this).decode(new Uint8Array(obj_bin_transform_classPrivateFieldGet(_buffer2, this), offset + 4, length));
+}
+obj_bin_transform_defineProperty(SystemFontInfo, "strings", ["css", "loadedName", "baseFontName", "src"]);
+var _buffer3 = /*#__PURE__*/new WeakMap();
+var _decoder3 = /*#__PURE__*/new WeakMap();
+var _view3 = /*#__PURE__*/new WeakMap();
+var _FontInfo_brand = /*#__PURE__*/new WeakSet();
+class FontInfo {
+  constructor(_ref) {
+    let {
+      data,
+      extra
+    } = _ref;
+    obj_bin_transform_classPrivateMethodInitSpec(this, _FontInfo_brand);
+    obj_bin_transform_classPrivateFieldInitSpec(this, _buffer3, void 0);
+    obj_bin_transform_classPrivateFieldInitSpec(this, _decoder3, void 0);
+    obj_bin_transform_classPrivateFieldInitSpec(this, _view3, void 0);
+    obj_bin_transform_classPrivateFieldSet(_buffer3, this, data);
+    obj_bin_transform_classPrivateFieldSet(_decoder3, this, new TextDecoder());
+    obj_bin_transform_classPrivateFieldSet(_view3, this, new DataView(obj_bin_transform_classPrivateFieldGet(_buffer3, this)));
+    if (extra) {
+      Object.assign(this, extra);
+    }
+  }
+  get black() {
+    return obj_bin_transform_assertClassBrand(_FontInfo_brand, this, _readBoolean).call(this, 0);
+  }
+  get bold() {
+    return obj_bin_transform_assertClassBrand(_FontInfo_brand, this, _readBoolean).call(this, 1);
+  }
+  get disableFontFace() {
+    return obj_bin_transform_assertClassBrand(_FontInfo_brand, this, _readBoolean).call(this, 2);
+  }
+  get fontExtraProperties() {
+    return obj_bin_transform_assertClassBrand(_FontInfo_brand, this, _readBoolean).call(this, 3);
+  }
+  get isInvalidPDFjsFont() {
+    return obj_bin_transform_assertClassBrand(_FontInfo_brand, this, _readBoolean).call(this, 4);
+  }
+  get isType3Font() {
+    return obj_bin_transform_assertClassBrand(_FontInfo_brand, this, _readBoolean).call(this, 5);
+  }
+  get italic() {
+    return obj_bin_transform_assertClassBrand(_FontInfo_brand, this, _readBoolean).call(this, 6);
+  }
+  get missingFile() {
+    return obj_bin_transform_assertClassBrand(_FontInfo_brand, this, _readBoolean).call(this, 7);
+  }
+  get remeasure() {
+    return obj_bin_transform_assertClassBrand(_FontInfo_brand, this, _readBoolean).call(this, 8);
+  }
+  get vertical() {
+    return obj_bin_transform_assertClassBrand(_FontInfo_brand, this, _readBoolean).call(this, 9);
+  }
+  get ascent() {
+    return obj_bin_transform_assertClassBrand(_FontInfo_brand, this, _readNumber).call(this, 0);
+  }
+  get defaultWidth() {
+    return obj_bin_transform_assertClassBrand(_FontInfo_brand, this, _readNumber).call(this, 1);
+  }
+  get descent() {
+    return obj_bin_transform_assertClassBrand(_FontInfo_brand, this, _readNumber).call(this, 2);
+  }
+  get bbox() {
+    let offset = _OFFSET_BBOX._;
+    const numCoords = obj_bin_transform_classPrivateFieldGet(_view3, this).getUint8(offset);
+    if (numCoords === 0) {
+      return undefined;
+    }
+    offset += 1;
+    const bbox = [];
+    for (let i = 0; i < 4; i++) {
+      bbox.push(obj_bin_transform_classPrivateFieldGet(_view3, this).getInt16(offset, true));
+      offset += 2;
+    }
+    return bbox;
+  }
+  get fontMatrix() {
+    let offset = _OFFSET_FONT_MATRIX._;
+    const numPoints = obj_bin_transform_classPrivateFieldGet(_view3, this).getUint8(offset);
+    if (numPoints === 0) {
+      return undefined;
+    }
+    offset += 1;
+    const fontMatrix = [];
+    for (let i = 0; i < 6; i++) {
+      fontMatrix.push(obj_bin_transform_classPrivateFieldGet(_view3, this).getFloat64(offset, true));
+      offset += 8;
+    }
+    return fontMatrix;
+  }
+  get defaultVMetrics() {
+    let offset = _OFFSET_DEFAULT_VMETRICS._;
+    const numMetrics = obj_bin_transform_classPrivateFieldGet(_view3, this).getUint8(offset);
+    if (numMetrics === 0) {
+      return undefined;
+    }
+    offset += 1;
+    const defaultVMetrics = [];
+    for (let i = 0; i < 3; i++) {
+      defaultVMetrics.push(obj_bin_transform_classPrivateFieldGet(_view3, this).getInt16(offset, true));
+      offset += 2;
+    }
+    return defaultVMetrics;
+  }
+  get fallbackName() {
+    return obj_bin_transform_assertClassBrand(_FontInfo_brand, this, _readString3).call(this, 0);
+  }
+  get loadedName() {
+    return obj_bin_transform_assertClassBrand(_FontInfo_brand, this, _readString3).call(this, 1);
+  }
+  get mimetype() {
+    return obj_bin_transform_assertClassBrand(_FontInfo_brand, this, _readString3).call(this, 2);
+  }
+  get name() {
+    return obj_bin_transform_assertClassBrand(_FontInfo_brand, this, _readString3).call(this, 3);
+  }
+  get data() {
+    let offset = _OFFSET_STRINGS._;
+    const stringsLength = obj_bin_transform_classPrivateFieldGet(_view3, this).getUint32(offset);
+    offset += 4 + stringsLength;
+    const systemFontInfoLength = obj_bin_transform_classPrivateFieldGet(_view3, this).getUint32(offset);
+    offset += 4 + systemFontInfoLength;
+    const cssFontInfoLength = obj_bin_transform_classPrivateFieldGet(_view3, this).getUint32(offset);
+    offset += 4 + cssFontInfoLength;
+    const length = obj_bin_transform_classPrivateFieldGet(_view3, this).getUint32(offset);
+    if (length === 0) {
+      return undefined;
+    }
+    return new Uint8Array(obj_bin_transform_classPrivateFieldGet(_buffer3, this), offset + 4, length);
+  }
+  clearData() {
+    let offset = _OFFSET_STRINGS._;
+    const stringsLength = obj_bin_transform_classPrivateFieldGet(_view3, this).getUint32(offset);
+    offset += 4 + stringsLength;
+    const systemFontInfoLength = obj_bin_transform_classPrivateFieldGet(_view3, this).getUint32(offset);
+    offset += 4 + systemFontInfoLength;
+    const cssFontInfoLength = obj_bin_transform_classPrivateFieldGet(_view3, this).getUint32(offset);
+    offset += 4 + cssFontInfoLength;
+    const length = obj_bin_transform_classPrivateFieldGet(_view3, this).getUint32(offset);
+    const data = new Uint8Array(obj_bin_transform_classPrivateFieldGet(_buffer3, this), offset + 4, length);
+    data.fill(0);
+    obj_bin_transform_classPrivateFieldGet(_view3, this).setUint32(offset, 0);
+  }
+  get cssFontInfo() {
+    let offset = _OFFSET_STRINGS._;
+    const stringsLength = obj_bin_transform_classPrivateFieldGet(_view3, this).getUint32(offset);
+    offset += 4 + stringsLength;
+    const systemFontInfoLength = obj_bin_transform_classPrivateFieldGet(_view3, this).getUint32(offset);
+    offset += 4 + systemFontInfoLength;
+    const cssFontInfoLength = obj_bin_transform_classPrivateFieldGet(_view3, this).getUint32(offset);
+    if (cssFontInfoLength === 0) {
+      return null;
+    }
+    const cssFontInfoData = new Uint8Array(cssFontInfoLength);
+    cssFontInfoData.set(new Uint8Array(obj_bin_transform_classPrivateFieldGet(_buffer3, this), offset + 4, cssFontInfoLength));
+    return new CssFontInfo(cssFontInfoData.buffer);
+  }
+  get systemFontInfo() {
+    let offset = _OFFSET_STRINGS._;
+    const stringsLength = obj_bin_transform_classPrivateFieldGet(_view3, this).getUint32(offset);
+    offset += 4 + stringsLength;
+    const systemFontInfoLength = obj_bin_transform_classPrivateFieldGet(_view3, this).getUint32(offset);
+    if (systemFontInfoLength === 0) {
+      return null;
+    }
+    const systemFontInfoData = new Uint8Array(systemFontInfoLength);
+    systemFontInfoData.set(new Uint8Array(obj_bin_transform_classPrivateFieldGet(_buffer3, this), offset + 4, systemFontInfoLength));
+    return new SystemFontInfo(systemFontInfoData.buffer);
+  }
+  static write(font) {
+    const systemFontInfoBuffer = font.systemFontInfo ? SystemFontInfo.write(font.systemFontInfo) : null;
+    const cssFontInfoBuffer = font.cssFontInfo ? CssFontInfo.write(font.cssFontInfo) : null;
+    const encoder = new TextEncoder();
+    const encodedStrings = {};
+    let stringsLength = 0;
+    for (const prop of FontInfo.strings) {
+      encodedStrings[prop] = encoder.encode(font[prop]);
+      stringsLength += 4 + encodedStrings[prop].length;
+    }
+    const lengthEstimate = _OFFSET_STRINGS._ + 4 + stringsLength + 4 + (systemFontInfoBuffer ? systemFontInfoBuffer.byteLength : 0) + 4 + (cssFontInfoBuffer ? cssFontInfoBuffer.byteLength : 0) + 4 + (font.data ? font.data.length : 0);
+    const buffer = new ArrayBuffer(lengthEstimate);
+    const data = new Uint8Array(buffer);
+    const view = new DataView(buffer);
+    let offset = 0;
+    const numBools = FontInfo.bools.length;
+    let boolByte = 0,
+      boolBit = 0;
+    for (let i = 0; i < numBools; i++) {
+      const value = font[FontInfo.bools[i]];
+      const bits = value === undefined ? 0x00 : value ? 0x02 : 0x01;
+      boolByte |= bits << boolBit;
+      boolBit += 2;
+      if (boolBit === 8 || i === numBools - 1) {
+        view.setUint8(offset++, boolByte);
+        boolByte = 0;
+        boolBit = 0;
+      }
+    }
+    assert(offset === _OFFSET_NUMBERS._, "FontInfo.write: Boolean properties offset mismatch");
+    for (const prop of FontInfo.numbers) {
+      view.setFloat64(offset, font[prop]);
+      offset += 8;
+    }
+    assert(offset === _OFFSET_BBOX._, "FontInfo.write: Number properties offset mismatch");
+    if (font.bbox) {
+      view.setUint8(offset++, 4);
+      for (const coord of font.bbox) {
+        view.setInt16(offset, coord, true);
+        offset += 2;
+      }
+    } else {
+      view.setUint8(offset++, 0);
+      offset += 2 * 4;
+    }
+    assert(offset === _OFFSET_FONT_MATRIX._, "FontInfo.write: BBox properties offset mismatch");
+    if (font.fontMatrix) {
+      view.setUint8(offset++, 6);
+      for (const point of font.fontMatrix) {
+        view.setFloat64(offset, point, true);
+        offset += 8;
+      }
+    } else {
+      view.setUint8(offset++, 0);
+      offset += 8 * 6;
+    }
+    assert(offset === _OFFSET_DEFAULT_VMETRICS._, "FontInfo.write: FontMatrix properties offset mismatch");
+    if (font.defaultVMetrics) {
+      view.setUint8(offset++, 1);
+      for (const metric of font.defaultVMetrics) {
+        view.setInt16(offset, metric, true);
+        offset += 2;
+      }
+    } else {
+      view.setUint8(offset++, 0);
+      offset += 3 * 2;
+    }
+    assert(offset === _OFFSET_STRINGS._, "FontInfo.write: DefaultVMetrics properties offset mismatch");
+    view.setUint32(_OFFSET_STRINGS._, 0);
+    offset += 4;
+    for (const prop of FontInfo.strings) {
+      const encoded = encodedStrings[prop];
+      const length = encoded.length;
+      view.setUint32(offset, length);
+      data.set(encoded, offset + 4);
+      offset += 4 + length;
+    }
+    view.setUint32(_OFFSET_STRINGS._, offset - _OFFSET_STRINGS._ - 4);
+    if (!systemFontInfoBuffer) {
+      view.setUint32(offset, 0);
+      offset += 4;
+    } else {
+      const length = systemFontInfoBuffer.byteLength;
+      view.setUint32(offset, length);
+      assert(offset + 4 + length <= buffer.byteLength, "FontInfo.write: Buffer overflow at systemFontInfo");
+      data.set(new Uint8Array(systemFontInfoBuffer), offset + 4);
+      offset += 4 + length;
+    }
+    if (!cssFontInfoBuffer) {
+      view.setUint32(offset, 0);
+      offset += 4;
+    } else {
+      const length = cssFontInfoBuffer.byteLength;
+      view.setUint32(offset, length);
+      assert(offset + 4 + length <= buffer.byteLength, "FontInfo.write: Buffer overflow at cssFontInfo");
+      data.set(new Uint8Array(cssFontInfoBuffer), offset + 4);
+      offset += 4 + length;
+    }
+    if (font.data === undefined) {
+      view.setUint32(offset, 0);
+      offset += 4;
+    } else {
+      view.setUint32(offset, font.data.length);
+      data.set(font.data, offset + 4);
+      offset += 4 + font.data.length;
+    }
+    assert(offset <= buffer.byteLength, "FontInfo.write: Buffer overflow");
+    return buffer.transferToFixedLength(offset);
+  }
+}
+_FontInfo = FontInfo;
+function _readBoolean(index) {
+  assert(index < _FontInfo.bools.length, "Invalid boolean index");
+  const byteOffset = Math.floor(index / 4);
+  const bitOffset = index * 2 % 8;
+  const value = obj_bin_transform_classPrivateFieldGet(_view3, this).getUint8(byteOffset) >> bitOffset & 0x03;
+  return value === 0x00 ? undefined : value === 0x02;
+}
+function _readNumber(index) {
+  assert(index < _FontInfo.numbers.length, "Invalid number index");
+  return obj_bin_transform_classPrivateFieldGet(_view3, this).getFloat64(_OFFSET_NUMBERS._ + index * 8);
+}
+function _readString3(index) {
+  assert(index < _FontInfo.strings.length, "Invalid string index");
+  let offset = _OFFSET_STRINGS._ + 4;
+  for (let i = 0; i < index; i++) {
+    offset += obj_bin_transform_classPrivateFieldGet(_view3, this).getUint32(offset) + 4;
+  }
+  const length = obj_bin_transform_classPrivateFieldGet(_view3, this).getUint32(offset);
+  const stringData = new Uint8Array(length);
+  stringData.set(new Uint8Array(obj_bin_transform_classPrivateFieldGet(_buffer3, this), offset + 4, length));
+  return obj_bin_transform_classPrivateFieldGet(_decoder3, this).decode(stringData);
+}
+obj_bin_transform_defineProperty(FontInfo, "bools", ["black", "bold", "disableFontFace", "fontExtraProperties", "isInvalidPDFjsFont", "isType3Font", "italic", "missingFile", "remeasure", "vertical"]);
+obj_bin_transform_defineProperty(FontInfo, "numbers", ["ascent", "defaultWidth", "descent"]);
+obj_bin_transform_defineProperty(FontInfo, "strings", ["fallbackName", "loadedName", "mimetype", "name"]);
+var _OFFSET_NUMBERS = {
+  _: Math.ceil(_FontInfo.bools.length * 2 / 8)
+};
+var _OFFSET_BBOX = {
+  _: obj_bin_transform_assertClassBrand(_FontInfo, _FontInfo, _OFFSET_NUMBERS)._ + _FontInfo.numbers.length * 8
+};
+var _OFFSET_FONT_MATRIX = {
+  _: obj_bin_transform_assertClassBrand(_FontInfo, _FontInfo, _OFFSET_BBOX)._ + 1 + 2 * 4
+};
+var _OFFSET_DEFAULT_VMETRICS = {
+  _: obj_bin_transform_assertClassBrand(_FontInfo, _FontInfo, _OFFSET_FONT_MATRIX)._ + 1 + 8 * 6
+};
+var _OFFSET_STRINGS = {
+  _: obj_bin_transform_assertClassBrand(_FontInfo, _FontInfo, _OFFSET_DEFAULT_VMETRICS)._ + 1 + 2 * 3
+};
+class PatternInfo {
+  constructor(buffer) {
+    this.buffer = buffer;
+    this.view = new DataView(buffer);
+    this.data = new Uint8Array(buffer);
+  }
+  static write(ir) {
+    let kind,
+      bbox = null,
+      coords = [],
+      colors = [],
+      colorStops = [],
+      figures = [],
+      shadingType = null,
+      background = null;
+    switch (ir[0]) {
+      case "RadialAxial":
+        kind = ir[1] === "axial" ? 1 : 2;
+        bbox = ir[2];
+        colorStops = ir[3];
+        if (kind === 1) {
+          coords.push(...ir[4], ...ir[5]);
+        } else {
+          coords.push(ir[4][0], ir[4][1], ir[6], ir[5][0], ir[5][1], ir[7]);
+        }
+        break;
+      case "Mesh":
+        kind = 3;
+        shadingType = ir[1];
+        coords = ir[2];
+        colors = ir[3];
+        figures = ir[4] || [];
+        bbox = ir[6];
+        background = ir[7];
+        break;
+      default:
+        throw new Error(`Unsupported pattern type: ${ir[0]}`);
+    }
+    const nCoord = Math.floor(coords.length / 2);
+    const nColor = Math.floor(colors.length / 3);
+    const nStop = colorStops.length;
+    const nFigures = figures.length;
+    let figuresSize = 0;
+    for (const figure of figures) {
+      figuresSize += 1;
+      figuresSize = Math.ceil(figuresSize / 4) * 4;
+      figuresSize += 4 + figure.coords.length * 4;
+      figuresSize += 4 + figure.colors.length * 4;
+      if (figure.verticesPerRow !== undefined) {
+        figuresSize += 4;
+      }
+    }
+    const byteLen = 20 + nCoord * 8 + nColor * 3 + nStop * 8 + (bbox ? 16 : 0) + (background ? 3 : 0) + figuresSize;
+    const buffer = new ArrayBuffer(byteLen);
+    const dataView = new DataView(buffer);
+    const u8data = new Uint8Array(buffer);
+    dataView.setUint8(_KIND._, kind);
+    dataView.setUint8(_HAS_BBOX._, bbox ? 1 : 0);
+    dataView.setUint8(_HAS_BACKGROUND._, background ? 1 : 0);
+    dataView.setUint8(_SHADING_TYPE._, shadingType);
+    dataView.setUint32(_N_COORD._, nCoord, true);
+    dataView.setUint32(_N_COLOR._, nColor, true);
+    dataView.setUint32(_N_STOP._, nStop, true);
+    dataView.setUint32(_N_FIGURES._, nFigures, true);
+    let offset = 20;
+    const coordsView = new Float32Array(buffer, offset, nCoord * 2);
+    coordsView.set(coords);
+    offset += nCoord * 8;
+    u8data.set(colors, offset);
+    offset += nColor * 3;
+    for (const [pos, hex] of colorStops) {
+      dataView.setFloat32(offset, pos, true);
+      offset += 4;
+      dataView.setUint32(offset, parseInt(hex.slice(1), 16), true);
+      offset += 4;
+    }
+    if (bbox) {
+      for (const v of bbox) {
+        dataView.setFloat32(offset, v, true);
+        offset += 4;
+      }
+    }
+    if (background) {
+      u8data.set(background, offset);
+      offset += 3;
+    }
+    for (let i = 0; i < figures.length; i++) {
+      const figure = figures[i];
+      dataView.setUint8(offset, figure.type);
+      offset += 1;
+      offset = Math.ceil(offset / 4) * 4;
+      dataView.setUint32(offset, figure.coords.length, true);
+      offset += 4;
+      const figureCoordsView = new Int32Array(buffer, offset, figure.coords.length);
+      figureCoordsView.set(figure.coords);
+      offset += figure.coords.length * 4;
+      dataView.setUint32(offset, figure.colors.length, true);
+      offset += 4;
+      const colorsView = new Int32Array(buffer, offset, figure.colors.length);
+      colorsView.set(figure.colors);
+      offset += figure.colors.length * 4;
+      if (figure.verticesPerRow !== undefined) {
+        dataView.setUint32(offset, figure.verticesPerRow, true);
+        offset += 4;
+      }
+    }
+    return buffer;
+  }
+  getIR() {
+    const dataView = this.view;
+    const kind = this.data[_KIND._];
+    const hasBBox = !!this.data[_HAS_BBOX._];
+    const hasBackground = !!this.data[_HAS_BACKGROUND._];
+    const nCoord = dataView.getUint32(_N_COORD._, true);
+    const nColor = dataView.getUint32(_N_COLOR._, true);
+    const nStop = dataView.getUint32(_N_STOP._, true);
+    const nFigures = dataView.getUint32(_N_FIGURES._, true);
+    let offset = 20;
+    const coords = new Float32Array(this.buffer, offset, nCoord * 2);
+    offset += nCoord * 8;
+    const colors = new Uint8Array(this.buffer, offset, nColor * 3);
+    offset += nColor * 3;
+    const stops = [];
+    for (let i = 0; i < nStop; ++i) {
+      const p = dataView.getFloat32(offset, true);
+      offset += 4;
+      const rgb = dataView.getUint32(offset, true);
+      offset += 4;
+      stops.push([p, `#${rgb.toString(16).padStart(6, "0")}`]);
+    }
+    let bbox = null;
+    if (hasBBox) {
+      bbox = [];
+      for (let i = 0; i < 4; ++i) {
+        bbox.push(dataView.getFloat32(offset, true));
+        offset += 4;
+      }
+    }
+    let background = null;
+    if (hasBackground) {
+      background = new Uint8Array(this.buffer, offset, 3);
+      offset += 3;
+    }
+    const figures = [];
+    for (let i = 0; i < nFigures; ++i) {
+      const type = dataView.getUint8(offset);
+      offset += 1;
+      offset = Math.ceil(offset / 4) * 4;
+      const coordsLength = dataView.getUint32(offset, true);
+      offset += 4;
+      const figureCoords = new Int32Array(this.buffer, offset, coordsLength);
+      offset += coordsLength * 4;
+      const colorsLength = dataView.getUint32(offset, true);
+      offset += 4;
+      const figureColors = new Int32Array(this.buffer, offset, colorsLength);
+      offset += colorsLength * 4;
+      const figure = {
+        type,
+        coords: figureCoords,
+        colors: figureColors
+      };
+      if (type === MeshFigureType.LATTICE) {
+        figure.verticesPerRow = dataView.getUint32(offset, true);
+        offset += 4;
+      }
+      figures.push(figure);
+    }
+    if (kind === 1) {
+      return ["RadialAxial", "axial", bbox, stops, Array.from(coords.slice(0, 2)), Array.from(coords.slice(2, 4)), null, null];
+    }
+    if (kind === 2) {
+      return ["RadialAxial", "radial", bbox, stops, [coords[0], coords[1]], [coords[3], coords[4]], coords[2], coords[5]];
+    }
+    if (kind === 3) {
+      const shadingType = this.data[_SHADING_TYPE._];
+      let bounds = null;
+      if (coords.length > 0) {
+        let minX = coords[0],
+          maxX = coords[0];
+        let minY = coords[1],
+          maxY = coords[1];
+        for (let i = 0; i < coords.length; i += 2) {
+          const x = coords[i],
+            y = coords[i + 1];
+          minX = minX > x ? x : minX;
+          minY = minY > y ? y : minY;
+          maxX = maxX < x ? x : maxX;
+          maxY = maxY < y ? y : maxY;
+        }
+        bounds = [minX, minY, maxX, maxY];
+      }
+      return ["Mesh", shadingType, coords, colors, figures, bounds, bbox, background];
+    }
+    throw new Error(`Unsupported pattern kind: ${kind}`);
+  }
+}
+var _KIND = {
+  _: 0
+};
+var _HAS_BBOX = {
+  _: 1
+};
+var _HAS_BACKGROUND = {
+  _: 2
+};
+var _SHADING_TYPE = {
+  _: 3
+};
+var _N_COORD = {
+  _: 4
+};
+var _N_COLOR = {
+  _: 8
+};
+var _N_STOP = {
+  _: 12
+};
+var _N_FIGURES = {
+  _: 16
+};
+var _buffer4 = /*#__PURE__*/new WeakMap();
+class FontPathInfo {
+  static write(path) {
+    let data;
+    let buffer;
+    if (FeatureTest.isFloat16ArraySupported) {
+      buffer = new ArrayBuffer(path.length * 2);
+      data = new Float16Array(buffer);
+    } else {
+      buffer = new ArrayBuffer(path.length * 4);
+      data = new Float32Array(buffer);
+    }
+    data.set(path);
+    return buffer;
+  }
+  constructor(buffer) {
+    obj_bin_transform_classPrivateFieldInitSpec(this, _buffer4, void 0);
+    obj_bin_transform_classPrivateFieldSet(_buffer4, this, buffer);
+  }
+  get path() {
+    if (FeatureTest.isFloat16ArraySupported) {
+      return new Float16Array(obj_bin_transform_classPrivateFieldGet(_buffer4, this));
+    }
+    return new Float32Array(obj_bin_transform_classPrivateFieldGet(_buffer4, this));
   }
 }
 
@@ -35095,7 +35912,7 @@ class MeshShading extends BaseShading {
       reader.align();
     }
     this.figures.push({
-      type: "triangles",
+      type: MeshFigureType.TRIANGLES,
       coords: new Int32Array(ps),
       colors: new Int32Array(ps)
     });
@@ -35112,7 +35929,7 @@ class MeshShading extends BaseShading {
       colors.push(color);
     }
     this.figures.push({
-      type: "lattice",
+      type: MeshFigureType.LATTICE,
       coords: new Int32Array(ps),
       colors: new Int32Array(ps),
       verticesPerRow
@@ -35229,7 +36046,7 @@ class MeshShading extends BaseShading {
       ps[10] = coords.length;
       coords.push([(-4 * coords[ps[15]][0] - coords[ps[0]][0] + 6 * (coords[ps[11]][0] + coords[ps[14]][0]) - 2 * (coords[ps[12]][0] + coords[ps[3]][0]) + 3 * (coords[ps[2]][0] + coords[ps[8]][0])) / 9, (-4 * coords[ps[15]][1] - coords[ps[0]][1] + 6 * (coords[ps[11]][1] + coords[ps[14]][1]) - 2 * (coords[ps[12]][1] + coords[ps[3]][1]) + 3 * (coords[ps[2]][1] + coords[ps[8]][1])) / 9]);
       this.figures.push({
-        type: "patch",
+        type: MeshFigureType.PATCH,
         coords: new Int32Array(ps),
         colors: new Int32Array(cs)
       });
@@ -35354,7 +36171,7 @@ class MeshShading extends BaseShading {
           break;
       }
       this.figures.push({
-        type: "patch",
+        type: MeshFigureType.PATCH,
         coords: new Int32Array(ps),
         colors: new Int32Array(cs)
       });
@@ -35362,7 +36179,7 @@ class MeshShading extends BaseShading {
   }
   _buildFigureFromPatch(index) {
     const figure = this.figures[index];
-    assert(figure.type === "patch", "Unexpected patch mesh figure");
+    assert(figure.type === MeshFigureType.PATCH, "Unexpected patch mesh figure");
     const coords = this.coords,
       colors = this.colors;
     const pi = figure.coords;
@@ -35427,7 +36244,7 @@ class MeshShading extends BaseShading {
     figureCoords[verticesPerRow * splitYBy + splitXBy] = pi[15];
     figureColors[verticesPerRow * splitYBy + splitXBy] = ci[3];
     this.figures[index] = {
-      type: "lattice",
+      type: MeshFigureType.LATTICE,
       coords: figureCoords,
       colors: figureColors,
       verticesPerRow
@@ -35807,18 +36624,18 @@ function getXfaFontWidths(name) {
 }
 function getXfaFontDict(name) {
   const widths = getXfaFontWidths(name);
-  const dict = new primitives_Dict(null);
-  dict.set("BaseFont", primitives_Name.get(name));
-  dict.set("Type", primitives_Name.get("Font"));
-  dict.set("Subtype", primitives_Name.get("CIDFontType2"));
-  dict.set("Encoding", primitives_Name.get("Identity-H"));
-  dict.set("CIDToGIDMap", primitives_Name.get("Identity"));
+  const dict = new Dict(null);
+  dict.set("BaseFont", Name.get(name));
+  dict.set("Type", Name.get("Font"));
+  dict.set("Subtype", Name.get("CIDFontType2"));
+  dict.set("Encoding", Name.get("Identity-H"));
+  dict.set("CIDToGIDMap", Name.get("Identity"));
   dict.set("W", widths);
   dict.set("FirstChar", widths[0]);
   dict.set("LastChar", widths.at(-2) + widths.at(-1).length - 1);
-  const descriptor = new primitives_Dict(null);
+  const descriptor = new Dict(null);
   dict.set("FontDescriptor", descriptor);
-  const systemInfo = new primitives_Dict(null);
+  const systemInfo = new Dict(null);
   systemInfo.set("Ordering", "Identity");
   systemInfo.set("Registry", "Adobe");
   systemInfo.set("Supplement", 0);
@@ -36213,7 +37030,7 @@ var _GlobalImageCache_brand = /*#__PURE__*/new WeakSet();
 class GlobalImageCache {
   constructor() {
     image_utils_classPrivateMethodInitSpec(this, _GlobalImageCache_brand);
-    image_utils_classPrivateFieldInitSpec(this, _decodeFailedSet, new primitives_RefSet());
+    image_utils_classPrivateFieldInitSpec(this, _decodeFailedSet, new RefSet());
     this._refCache = new RefSetCache();
     this._imageCache = new RefSetCache();
   }
@@ -36346,9 +37163,9 @@ class PDFFunctionFactory {
   create(fn) {
     let parseArray = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
     let fnRef, parsedFn;
-    if (fn instanceof primitives_Ref) {
+    if (fn instanceof Ref) {
       fnRef = fn;
-    } else if (fn instanceof primitives_Dict) {
+    } else if (fn instanceof Dict) {
       fnRef = fn.objId;
     } else if (fn instanceof BaseStream) {
       fnRef = fn.dict?.objId;
@@ -36648,7 +37465,7 @@ class PDFFunction {
 }
 function isPDFFunction(v) {
   let fnDict;
-  if (v instanceof primitives_Dict) {
+  if (v instanceof Dict) {
     fnDict = v;
   } else if (v instanceof BaseStream) {
     fnDict = v.dict;
@@ -37499,513 +38316,6 @@ function bidi(str) {
   return createBidiText(chars.join(""), isLTR);
 }
 
-;// ./src/shared/obj-bin-transform.js
-var _CssFontInfo, _SystemFontInfo, _FontInfo;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-function obj_bin_transform_classPrivateMethodInitSpec(e, a) { obj_bin_transform_checkPrivateRedeclaration(e, a), a.add(e); }
-function obj_bin_transform_defineProperty(e, r, t) { return (r = obj_bin_transform_toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
-function obj_bin_transform_toPropertyKey(t) { var i = obj_bin_transform_toPrimitive(t, "string"); return "symbol" == typeof i ? i : i + ""; }
-function obj_bin_transform_toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != typeof i) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
-function obj_bin_transform_classPrivateFieldInitSpec(e, t, a) { obj_bin_transform_checkPrivateRedeclaration(e, t), t.set(e, a); }
-function obj_bin_transform_checkPrivateRedeclaration(e, t) { if (t.has(e)) throw new TypeError("Cannot initialize the same private elements twice on an object"); }
-function obj_bin_transform_classPrivateFieldGet(s, a) { return s.get(obj_bin_transform_assertClassBrand(s, a)); }
-function obj_bin_transform_classPrivateFieldSet(s, a, r) { return s.set(obj_bin_transform_assertClassBrand(s, a), r), r; }
-function obj_bin_transform_assertClassBrand(e, t, n) { if ("function" == typeof e ? e === t : e.has(t)) return arguments.length < 3 ? t : n; throw new TypeError("Private element is not present on this object"); }
-
-var obj_bin_transform_buffer = /*#__PURE__*/new WeakMap();
-var _view = /*#__PURE__*/new WeakMap();
-var _decoder = /*#__PURE__*/new WeakMap();
-var _CssFontInfo_brand = /*#__PURE__*/new WeakSet();
-class CssFontInfo {
-  static write(info) {
-    const encoder = new TextEncoder();
-    const encodedStrings = {};
-    let stringsLength = 0;
-    for (const prop of CssFontInfo.strings) {
-      const encoded = encoder.encode(info[prop]);
-      encodedStrings[prop] = encoded;
-      stringsLength += 4 + encoded.length;
-    }
-    const buffer = new ArrayBuffer(stringsLength);
-    const data = new Uint8Array(buffer);
-    const view = new DataView(buffer);
-    let offset = 0;
-    for (const prop of CssFontInfo.strings) {
-      const encoded = encodedStrings[prop];
-      const length = encoded.length;
-      view.setUint32(offset, length);
-      data.set(encoded, offset + 4);
-      offset += 4 + length;
-    }
-    assert(offset === buffer.byteLength, "CssFontInfo.write: Buffer overflow");
-    return buffer;
-  }
-  constructor(buffer) {
-    obj_bin_transform_classPrivateMethodInitSpec(this, _CssFontInfo_brand);
-    obj_bin_transform_classPrivateFieldInitSpec(this, obj_bin_transform_buffer, void 0);
-    obj_bin_transform_classPrivateFieldInitSpec(this, _view, void 0);
-    obj_bin_transform_classPrivateFieldInitSpec(this, _decoder, void 0);
-    obj_bin_transform_classPrivateFieldSet(obj_bin_transform_buffer, this, buffer);
-    obj_bin_transform_classPrivateFieldSet(_view, this, new DataView(obj_bin_transform_classPrivateFieldGet(obj_bin_transform_buffer, this)));
-    obj_bin_transform_classPrivateFieldSet(_decoder, this, new TextDecoder());
-  }
-  get fontFamily() {
-    return obj_bin_transform_assertClassBrand(_CssFontInfo_brand, this, _readString).call(this, 0);
-  }
-  get fontWeight() {
-    return obj_bin_transform_assertClassBrand(_CssFontInfo_brand, this, _readString).call(this, 1);
-  }
-  get italicAngle() {
-    return obj_bin_transform_assertClassBrand(_CssFontInfo_brand, this, _readString).call(this, 2);
-  }
-}
-_CssFontInfo = CssFontInfo;
-function _readString(index) {
-  assert(index < _CssFontInfo.strings.length, "Invalid string index");
-  let offset = 0;
-  for (let i = 0; i < index; i++) {
-    offset += obj_bin_transform_classPrivateFieldGet(_view, this).getUint32(offset) + 4;
-  }
-  const length = obj_bin_transform_classPrivateFieldGet(_view, this).getUint32(offset);
-  return obj_bin_transform_classPrivateFieldGet(_decoder, this).decode(new Uint8Array(obj_bin_transform_classPrivateFieldGet(obj_bin_transform_buffer, this), offset + 4, length));
-}
-obj_bin_transform_defineProperty(CssFontInfo, "strings", ["fontFamily", "fontWeight", "italicAngle"]);
-var _buffer2 = /*#__PURE__*/new WeakMap();
-var _view2 = /*#__PURE__*/new WeakMap();
-var _decoder2 = /*#__PURE__*/new WeakMap();
-var _SystemFontInfo_brand = /*#__PURE__*/new WeakSet();
-class SystemFontInfo {
-  static write(info) {
-    const encoder = new TextEncoder();
-    const encodedStrings = {};
-    let stringsLength = 0;
-    for (const prop of SystemFontInfo.strings) {
-      const encoded = encoder.encode(info[prop]);
-      encodedStrings[prop] = encoded;
-      stringsLength += 4 + encoded.length;
-    }
-    stringsLength += 4;
-    let encodedStyleStyle,
-      encodedStyleWeight,
-      lengthEstimate = 1 + stringsLength;
-    if (info.style) {
-      encodedStyleStyle = encoder.encode(info.style.style);
-      encodedStyleWeight = encoder.encode(info.style.weight);
-      lengthEstimate += 4 + encodedStyleStyle.length + 4 + encodedStyleWeight.length;
-    }
-    const buffer = new ArrayBuffer(lengthEstimate);
-    const data = new Uint8Array(buffer);
-    const view = new DataView(buffer);
-    let offset = 0;
-    view.setUint8(offset++, info.guessFallback ? 1 : 0);
-    view.setUint32(offset, 0);
-    offset += 4;
-    stringsLength = 0;
-    for (const prop of SystemFontInfo.strings) {
-      const encoded = encodedStrings[prop];
-      const length = encoded.length;
-      stringsLength += 4 + length;
-      view.setUint32(offset, length);
-      data.set(encoded, offset + 4);
-      offset += 4 + length;
-    }
-    view.setUint32(offset - stringsLength - 4, stringsLength);
-    if (info.style) {
-      view.setUint32(offset, encodedStyleStyle.length);
-      data.set(encodedStyleStyle, offset + 4);
-      offset += 4 + encodedStyleStyle.length;
-      view.setUint32(offset, encodedStyleWeight.length);
-      data.set(encodedStyleWeight, offset + 4);
-      offset += 4 + encodedStyleWeight.length;
-    }
-    assert(offset <= buffer.byteLength, "SubstitionInfo.write: Buffer overflow");
-    return buffer.transferToFixedLength(offset);
-  }
-  constructor(buffer) {
-    obj_bin_transform_classPrivateMethodInitSpec(this, _SystemFontInfo_brand);
-    obj_bin_transform_classPrivateFieldInitSpec(this, _buffer2, void 0);
-    obj_bin_transform_classPrivateFieldInitSpec(this, _view2, void 0);
-    obj_bin_transform_classPrivateFieldInitSpec(this, _decoder2, void 0);
-    obj_bin_transform_classPrivateFieldSet(_buffer2, this, buffer);
-    obj_bin_transform_classPrivateFieldSet(_view2, this, new DataView(obj_bin_transform_classPrivateFieldGet(_buffer2, this)));
-    obj_bin_transform_classPrivateFieldSet(_decoder2, this, new TextDecoder());
-  }
-  get guessFallback() {
-    return obj_bin_transform_classPrivateFieldGet(_view2, this).getUint8(0) !== 0;
-  }
-  get css() {
-    return obj_bin_transform_assertClassBrand(_SystemFontInfo_brand, this, _readString2).call(this, 0);
-  }
-  get loadedName() {
-    return obj_bin_transform_assertClassBrand(_SystemFontInfo_brand, this, _readString2).call(this, 1);
-  }
-  get baseFontName() {
-    return obj_bin_transform_assertClassBrand(_SystemFontInfo_brand, this, _readString2).call(this, 2);
-  }
-  get src() {
-    return obj_bin_transform_assertClassBrand(_SystemFontInfo_brand, this, _readString2).call(this, 3);
-  }
-  get style() {
-    let offset = 1;
-    offset += 4 + obj_bin_transform_classPrivateFieldGet(_view2, this).getUint32(offset);
-    const styleLength = obj_bin_transform_classPrivateFieldGet(_view2, this).getUint32(offset);
-    const style = obj_bin_transform_classPrivateFieldGet(_decoder2, this).decode(new Uint8Array(obj_bin_transform_classPrivateFieldGet(_buffer2, this), offset + 4, styleLength));
-    offset += 4 + styleLength;
-    const weightLength = obj_bin_transform_classPrivateFieldGet(_view2, this).getUint32(offset);
-    const weight = obj_bin_transform_classPrivateFieldGet(_decoder2, this).decode(new Uint8Array(obj_bin_transform_classPrivateFieldGet(_buffer2, this), offset + 4, weightLength));
-    return {
-      style,
-      weight
-    };
-  }
-}
-_SystemFontInfo = SystemFontInfo;
-function _readString2(index) {
-  assert(index < _SystemFontInfo.strings.length, "Invalid string index");
-  let offset = 5;
-  for (let i = 0; i < index; i++) {
-    offset += obj_bin_transform_classPrivateFieldGet(_view2, this).getUint32(offset) + 4;
-  }
-  const length = obj_bin_transform_classPrivateFieldGet(_view2, this).getUint32(offset);
-  return obj_bin_transform_classPrivateFieldGet(_decoder2, this).decode(new Uint8Array(obj_bin_transform_classPrivateFieldGet(_buffer2, this), offset + 4, length));
-}
-obj_bin_transform_defineProperty(SystemFontInfo, "strings", ["css", "loadedName", "baseFontName", "src"]);
-var _buffer3 = /*#__PURE__*/new WeakMap();
-var _decoder3 = /*#__PURE__*/new WeakMap();
-var _view3 = /*#__PURE__*/new WeakMap();
-var _FontInfo_brand = /*#__PURE__*/new WeakSet();
-class FontInfo {
-  constructor(_ref) {
-    let {
-      data,
-      extra
-    } = _ref;
-    obj_bin_transform_classPrivateMethodInitSpec(this, _FontInfo_brand);
-    obj_bin_transform_classPrivateFieldInitSpec(this, _buffer3, void 0);
-    obj_bin_transform_classPrivateFieldInitSpec(this, _decoder3, void 0);
-    obj_bin_transform_classPrivateFieldInitSpec(this, _view3, void 0);
-    obj_bin_transform_classPrivateFieldSet(_buffer3, this, data);
-    obj_bin_transform_classPrivateFieldSet(_decoder3, this, new TextDecoder());
-    obj_bin_transform_classPrivateFieldSet(_view3, this, new DataView(obj_bin_transform_classPrivateFieldGet(_buffer3, this)));
-    if (extra) {
-      Object.assign(this, extra);
-    }
-  }
-  get black() {
-    return obj_bin_transform_assertClassBrand(_FontInfo_brand, this, _readBoolean).call(this, 0);
-  }
-  get bold() {
-    return obj_bin_transform_assertClassBrand(_FontInfo_brand, this, _readBoolean).call(this, 1);
-  }
-  get disableFontFace() {
-    return obj_bin_transform_assertClassBrand(_FontInfo_brand, this, _readBoolean).call(this, 2);
-  }
-  get fontExtraProperties() {
-    return obj_bin_transform_assertClassBrand(_FontInfo_brand, this, _readBoolean).call(this, 3);
-  }
-  get isInvalidPDFjsFont() {
-    return obj_bin_transform_assertClassBrand(_FontInfo_brand, this, _readBoolean).call(this, 4);
-  }
-  get isType3Font() {
-    return obj_bin_transform_assertClassBrand(_FontInfo_brand, this, _readBoolean).call(this, 5);
-  }
-  get italic() {
-    return obj_bin_transform_assertClassBrand(_FontInfo_brand, this, _readBoolean).call(this, 6);
-  }
-  get missingFile() {
-    return obj_bin_transform_assertClassBrand(_FontInfo_brand, this, _readBoolean).call(this, 7);
-  }
-  get remeasure() {
-    return obj_bin_transform_assertClassBrand(_FontInfo_brand, this, _readBoolean).call(this, 8);
-  }
-  get vertical() {
-    return obj_bin_transform_assertClassBrand(_FontInfo_brand, this, _readBoolean).call(this, 9);
-  }
-  get ascent() {
-    return obj_bin_transform_assertClassBrand(_FontInfo_brand, this, _readNumber).call(this, 0);
-  }
-  get defaultWidth() {
-    return obj_bin_transform_assertClassBrand(_FontInfo_brand, this, _readNumber).call(this, 1);
-  }
-  get descent() {
-    return obj_bin_transform_assertClassBrand(_FontInfo_brand, this, _readNumber).call(this, 2);
-  }
-  get bbox() {
-    let offset = _OFFSET_BBOX._;
-    const numCoords = obj_bin_transform_classPrivateFieldGet(_view3, this).getUint8(offset);
-    if (numCoords === 0) {
-      return undefined;
-    }
-    offset += 1;
-    const bbox = [];
-    for (let i = 0; i < 4; i++) {
-      bbox.push(obj_bin_transform_classPrivateFieldGet(_view3, this).getInt16(offset, true));
-      offset += 2;
-    }
-    return bbox;
-  }
-  get fontMatrix() {
-    let offset = _OFFSET_FONT_MATRIX._;
-    const numPoints = obj_bin_transform_classPrivateFieldGet(_view3, this).getUint8(offset);
-    if (numPoints === 0) {
-      return undefined;
-    }
-    offset += 1;
-    const fontMatrix = [];
-    for (let i = 0; i < 6; i++) {
-      fontMatrix.push(obj_bin_transform_classPrivateFieldGet(_view3, this).getFloat64(offset, true));
-      offset += 8;
-    }
-    return fontMatrix;
-  }
-  get defaultVMetrics() {
-    let offset = _OFFSET_DEFAULT_VMETRICS._;
-    const numMetrics = obj_bin_transform_classPrivateFieldGet(_view3, this).getUint8(offset);
-    if (numMetrics === 0) {
-      return undefined;
-    }
-    offset += 1;
-    const defaultVMetrics = [];
-    for (let i = 0; i < 3; i++) {
-      defaultVMetrics.push(obj_bin_transform_classPrivateFieldGet(_view3, this).getInt16(offset, true));
-      offset += 2;
-    }
-    return defaultVMetrics;
-  }
-  get fallbackName() {
-    return obj_bin_transform_assertClassBrand(_FontInfo_brand, this, _readString3).call(this, 0);
-  }
-  get loadedName() {
-    return obj_bin_transform_assertClassBrand(_FontInfo_brand, this, _readString3).call(this, 1);
-  }
-  get mimetype() {
-    return obj_bin_transform_assertClassBrand(_FontInfo_brand, this, _readString3).call(this, 2);
-  }
-  get name() {
-    return obj_bin_transform_assertClassBrand(_FontInfo_brand, this, _readString3).call(this, 3);
-  }
-  get data() {
-    let offset = _OFFSET_STRINGS._;
-    const stringsLength = obj_bin_transform_classPrivateFieldGet(_view3, this).getUint32(offset);
-    offset += 4 + stringsLength;
-    const systemFontInfoLength = obj_bin_transform_classPrivateFieldGet(_view3, this).getUint32(offset);
-    offset += 4 + systemFontInfoLength;
-    const cssFontInfoLength = obj_bin_transform_classPrivateFieldGet(_view3, this).getUint32(offset);
-    offset += 4 + cssFontInfoLength;
-    const length = obj_bin_transform_classPrivateFieldGet(_view3, this).getUint32(offset);
-    if (length === 0) {
-      return undefined;
-    }
-    return new Uint8Array(obj_bin_transform_classPrivateFieldGet(_buffer3, this), offset + 4, length);
-  }
-  clearData() {
-    let offset = _OFFSET_STRINGS._;
-    const stringsLength = obj_bin_transform_classPrivateFieldGet(_view3, this).getUint32(offset);
-    offset += 4 + stringsLength;
-    const systemFontInfoLength = obj_bin_transform_classPrivateFieldGet(_view3, this).getUint32(offset);
-    offset += 4 + systemFontInfoLength;
-    const cssFontInfoLength = obj_bin_transform_classPrivateFieldGet(_view3, this).getUint32(offset);
-    offset += 4 + cssFontInfoLength;
-    const length = obj_bin_transform_classPrivateFieldGet(_view3, this).getUint32(offset);
-    const data = new Uint8Array(obj_bin_transform_classPrivateFieldGet(_buffer3, this), offset + 4, length);
-    data.fill(0);
-    obj_bin_transform_classPrivateFieldGet(_view3, this).setUint32(offset, 0);
-  }
-  get cssFontInfo() {
-    let offset = _OFFSET_STRINGS._;
-    const stringsLength = obj_bin_transform_classPrivateFieldGet(_view3, this).getUint32(offset);
-    offset += 4 + stringsLength;
-    const systemFontInfoLength = obj_bin_transform_classPrivateFieldGet(_view3, this).getUint32(offset);
-    offset += 4 + systemFontInfoLength;
-    const cssFontInfoLength = obj_bin_transform_classPrivateFieldGet(_view3, this).getUint32(offset);
-    if (cssFontInfoLength === 0) {
-      return null;
-    }
-    const cssFontInfoData = new Uint8Array(cssFontInfoLength);
-    cssFontInfoData.set(new Uint8Array(obj_bin_transform_classPrivateFieldGet(_buffer3, this), offset + 4, cssFontInfoLength));
-    return new CssFontInfo(cssFontInfoData.buffer);
-  }
-  get systemFontInfo() {
-    let offset = _OFFSET_STRINGS._;
-    const stringsLength = obj_bin_transform_classPrivateFieldGet(_view3, this).getUint32(offset);
-    offset += 4 + stringsLength;
-    const systemFontInfoLength = obj_bin_transform_classPrivateFieldGet(_view3, this).getUint32(offset);
-    if (systemFontInfoLength === 0) {
-      return null;
-    }
-    const systemFontInfoData = new Uint8Array(systemFontInfoLength);
-    systemFontInfoData.set(new Uint8Array(obj_bin_transform_classPrivateFieldGet(_buffer3, this), offset + 4, systemFontInfoLength));
-    return new SystemFontInfo(systemFontInfoData.buffer);
-  }
-  static write(font) {
-    const systemFontInfoBuffer = font.systemFontInfo ? SystemFontInfo.write(font.systemFontInfo) : null;
-    const cssFontInfoBuffer = font.cssFontInfo ? CssFontInfo.write(font.cssFontInfo) : null;
-    const encoder = new TextEncoder();
-    const encodedStrings = {};
-    let stringsLength = 0;
-    for (const prop of FontInfo.strings) {
-      encodedStrings[prop] = encoder.encode(font[prop]);
-      stringsLength += 4 + encodedStrings[prop].length;
-    }
-    const lengthEstimate = _OFFSET_STRINGS._ + 4 + stringsLength + 4 + (systemFontInfoBuffer ? systemFontInfoBuffer.byteLength : 0) + 4 + (cssFontInfoBuffer ? cssFontInfoBuffer.byteLength : 0) + 4 + (font.data ? font.data.length : 0);
-    const buffer = new ArrayBuffer(lengthEstimate);
-    const data = new Uint8Array(buffer);
-    const view = new DataView(buffer);
-    let offset = 0;
-    const numBools = FontInfo.bools.length;
-    let boolByte = 0,
-      boolBit = 0;
-    for (let i = 0; i < numBools; i++) {
-      const value = font[FontInfo.bools[i]];
-      const bits = value === undefined ? 0x00 : value ? 0x02 : 0x01;
-      boolByte |= bits << boolBit;
-      boolBit += 2;
-      if (boolBit === 8 || i === numBools - 1) {
-        view.setUint8(offset++, boolByte);
-        boolByte = 0;
-        boolBit = 0;
-      }
-    }
-    assert(offset === _OFFSET_NUMBERS._, "FontInfo.write: Boolean properties offset mismatch");
-    for (const prop of FontInfo.numbers) {
-      view.setFloat64(offset, font[prop]);
-      offset += 8;
-    }
-    assert(offset === _OFFSET_BBOX._, "FontInfo.write: Number properties offset mismatch");
-    if (font.bbox) {
-      view.setUint8(offset++, 4);
-      for (const coord of font.bbox) {
-        view.setInt16(offset, coord, true);
-        offset += 2;
-      }
-    } else {
-      view.setUint8(offset++, 0);
-      offset += 2 * 4;
-    }
-    assert(offset === _OFFSET_FONT_MATRIX._, "FontInfo.write: BBox properties offset mismatch");
-    if (font.fontMatrix) {
-      view.setUint8(offset++, 6);
-      for (const point of font.fontMatrix) {
-        view.setFloat64(offset, point, true);
-        offset += 8;
-      }
-    } else {
-      view.setUint8(offset++, 0);
-      offset += 8 * 6;
-    }
-    assert(offset === _OFFSET_DEFAULT_VMETRICS._, "FontInfo.write: FontMatrix properties offset mismatch");
-    if (font.defaultVMetrics) {
-      view.setUint8(offset++, 1);
-      for (const metric of font.defaultVMetrics) {
-        view.setInt16(offset, metric, true);
-        offset += 2;
-      }
-    } else {
-      view.setUint8(offset++, 0);
-      offset += 3 * 2;
-    }
-    assert(offset === _OFFSET_STRINGS._, "FontInfo.write: DefaultVMetrics properties offset mismatch");
-    view.setUint32(_OFFSET_STRINGS._, 0);
-    offset += 4;
-    for (const prop of FontInfo.strings) {
-      const encoded = encodedStrings[prop];
-      const length = encoded.length;
-      view.setUint32(offset, length);
-      data.set(encoded, offset + 4);
-      offset += 4 + length;
-    }
-    view.setUint32(_OFFSET_STRINGS._, offset - _OFFSET_STRINGS._ - 4);
-    if (!systemFontInfoBuffer) {
-      view.setUint32(offset, 0);
-      offset += 4;
-    } else {
-      const length = systemFontInfoBuffer.byteLength;
-      view.setUint32(offset, length);
-      assert(offset + 4 + length <= buffer.byteLength, "FontInfo.write: Buffer overflow at systemFontInfo");
-      data.set(new Uint8Array(systemFontInfoBuffer), offset + 4);
-      offset += 4 + length;
-    }
-    if (!cssFontInfoBuffer) {
-      view.setUint32(offset, 0);
-      offset += 4;
-    } else {
-      const length = cssFontInfoBuffer.byteLength;
-      view.setUint32(offset, length);
-      assert(offset + 4 + length <= buffer.byteLength, "FontInfo.write: Buffer overflow at cssFontInfo");
-      data.set(new Uint8Array(cssFontInfoBuffer), offset + 4);
-      offset += 4 + length;
-    }
-    if (font.data === undefined) {
-      view.setUint32(offset, 0);
-      offset += 4;
-    } else {
-      view.setUint32(offset, font.data.length);
-      data.set(font.data, offset + 4);
-      offset += 4 + font.data.length;
-    }
-    assert(offset <= buffer.byteLength, "FontInfo.write: Buffer overflow");
-    return buffer.transferToFixedLength(offset);
-  }
-}
-_FontInfo = FontInfo;
-function _readBoolean(index) {
-  assert(index < _FontInfo.bools.length, "Invalid boolean index");
-  const byteOffset = Math.floor(index / 4);
-  const bitOffset = index * 2 % 8;
-  const value = obj_bin_transform_classPrivateFieldGet(_view3, this).getUint8(byteOffset) >> bitOffset & 0x03;
-  return value === 0x00 ? undefined : value === 0x02;
-}
-function _readNumber(index) {
-  assert(index < _FontInfo.numbers.length, "Invalid number index");
-  return obj_bin_transform_classPrivateFieldGet(_view3, this).getFloat64(_OFFSET_NUMBERS._ + index * 8);
-}
-function _readString3(index) {
-  assert(index < _FontInfo.strings.length, "Invalid string index");
-  let offset = _OFFSET_STRINGS._ + 4;
-  for (let i = 0; i < index; i++) {
-    offset += obj_bin_transform_classPrivateFieldGet(_view3, this).getUint32(offset) + 4;
-  }
-  const length = obj_bin_transform_classPrivateFieldGet(_view3, this).getUint32(offset);
-  const stringData = new Uint8Array(length);
-  stringData.set(new Uint8Array(obj_bin_transform_classPrivateFieldGet(_buffer3, this), offset + 4, length));
-  return obj_bin_transform_classPrivateFieldGet(_decoder3, this).decode(stringData);
-}
-obj_bin_transform_defineProperty(FontInfo, "bools", ["black", "bold", "disableFontFace", "fontExtraProperties", "isInvalidPDFjsFont", "isType3Font", "italic", "missingFile", "remeasure", "vertical"]);
-obj_bin_transform_defineProperty(FontInfo, "numbers", ["ascent", "defaultWidth", "descent"]);
-obj_bin_transform_defineProperty(FontInfo, "strings", ["fallbackName", "loadedName", "mimetype", "name"]);
-var _OFFSET_NUMBERS = {
-  _: Math.ceil(_FontInfo.bools.length * 2 / 8)
-};
-var _OFFSET_BBOX = {
-  _: obj_bin_transform_assertClassBrand(_FontInfo, _FontInfo, _OFFSET_NUMBERS)._ + _FontInfo.numbers.length * 8
-};
-var _OFFSET_FONT_MATRIX = {
-  _: obj_bin_transform_assertClassBrand(_FontInfo, _FontInfo, _OFFSET_BBOX)._ + 1 + 2 * 4
-};
-var _OFFSET_DEFAULT_VMETRICS = {
-  _: obj_bin_transform_assertClassBrand(_FontInfo, _FontInfo, _OFFSET_FONT_MATRIX)._ + 1 + 8 * 6
-};
-var _OFFSET_STRINGS = {
-  _: obj_bin_transform_assertClassBrand(_FontInfo, _FontInfo, _OFFSET_DEFAULT_VMETRICS)._ + 1 + 2 * 3
-};
-
 ;// ./src/core/font_substitutions.js
 
 
@@ -38037,7 +38347,7 @@ const BOLDITALIC = {
   weight: "bold"
 };
 const substitutionMap = new Map([["Times-Roman", {
-  local: ["Times New Roman", "Times-Roman", "Times", "Liberation Serif", "Nimbus Roman", "Nimbus Roman L", "Tinos", "Thorndale", "TeX Gyre Termes", "FreeSerif", "Linux Libertine O", "Libertinus Serif", "DejaVu Serif", "Bitstream Vera Serif", "Ubuntu"],
+  local: ["Times New Roman", "Times-Roman", "Times", "Liberation Serif", "Nimbus Roman", "Nimbus Roman L", "Tinos", "Thorndale", "TeX Gyre Termes", "FreeSerif", "Linux Libertine O", "Libertinus Serif", "PT Astra Serif", "DejaVu Serif", "Bitstream Vera Serif", "Ubuntu"],
   style: NORMAL,
   ultimate: "serif"
 }], ["Times-Bold", {
@@ -38145,6 +38455,32 @@ const substitutionMap = new Map([["Times-Roman", {
   alias: "Wingdings"
 }], ["Wingdings-Bold", {
   alias: "Wingdings"
+}], ["\xCB\xCE\xCC\xE5", {
+  local: ["SimSun", "SimSun Regular", "NSimSun"],
+  style: NORMAL,
+  ultimate: "serif"
+}], ["\xBA\xDA\xCC\xE5", {
+  local: ["SimHei", "SimHei Regular"],
+  style: NORMAL,
+  ultimate: "sans-serif"
+}], ["\xBF\xAC\xCC\xE5", {
+  local: ["KaiTi", "SimKai", "SimKai Regular"],
+  style: NORMAL,
+  ultimate: "sans-serif"
+}], ["\xB7\xC2\xCB\xCE", {
+  local: ["FangSong", "SimFang", "SimFang Regular"],
+  style: NORMAL,
+  ultimate: "serif"
+}], ["\xBF\xAC\xCC\xE5_GB2312", {
+  alias: "\xBF\xAC\xCC\xE5"
+}], ["\xB7\xC2\xCB\xCE_GB2312", {
+  alias: "\xB7\xC2\xCB\xCE"
+}], ["\xC1\xA5\xCA\xE9", {
+  local: ["SimLi", "SimLi Regular"],
+  style: NORMAL,
+  ultimate: "serif"
+}], ["\xD0\xC2\xCB\xCE", {
+  alias: "\xCB\xCE\xCC\xE5"
 }]]);
 const fontAliases = new Map([["Arial-Black", "ArialBlack"]]);
 function getStyleToAppend(style) {
@@ -38477,11 +38813,11 @@ class PDFImage {
     const dict = image.dict;
     const filter = dict.get("F", "Filter");
     let filterName;
-    if (filter instanceof primitives_Name) {
+    if (filter instanceof Name) {
       filterName = filter.name;
     } else if (Array.isArray(filter)) {
       const filterZero = xref.fetchIfRef(filter[0]);
-      if (filterZero instanceof primitives_Name) {
+      if (filterZero instanceof Name) {
         filterName = filterZero.name;
       }
     }
@@ -38556,24 +38892,24 @@ class PDFImage {
       const hasColorSpace = !!colorSpace;
       if (!hasColorSpace) {
         if (this.jpxDecoderOptions) {
-          colorSpace = primitives_Name.get("DeviceRGBA");
+          colorSpace = Name.get("DeviceRGBA");
         } else {
           switch (image.numComps) {
             case 1:
-              colorSpace = primitives_Name.get("DeviceGray");
+              colorSpace = Name.get("DeviceGray");
               break;
             case 3:
-              colorSpace = primitives_Name.get("DeviceRGB");
+              colorSpace = Name.get("DeviceRGB");
               break;
             case 4:
-              colorSpace = primitives_Name.get("DeviceCMYK");
+              colorSpace = Name.get("DeviceCMYK");
               break;
             default:
               throw new Error(`Images with ${image.numComps} color components not supported.`);
           }
         }
       } else if (this.jpxDecoderOptions?.smaskInData) {
-        colorSpace = primitives_Name.get("DeviceRGBA");
+        colorSpace = Name.get("DeviceRGBA");
       }
       this.colorSpace = ColorSpaceUtils.parse({
         cs: colorSpace,
@@ -39324,7 +39660,7 @@ function normalizeBlendMode(value) {
     warn(`Unsupported blend mode Array: ${value}`);
     return "source-over";
   }
-  if (!(value instanceof primitives_Name)) {
+  if (!(value instanceof Name)) {
     if (parsingArray) {
       return null;
     }
@@ -39452,13 +39788,13 @@ class PartialEvaluator {
     return newEvaluator;
   }
   hasBlendModes(resources, nonBlendModesSet) {
-    if (!(resources instanceof primitives_Dict)) {
+    if (!(resources instanceof Dict)) {
       return false;
     }
     if (resources.objId && nonBlendModesSet.has(resources.objId)) {
       return false;
     }
-    const processed = new primitives_RefSet(nonBlendModesSet);
+    const processed = new RefSet(nonBlendModesSet);
     if (resources.objId) {
       processed.put(resources.objId);
     }
@@ -39467,9 +39803,9 @@ class PartialEvaluator {
     while (nodes.length) {
       const node = nodes.shift();
       const graphicStates = node.get("ExtGState");
-      if (graphicStates instanceof primitives_Dict) {
+      if (graphicStates instanceof Dict) {
         for (let graphicState of graphicStates.getRawValues()) {
-          if (graphicState instanceof primitives_Ref) {
+          if (graphicState instanceof Ref) {
             if (processed.has(graphicState)) {
               continue;
             }
@@ -39481,14 +39817,14 @@ class PartialEvaluator {
               continue;
             }
           }
-          if (!(graphicState instanceof primitives_Dict)) {
+          if (!(graphicState instanceof Dict)) {
             continue;
           }
           if (graphicState.objId) {
             processed.put(graphicState.objId);
           }
           const bm = graphicState.get("BM");
-          if (bm instanceof primitives_Name) {
+          if (bm instanceof Name) {
             if (bm.name !== "Normal") {
               return true;
             }
@@ -39496,7 +39832,7 @@ class PartialEvaluator {
           }
           if (bm !== undefined && Array.isArray(bm)) {
             for (const element of bm) {
-              if (element instanceof primitives_Name && element.name !== "Normal") {
+              if (element instanceof Name && element.name !== "Normal") {
                 return true;
               }
             }
@@ -39504,11 +39840,11 @@ class PartialEvaluator {
         }
       }
       const xObjects = node.get("XObject");
-      if (!(xObjects instanceof primitives_Dict)) {
+      if (!(xObjects instanceof Dict)) {
         continue;
       }
       for (let xObject of xObjects.getRawValues()) {
-        if (xObject instanceof primitives_Ref) {
+        if (xObject instanceof Ref) {
           if (processed.has(xObject)) {
             continue;
           }
@@ -39527,7 +39863,7 @@ class PartialEvaluator {
           processed.put(xObject.dict.objId);
         }
         const xResources = xObject.dict.get("Resources");
-        if (!(xResources instanceof primitives_Dict)) {
+        if (!(xResources instanceof Dict)) {
           continue;
         }
         if (xResources.objId && processed.has(xResources.objId)) {
@@ -39619,7 +39955,7 @@ class PartialEvaluator {
       };
       const groupSubtype = group.get("S");
       let colorSpace = null;
-      if (primitives_isName(groupSubtype, "Transparency")) {
+      if (isName(groupSubtype, "Transparency")) {
         groupOptions.isolated = group.get("I") || false;
         groupOptions.knockout = group.get("K") || false;
         if (group.has("CS")) {
@@ -39641,7 +39977,7 @@ class PartialEvaluator {
     await this.getOperatorList({
       stream: xobj,
       task,
-      resources: localResources instanceof primitives_Dict ? localResources : resources,
+      resources: localResources instanceof Dict ? localResources : resources,
       operatorList,
       initialState,
       prevRefs: seenRefs
@@ -39903,7 +40239,7 @@ class PartialEvaluator {
     for (const entry of transferArray) {
       const transferObj = this.xref.fetchIfRef(entry);
       numFns++;
-      if (primitives_isName(transferObj, "Identity")) {
+      if (isName(transferObj, "Identity")) {
         transferMaps.push(null);
         continue;
       } else if (!isPDFFunction(transferObj)) {
@@ -39930,7 +40266,7 @@ class PartialEvaluator {
   }
   handleTilingType(fn, color, resources, pattern, patternDict, operatorList, task, localTilingPatternCache) {
     const tilingOpList = new OperatorList();
-    const patternResources = primitives_Dict.merge({
+    const patternResources = Dict.merge({
       xref: this.xref,
       dictArray: [patternDict.get("Resources"), resources]
     });
@@ -39964,7 +40300,7 @@ class PartialEvaluator {
   async handleSetFont(resources, fontArgs, fontRef, operatorList, task, state) {
     let fallbackFontDict = arguments.length > 6 && arguments[6] !== undefined ? arguments[6] : null;
     let cssFontInfo = arguments.length > 7 && arguments[7] !== undefined ? arguments[7] : null;
-    const fontName = fontArgs?.[0] instanceof primitives_Name ? fontArgs[0].name : null;
+    const fontName = fontArgs?.[0] instanceof Name ? fontArgs[0].name : null;
     const translated = await this.loadFont(fontName, fontRef, resources, task, fallbackFontDict, cssFontInfo);
     if (translated.font.isType3Font) {
       operatorList.addDependencies(translated.type3Dependencies);
@@ -40043,11 +40379,11 @@ class PartialEvaluator {
           gStateObj.push([key, normalizeBlendMode(value)]);
           break;
         case "SMask":
-          if (primitives_isName(value, "None")) {
+          if (isName(value, "None")) {
             gStateObj.push([key, false]);
             break;
           }
-          if (value instanceof primitives_Dict) {
+          if (value instanceof Dict) {
             isSimpleGState = false;
             promise = promise.then(() => this.handleSMask(value, resources, operatorList, task, stateManager, localColorSpaceCache, seenRefs));
             gStateObj.push([key, true]);
@@ -40097,7 +40433,7 @@ class PartialEvaluator {
     });
     let fontRef;
     if (font) {
-      if (font instanceof primitives_Ref) {
+      if (font instanceof Ref) {
         fontRef = font;
       }
     } else {
@@ -40119,7 +40455,7 @@ class PartialEvaluator {
         warn(`loadFont - lookup failed: "${ex}".`);
       }
     }
-    if (!(font instanceof primitives_Dict)) {
+    if (!(font instanceof Dict)) {
       if (!this.options.ignoreErrors && !this.parsingType3Font) {
         warn(`Font "${fontName}" is not available.`);
         return errorFont();
@@ -40146,9 +40482,9 @@ class PartialEvaluator {
       descriptor,
       hash
     } = preEvaluatedFont;
-    const fontRefIsRef = fontRef instanceof primitives_Ref;
+    const fontRefIsRef = fontRef instanceof Ref;
     let fontID;
-    if (hash && descriptor instanceof primitives_Dict) {
+    if (hash && descriptor instanceof Dict) {
       const fontAliases = descriptor.fontAliases ||= Object.create(null);
       if (fontAliases[hash]) {
         const aliasFontRef = fontAliases[hash].aliasRef;
@@ -40333,7 +40669,10 @@ class PartialEvaluator {
     }
     localShadingPatternCache.set(shading, id);
     if (this.parsingType3Font) {
-      this.handler.send("commonobj", [id, "Pattern", patternIR]);
+      const transfers = [];
+      const patternBuffer = PatternInfo.write(patternIR);
+      transfers.push(patternBuffer);
+      this.handler.send("commonobj", [id, "Pattern", patternBuffer], transfers);
     } else {
       this.handler.send("obj", [id, this.pageIndex, "Pattern", patternIR]);
     }
@@ -40341,9 +40680,9 @@ class PartialEvaluator {
   }
   handleColorN(operatorList, fn, args, cs, patterns, resources, task, localColorSpaceCache, localTilingPatternCache, localShadingPatternCache) {
     const patternName = args.pop();
-    if (patternName instanceof primitives_Name) {
+    if (patternName instanceof Name) {
       const rawPattern = patterns.getRaw(patternName.name);
-      const localTilingPattern = rawPattern instanceof primitives_Ref && localTilingPatternCache.getByRef(rawPattern);
+      const localTilingPattern = rawPattern instanceof Ref && localTilingPatternCache.getByRef(rawPattern);
       if (localTilingPattern) {
         try {
           const color = cs.base ? cs.base.getRgbHex(args, 0) : null;
@@ -40386,7 +40725,7 @@ class PartialEvaluator {
     }
     const length = array.length;
     const operator = this.xref.fetchIfRef(array[0]);
-    if (length < 2 || !(operator instanceof primitives_Name)) {
+    if (length < 2 || !(operator instanceof Name)) {
       warn("Invalid visibility expression");
       return;
     }
@@ -40407,17 +40746,17 @@ class PartialEvaluator {
         const nestedResult = [];
         currentResult.push(nestedResult);
         this._parseVisibilityExpression(object, nestingCounter, nestedResult);
-      } else if (raw instanceof primitives_Ref) {
+      } else if (raw instanceof Ref) {
         currentResult.push(raw.toString());
       }
     }
   }
   async parseMarkedContentProps(contentProperties, resources) {
     let optionalContent;
-    if (contentProperties instanceof primitives_Name) {
+    if (contentProperties instanceof Name) {
       const properties = resources.get("Properties");
       optionalContent = properties.get(contentProperties.name);
-    } else if (contentProperties instanceof primitives_Dict) {
+    } else if (contentProperties instanceof Dict) {
       optionalContent = contentProperties;
     } else {
       throw new FormatError("Optional content properties malformed.");
@@ -40441,7 +40780,7 @@ class PartialEvaluator {
         }
       }
       const optionalContentGroups = optionalContent.get("OCGs");
-      if (Array.isArray(optionalContentGroups) || optionalContentGroups instanceof primitives_Dict) {
+      if (Array.isArray(optionalContentGroups) || optionalContentGroups instanceof Dict) {
         const groupIds = [];
         if (Array.isArray(optionalContentGroups)) {
           for (const ocg of optionalContentGroups) {
@@ -40453,10 +40792,10 @@ class PartialEvaluator {
         return {
           type: optionalContentType,
           ids: groupIds,
-          policy: optionalContent.get("P") instanceof primitives_Name ? optionalContent.get("P").name : null,
+          policy: optionalContent.get("P") instanceof Name ? optionalContent.get("P").name : null,
           expression: null
         };
-      } else if (optionalContentGroups instanceof primitives_Ref) {
+      } else if (optionalContentGroups instanceof Ref) {
         return {
           type: optionalContentType,
           id: optionalContentGroups.toString()
@@ -40476,14 +40815,14 @@ class PartialEvaluator {
       prevRefs = null
     } = _ref6;
     const objId = stream.dict?.objId;
-    const seenRefs = new primitives_RefSet(prevRefs);
+    const seenRefs = new RefSet(prevRefs);
     if (objId) {
       if (prevRefs?.has(objId)) {
         throw new Error(`getOperatorList - ignoring circular reference: ${objId}`);
       }
       seenRefs.put(objId);
     }
-    resources ||= primitives_Dict.empty;
+    resources ||= Dict.empty;
     initialState ||= new EvalState();
     if (!operatorList) {
       throw new Error('getOperatorList: missing "operatorList" parameter');
@@ -40495,8 +40834,8 @@ class PartialEvaluator {
     const localGStateCache = new LocalGStateCache();
     const localTilingPatternCache = new LocalTilingPatternCache();
     const localShadingPatternCache = new Map();
-    const xobjs = resources.get("XObject") || primitives_Dict.empty;
-    const patterns = resources.get("Pattern") || primitives_Dict.empty;
+    const xobjs = resources.get("XObject") || Dict.empty;
+    const patterns = resources.get("Pattern") || Dict.empty;
     const stateManager = new StateManager(initialState);
     const preprocessor = new EvaluatorPreprocessor(stream, xref, stateManager);
     const timeSlotManager = new TimeSlotManager();
@@ -40528,7 +40867,7 @@ class PartialEvaluator {
         let fn = operation.fn;
         switch (fn | 0) {
           case OPS.paintXObject:
-            isValidName = args[0] instanceof primitives_Name;
+            isValidName = args[0] instanceof Name;
             name = args[0].name;
             if (isValidName) {
               const localImage = localImageCache.getByName(name);
@@ -40543,7 +40882,7 @@ class PartialEvaluator {
                 throw new FormatError("XObject must be referred to by name.");
               }
               let xobj = xobjs.getRaw(name);
-              if (xobj instanceof primitives_Ref) {
+              if (xobj instanceof Ref) {
                 const cachedImage = localImageCache.getByRef(xobj) || self._regionalImageCache.getByRef(xobj) || self.globalImageCache.getData(xobj, self.pageIndex);
                 if (cachedImage) {
                   addCachedImageOps(operatorList, cachedImage);
@@ -40556,7 +40895,7 @@ class PartialEvaluator {
                 throw new FormatError("XObject should be a stream");
               }
               const type = xobj.dict.get("Subtype");
-              if (!(type instanceof primitives_Name)) {
+              if (!(type instanceof Name)) {
                 throw new FormatError("XObject should have a Name subtype");
               }
               if (type.name === "Form") {
@@ -40803,7 +41142,7 @@ class PartialEvaluator {
             fn = OPS.shadingFill;
             break;
           case OPS.setGState:
-            isValidName = args[0] instanceof primitives_Name;
+            isValidName = args[0] instanceof Name;
             name = args[0].name;
             if (isValidName) {
               const localGStateObj = localGStateCache.getByName(name);
@@ -40820,11 +41159,11 @@ class PartialEvaluator {
                 throw new FormatError("GState must be referred to by name.");
               }
               const extGState = resources.get("ExtGState");
-              if (!(extGState instanceof primitives_Dict)) {
+              if (!(extGState instanceof Dict)) {
                 throw new FormatError("ExtGState should be a dictionary.");
               }
               const gState = extGState.get(name);
-              if (!(gState instanceof primitives_Dict)) {
+              if (!(gState instanceof Dict)) {
                 throw new FormatError("GState should be a dictionary.");
               }
               self.setGState({
@@ -40922,7 +41261,7 @@ class PartialEvaluator {
           case OPS.endCompat:
             continue;
           case OPS.beginMarkedContentProps:
-            if (!(args[0] instanceof primitives_Name)) {
+            if (!(args[0] instanceof Name)) {
               warn(`Expected name for beginMarkedContentProps arg0=${args[0]}`);
               operatorList.addOp(OPS.beginMarkedContentProps, ["OC", null]);
               continue;
@@ -40943,14 +41282,14 @@ class PartialEvaluator {
               }));
               return;
             }
-            args = [args[0].name, args[1] instanceof primitives_Dict ? args[1].get("MCID") : null];
+            args = [args[0].name, args[1] instanceof Dict ? args[1].get("MCID") : null];
             break;
           case OPS.beginMarkedContent:
           case OPS.endMarkedContent:
           default:
             if (args !== null) {
               for (i = 0, ii = args.length; i < ii; i++) {
-                if (args[i] instanceof primitives_Dict) {
+                if (args[i] instanceof Dict) {
                   break;
                 }
               }
@@ -40998,14 +41337,14 @@ class PartialEvaluator {
       intersector = null
     } = _ref7;
     const objId = stream.dict?.objId;
-    const seenRefs = new primitives_RefSet(prevRefs);
+    const seenRefs = new RefSet(prevRefs);
     if (objId) {
       if (prevRefs?.has(objId)) {
         throw new Error(`getTextContent - ignoring circular reference: ${objId}`);
       }
       seenRefs.put(objId);
     }
-    resources ||= primitives_Dict.empty;
+    resources ||= Dict.empty;
     stateManager ||= new StateManager(new TextState());
     if (includeMarkedContent) {
       markedContentData ||= {
@@ -41625,8 +41964,8 @@ class PartialEvaluator {
             break;
           case OPS.paintXObject:
             flushTextContentItem();
-            xobjs ??= resources.get("XObject") || primitives_Dict.empty;
-            isValidName = args[0] instanceof primitives_Name;
+            xobjs ??= resources.get("XObject") || Dict.empty;
+            isValidName = args[0] instanceof Name;
             name = args[0].name;
             if (isValidName && emptyXObjectCache.getByName(name)) {
               break;
@@ -41636,7 +41975,7 @@ class PartialEvaluator {
                 throw new FormatError("XObject must be referred to by name.");
               }
               let xobj = xobjs.getRaw(name);
-              if (xobj instanceof primitives_Ref) {
+              if (xobj instanceof Ref) {
                 if (emptyXObjectCache.getByRef(xobj)) {
                   resolveXObject();
                   return;
@@ -41655,7 +41994,7 @@ class PartialEvaluator {
                 dict
               } = xobj;
               const type = dict.get("Subtype");
-              if (!(type instanceof primitives_Name)) {
+              if (!(type instanceof Name)) {
                 throw new FormatError("XObject should have a Name subtype");
               }
               if (type.name !== "Form") {
@@ -41687,7 +42026,7 @@ class PartialEvaluator {
               self.getTextContent({
                 stream: xobj,
                 task,
-                resources: localResources instanceof primitives_Dict ? localResources : resources,
+                resources: localResources instanceof Dict ? localResources : resources,
                 stateManager: xObjStateManager,
                 includeMarkedContent,
                 sink: sink && sinkWrapper,
@@ -41716,7 +42055,7 @@ class PartialEvaluator {
             }));
             return;
           case OPS.setGState:
-            isValidName = args[0] instanceof primitives_Name;
+            isValidName = args[0] instanceof Name;
             name = args[0].name;
             if (isValidName && emptyGStateCache.getByName(name)) {
               break;
@@ -41726,11 +42065,11 @@ class PartialEvaluator {
                 throw new FormatError("GState must be referred to by name.");
               }
               const extGState = resources.get("ExtGState");
-              if (!(extGState instanceof primitives_Dict)) {
+              if (!(extGState instanceof Dict)) {
                 throw new FormatError("ExtGState should be a dictionary.");
               }
               const gState = extGState.get(name);
-              if (!(gState instanceof primitives_Dict)) {
+              if (!(gState instanceof Dict)) {
                 throw new FormatError("GState should be a dictionary.");
               }
               const gStateFont = gState.get("Font");
@@ -41760,7 +42099,7 @@ class PartialEvaluator {
               markedContentData.level++;
               textContent.items.push({
                 type: "beginMarkedContent",
-                tag: args[0] instanceof primitives_Name ? args[0].name : null
+                tag: args[0] instanceof Name ? args[0].name : null
               });
             }
             break;
@@ -41769,13 +42108,13 @@ class PartialEvaluator {
             if (includeMarkedContent) {
               markedContentData.level++;
               let mcid = null;
-              if (args[1] instanceof primitives_Dict) {
+              if (args[1] instanceof Dict) {
                 mcid = args[1].get("MCID");
               }
               textContent.items.push({
                 type: "beginMarkedContentProps",
                 id: Number.isInteger(mcid) ? `${self.idFactory.getPageObjId()}_mc${mcid}` : null,
-                tag: args[0] instanceof primitives_Name ? args[0].name : null
+                tag: args[0] instanceof Name ? args[0].name : null
               });
             }
             break;
@@ -41828,7 +42167,7 @@ class PartialEvaluator {
     const toUnicodePromise = this.readToUnicode(properties.toUnicode);
     if (properties.composite) {
       const cidSystemInfo = dict.get("CIDSystemInfo");
-      if (cidSystemInfo instanceof primitives_Dict) {
+      if (cidSystemInfo instanceof Dict && !properties.cidSystemInfo) {
         properties.cidSystemInfo = {
           registry: stringToPDFString(cidSystemInfo.get("Registry")),
           ordering: stringToPDFString(cidSystemInfo.get("Ordering")),
@@ -41852,9 +42191,9 @@ class PartialEvaluator {
     let encoding;
     if (dict.has("Encoding")) {
       encoding = dict.get("Encoding");
-      if (encoding instanceof primitives_Dict) {
+      if (encoding instanceof Dict) {
         baseEncodingName = encoding.get("BaseEncoding");
-        baseEncodingName = baseEncodingName instanceof primitives_Name ? baseEncodingName.name : null;
+        baseEncodingName = baseEncodingName instanceof Name ? baseEncodingName.name : null;
         if (encoding.has("Differences")) {
           const diffEncoding = encoding.get("Differences");
           let index = 0;
@@ -41862,14 +42201,14 @@ class PartialEvaluator {
             const data = xref.fetchIfRef(entry);
             if (typeof data === "number") {
               index = data;
-            } else if (data instanceof primitives_Name) {
+            } else if (data instanceof Name) {
               differences[index++] = data.name;
             } else {
               throw new FormatError(`Invalid entry in 'Differences' array: ${data}`);
             }
           }
         }
-      } else if (encoding instanceof primitives_Name) {
+      } else if (encoding instanceof Name) {
         baseEncodingName = encoding.name;
       } else {
         const msg = "Encoding is not a Name nor a Dict";
@@ -41886,6 +42225,28 @@ class PartialEvaluator {
       isSymbolsFontName = getSymbolsFonts()[properties.name];
     if (baseEncodingName && nonEmbeddedFont && isSymbolsFontName) {
       baseEncodingName = null;
+    }
+    if (baseEncodingName === "WinAnsiEncoding" && nonEmbeddedFont && properties.name?.charCodeAt(0) >= 0xb7) {
+      const fontName = properties.name;
+      const chineseFontNames = ["\xCB\xCE\xCC\xE5", "\xBA\xDA\xCC\xE5", "\xBF\xAC\xCC\xE5", "\xB7\xC2\xCB\xCE", "\xBF\xAC\xCC\xE5_GB2312", "\xB7\xC2\xCB\xCE_GB2312", "\xC1\xA5\xCA\xE9", "\xD0\xC2\xCB\xCE"];
+      if (chineseFontNames.includes(fontName)) {
+        baseEncodingName = null;
+        properties.defaultEncoding = "Adobe-GB1-UCS2";
+        properties.composite = true;
+        properties.cidEncoding = Name.get("GBK-EUC-H");
+        const cMap = await CMapFactory.create({
+          encoding: properties.cidEncoding,
+          fetchBuiltInCMap: this._fetchBuiltInCMapBound,
+          useCMap: null
+        });
+        properties.cMap = cMap;
+        properties.vertical = properties.cMap.vertical;
+        properties.cidSystemInfo = {
+          registry: "Adobe",
+          ordering: "GB1",
+          supplement: 0
+        };
+      }
     }
     if (baseEncodingName) {
       properties.defaultEncoding = getEncoding(baseEncodingName);
@@ -42022,7 +42383,7 @@ class PartialEvaluator {
         registry,
         ordering
       } = properties.cidSystemInfo;
-      const ucs2CMapName = primitives_Name.get(`${registry}-${ordering}-UCS2`);
+      const ucs2CMapName = Name.get(`${registry}-${ordering}-UCS2`);
       const ucs2CMap = await CMapFactory.create({
         encoding: ucs2CMapName,
         fetchBuiltInCMap: this._fetchBuiltInCMapBound,
@@ -42051,7 +42412,7 @@ class PartialEvaluator {
     if (!cmapObj) {
       return null;
     }
-    if (cmapObj instanceof primitives_Name) {
+    if (cmapObj instanceof Name) {
       const cmap = await CMapFactory.create({
         encoding: cmapObj,
         fetchBuiltInCMap: this._fetchBuiltInCMapBound,
@@ -42207,7 +42568,7 @@ class PartialEvaluator {
         defaultWidth = typeof missingWidth === "number" ? missingWidth : 0;
       } else {
         const baseFontName = dict.get("BaseFont");
-        if (baseFontName instanceof primitives_Name) {
+        if (baseFontName instanceof Name) {
           const metrics = this.getBaseFontMetrics(baseFontName.name);
           glyphsWidths = this.buildCharCodeToWidth(metrics.widths, properties);
           defaultWidth = metrics.defaultWidth;
@@ -42286,7 +42647,7 @@ class PartialEvaluator {
   preEvaluateFont(dict) {
     const baseDict = dict;
     let type = dict.get("Subtype");
-    if (!(type instanceof primitives_Name)) {
+    if (!(type instanceof Name)) {
       throw new FormatError("invalid font Subtype");
     }
     let composite = false;
@@ -42297,11 +42658,11 @@ class PartialEvaluator {
         throw new FormatError("Descendant fonts are not specified");
       }
       dict = Array.isArray(df) ? this.xref.fetchIfRef(df[0]) : df;
-      if (!(dict instanceof primitives_Dict)) {
+      if (!(dict instanceof Dict)) {
         throw new FormatError("Descendant font is not a dictionary.");
       }
       type = dict.get("Subtype");
-      if (!(type instanceof primitives_Name)) {
+      if (!(type instanceof Name)) {
         throw new FormatError("invalid font Subtype");
       }
       composite = true;
@@ -42319,24 +42680,24 @@ class PartialEvaluator {
     if (descriptor) {
       hash = new MurmurHash3_64();
       const encoding = baseDict.getRaw("Encoding");
-      if (encoding instanceof primitives_Name) {
+      if (encoding instanceof Name) {
         hash.update(encoding.name);
-      } else if (encoding instanceof primitives_Ref) {
+      } else if (encoding instanceof Ref) {
         hash.update(encoding.toString());
-      } else if (encoding instanceof primitives_Dict) {
+      } else if (encoding instanceof Dict) {
         for (const entry of encoding.getRawValues()) {
-          if (entry instanceof primitives_Name) {
+          if (entry instanceof Name) {
             hash.update(entry.name);
-          } else if (entry instanceof primitives_Ref) {
+          } else if (entry instanceof Ref) {
             hash.update(entry.toString());
           } else if (Array.isArray(entry)) {
             const diffLength = entry.length,
               diffBuf = new Array(diffLength);
             for (let j = 0; j < diffLength; j++) {
               const diffEntry = entry[j];
-              if (diffEntry instanceof primitives_Name) {
+              if (diffEntry instanceof Name) {
                 diffBuf[j] = diffEntry.name;
-              } else if (typeof diffEntry === "number" || diffEntry instanceof primitives_Ref) {
+              } else if (typeof diffEntry === "number" || diffEntry instanceof Ref) {
                 diffBuf[j] = diffEntry.toString();
               }
             }
@@ -42346,17 +42707,17 @@ class PartialEvaluator {
       }
       hash.update(`${firstChar}-${lastChar}`);
       if (toUnicode instanceof BaseStream) {
-        const stream = toUnicode.str || toUnicode;
+        const stream = toUnicode.stream || toUnicode;
         const uint8array = stream.buffer ? new Uint8Array(stream.buffer.buffer, 0, stream.bufferLength) : new Uint8Array(stream.bytes.buffer, stream.start, stream.end - stream.start);
         hash.update(uint8array);
-      } else if (toUnicode instanceof primitives_Name) {
+      } else if (toUnicode instanceof Name) {
         hash.update(toUnicode.name);
       }
       const widths = dict.get("Widths") || baseDict.get("Widths");
       if (Array.isArray(widths)) {
         const widthsBuf = [];
         for (const entry of widths) {
-          if (typeof entry === "number" || entry instanceof primitives_Ref) {
+          if (typeof entry === "number" || entry instanceof Ref) {
             widthsBuf.push(entry.toString());
           }
         }
@@ -42368,12 +42729,12 @@ class PartialEvaluator {
         if (Array.isArray(compositeWidths)) {
           const widthsBuf = [];
           for (const entry of compositeWidths) {
-            if (typeof entry === "number" || entry instanceof primitives_Ref) {
+            if (typeof entry === "number" || entry instanceof Ref) {
               widthsBuf.push(entry.toString());
             } else if (Array.isArray(entry)) {
               const subWidthsBuf = [];
               for (const element of entry) {
-                if (typeof element === "number" || element instanceof primitives_Ref) {
+                if (typeof element === "number" || element instanceof Ref) {
                   subWidthsBuf.push(element.toString());
                 }
               }
@@ -42383,9 +42744,9 @@ class PartialEvaluator {
           hash.update(widthsBuf.join());
         }
         const cidToGidMap = dict.getRaw("CIDToGIDMap") || baseDict.getRaw("CIDToGIDMap");
-        if (cidToGidMap instanceof primitives_Name) {
+        if (cidToGidMap instanceof Name) {
           hash.update(cidToGidMap.name);
-        } else if (cidToGidMap instanceof primitives_Ref) {
+        } else if (cidToGidMap instanceof Ref) {
           hash.update(cidToGidMap.toString());
         } else if (cidToGidMap instanceof BaseStream) {
           hash.update(cidToGidMap.peekBytes());
@@ -42419,10 +42780,10 @@ class PartialEvaluator {
     const isType3Font = type === "Type3";
     if (!descriptor) {
       if (isType3Font) {
-        descriptor = primitives_Dict.empty;
+        descriptor = Dict.empty;
       } else {
         let baseFontName = dict.get("BaseFont");
-        if (!(baseFontName instanceof primitives_Name)) {
+        if (!(baseFontName instanceof Name)) {
           throw new FormatError("Base font is not specified");
         }
         baseFontName = baseFontName.name.replaceAll(/[,_]/g, "-");
@@ -42477,16 +42838,16 @@ class PartialEvaluator {
     let fontName = descriptor.get("FontName");
     let baseFont = dict.get("BaseFont");
     if (typeof fontName === "string") {
-      fontName = primitives_Name.get(fontName);
+      fontName = Name.get(fontName);
     }
     if (typeof baseFont === "string") {
-      baseFont = primitives_Name.get(baseFont);
+      baseFont = Name.get(baseFont);
     }
     const fontNameStr = fontName?.name;
     const baseFontStr = baseFont?.name;
     if (isType3Font) {
       if (!fontNameStr) {
-        fontName = primitives_Name.get(type);
+        fontName = Name.get(type);
       }
     } else if (fontNameStr !== baseFontStr) {
       info(`The FontDescriptor's FontName is "${fontNameStr}" but ` + `should be the same as the Font's BaseFont "${baseFontStr}".`);
@@ -42495,7 +42856,7 @@ class PartialEvaluator {
       }
       fontName ||= baseFont;
     }
-    if (!(fontName instanceof primitives_Name)) {
+    if (!(fontName instanceof Name)) {
       throw new FormatError("invalid font name");
     }
     let fontFile, subtype, length1, length2, length3;
@@ -42521,7 +42882,7 @@ class PartialEvaluator {
     if (fontFile) {
       if (fontFile.dict) {
         const subtypeEntry = fontFile.dict.get("Subtype");
-        if (subtypeEntry instanceof primitives_Name) {
+        if (subtypeEntry instanceof Name) {
           subtype = subtypeEntry.name;
         }
         length1 = fontFile.dict.get("Length1");
@@ -42605,7 +42966,7 @@ class PartialEvaluator {
     };
     if (composite) {
       const cidEncoding = baseDict.get("Encoding");
-      if (cidEncoding instanceof primitives_Name) {
+      if (cidEncoding instanceof Name) {
         properties.cidEncoding = cidEncoding.name;
       }
       const cMap = await CMapFactory.create({
@@ -42627,7 +42988,8 @@ class PartialEvaluator {
         if (font.renderer.hasBuiltPath(fontChar)) {
           return;
         }
-        handler.send("commonobj", [glyphName, "FontPath", font.renderer.getPathJs(fontChar)]);
+        const buffer = FontPathInfo.write(font.renderer.getPathJs(fontChar));
+        handler.send("commonobj", [glyphName, "FontPath", buffer], [buffer]);
       } catch (reason) {
         if (evaluatorOptions.ignoreErrors) {
           warn(`buildFontPaths - ignoring ${glyphName} glyph: "${reason}".`);
@@ -42645,11 +43007,11 @@ class PartialEvaluator {
     }
   }
   static get fallbackFontDict() {
-    const dict = new primitives_Dict();
-    dict.set("BaseFont", primitives_Name.get("Helvetica"));
-    dict.set("Type", primitives_Name.get("FallbackType"));
-    dict.set("Subtype", primitives_Name.get("FallbackType"));
-    dict.set("Encoding", primitives_Name.get("WinAnsiEncoding"));
+    const dict = new Dict();
+    dict.set("BaseFont", Name.get("Helvetica"));
+    dict.set("Type", Name.get("FallbackType"));
+    dict.set("Subtype", Name.get("FallbackType"));
+    dict.set("Encoding", Name.get("WinAnsiEncoding"));
     return shadow(this, "fallbackFontDict", dict);
   }
 }
@@ -42706,7 +43068,7 @@ class TranslatedFont {
     const type3Evaluator = evaluator.clone({
       ignoreErrors: false
     });
-    const type3FontRefs = new primitives_RefSet(evaluator.type3FontRefs);
+    const type3FontRefs = new RefSet(evaluator.type3FontRefs);
     if (this.dict.objId && !type3FontRefs.has(this.dict.objId)) {
       type3FontRefs.put(this.dict.objId);
     }
@@ -43477,7 +43839,7 @@ class DefaultAppearanceEvaluator extends EvaluatorPreprocessor {
         switch (fn | 0) {
           case OPS.setFont:
             const [fontName, fontSize] = args;
-            if (fontName instanceof primitives_Name) {
+            if (fontName instanceof Name) {
               result.fontName = fontName.name;
             }
             if (typeof fontSize === "number" && fontSize > 0) {
@@ -43555,7 +43917,7 @@ class AppearanceStreamEvaluator extends EvaluatorPreprocessor {
             break;
           case OPS.setFont:
             const [fontName, fontSize] = args;
-            if (fontName instanceof primitives_Name) {
+            if (fontName instanceof Name) {
               result.fontName = fontName.name;
             }
             if (typeof fontSize === "number" && fontSize > 0) {
@@ -43644,11 +44006,11 @@ class FakeUnicodeFont {
     if (!FakeUnicodeFont._fontNameId) {
       FakeUnicodeFont._fontNameId = 1;
     }
-    this.fontName = primitives_Name.get(`InvalidPDFjsFont_${fontFamily}_${FakeUnicodeFont._fontNameId++}`);
+    this.fontName = Name.get(`InvalidPDFjsFont_${fontFamily}_${FakeUnicodeFont._fontNameId++}`);
   }
   get fontDescriptorRef() {
     if (!FakeUnicodeFont._fontDescriptorRef) {
-      const fontDescriptor = new primitives_Dict(this.xref);
+      const fontDescriptor = new Dict(this.xref);
       fontDescriptor.setIfName("Type", "FontDescriptor");
       fontDescriptor.set("FontName", this.fontName);
       fontDescriptor.set("FontFamily", "MyriadPro Regular");
@@ -43661,7 +44023,7 @@ class FakeUnicodeFont {
     return FakeUnicodeFont._fontDescriptorRef;
   }
   get descendantFontRef() {
-    const descendantFont = new primitives_Dict(this.xref);
+    const descendantFont = new Dict(this.xref);
     descendantFont.set("BaseFont", this.fontName);
     descendantFont.setIfName("Type", "Font");
     descendantFont.setIfName("Subtype", "CIDFontType0");
@@ -43692,7 +44054,7 @@ class FakeUnicodeFont {
       widths.push(currentChar, currentWidths);
     }
     descendantFont.set("W", widths);
-    const cidSystemInfo = new primitives_Dict(this.xref);
+    const cidSystemInfo = new Dict(this.xref);
     cidSystemInfo.set("Ordering", "Identity");
     cidSystemInfo.set("Registry", "Adobe");
     cidSystemInfo.set("Supplement", 0);
@@ -43700,7 +44062,7 @@ class FakeUnicodeFont {
     return this.xref.getNewPersistentRef(descendantFont);
   }
   get baseFontRef() {
-    const baseFont = new primitives_Dict(this.xref);
+    const baseFont = new Dict(this.xref);
     baseFont.set("BaseFont", this.fontName);
     baseFont.setIfName("Type", "Font");
     baseFont.setIfName("Subtype", "Type0");
@@ -43710,8 +44072,8 @@ class FakeUnicodeFont {
     return this.xref.getNewPersistentRef(baseFont);
   }
   get resources() {
-    const resources = new primitives_Dict(this.xref);
-    const font = new primitives_Dict(this.xref);
+    const resources = new Dict(this.xref);
+    const font = new Dict(this.xref);
     font.set(this.fontName.name, this.baseFontRef);
     resources.set("Font", font);
     return resources;
@@ -43800,8 +44162,8 @@ class FakeUnicodeFont {
     strokeAlpha = typeof strokeAlpha === "number" && strokeAlpha >= 0 && strokeAlpha <= 1 ? strokeAlpha : 1;
     if (strokeAlpha !== 1) {
       buffer.push("/R0 gs");
-      const extGState = new primitives_Dict(this.xref);
-      const r0 = new primitives_Dict(this.xref);
+      const extGState = new Dict(this.xref);
+      const r0 = new Dict(this.xref);
       r0.set("ca", strokeAlpha);
       r0.set("CA", strokeAlpha);
       r0.setIfName("Type", "ExtGState");
@@ -43814,7 +44176,7 @@ class FakeUnicodeFont {
     }
     buffer.push("ET", "Q");
     const appearance = buffer.join("\n");
-    const appearanceStreamDict = new primitives_Dict(this.xref);
+    const appearanceStreamDict = new Dict(this.xref);
     appearanceStreamDict.setIfName("Subtype", "Form");
     appearanceStreamDict.setIfName("Type", "XObject");
     appearanceStreamDict.set("BBox", [0, 0, w, h]);
@@ -43913,17 +44275,18 @@ class NameOrNumberTree {
     this._type = type;
   }
   getAll() {
+    let isRaw = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : false;
     const map = new Map();
     if (!this.root) {
       return map;
     }
     const xref = this.xref;
-    const processed = new primitives_RefSet();
+    const processed = new RefSet();
     processed.put(this.root);
     const queue = [this.root];
     while (queue.length > 0) {
       const obj = xref.fetchIfRef(queue.shift());
-      if (!(obj instanceof primitives_Dict)) {
+      if (!(obj instanceof Dict)) {
         continue;
       }
       if (obj.has("Kids")) {
@@ -43945,7 +44308,7 @@ class NameOrNumberTree {
         continue;
       }
       for (let i = 0, ii = entries.length; i < ii; i += 2) {
-        map.set(xref.fetchIfRef(entries[i]), xref.fetchIfRef(entries[i + 1]));
+        map.set(xref.fetchIfRef(entries[i]), isRaw ? entries[i + 1] : xref.fetchIfRef(entries[i + 1]));
       }
     }
     return map;
@@ -44043,7 +44406,7 @@ function file_spec_assertClassBrand(e, t, n) { if ("function" == typeof e ? e ==
 
 
 function pickPlatformItem(dict) {
-  if (!(dict instanceof primitives_Dict)) {
+  if (!(dict instanceof Dict)) {
     return null;
   }
   if (dict.has("UF")) {
@@ -44067,7 +44430,7 @@ class FileSpec {
   constructor(root, xref) {
     let skipContent = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : false;
     file_spec_classPrivateFieldInitSpec(this, _contentAvailable, false);
-    if (!(root instanceof primitives_Dict)) {
+    if (!(root instanceof Dict)) {
       return;
     }
     this.xref = xref;
@@ -44666,6 +45029,7 @@ function struct_tree_assertClassBrand(e, t, n) { if ("function" == typeof e ? e 
 
 
 
+
 const MAX_DEPTH = 40;
 const StructElementType = {
   PAGE_CONTENT: 1,
@@ -44680,23 +45044,51 @@ class StructTreeRoot {
     struct_tree_classPrivateMethodInitSpec(this, _StructTreeRoot_brand);
     this.xref = xref;
     this.dict = rootDict;
-    this.ref = rootRef instanceof primitives_Ref ? rootRef : null;
+    this.ref = rootRef instanceof Ref ? rootRef : null;
     this.roleMap = new Map();
     this.structParentIds = null;
+    this.kidRefToPosition = undefined;
+    this.parentTree = null;
+  }
+  getKidPosition(kidRef) {
+    if (this.kidRefToPosition === undefined) {
+      const obj = this.dict.get("K");
+      if (Array.isArray(obj)) {
+        const map = this.kidRefToPosition = new Map();
+        for (let i = 0, ii = obj.length; i < ii; i++) {
+          const ref = obj[i];
+          if (ref) {
+            map.set(ref.toString(), i);
+          }
+        }
+      } else if (obj instanceof Dict) {
+        this.kidRefToPosition = new Map([[obj.objId, 0]]);
+      } else if (!obj) {
+        this.kidRefToPosition = new Map();
+      } else {
+        this.kidRefToPosition = null;
+      }
+    }
+    return this.kidRefToPosition ? this.kidRefToPosition.get(kidRef) ?? NaN : -1;
   }
   init() {
     this.readRoleMap();
+    const parentTree = this.dict.get("ParentTree");
+    if (!parentTree) {
+      return;
+    }
+    this.parentTree = new NumberTree(parentTree, this.xref);
   }
   addAnnotationIdToPage(pageRef, id) {
     struct_tree_assertClassBrand(_StructTreeRoot_brand, this, _addIdToPage).call(this, pageRef, id, StructElementType.ANNOTATION);
   }
   readRoleMap() {
     const roleMapDict = this.dict.get("RoleMap");
-    if (!(roleMapDict instanceof primitives_Dict)) {
+    if (!(roleMapDict instanceof Dict)) {
       return;
     }
     for (const [key, value] of roleMapDict) {
-      if (value instanceof primitives_Name) {
+      if (value instanceof Name) {
         this.roleMap.set(key, value.name);
       }
     }
@@ -44707,7 +45099,7 @@ class StructTreeRoot {
       pdfManager,
       newAnnotationsByPage
     } = _ref;
-    if (!(catalogRef instanceof primitives_Ref)) {
+    if (!(catalogRef instanceof Ref)) {
       warn("Cannot save the struct tree: no catalog reference.");
       return false;
     }
@@ -44717,7 +45109,7 @@ class StructTreeRoot {
       const {
         ref: pageRef
       } = await pdfManager.getPage(pageIndex);
-      if (!(pageRef instanceof primitives_Ref)) {
+      if (!(pageRef instanceof Ref)) {
         warn(`Cannot save the struct tree: page ${pageIndex} has no ref.`);
         hasNothingToUpdate = true;
         break;
@@ -44752,14 +45144,14 @@ class StructTreeRoot {
     cache.put(catalogRef, root);
     const structTreeRootRef = xref.getNewTemporaryRef();
     root.set("StructTreeRoot", structTreeRootRef);
-    const structTreeRoot = new primitives_Dict(xref);
-    structTreeRoot.set("Type", primitives_Name.get("StructTreeRoot"));
+    const structTreeRoot = new Dict(xref);
+    structTreeRoot.set("Type", Name.get("StructTreeRoot"));
     const parentTreeRef = xref.getNewTemporaryRef();
     structTreeRoot.set("ParentTree", parentTreeRef);
     const kids = [];
     structTreeRoot.set("K", kids);
     cache.put(structTreeRootRef, structTreeRoot);
-    const parentTree = new primitives_Dict(xref);
+    const parentTree = new Dict(xref);
     const nums = [];
     parentTree.set("Nums", nums);
     const nextKey = await struct_tree_assertClassBrand(StructTreeRoot, this, _writeKids).call(this, {
@@ -44796,7 +45188,7 @@ class StructTreeRoot {
       return false;
     }
     const parentTree = this.dict.get("ParentTree");
-    if (!(parentTree instanceof primitives_Dict)) {
+    if (!(parentTree instanceof Dict)) {
       warn("Cannot update the struct tree: ParentTree isn't a dict.");
       return false;
     }
@@ -44865,7 +45257,7 @@ class StructTreeRoot {
     cache.put(structTreeRootRef, structTreeRoot);
     let parentTreeRef = structTreeRoot.getRaw("ParentTree");
     let parentTree;
-    if (parentTreeRef instanceof primitives_Ref) {
+    if (parentTreeRef instanceof Ref) {
       parentTree = xref.fetch(parentTreeRef);
     } else {
       parentTree = parentTreeRef;
@@ -44876,7 +45268,7 @@ class StructTreeRoot {
     cache.put(parentTreeRef, parentTree);
     let nums = parentTree.getRaw("Nums");
     let numsRef = null;
-    if (nums instanceof primitives_Ref) {
+    if (nums instanceof Ref) {
       numsRef = nums;
       nums = xref.fetch(numsRef);
     }
@@ -44911,7 +45303,7 @@ class StructTreeRoot {
 }
 _StructTreeRoot = StructTreeRoot;
 function _addIdToPage(pageRef, id, type) {
-  if (!(pageRef instanceof primitives_Ref) || id < 0) {
+  if (!(pageRef instanceof Ref) || id < 0) {
     return;
   }
   this.structParentIds ||= new RefSetCache();
@@ -44934,7 +45326,7 @@ async function _writeKids(_ref6) {
     changes,
     cache
   } = _ref6;
-  const objr = primitives_Name.get("OBJR");
+  const objr = Name.get("OBJR");
   let nextKey = -1;
   let structTreePageObjs;
   for (const [pageIndex, elements] of newAnnotationsByPage) {
@@ -44942,7 +45334,7 @@ async function _writeKids(_ref6) {
     const {
       ref: pageRef
     } = page;
-    const isPageRef = pageRef instanceof primitives_Ref;
+    const isPageRef = pageRef instanceof Ref;
     for (const {
       accessibilityData,
       ref,
@@ -44974,7 +45366,7 @@ async function _writeKids(_ref6) {
       }
       nextKey = Math.max(nextKey, parentTreeId);
       const tagRef = xref.getNewTemporaryRef();
-      const tagDict = new primitives_Dict(xref);
+      const tagDict = new Dict(xref);
       _writeProperties.call(_StructTreeRoot, tagDict, accessibilityData);
       await struct_tree_assertClassBrand(_StructTreeRoot, this, _updateParentTag).call(this, {
         structTreeParent,
@@ -44985,7 +45377,7 @@ async function _writeKids(_ref6) {
         xref,
         cache
       });
-      const objDict = new primitives_Dict(xref);
+      const objDict = new Dict(xref);
       tagDict.set("K", objDict);
       objDict.set("Type", objr);
       if (isPageRef) {
@@ -45007,7 +45399,7 @@ function _writeProperties(tagDict, _ref7) {
     expanded,
     actualText
   } = _ref7;
-  tagDict.set("S", primitives_Name.get(type));
+  tagDict.set("S", Name.get(type));
   if (title) {
     tagDict.set("T", stringToAsciiOrUTF16BE(title));
   }
@@ -45053,7 +45445,7 @@ function _collectParents(_ref8) {
     if (elems) {
       const parentRef = pageKid.getRaw("P");
       const parentDict = xref.fetchIfRef(parentRef);
-      if (parentRef instanceof primitives_Ref && parentDict instanceof primitives_Dict) {
+      if (parentRef instanceof Ref && parentDict instanceof Dict) {
         const params = {
           ref: kidRef,
           dict: pageKid
@@ -45067,7 +45459,7 @@ function _collectParents(_ref8) {
     return false;
   };
   for (const kidRef of parentArray) {
-    if (!(kidRef instanceof primitives_Ref)) {
+    if (!(kidRef instanceof Ref)) {
       continue;
     }
     const pageKid = xref.fetch(kidRef);
@@ -45084,10 +45476,10 @@ function _collectParents(_ref8) {
       if (Number.isInteger(kid) && updateElement(kid, pageKid, kidRef)) {
         break;
       }
-      if (!(kid instanceof primitives_Dict)) {
+      if (!(kid instanceof Dict)) {
         continue;
       }
-      if (!primitives_isName(kid.get("Type"), "MCR")) {
+      if (!isName(kid.get("Type"), "MCR")) {
         break;
       }
       const mcid = kid.get("MCID");
@@ -45129,7 +45521,7 @@ async function _updateParentTag(_ref9) {
     cache.put(parentRef, cachedParentDict);
   }
   const parentKidsRaw = cachedParentDict.getRaw("K");
-  let cachedParentKids = parentKidsRaw instanceof primitives_Ref ? cache.get(parentKidsRaw) : null;
+  let cachedParentKids = parentKidsRaw instanceof Ref ? cache.get(parentKidsRaw) : null;
   if (!cachedParentKids) {
     cachedParentKids = xref.fetchIfRef(parentKidsRaw);
     cachedParentKids = Array.isArray(cachedParentKids) ? cachedParentKids.slice() : [parentKidsRaw];
@@ -45150,16 +45542,58 @@ class StructElementNode {
   }
   get role() {
     const nameObj = this.dict.get("S");
-    const name = nameObj instanceof primitives_Name ? nameObj.name : "";
+    const name = nameObj instanceof Name ? nameObj.name : "";
     const {
       root
     } = this.tree;
     return root.roleMap.get(name) ?? name;
   }
+  get mathML() {
+    let AFs = this.dict.get("AF") || [];
+    if (!Array.isArray(AFs)) {
+      AFs = [AFs];
+    }
+    for (let af of AFs) {
+      af = this.xref.fetchIfRef(af);
+      if (!(af instanceof Dict)) {
+        continue;
+      }
+      if (!isName(af.get("Type"), "Filespec")) {
+        continue;
+      }
+      if (!isName(af.get("AFRelationship"), "Supplement")) {
+        continue;
+      }
+      const ef = af.get("EF");
+      if (!(ef instanceof Dict)) {
+        continue;
+      }
+      const fileStream = ef.get("UF") || ef.get("F");
+      if (!(fileStream instanceof BaseStream)) {
+        continue;
+      }
+      if (!isName(fileStream.dict.get("Type"), "EmbeddedFile")) {
+        continue;
+      }
+      if (!isName(fileStream.dict.get("Subtype"), "application/mathml+xml")) {
+        continue;
+      }
+      return stringToUTF8String(fileStream.getString());
+    }
+    const A = this.dict.get("A");
+    if (A instanceof Dict) {
+      const O = A.get("O");
+      if (isName(O, "MSFT_Office")) {
+        const mathml = A.get("MSFT_MathML");
+        return mathml ? stringToPDFString(mathml) : null;
+      }
+    }
+    return null;
+  }
   parseKids() {
     let pageObjId = null;
     const objRef = this.dict.getRaw("Pg");
-    if (objRef instanceof primitives_Ref) {
+    if (objRef instanceof Ref) {
       pageObjId = objRef.toString();
     }
     const kids = this.dict.get("K");
@@ -45188,14 +45622,14 @@ class StructElementNode {
         pageObjId
       });
     }
-    if (!(kid instanceof primitives_Dict)) {
+    if (!(kid instanceof Dict)) {
       return null;
     }
     const pageRef = kid.getRaw("Pg");
-    if (pageRef instanceof primitives_Ref) {
+    if (pageRef instanceof Ref) {
       pageObjId = pageRef.toString();
     }
-    const type = kid.get("Type") instanceof primitives_Name ? kid.get("Type").name : null;
+    const type = kid.get("Type") instanceof Name ? kid.get("Type").name : null;
     if (type === "MCR") {
       if (this.tree.pageDict.objId !== pageObjId) {
         return null;
@@ -45203,7 +45637,7 @@ class StructElementNode {
       const kidRef = kid.getRaw("Stm");
       return new StructElement({
         type: StructElementType.STREAM_CONTENT,
-        refObjId: kidRef instanceof primitives_Ref ? kidRef.toString() : null,
+        refObjId: kidRef instanceof Ref ? kidRef.toString() : null,
         pageObjId,
         mcid: kid.get("MCID")
       });
@@ -45215,7 +45649,7 @@ class StructElementNode {
       const kidRef = kid.getRaw("Obj");
       return new StructElement({
         type: StructElementType.OBJECT,
-        refObjId: kidRef instanceof primitives_Ref ? kidRef.toString() : null,
+        refObjId: kidRef instanceof Ref ? kidRef.toString() : null,
         pageObjId
       });
     }
@@ -45251,7 +45685,7 @@ class StructTreePage {
     this.nodes = [];
   }
   collectObjects(pageRef) {
-    if (!this.root || !this.rootDict || !(pageRef instanceof primitives_Ref)) {
+    if (!this.root || !this.rootDict || !(pageRef instanceof Ref)) {
       return null;
     }
     const parentTree = this.rootDict.get("ParentTree");
@@ -45266,17 +45700,19 @@ class StructTreePage {
     const numberTree = new NumberTree(parentTree, this.xref);
     for (const [elemId] of ids) {
       const obj = numberTree.getRaw(elemId);
-      if (obj instanceof primitives_Ref) {
+      if (obj instanceof Ref) {
         map.set(elemId, obj);
       }
     }
     return map;
   }
   parse(pageRef) {
-    if (!this.root || !this.rootDict || !(pageRef instanceof primitives_Ref)) {
+    if (!this.root || !this.rootDict || !(pageRef instanceof Ref)) {
       return;
     }
-    const parentTree = this.rootDict.get("ParentTree");
+    const {
+      parentTree
+    } = this.root;
     if (!parentTree) {
       return;
     }
@@ -45286,12 +45722,11 @@ class StructTreePage {
       return;
     }
     const map = new Map();
-    const numberTree = new NumberTree(parentTree, this.xref);
     if (Number.isInteger(id)) {
-      const parentArray = numberTree.get(id);
+      const parentArray = parentTree.get(id);
       if (Array.isArray(parentArray)) {
         for (const ref of parentArray) {
-          if (ref instanceof primitives_Ref) {
+          if (ref instanceof Ref) {
             this.addNode(this.xref.fetch(ref), map);
           }
         }
@@ -45301,7 +45736,7 @@ class StructTreePage {
       return;
     }
     for (const [elemId, type] of ids) {
-      const obj = numberTree.get(elemId);
+      const obj = parentTree.get(elemId);
       if (obj) {
         const elem = this.addNode(this.xref.fetchIfRef(obj), map);
         if (elem?.kids?.length === 1 && elem.kids[0].type === StructElementType.OBJECT) {
@@ -45316,7 +45751,7 @@ class StructTreePage {
       warn("StructTree MAX_DEPTH reached.");
       return null;
     }
-    if (!(dict instanceof primitives_Dict)) {
+    if (!(dict instanceof Dict)) {
       return null;
     }
     if (map.has(dict)) {
@@ -45324,8 +45759,25 @@ class StructTreePage {
     }
     const element = new StructElementNode(this, dict);
     map.set(dict, element);
+    switch (element.role) {
+      case "L":
+      case "LBody":
+      case "LI":
+      case "Table":
+      case "THead":
+      case "TBody":
+      case "TFoot":
+      case "TR":
+        {
+          for (const kid of element.kids) {
+            if (kid.type === StructElementType.ELEMENT) {
+              this.addNode(kid.dict, map, level - 1);
+            }
+          }
+        }
+    }
     const parent = dict.get("P");
-    if (!(parent instanceof primitives_Dict) || primitives_isName(parent.get("Type"), "StructTreeRoot")) {
+    if (!(parent instanceof Dict) || isName(parent.get("Type"), "StructTreeRoot")) {
       if (!this.addTopLevelNode(dict, element)) {
         map.delete(dict);
       }
@@ -45348,29 +45800,14 @@ class StructTreePage {
     return element;
   }
   addTopLevelNode(dict, element) {
-    const obj = this.rootDict.get("K");
-    if (!obj) {
+    const index = this.root.getKidPosition(dict.objId);
+    if (isNaN(index)) {
       return false;
     }
-    if (obj instanceof primitives_Dict) {
-      if (obj.objId !== dict.objId) {
-        return false;
-      }
-      this.nodes[0] = element;
-      return true;
+    if (index !== -1) {
+      this.nodes[index] = element;
     }
-    if (!Array.isArray(obj)) {
-      return true;
-    }
-    let save = false;
-    for (let i = 0; i < obj.length; i++) {
-      const kidRef = obj[i];
-      if (kidRef?.toString() === dict.objId) {
-        this.nodes[i] = element;
-        save = true;
-      }
-    }
-    return save;
+    return true;
   }
   get serializable() {
     function nodeToSerializable(node, parent) {
@@ -45390,8 +45827,16 @@ class StructTreePage {
       if (typeof alt === "string") {
         obj.alt = stringToPDFString(alt);
       }
+      if (obj.role === "Formula") {
+        const {
+          mathML
+        } = node;
+        if (mathML) {
+          obj.mathML = mathML;
+        }
+      }
       const a = node.dict.get("A");
-      if (a instanceof primitives_Dict) {
+      if (a instanceof Dict) {
         const bbox = lookupNormalRect(a.getArray("BBox"), null);
         if (bbox) {
           obj.bbox = bbox;
@@ -45490,10 +45935,10 @@ function catalog_assertClassBrand(e, t, n) { if ("function" == typeof e ? e === 
 
 
 
-const isRef = v => v instanceof primitives_Ref;
-const isValidExplicitDest = _isValidExplicitDest.bind(null, isRef, primitives_isName);
+const isRef = v => v instanceof Ref;
+const isValidExplicitDest = _isValidExplicitDest.bind(null, isRef, isName);
 function fetchDest(dest) {
-  if (dest instanceof primitives_Dict) {
+  if (dest instanceof Dict) {
     dest = dest.get("D");
   }
   return isValidExplicitDest(dest) ? dest : null;
@@ -45501,7 +45946,7 @@ function fetchDest(dest) {
 function fetchRemoteDest(action) {
   let dest = action.get("D");
   if (dest) {
-    if (dest instanceof primitives_Name) {
+    if (dest instanceof Name) {
       dest = dest.name;
     }
     if (typeof dest === "string") {
@@ -45525,7 +45970,7 @@ class Catalog {
     catalog_defineProperty(this, "fontCache", new RefSetCache());
     catalog_defineProperty(this, "globalColorSpaceCache", new GlobalColorSpaceCache());
     catalog_defineProperty(this, "globalImageCache", new GlobalImageCache());
-    catalog_defineProperty(this, "nonBlendModesSet", new primitives_RefSet());
+    catalog_defineProperty(this, "nonBlendModesSet", new RefSet());
     catalog_defineProperty(this, "pageDictCache", new RefSetCache());
     catalog_defineProperty(this, "pageIndexCache", new RefSetCache());
     catalog_defineProperty(this, "pageKidsCountCache", new RefSetCache());
@@ -45534,7 +45979,7 @@ class Catalog {
     this.pdfManager = pdfManager;
     this.xref = _xref;
     catalog_classPrivateFieldSet(_catDict, this, _xref.getCatalogObj());
-    if (!(catalog_classPrivateFieldGet(_catDict, this) instanceof primitives_Dict)) {
+    if (!(catalog_classPrivateFieldGet(_catDict, this) instanceof Dict)) {
       throw new FormatError("Catalog object is not a dictionary.");
     }
     this.enableOpenActionJavaScript = !!options.enableOpenActionJavaScript;
@@ -45548,7 +45993,7 @@ class Catalog {
   }
   get version() {
     const version = catalog_classPrivateFieldGet(_catDict, this).get("Version");
-    if (version instanceof primitives_Name) {
+    if (version instanceof Name) {
       if (PDF_VERSION_REGEXP.test(version.name)) {
         return shadow(this, "version", version.name);
       }
@@ -45568,7 +46013,7 @@ class Catalog {
     let collection = null;
     try {
       const obj = catalog_classPrivateFieldGet(_catDict, this).get("Collection");
-      if (obj instanceof primitives_Dict && obj.size > 0) {
+      if (obj instanceof Dict && obj.size > 0) {
         collection = obj;
       }
     } catch (ex) {
@@ -45583,7 +46028,7 @@ class Catalog {
     let acroForm = null;
     try {
       const obj = catalog_classPrivateFieldGet(_catDict, this).get("AcroForm");
-      if (obj instanceof primitives_Dict && obj.size > 0) {
+      if (obj instanceof Dict && obj.size > 0) {
         acroForm = obj;
       }
     } catch (ex) {
@@ -45596,20 +46041,20 @@ class Catalog {
   }
   get acroFormRef() {
     const value = catalog_classPrivateFieldGet(_catDict, this).getRaw("AcroForm");
-    return shadow(this, "acroFormRef", value instanceof primitives_Ref ? value : null);
+    return shadow(this, "acroFormRef", value instanceof Ref ? value : null);
   }
   get metadata() {
     const streamRef = catalog_classPrivateFieldGet(_catDict, this).getRaw("Metadata");
-    if (!(streamRef instanceof primitives_Ref)) {
+    if (!(streamRef instanceof Ref)) {
       return shadow(this, "metadata", null);
     }
     let metadata = null;
     try {
       const stream = this.xref.fetch(streamRef, !this.xref.encrypt?.encryptMetadata);
-      if (stream instanceof BaseStream && stream.dict instanceof primitives_Dict) {
+      if (stream instanceof BaseStream && stream.dict instanceof Dict) {
         const type = stream.dict.get("Type");
         const subtype = stream.dict.get("Subtype");
-        if (primitives_isName(type, "Metadata") && primitives_isName(subtype, "XML")) {
+        if (isName(type, "Metadata") && isName(subtype, "XML")) {
           const data = stringToUTF8String(stream.getString());
           if (data) {
             metadata = new MetadataParser(data).serializable;
@@ -45636,6 +46081,9 @@ class Catalog {
     }
     return shadow(this, "markInfo", markInfo);
   }
+  get hasStructTree() {
+    return catalog_classPrivateFieldGet(_catDict, this).has("StructTreeRoot");
+  }
   get structTreeRoot() {
     let structTree = null;
     try {
@@ -45650,7 +46098,7 @@ class Catalog {
   }
   get toplevelPagesDict() {
     const pagesObj = catalog_classPrivateFieldGet(_catDict, this).get("Pages");
-    if (!(pagesObj instanceof primitives_Dict)) {
+    if (!(pagesObj instanceof Dict)) {
       throw new FormatError("Invalid top-level pages dictionary.");
     }
     return shadow(this, "toplevelPagesDict", pagesObj);
@@ -45696,7 +46144,7 @@ class Catalog {
       }
       const groupRefCache = new RefSetCache();
       for (const groupRef of groupsData) {
-        if (!(groupRef instanceof primitives_Ref) || groupRefCache.has(groupRef)) {
+        if (!(groupRef instanceof Ref) || groupRefCache.has(groupRef)) {
           continue;
         }
         groupRefCache.put(groupRef, catalog_assertClassBrand(_Catalog_brand, this, _readOptionalContentGroup).call(this, groupRef));
@@ -45738,7 +46186,7 @@ class Catalog {
             dests[stringToPDFString(key, true)] = dest;
           }
         }
-      } else if (obj instanceof primitives_Dict) {
+      } else if (obj instanceof Dict) {
         for (const [key, value] of obj) {
           const dest = fetchDest(value);
           if (dest) {
@@ -45755,7 +46203,7 @@ class Catalog {
     }
     const rawDests = catalog_assertClassBrand(_Catalog_brand, this, _readDests).call(this);
     for (const obj of rawDests) {
-      if (obj instanceof NameTree || obj instanceof primitives_Dict) {
+      if (obj instanceof NameTree || obj instanceof Dict) {
         const dest = fetchDest(obj.get(id));
         if (dest) {
           return dest;
@@ -45769,6 +46217,14 @@ class Catalog {
       }
     }
     return null;
+  }
+  get rawPageLabels() {
+    const obj = catalog_classPrivateFieldGet(_catDict, this).getRaw("PageLabels");
+    if (!obj) {
+      return null;
+    }
+    const numberTree = new NumberTree(obj, this.xref);
+    return numberTree.getAll();
   }
   get pageLabels() {
     let obj = null;
@@ -45785,7 +46241,7 @@ class Catalog {
   get pageLayout() {
     const obj = catalog_classPrivateFieldGet(_catDict, this).get("PageLayout");
     let pageLayout = "";
-    if (obj instanceof primitives_Name) {
+    if (obj instanceof Name) {
       switch (obj.name) {
         case "SinglePage":
         case "OneColumn":
@@ -45801,7 +46257,7 @@ class Catalog {
   get pageMode() {
     const obj = catalog_classPrivateFieldGet(_catDict, this).get("PageMode");
     let pageMode = "UseNone";
-    if (obj instanceof primitives_Name) {
+    if (obj instanceof Name) {
       switch (obj.name) {
         case "UseNone":
         case "UseOutlines":
@@ -45816,7 +46272,7 @@ class Catalog {
   }
   get viewerPreferences() {
     const obj = catalog_classPrivateFieldGet(_catDict, this).get("ViewerPreferences");
-    if (!(obj instanceof primitives_Dict)) {
+    if (!(obj instanceof Dict)) {
       return shadow(this, "viewerPreferences", null);
     }
     let prefs = null;
@@ -45835,7 +46291,7 @@ class Catalog {
           }
           break;
         case "NonFullScreenPageMode":
-          if (value instanceof primitives_Name) {
+          if (value instanceof Name) {
             switch (value.name) {
               case "UseNone":
               case "UseOutlines":
@@ -45849,7 +46305,7 @@ class Catalog {
           }
           break;
         case "Direction":
-          if (value instanceof primitives_Name) {
+          if (value instanceof Name) {
             switch (value.name) {
               case "L2R":
               case "R2L":
@@ -45864,7 +46320,7 @@ class Catalog {
         case "ViewClip":
         case "PrintArea":
         case "PrintClip":
-          if (value instanceof primitives_Name) {
+          if (value instanceof Name) {
             switch (value.name) {
               case "MediaBox":
               case "CropBox":
@@ -45879,7 +46335,7 @@ class Catalog {
           }
           break;
         case "PrintScaling":
-          if (value instanceof primitives_Name) {
+          if (value instanceof Name) {
             switch (value.name) {
               case "None":
               case "AppDefault":
@@ -45891,7 +46347,7 @@ class Catalog {
           }
           break;
         case "Duplex":
-          if (value instanceof primitives_Name) {
+          if (value instanceof Name) {
             switch (value.name) {
               case "Simplex":
               case "DuplexFlipShortEdge":
@@ -45932,8 +46388,8 @@ class Catalog {
   get openAction() {
     const obj = catalog_classPrivateFieldGet(_catDict, this).get("OpenAction");
     const openAction = Object.create(null);
-    if (obj instanceof primitives_Dict) {
-      const destDict = new primitives_Dict(this.xref);
+    if (obj instanceof Dict) {
+      const destDict = new Dict(this.xref);
       destDict.set("A", obj);
       const resultObj = {
         url: null,
@@ -45957,7 +46413,7 @@ class Catalog {
   get attachments() {
     const obj = catalog_classPrivateFieldGet(_catDict, this).get("Names");
     let attachments = null;
-    if (obj instanceof primitives_Dict && obj.has("EmbeddedFiles")) {
+    if (obj instanceof Dict && obj.has("EmbeddedFiles")) {
       const nameTree = new NameTree(obj.getRaw("EmbeddedFiles"), this.xref);
       for (const [key, value] of nameTree.getAll()) {
         const fs = new FileSpec(value, this.xref);
@@ -45970,7 +46426,7 @@ class Catalog {
   get xfaImages() {
     const obj = catalog_classPrivateFieldGet(_catDict, this).get("Names");
     let xfaImages = null;
-    if (obj instanceof primitives_Dict && obj.has("XFAImages")) {
+    if (obj instanceof Dict && obj.has("XFAImages")) {
       const nameTree = new NameTree(obj.getRaw("XFAImages"), this.xref);
       for (const [key, value] of nameTree.getAll()) {
         if (value instanceof BaseStream) {
@@ -46017,9 +46473,9 @@ class Catalog {
   }
   async getPageDict(pageIndex) {
     const nodesToVisit = [this.toplevelPagesDict];
-    const visitedNodes = new primitives_RefSet();
+    const visitedNodes = new RefSet();
     const pagesRef = catalog_classPrivateFieldGet(_catDict, this).getRaw("Pages");
-    if (pagesRef instanceof primitives_Ref) {
+    if (pagesRef instanceof Ref) {
       visitedNodes.put(pagesRef);
     }
     const xref = this.xref,
@@ -46029,7 +46485,7 @@ class Catalog {
     let currentPageIndex = 0;
     while (nodesToVisit.length) {
       const currentNode = nodesToVisit.pop();
-      if (currentNode instanceof primitives_Ref) {
+      if (currentNode instanceof Ref) {
         const count = pageKidsCountCache.get(currentNode);
         if (count >= 0 && currentPageIndex + count <= pageIndex) {
           currentPageIndex += count;
@@ -46040,12 +46496,12 @@ class Catalog {
         }
         visitedNodes.put(currentNode);
         const obj = await (pageDictCache.get(currentNode) || xref.fetchAsync(currentNode));
-        if (obj instanceof primitives_Dict) {
+        if (obj instanceof Dict) {
           let type = obj.getRaw("Type");
-          if (type instanceof primitives_Ref) {
+          if (type instanceof Ref) {
             type = await xref.fetchAsync(type);
           }
-          if (primitives_isName(type, "Page") || !obj.has("Kids")) {
+          if (isName(type, "Page") || !obj.has("Kids")) {
             if (!pageKidsCountCache.has(currentNode)) {
               pageKidsCountCache.put(currentNode, 1);
             }
@@ -46062,14 +46518,14 @@ class Catalog {
         nodesToVisit.push(obj);
         continue;
       }
-      if (!(currentNode instanceof primitives_Dict)) {
+      if (!(currentNode instanceof Dict)) {
         throw new FormatError("Page dictionary kid reference points to wrong type of object.");
       }
       const {
         objId
       } = currentNode;
       let count = currentNode.getRaw("Count");
-      if (count instanceof primitives_Ref) {
+      if (count instanceof Ref) {
         count = await xref.fetchAsync(count);
       }
       if (Number.isInteger(count) && count >= 0) {
@@ -46082,15 +46538,15 @@ class Catalog {
         }
       }
       let kids = currentNode.getRaw("Kids");
-      if (kids instanceof primitives_Ref) {
+      if (kids instanceof Ref) {
         kids = await xref.fetchAsync(kids);
       }
       if (!Array.isArray(kids)) {
         let type = currentNode.getRaw("Type");
-        if (type instanceof primitives_Ref) {
+        if (type instanceof Ref) {
           type = await xref.fetchAsync(type);
         }
-        if (primitives_isName(type, "Page") || !currentNode.has("Kids")) {
+        if (isName(type, "Page") || !currentNode.has("Kids")) {
           if (currentPageIndex === pageIndex) {
             return [currentNode, null];
           }
@@ -46102,7 +46558,7 @@ class Catalog {
       for (let last = kids.length - 1; last >= 0; last--) {
         const lastKid = kids[last];
         nodesToVisit.push(lastKid);
-        if (currentNode === this.toplevelPagesDict && lastKid instanceof primitives_Ref && !pageDictCache.has(lastKid)) {
+        if (currentNode === this.toplevelPagesDict && lastKid instanceof Ref && !pageDictCache.has(lastKid)) {
           pageDictCache.put(lastKid, xref.fetchAsync(lastKid));
         }
       }
@@ -46118,9 +46574,9 @@ class Catalog {
       currentNode: this.toplevelPagesDict,
       posInKids: 0
     }];
-    const visitedNodes = new primitives_RefSet();
+    const visitedNodes = new RefSet();
     const pagesRef = catalog_classPrivateFieldGet(_catDict, this).getRaw("Pages");
-    if (pagesRef instanceof primitives_Ref) {
+    if (pagesRef instanceof Ref) {
       visitedNodes.put(pagesRef);
     }
     const map = new Map(),
@@ -46139,7 +46595,7 @@ class Catalog {
       }
       if (recoveryMode && ignoreErrors && pageIndex === 0) {
         warn(`getAllPageDicts - Skipping invalid first page: "${error}".`);
-        error = primitives_Dict.empty;
+        error = Dict.empty;
       }
       map.set(pageIndex++, [error, null]);
     }
@@ -46150,7 +46606,7 @@ class Catalog {
         posInKids
       } = queueItem;
       let kids = currentNode.getRaw("Kids");
-      if (kids instanceof primitives_Ref) {
+      if (kids instanceof Ref) {
         try {
           kids = await xref.fetchAsync(kids);
         } catch (ex) {
@@ -46168,7 +46624,7 @@ class Catalog {
       }
       const kidObj = kids[posInKids];
       let obj;
-      if (kidObj instanceof primitives_Ref) {
+      if (kidObj instanceof Ref) {
         if (visitedNodes.has(kidObj)) {
           addPageError(new FormatError("Pages tree contains circular reference."));
           break;
@@ -46183,12 +46639,12 @@ class Catalog {
       } else {
         obj = kidObj;
       }
-      if (!(obj instanceof primitives_Dict)) {
+      if (!(obj instanceof Dict)) {
         addPageError(new FormatError("Page dictionary kid reference points to wrong type of object."));
         break;
       }
       let type = obj.getRaw("Type");
-      if (type instanceof primitives_Ref) {
+      if (type instanceof Ref) {
         try {
           type = await xref.fetchAsync(type);
         } catch (ex) {
@@ -46196,8 +46652,8 @@ class Catalog {
           break;
         }
       }
-      if (primitives_isName(type, "Page") || !obj.has("Kids")) {
-        addPageDict(obj, kidObj instanceof primitives_Ref ? kidObj : null);
+      if (isName(type, "Page") || !obj.has("Kids")) {
+        addPageDict(obj, kidObj instanceof Ref ? kidObj : null);
       } else {
         queue.push({
           currentNode: obj,
@@ -46218,13 +46674,13 @@ class Catalog {
       let total = 0,
         parentRef;
       return xref.fetchAsync(kidRef).then(function (node) {
-        if (isRefsEqual(kidRef, pageRef) && !isDict(node, "Page") && !(node instanceof primitives_Dict && !node.has("Type") && node.has("Contents"))) {
+        if (isRefsEqual(kidRef, pageRef) && !isDict(node, "Page") && !(node instanceof Dict && !node.has("Type") && node.has("Contents"))) {
           throw new FormatError("The reference does not point to a /Page dictionary.");
         }
         if (!node) {
           return null;
         }
-        if (!(node instanceof primitives_Dict)) {
+        if (!(node instanceof Dict)) {
           throw new FormatError("Node must be a dictionary.");
         }
         parentRef = node.getRaw("Parent");
@@ -46233,7 +46689,7 @@ class Catalog {
         if (!parent) {
           return null;
         }
-        if (!(parent instanceof primitives_Dict)) {
+        if (!(parent instanceof Dict)) {
           throw new FormatError("Parent must be a dictionary.");
         }
         return parent.getAsync("Kids");
@@ -46244,7 +46700,7 @@ class Catalog {
         const kidPromises = [];
         let found = false;
         for (const kid of kids) {
-          if (!(kid instanceof primitives_Ref)) {
+          if (!(kid instanceof Ref)) {
             throw new FormatError("Kid must be a reference.");
           }
           if (isRefsEqual(kid, kidRef)) {
@@ -46252,7 +46708,7 @@ class Catalog {
             break;
           }
           kidPromises.push(xref.fetchAsync(kid).then(function (obj) {
-            if (!(obj instanceof primitives_Dict)) {
+            if (!(obj instanceof Dict)) {
               throw new FormatError("Kid node must be a dictionary.");
             }
             if (obj.has("Count")) {
@@ -46282,7 +46738,7 @@ class Catalog {
   }
   get baseUrl() {
     const uri = catalog_classPrivateFieldGet(_catDict, this).get("URI");
-    if (uri instanceof primitives_Dict) {
+    if (uri instanceof Dict) {
       const base = uri.get("Base");
       if (typeof base === "string") {
         const absoluteUrl = createValidAbsoluteUrl(base, null, {
@@ -46302,19 +46758,19 @@ class Catalog {
       docBaseUrl = null,
       docAttachments = null
     } = _ref;
-    if (!(destDict instanceof primitives_Dict)) {
+    if (!(destDict instanceof Dict)) {
       warn("parseDestDictionary: `destDict` must be a dictionary.");
       return;
     }
     let action = destDict.get("A"),
       url,
       dest;
-    if (!(action instanceof primitives_Dict)) {
+    if (!(action instanceof Dict)) {
       if (destDict.has("Dest")) {
         action = destDict.get("Dest");
       } else {
         action = destDict.get("AA");
-        if (action instanceof primitives_Dict) {
+        if (action instanceof Dict) {
           if (action.has("D")) {
             action = action.get("D");
           } else if (action.has("U")) {
@@ -46323,9 +46779,9 @@ class Catalog {
         }
       }
     }
-    if (action instanceof primitives_Dict) {
+    if (action instanceof Dict) {
       const actionType = action.get("S");
-      if (!(actionType instanceof primitives_Name)) {
+      if (!(actionType instanceof Name)) {
         warn("parseDestDictionary: Invalid type in Action dictionary.");
         return;
       }
@@ -46337,7 +46793,7 @@ class Catalog {
           const fields = [];
           const refs = [];
           for (const obj of action.get("Fields") || []) {
-            if (obj instanceof primitives_Ref) {
+            if (obj instanceof Ref) {
               refs.push(obj.toString());
             } else if (typeof obj === "string") {
               fields.push(stringToPDFString(obj));
@@ -46351,7 +46807,7 @@ class Catalog {
           break;
         case "URI":
           url = action.get("URI");
-          if (url instanceof primitives_Name) {
+          if (url instanceof Name) {
             url = "/" + url.name;
           }
           break;
@@ -46361,7 +46817,7 @@ class Catalog {
         case "Launch":
         case "GoToR":
           const urlDict = action.get("F");
-          if (urlDict instanceof primitives_Dict) {
+          if (urlDict instanceof Dict) {
             const fs = new FileSpec(urlDict, null, true);
             const {
               rawFilename
@@ -46382,10 +46838,10 @@ class Catalog {
         case "GoToE":
           const target = action.get("T");
           let attachment;
-          if (docAttachments && target instanceof primitives_Dict) {
+          if (docAttachments && target instanceof Dict) {
             const relationship = target.get("R");
             const name = target.get("N");
-            if (primitives_isName(relationship, "C") && typeof name === "string") {
+            if (isName(relationship, "C") && typeof name === "string") {
               attachment = docAttachments[stringToPDFString(name, true)];
             }
           }
@@ -46401,7 +46857,7 @@ class Catalog {
           break;
         case "Named":
           const namedAction = action.get("N");
-          if (namedAction instanceof primitives_Name) {
+          if (namedAction instanceof Name) {
             resultObj.action = namedAction.name;
           }
           break;
@@ -46413,7 +46869,7 @@ class Catalog {
           }
           const stateArr = [];
           for (const elem of state) {
-            if (elem instanceof primitives_Name) {
+            if (elem instanceof Name) {
               switch (elem.name) {
                 case "ON":
                 case "OFF":
@@ -46421,7 +46877,7 @@ class Catalog {
                   stateArr.push(elem.name);
                   break;
               }
-            } else if (elem instanceof primitives_Ref) {
+            } else if (elem instanceof Ref) {
               stateArr.push(elem.toString());
             }
           }
@@ -46468,7 +46924,7 @@ class Catalog {
       resultObj.unsafeUrl = url;
     }
     if (dest) {
-      if (dest instanceof primitives_Name) {
+      if (dest instanceof Name) {
         dest = dest.name;
       }
       if (typeof dest === "string") {
@@ -46482,7 +46938,7 @@ class Catalog {
 _Catalog = Catalog;
 function _readMarkInfo() {
   const obj = catalog_classPrivateFieldGet(_catDict, this).get("MarkInfo");
-  if (!(obj instanceof primitives_Dict)) {
+  if (!(obj instanceof Dict)) {
     return null;
   }
   const markInfo = {
@@ -46501,7 +46957,7 @@ function _readMarkInfo() {
 function _readStructTreeRoot() {
   const rawObj = catalog_classPrivateFieldGet(_catDict, this).getRaw("StructTreeRoot");
   const obj = this.xref.fetchIfRef(rawObj);
-  if (!(obj instanceof primitives_Dict)) {
+  if (!(obj instanceof Dict)) {
     return null;
   }
   const root = new StructTreeRoot(this.xref, obj, rawObj);
@@ -46510,11 +46966,11 @@ function _readStructTreeRoot() {
 }
 function _readDocumentOutline() {
   let obj = catalog_classPrivateFieldGet(_catDict, this).get("Outlines");
-  if (!(obj instanceof primitives_Dict)) {
+  if (!(obj instanceof Dict)) {
     return null;
   }
   obj = obj.getRaw("First");
-  if (!(obj instanceof primitives_Ref)) {
+  if (!(obj instanceof Ref)) {
     return null;
   }
   const root = {
@@ -46524,7 +46980,7 @@ function _readDocumentOutline() {
     obj,
     parent: root
   }];
-  const processed = new primitives_RefSet();
+  const processed = new RefSet();
   processed.put(obj);
   const xref = this.xref,
     blackColor = new Uint8ClampedArray(3);
@@ -46573,7 +47029,7 @@ function _readDocumentOutline() {
     };
     i.parent.items.push(outlineItem);
     obj = outlineDict.getRaw("First");
-    if (obj instanceof primitives_Ref && !processed.has(obj)) {
+    if (obj instanceof Ref && !processed.has(obj)) {
       queue.push({
         obj,
         parent: outlineItem
@@ -46581,7 +47037,7 @@ function _readDocumentOutline() {
       processed.put(obj);
     }
     obj = outlineDict.getRaw("Next");
-    if (obj instanceof primitives_Ref && !processed.has(obj)) {
+    if (obj instanceof Ref && !processed.has(obj)) {
       queue.push({
         obj,
         parent: i.parent
@@ -46593,7 +47049,7 @@ function _readDocumentOutline() {
 }
 function _readPermissions() {
   const encrypt = this.xref.trailer.get("Encrypt");
-  if (!(encrypt instanceof primitives_Dict)) {
+  if (!(encrypt instanceof Dict)) {
     return null;
   }
   let flags = encrypt.get("P");
@@ -46630,18 +47086,18 @@ function _readOptionalContentGroup(groupRef) {
   if (!Array.isArray(intent)) {
     intent = [intent];
   }
-  if (intent.every(i => i instanceof primitives_Name)) {
+  if (intent.every(i => i instanceof Name)) {
     obj.intent = intent.map(i => i.name);
   }
   const usage = group.get("Usage");
-  if (!(usage instanceof primitives_Dict)) {
+  if (!(usage instanceof Dict)) {
     return obj;
   }
   const usageObj = obj.usage;
   const print = usage.get("Print");
-  if (print instanceof primitives_Dict) {
+  if (print instanceof Dict) {
     const printState = print.get("PrintState");
-    if (printState instanceof primitives_Name) {
+    if (printState instanceof Name) {
       switch (printState.name) {
         case "ON":
         case "OFF":
@@ -46652,9 +47108,9 @@ function _readOptionalContentGroup(groupRef) {
     }
   }
   const view = usage.get("View");
-  if (view instanceof primitives_Dict) {
+  if (view instanceof Dict) {
     const viewState = view.get("ViewState");
-    if (viewState instanceof primitives_Name) {
+    if (viewState instanceof Name) {
       switch (viewState.name) {
         case "ON":
         case "OFF":
@@ -46671,7 +47127,7 @@ function _readOptionalContentConfig(config, groupRefCache) {
     const onParsed = [];
     if (Array.isArray(refs)) {
       for (const value of refs) {
-        if (value instanceof primitives_Ref && groupRefCache.has(value)) {
+        if (value instanceof Ref && groupRefCache.has(value)) {
           onParsed.push(value.toString());
         }
       }
@@ -46685,7 +47141,7 @@ function _readOptionalContentConfig(config, groupRefCache) {
     }
     const order = [];
     for (const value of refs) {
-      if (value instanceof primitives_Ref && groupRefCache.has(value)) {
+      if (value instanceof Ref && groupRefCache.has(value)) {
         parsedOrderRefs.put(value);
         order.push(value.toString());
         continue;
@@ -46746,7 +47202,7 @@ function _readOptionalContentConfig(config, groupRefCache) {
       }
       const parsedRbGroup = new Set();
       for (const ref of rbGroup) {
-        if (ref instanceof primitives_Ref && groupRefCache.has(ref) && !parsedRbGroup.has(ref.toString())) {
+        if (ref instanceof Ref && groupRefCache.has(ref) && !parsedRbGroup.has(ref.toString())) {
           parsedRbGroup.add(ref.toString());
           groupRefCache.get(ref).rbGroups.push(parsedRbGroup);
         }
@@ -46754,13 +47210,13 @@ function _readOptionalContentConfig(config, groupRefCache) {
     }
   }
   const xref = this.xref,
-    parsedOrderRefs = new primitives_RefSet(),
+    parsedOrderRefs = new RefSet(),
     MAX_NESTED_LEVELS = 10;
   parseRBGroups(config.get("RBGroups"));
   return {
     name: typeof config.get("Name") === "string" ? stringToPDFString(config.get("Name")) : null,
     creator: typeof config.get("Creator") === "string" ? stringToPDFString(config.get("Creator")) : null,
-    baseState: config.get("BaseState") instanceof primitives_Name ? config.get("BaseState").name : null,
+    baseState: config.get("BaseState") instanceof Name ? config.get("BaseState").name : null,
     on: parseOnOff(config.get("ON")),
     off: parseOnOff(config.get("OFF")),
     order: parseOrder(config.get("Order")),
@@ -46779,29 +47235,27 @@ function _readDests() {
   return rawDests;
 }
 function _readPageLabels() {
-  const obj = catalog_classPrivateFieldGet(_catDict, this).getRaw("PageLabels");
-  if (!obj) {
+  const nums = this.rawPageLabels;
+  if (!nums) {
     return null;
   }
   const pageLabels = new Array(this.numPages);
   let style = null,
     prefix = "";
-  const numberTree = new NumberTree(obj, this.xref);
-  const nums = numberTree.getAll();
   let currentLabel = "",
     currentIndex = 1;
   for (let i = 0, ii = this.numPages; i < ii; i++) {
     const labelDict = nums.get(i);
     if (labelDict !== undefined) {
-      if (!(labelDict instanceof primitives_Dict)) {
+      if (!(labelDict instanceof Dict)) {
         throw new FormatError("PageLabel is not a dictionary.");
       }
-      if (labelDict.has("Type") && !primitives_isName(labelDict.get("Type"), "PageLabel")) {
+      if (labelDict.has("Type") && !isName(labelDict.get("Type"), "PageLabel")) {
         throw new FormatError("Invalid type in PageLabel dictionary.");
       }
       if (labelDict.has("S")) {
         const s = labelDict.get("S");
-        if (!(s instanceof primitives_Name)) {
+        if (!(s instanceof Name)) {
           throw new FormatError("Invalid style in PageLabel dictionary.");
         }
         style = s.name;
@@ -46860,10 +47314,10 @@ function _collectJavaScript() {
   const obj = catalog_classPrivateFieldGet(_catDict, this).get("Names");
   let javaScript = null;
   function appendIfJavaScriptDict(name, jsDict) {
-    if (!(jsDict instanceof primitives_Dict)) {
+    if (!(jsDict instanceof Dict)) {
       return;
     }
-    if (!primitives_isName(jsDict.get("S"), "JavaScript")) {
+    if (!isName(jsDict.get("S"), "JavaScript")) {
       return;
     }
     let js = jsDict.get("JS");
@@ -46877,7 +47331,7 @@ function _collectJavaScript() {
       (javaScript ||= new Map()).set(name, js);
     }
   }
-  if (obj instanceof primitives_Dict && obj.has("JavaScript")) {
+  if (obj instanceof Dict && obj.has("JavaScript")) {
     const nameTree = new NameTree(obj.getRaw("JavaScript"), this.xref);
     for (const [key, value] of nameTree.getAll()) {
       appendIfJavaScriptDict(stringToPDFString(key, true), value);
@@ -46891,7 +47345,7 @@ function _collectJavaScript() {
 }
 function _fetchIfRef(obj) {
   try {
-    return obj instanceof primitives_Ref ? this.xref.fetch(obj) : obj;
+    return obj instanceof Ref ? this.xref.fetch(obj) : obj;
   } catch {
     return obj;
   }
@@ -46901,15 +47355,15 @@ function _chainContainsJavaScriptAction(action) {
   while (stack.length) {
     let a = stack.pop();
     a = catalog_assertClassBrand(_Catalog_brand, this, _fetchIfRef).call(this, a);
-    if (!(a instanceof primitives_Dict)) {
+    if (!(a instanceof Dict)) {
       continue;
     }
     const s = catalog_assertClassBrand(_Catalog_brand, this, _fetchIfRef).call(this, a.get("S"));
-    if (s instanceof primitives_Name && s.name === "JavaScript") {
+    if (s instanceof Name && s.name === "JavaScript") {
       return true;
     }
     const next = catalog_assertClassBrand(_Catalog_brand, this, _fetchIfRef).call(this, a.get("Next"));
-    if (next instanceof primitives_Dict) {
+    if (next instanceof Dict) {
       stack.push(next);
     } else if (Array.isArray(next)) {
       for (const n of next) {
@@ -46924,7 +47378,7 @@ function _stripJavaScriptActionsInAADict(aaDict) {
   for (const key of keys) {
     const val0 = aaDict.get(key);
     const val = catalog_assertClassBrand(_Catalog_brand, this, _fetchIfRef).call(this, val0);
-    if (val instanceof primitives_Dict) {
+    if (val instanceof Dict) {
       if (catalog_assertClassBrand(_Catalog_brand, this, _chainContainsJavaScriptAction).call(this, val)) {
         if (typeof aaDict.delete === "function") {
           aaDict.delete(key);
@@ -46936,7 +47390,7 @@ function _stripJavaScriptActionsInAADict(aaDict) {
       const kept = [];
       for (let v of val) {
         v = catalog_assertClassBrand(_Catalog_brand, this, _fetchIfRef).call(this, v);
-        if (v instanceof primitives_Dict && !catalog_assertClassBrand(_Catalog_brand, this, _chainContainsJavaScriptAction).call(this, v)) {
+        if (v instanceof Dict && !catalog_assertClassBrand(_Catalog_brand, this, _chainContainsJavaScriptAction).call(this, v)) {
           kept.push(v);
         }
       }
@@ -46955,7 +47409,7 @@ function _sanitizeOpenAction() {
     return;
   }
   const openAction = catalog_classPrivateFieldGet(_catDict, this).get("OpenAction");
-  if (!(openAction instanceof primitives_Dict)) {
+  if (!(openAction instanceof Dict)) {
     return;
   }
   if (catalog_assertClassBrand(_Catalog_brand, this, _chainContainsJavaScriptAction).call(this, openAction)) {
@@ -46967,7 +47421,7 @@ function _sanitizeCatalogAA() {
     return;
   }
   const aa = catalog_classPrivateFieldGet(_catDict, this).get("AA");
-  if (!(aa instanceof primitives_Dict)) {
+  if (!(aa instanceof Dict)) {
     return;
   }
   catalog_assertClassBrand(_Catalog_brand, this, _stripJavaScriptActionsInAADict).call(this, aa);
@@ -46993,10 +47447,10 @@ function object_loader_assertClassBrand(e, t, n) { if ("function" == typeof e ? 
 
 
 function mayHaveChildren(value) {
-  return value instanceof primitives_Ref || value instanceof primitives_Dict || value instanceof BaseStream || Array.isArray(value);
+  return value instanceof Ref || value instanceof Dict || value instanceof BaseStream || Array.isArray(value);
 }
 function addChildren(node, nodesToVisit) {
-  if (node instanceof primitives_Dict) {
+  if (node instanceof Dict) {
     node = node.getRawValues();
   } else if (node instanceof BaseStream) {
     node = node.dict.getRawValues();
@@ -47013,7 +47467,7 @@ var _ObjectLoader_brand = /*#__PURE__*/new WeakSet();
 class ObjectLoader {
   constructor(dict, keys, xref) {
     object_loader_classPrivateMethodInitSpec(this, _ObjectLoader_brand);
-    object_loader_defineProperty(this, "refSet", new primitives_RefSet());
+    object_loader_defineProperty(this, "refSet", new RefSet());
     this.dict = dict;
     this.keys = keys;
     this.xref = xref;
@@ -47046,7 +47500,7 @@ async function _walk(nodesToVisit) {
   const pendingRequests = [];
   while (nodesToVisit.length) {
     let currentNode = nodesToVisit.pop();
-    if (currentNode instanceof primitives_Ref) {
+    if (currentNode instanceof Ref) {
       if (this.refSet.has(currentNode)) {
         continue;
       }
@@ -47090,7 +47544,7 @@ async function _walk(nodesToVisit) {
   if (pendingRequests.length) {
     await this.xref.stream.manager.requestRanges(pendingRequests);
     for (const node of nodesToRevisit) {
-      if (node instanceof primitives_Ref) {
+      if (node instanceof Ref) {
         this.refSet.remove(node);
       }
     }
@@ -52518,7 +52972,7 @@ class Occur extends XFAObject {
     }) : "";
     this.max = attributes.max !== "" ? getInteger({
       data: attributes.max,
-      defaultValue: 1,
+      defaultValue: -1,
       validate: x => true
     }) : "";
     this.min = attributes.min !== "" ? getInteger({
@@ -57957,7 +58411,7 @@ class AnnotationFactory {
       let [acroForm, xfaDatasets, structTreeRoot, baseUrl, attachments, globalColorSpaceCache] = _ref;
       return {
         pdfManager,
-        acroForm: acroForm instanceof primitives_Dict ? acroForm : primitives_Dict.empty,
+        acroForm: acroForm instanceof Dict ? acroForm : Dict.empty,
         xfaDatasets,
         structTreeRoot,
         baseUrl,
@@ -57980,11 +58434,11 @@ class AnnotationFactory {
     let pageIndex = arguments.length > 7 && arguments[7] !== undefined ? arguments[7] : null;
     let pageRef = arguments.length > 8 && arguments[8] !== undefined ? arguments[8] : null;
     const dict = xref.fetchIfRef(ref);
-    if (!(dict instanceof primitives_Dict)) {
+    if (!(dict instanceof Dict)) {
       return undefined;
     }
     let subtype = dict.get("Subtype");
-    subtype = subtype instanceof primitives_Name ? subtype.name : null;
+    subtype = subtype instanceof Name ? subtype.name : null;
     if (collectByType && !collectByType.has(AnnotationType[subtype.toUpperCase()])) {
       return null;
     }
@@ -57992,7 +58446,7 @@ class AnnotationFactory {
       acroForm,
       pdfManager
     } = annotationGlobals;
-    const id = ref instanceof primitives_Ref ? ref.toString() : `annot_${idFactory.createObjId()}`;
+    const id = ref instanceof Ref ? ref.toString() : `annot_${idFactory.createObjId()}`;
     const parameters = {
       xref,
       ref,
@@ -58018,7 +58472,7 @@ class AnnotationFactory {
           dict,
           key: "FT"
         });
-        fieldType = fieldType instanceof primitives_Name ? fieldType.name : null;
+        fieldType = fieldType instanceof Name ? fieldType.name : null;
         switch (fieldType) {
           case "Tx":
             return new TextWidgetAnnotation(parameters);
@@ -58078,11 +58532,11 @@ class AnnotationFactory {
   static async _getPageIndex(xref, ref, pdfManager) {
     try {
       const annotDict = await xref.fetchIfRefAsync(ref);
-      if (!(annotDict instanceof primitives_Dict)) {
+      if (!(annotDict instanceof Dict)) {
         return -1;
       }
       const pageRef = annotDict.getRaw("P");
-      if (pageRef instanceof primitives_Ref) {
+      if (pageRef instanceof Ref) {
         try {
           const pageIndex = await pdfManager.ensureCatalog("getPageIndex", [pageRef]);
           return pageIndex;
@@ -58098,7 +58552,7 @@ class AnnotationFactory {
         const page = await pdfManager.getPage(pageIndex);
         const annotations = await pdfManager.ensure(page, "annotations");
         for (const annotRef of annotations) {
-          if (annotRef instanceof primitives_Ref && isRefsEqual(annotRef, ref)) {
+          if (annotRef instanceof Ref && isRefsEqual(annotRef, ref)) {
             return pageIndex;
           }
         }
@@ -58140,7 +58594,7 @@ class AnnotationFactory {
       switch (annotation.annotationType) {
         case AnnotationEditorType.FREETEXT:
           if (!baseFontRef) {
-            const baseFont = new primitives_Dict(xref);
+            const baseFont = new Dict(xref);
             baseFont.setIfName("BaseFont", "Helvetica");
             baseFont.setIfName("Type", "Font");
             baseFont.setIfName("Subtype", "Type1");
@@ -58345,7 +58799,7 @@ class Annotation {
     const MK = dict.get("MK");
     this.setBorderAndBackgroundColors(MK);
     this.setRotation(MK, dict);
-    this.ref = params.ref instanceof primitives_Ref ? params.ref : null;
+    this.ref = params.ref instanceof Ref ? params.ref : null;
     this._streams = [];
     if (this.appearance) {
       this._streams.push(this.appearance);
@@ -58381,7 +58835,7 @@ class Annotation {
       if (Array.isArray(kids)) {
         const kidIds = [];
         for (const kid of kids) {
-          if (kid instanceof primitives_Ref) {
+          if (kid instanceof Ref) {
             kidIds.push(kid.toString());
           }
         }
@@ -58394,7 +58848,7 @@ class Annotation {
       this.data.pageIndex = params.pageIndex;
     }
     const it = dict.get("IT");
-    if (it instanceof primitives_Name) {
+    if (it instanceof Name) {
       this.data.it = it.name;
     }
     this._isOffscreenCanvasSupported = params.evaluatorOptions.isOffscreenCanvasSupported;
@@ -58521,7 +58975,7 @@ class Annotation {
     if (Array.isArray(lineEndings) && lineEndings.length === 2) {
       for (let i = 0; i < 2; i++) {
         const obj = lineEndings[i];
-        if (obj instanceof primitives_Name) {
+        if (obj instanceof Name) {
           switch (obj.name) {
             case "None":
               continue;
@@ -58544,7 +58998,7 @@ class Annotation {
   }
   setRotation(mk, dict) {
     this.rotation = 0;
-    let angle = mk instanceof primitives_Dict ? mk.get("R") || 0 : dict.get("Rotate") || 0;
+    let angle = mk instanceof Dict ? mk.get("R") || 0 : dict.get("Rotate") || 0;
     if (Number.isInteger(angle) && angle !== 0) {
       angle %= 360;
       if (angle < 0) {
@@ -58556,7 +59010,7 @@ class Annotation {
     }
   }
   setBorderAndBackgroundColors(mk) {
-    if (mk instanceof primitives_Dict) {
+    if (mk instanceof Dict) {
       this.borderColor = getRgbColor(mk.getArray("BC"), null);
       this.backgroundColor = getRgbColor(mk.getArray("BG"), null);
     } else {
@@ -58565,14 +59019,14 @@ class Annotation {
   }
   setBorderStyle(borderStyle) {
     this.borderStyle = new AnnotationBorderStyle();
-    if (!(borderStyle instanceof primitives_Dict)) {
+    if (!(borderStyle instanceof Dict)) {
       return;
     }
     if (borderStyle.has("BS")) {
       const dict = borderStyle.get("BS");
-      if (dict instanceof primitives_Dict) {
+      if (dict instanceof Dict) {
         const dictType = dict.get("Type");
-        if (!dictType || primitives_isName(dictType, "Border")) {
+        if (!dictType || isName(dictType, "Border")) {
           this.borderStyle.setWidth(dict.get("W"), this.rectangle);
           this.borderStyle.setStyle(dict.get("S"));
           this.borderStyle.setDashArray(dict.getArray("D"));
@@ -58595,7 +59049,7 @@ class Annotation {
   setAppearance(dict) {
     this.appearance = null;
     const appearanceStates = dict.get("AP");
-    if (!(appearanceStates instanceof primitives_Dict)) {
+    if (!(appearanceStates instanceof Dict)) {
       return;
     }
     const normalAppearanceState = appearanceStates.get("N");
@@ -58603,11 +59057,11 @@ class Annotation {
       this.appearance = normalAppearanceState;
       return;
     }
-    if (!(normalAppearanceState instanceof primitives_Dict)) {
+    if (!(normalAppearanceState instanceof Dict)) {
       return;
     }
     const as = dict.get("AS");
-    if (!(as instanceof primitives_Name) || !normalAppearanceState.has(as.name)) {
+    if (!(as instanceof Name) || !normalAppearanceState.has(as.name)) {
       return;
     }
     const appearance = normalAppearanceState.get(as.name);
@@ -58618,9 +59072,9 @@ class Annotation {
   setOptionalContent(dict) {
     this.oc = null;
     const oc = dict.get("OC");
-    if (oc instanceof primitives_Name) {
+    if (oc instanceof Name) {
       warn("setOptionalContent: Support for /Name-entry is not implemented.");
-    } else if (oc instanceof primitives_Dict) {
+    } else if (oc instanceof Dict) {
       this.oc = oc;
     }
   }
@@ -58656,7 +59110,7 @@ class Annotation {
         };
       }
       appearance = new StringStream("");
-      appearance.dict = new primitives_Dict();
+      appearance.dict = new Dict();
     }
     const appearanceDict = appearance.dict;
     const resources = await this.loadResources(RESOURCES_KEYS_OPERATOR_LIST, appearance);
@@ -58793,13 +59247,13 @@ class Annotation {
       fieldName.unshift(stringToPDFString(dict.get("T")));
     }
     let loopDict = dict;
-    const visited = new primitives_RefSet();
+    const visited = new RefSet();
     if (dict.objId) {
       visited.put(dict.objId);
     }
     while (loopDict.has("Parent")) {
       loopDict = loopDict.get("Parent");
-      if (!(loopDict instanceof primitives_Dict) || loopDict.objId && visited.has(loopDict.objId)) {
+      if (!(loopDict instanceof Dict) || loopDict.objId && visited.has(loopDict.objId)) {
         break;
       }
       if (loopDict.objId) {
@@ -58829,7 +59283,7 @@ class AnnotationBorderStyle {
   }
   setWidth(width) {
     let rect = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [0, 0, 0, 0];
-    if (width instanceof primitives_Name) {
+    if (width instanceof Name) {
       this.width = 0;
       return;
     }
@@ -58847,7 +59301,7 @@ class AnnotationBorderStyle {
     }
   }
   setStyle(style) {
-    if (!(style instanceof primitives_Name)) {
+    if (!(style instanceof Name)) {
       return;
     }
     switch (style.name) {
@@ -58887,7 +59341,7 @@ class AnnotationBorderStyle {
       if (dashArray.length === 0 || isValid && !allZeros) {
         this.dashArray = dashArray;
         if (forceStyle) {
-          this.setStyle(primitives_Name.get("D"));
+          this.setStyle(Name.get("D"));
         }
       } else {
         this.width = 0;
@@ -58915,9 +59369,9 @@ class MarkupAnnotation extends Annotation {
     } = params;
     if (dict.has("IRT")) {
       const rawIRT = dict.getRaw("IRT");
-      this.data.inReplyTo = rawIRT instanceof primitives_Ref ? rawIRT.toString() : null;
+      this.data.inReplyTo = rawIRT instanceof Ref ? rawIRT.toString() : null;
       const rt = dict.get("RT");
-      this.data.replyType = rt instanceof primitives_Name ? rt.name : AnnotationReplyType.REPLY;
+      this.data.replyType = rt instanceof Name ? rt.name : AnnotationReplyType.REPLY;
     }
     let popupRef = null;
     if (this.data.replyType === AnnotationReplyType.GROUP) {
@@ -58954,7 +59408,7 @@ class MarkupAnnotation extends Annotation {
         this.data.color = null;
       }
     }
-    this.data.popupRef = popupRef instanceof primitives_Ref ? popupRef.toString() : null;
+    this.data.popupRef = popupRef instanceof Ref ? popupRef.toString() : null;
     if (dict.has("RC")) {
       this.data.richText = XFAFactory.getRichTextAsHtml(dict.get("RC"));
     }
@@ -58990,24 +59444,24 @@ class MarkupAnnotation extends Annotation {
       Util.rectBoundingBox(...points, bbox);
     }
     buffer.push("Q");
-    const formDict = new primitives_Dict(xref);
-    const appearanceStreamDict = new primitives_Dict(xref);
+    const formDict = new Dict(xref);
+    const appearanceStreamDict = new Dict(xref);
     appearanceStreamDict.setIfName("Subtype", "Form");
     const appearanceStream = new StringStream(buffer.join(" "));
     appearanceStream.dict = appearanceStreamDict;
     formDict.set("Fm0", appearanceStream);
-    const gsDict = new primitives_Dict(xref);
+    const gsDict = new Dict(xref);
     if (blendMode) {
       gsDict.setIfName("BM", blendMode);
     }
     gsDict.setIfNumber("CA", strokeAlpha);
     gsDict.setIfNumber("ca", fillAlpha);
-    const stateDict = new primitives_Dict(xref);
+    const stateDict = new Dict(xref);
     stateDict.set("GS0", gsDict);
-    const resources = new primitives_Dict(xref);
+    const resources = new Dict(xref);
     resources.set("ExtGState", stateDict);
     resources.set("XObject", formDict);
-    const appearanceDict = new primitives_Dict(xref);
+    const appearanceDict = new Dict(xref);
     appearanceDict.set("Resources", resources);
     appearanceDict.set("BBox", bbox);
     this.appearance = new StringStream("/GS0 gs /Fm0 Do");
@@ -59118,14 +59572,17 @@ class WidgetAnnotation extends Annotation {
     if (fieldValue === undefined && data.defaultFieldValue !== null) {
       data.fieldValue = data.defaultFieldValue;
     }
-    data.alternativeText = stringToPDFString(dict.get("TU") || "");
+    data.alternativeText = stringToPDFString(getInheritableProperty({
+      dict,
+      key: "TU"
+    }) || "");
     this.setDefaultAppearance(params);
     data.hasAppearance ||= this._needAppearances && data.fieldValue !== undefined && data.fieldValue !== null;
     const fieldType = getInheritableProperty({
       dict,
       key: "FT"
     });
-    data.fieldType = fieldType instanceof primitives_Name ? fieldType.name : null;
+    data.fieldType = fieldType instanceof Name ? fieldType.name : null;
     const localResources = getInheritableProperty({
       dict,
       key: "DR"
@@ -59136,7 +59593,7 @@ class WidgetAnnotation extends Annotation {
       localResources,
       acroFormResources,
       appearanceResources,
-      mergedResources: primitives_Dict.merge({
+      mergedResources: Dict.merge({
         xref,
         dictArray: [localResources, appearanceResources, acroFormResources],
         mergeSubDicts: true
@@ -59163,7 +59620,7 @@ class WidgetAnnotation extends Annotation {
   _decodeFormValue(formValue) {
     if (Array.isArray(formValue)) {
       return formValue.filter(item => typeof item === "string").map(item => stringToPDFString(item));
-    } else if (formValue instanceof primitives_Name) {
+    } else if (formValue instanceof Name) {
       return stringToPDFString(formValue.name);
     } else if (typeof formValue === "string") {
       return stringToPDFString(formValue);
@@ -59261,7 +59718,7 @@ class WidgetAnnotation extends Annotation {
     };
   }
   _getMKDict(rotation) {
-    const mk = new primitives_Dict(null);
+    const mk = new Dict(null);
     if (rotation) {
       mk.set("R", rotation);
     }
@@ -59320,10 +59777,10 @@ class WidgetAnnotation extends Annotation {
       xref
     } = evaluator;
     const originalDict = xref.fetchIfRef(this.ref);
-    if (!(originalDict instanceof primitives_Dict)) {
+    if (!(originalDict instanceof Dict)) {
       return;
     }
-    const dict = new primitives_Dict(xref);
+    const dict = new Dict(xref);
     for (const key of originalDict.getKeys()) {
       if (key !== "AP") {
         dict.set(key, originalDict.getRaw(key));
@@ -59355,12 +59812,12 @@ class WidgetAnnotation extends Annotation {
     });
     if (appearance !== null) {
       const newRef = xref.getNewTemporaryRef();
-      const AP = new primitives_Dict(xref);
+      const AP = new Dict(xref);
       dict.set("AP", AP);
       AP.set("N", newRef);
       const resources = this._getSaveFieldResources(xref);
       const appearanceStream = new StringStream(appearance);
-      const appearanceDict = appearanceStream.dict = new primitives_Dict(xref);
+      const appearanceDict = appearanceStream.dict = new Dict(xref);
       appearanceDict.setIfName("Subtype", "Form");
       appearanceDict.set("Resources", resources);
       const bbox = rotation % 180 === 0 ? [0, 0, this.width, this.height] : [0, 0, this.height, this.width];
@@ -59523,7 +59980,7 @@ class WidgetAnnotation extends Annotation {
       fontName,
       fontSize
     } = appearanceData;
-    await evaluator.handleSetFont(resources, [fontName && primitives_Name.get(fontName), fontSize], null, operatorList, task, initialState, null);
+    await evaluator.handleSetFont(resources, [fontName && Name.get(fontName), fontSize], null, operatorList, task, initialState, null);
     return initialState.font;
   }
   _getTextWidth(text, font) {
@@ -59612,31 +60069,31 @@ class WidgetAnnotation extends Annotation {
     } = this._fieldResources;
     const fontName = this.data.defaultAppearanceData?.fontName;
     if (!fontName) {
-      return localResources || primitives_Dict.empty;
+      return localResources || Dict.empty;
     }
     for (const resources of [localResources, appearanceResources]) {
-      if (resources instanceof primitives_Dict) {
+      if (resources instanceof Dict) {
         const localFont = resources.get("Font");
-        if (localFont instanceof primitives_Dict && localFont.has(fontName)) {
+        if (localFont instanceof Dict && localFont.has(fontName)) {
           return resources;
         }
       }
     }
-    if (acroFormResources instanceof primitives_Dict) {
+    if (acroFormResources instanceof Dict) {
       const acroFormFont = acroFormResources.get("Font");
-      if (acroFormFont instanceof primitives_Dict && acroFormFont.has(fontName)) {
-        const subFontDict = new primitives_Dict(xref);
+      if (acroFormFont instanceof Dict && acroFormFont.has(fontName)) {
+        const subFontDict = new Dict(xref);
         subFontDict.set(fontName, acroFormFont.getRaw(fontName));
-        const subResourcesDict = new primitives_Dict(xref);
+        const subResourcesDict = new Dict(xref);
         subResourcesDict.set("Font", subFontDict);
-        return primitives_Dict.merge({
+        return Dict.merge({
           xref,
           dictArray: [subResourcesDict, localResources],
           mergeSubDicts: true
         });
       }
     }
-    return localResources || primitives_Dict.empty;
+    return localResources || Dict.empty;
   }
   getFieldObject() {
     return null;
@@ -59941,7 +60398,7 @@ class ButtonWidgetAnnotation extends WidgetAnnotation {
       }
     }
     let dict = evaluator.xref.fetchIfRef(this.ref);
-    if (!(dict instanceof primitives_Dict)) {
+    if (!(dict instanceof Dict)) {
       return;
     }
     dict = dict.clone();
@@ -59955,7 +60412,7 @@ class ButtonWidgetAnnotation extends WidgetAnnotation {
       path: this.data.fieldName,
       value: value ? this.data.exportValue : ""
     };
-    const name = primitives_Name.get(value ? this.data.exportValue : "Off");
+    const name = Name.get(value ? this.data.exportValue : "Off");
     this.setValue(dict, name, evaluator.xref, changes);
     dict.set("AS", name);
     dict.set("M", `D:${getModificationDate()}`);
@@ -59990,7 +60447,7 @@ class ButtonWidgetAnnotation extends WidgetAnnotation {
       }
     }
     let dict = evaluator.xref.fetchIfRef(this.ref);
-    if (!(dict instanceof primitives_Dict)) {
+    if (!(dict instanceof Dict)) {
       return;
     }
     dict = dict.clone();
@@ -60004,7 +60461,7 @@ class ButtonWidgetAnnotation extends WidgetAnnotation {
       path: this.data.fieldName,
       value: value ? this.data.buttonValue : ""
     };
-    const name = primitives_Name.get(value ? this.data.buttonValue : "Off");
+    const name = Name.get(value ? this.data.buttonValue : "Off");
     if (value) {
       this.setValue(dict, name, evaluator.xref, changes);
     }
@@ -60050,15 +60507,15 @@ class ButtonWidgetAnnotation extends WidgetAnnotation {
     const xShift = numberToString((width - metrics.width) / 2);
     const yShift = numberToString((height - metrics.height) / 2);
     const appearance = `q BT /PdfJsZaDb ${fontSize} Tf 0 g ${xShift} ${yShift} Td (${char}) Tj ET Q`;
-    const appearanceStreamDict = new primitives_Dict(params.xref);
+    const appearanceStreamDict = new Dict(params.xref);
     appearanceStreamDict.set("FormType", 1);
     appearanceStreamDict.setIfName("Subtype", "Form");
     appearanceStreamDict.setIfName("Type", "XObject");
     appearanceStreamDict.set("BBox", bbox);
     appearanceStreamDict.set("Matrix", [1, 0, 0, 1, 0, 0]);
     appearanceStreamDict.set("Length", appearance.length);
-    const resources = new primitives_Dict(params.xref);
-    const font = new primitives_Dict(params.xref);
+    const resources = new Dict(params.xref);
+    const font = new Dict(params.xref);
     font.set("PdfJsZaDb", this.fallbackFontDict);
     resources.set("Font", font);
     appearanceStreamDict.set("Resources", resources);
@@ -60068,11 +60525,11 @@ class ButtonWidgetAnnotation extends WidgetAnnotation {
   }
   _processCheckBox(params) {
     const customAppearance = params.dict.get("AP");
-    if (!(customAppearance instanceof primitives_Dict)) {
+    if (!(customAppearance instanceof Dict)) {
       return;
     }
     const normalAppearance = customAppearance.get("N");
-    if (!(normalAppearance instanceof primitives_Dict)) {
+    if (!(normalAppearance instanceof Dict)) {
       return;
     }
     const asValue = this._decodeFormValue(params.dict.get("AS"));
@@ -60121,19 +60578,19 @@ class ButtonWidgetAnnotation extends WidgetAnnotation {
   _processRadioButton(params) {
     this.data.buttonValue = null;
     const fieldParent = params.dict.get("Parent");
-    if (fieldParent instanceof primitives_Dict) {
+    if (fieldParent instanceof Dict) {
       this.parent = params.dict.getRaw("Parent");
       const fieldParentValue = fieldParent.get("V");
-      if (fieldParentValue instanceof primitives_Name) {
+      if (fieldParentValue instanceof Name) {
         this.data.fieldValue = this._decodeFormValue(fieldParentValue);
       }
     }
     const appearanceStates = params.dict.get("AP");
-    if (!(appearanceStates instanceof primitives_Dict)) {
+    if (!(appearanceStates instanceof Dict)) {
       return;
     }
     const normalAppearance = appearanceStates.get("N");
-    if (!(normalAppearance instanceof primitives_Dict)) {
+    if (!(normalAppearance instanceof Dict)) {
       return;
     }
     for (const key of normalAppearance.getKeys()) {
@@ -60204,7 +60661,7 @@ class ButtonWidgetAnnotation extends WidgetAnnotation {
     };
   }
   get fallbackFontDict() {
-    const dict = new primitives_Dict();
+    const dict = new Dict();
     dict.setIfName("BaseFont", "ZapfDingbats");
     dict.setIfName("Type", "FallbackType");
     dict.setIfName("Subtype", "FallbackType");
@@ -60489,7 +60946,7 @@ class PopupAnnotation extends Annotation {
     this.data.parentRect = lookupNormalRect(parentItem.getArray("Rect"), null);
     this.data.creationDate = parentItem.get("CreationDate") || "";
     const rt = parentItem.get("RT");
-    if (primitives_isName(rt, AnnotationReplyType.GROUP)) {
+    if (isName(rt, AnnotationReplyType.GROUP)) {
       parentItem = parentItem.get("IRT");
     }
     if (!parentItem.has("M")) {
@@ -60525,9 +60982,9 @@ class PopupAnnotation extends Annotation {
       rect,
       parent
     } = annotation;
-    const popup = oldAnnotation || new primitives_Dict(xref);
-    popup.setIfNotExists("Type", primitives_Name.get("Annot"));
-    popup.setIfNotExists("Subtype", primitives_Name.get("Popup"));
+    const popup = oldAnnotation || new Dict(xref);
+    popup.setIfNotExists("Type", Name.get("Annot"));
+    popup.setIfNotExists("Subtype", Name.get("Popup"));
     popup.setIfNotExists("Open", false);
     popup.setIfArray("Rect", rect);
     popup.set("Parent", parent);
@@ -60601,9 +61058,9 @@ class FreeTextAnnotation extends MarkupAnnotation {
       user,
       value
     } = annotation;
-    const freetext = oldAnnotation || new primitives_Dict(xref);
-    freetext.setIfNotExists("Type", primitives_Name.get("Annot"));
-    freetext.setIfNotExists("Subtype", primitives_Name.get("FreeText"));
+    const freetext = oldAnnotation || new Dict(xref);
+    freetext.setIfNotExists("Type", Name.get("Annot"));
+    freetext.setIfNotExists("Subtype", Name.get("FreeText"));
     freetext.set(oldAnnotation ? "M" : "CreationDate", `D:${getModificationDate(date)}`);
     if (oldAnnotation) {
       freetext.delete("RC");
@@ -60617,7 +61074,7 @@ class FreeTextAnnotation extends MarkupAnnotation {
     freetext.setIfNumber("Rotate", rotation);
     freetext.setIfDefined("T", stringToAsciiOrUTF16BE(user));
     if (apRef || ap) {
-      const n = new primitives_Dict(xref);
+      const n = new Dict(xref);
       freetext.set("AP", n);
       n.set("N", apRef || ap);
     }
@@ -60639,12 +61096,12 @@ class FreeTextAnnotation extends MarkupAnnotation {
     if (!color) {
       return null;
     }
-    const resources = new primitives_Dict(xref);
-    const font = new primitives_Dict(xref);
+    const resources = new Dict(xref);
+    const font = new Dict(xref);
     if (baseFontRef) {
       font.set("Helv", baseFontRef);
     } else {
-      const baseFont = new primitives_Dict(xref);
+      const baseFont = new Dict(xref);
       baseFont.setIfName("BaseFont", "Helvetica");
       baseFont.setIfName("Type", "Font");
       baseFont.setIfName("Subtype", "Type1");
@@ -60725,7 +61182,7 @@ class FreeTextAnnotation extends MarkupAnnotation {
     }
     buffer.push("ET", "Q");
     const appearance = buffer.join("\n");
-    const appearanceStreamDict = new primitives_Dict(xref);
+    const appearanceStreamDict = new Dict(xref);
     appearanceStreamDict.set("FormType", 1);
     appearanceStreamDict.setIfName("Subtype", "Form");
     appearanceStreamDict.setIfName("Type", "XObject");
@@ -61024,9 +61481,9 @@ class InkAnnotation extends MarkupAnnotation {
       thickness,
       user
     } = annotation;
-    const ink = oldAnnotation || new primitives_Dict(xref);
-    ink.setIfNotExists("Type", primitives_Name.get("Annot"));
-    ink.setIfNotExists("Subtype", primitives_Name.get("Ink"));
+    const ink = oldAnnotation || new Dict(xref);
+    ink.setIfNotExists("Type", Name.get("Annot"));
+    ink.setIfNotExists("Subtype", Name.get("Ink"));
     ink.set(oldAnnotation ? "M" : "CreationDate", `D:${getModificationDate(date)}`);
     ink.setIfArray("Rect", rect);
     ink.setIfArray("InkList", outlines?.points || paths?.points);
@@ -61037,14 +61494,14 @@ class InkAnnotation extends MarkupAnnotation {
       ink.setIfName("IT", "InkHighlight");
     }
     if (thickness > 0) {
-      const bs = new primitives_Dict(xref);
+      const bs = new Dict(xref);
       ink.set("BS", bs);
       bs.set("W", thickness);
     }
     ink.setIfArray("C", getPdfColorArray(color));
     ink.setIfNumber("CA", opacity);
     if (ap || apRef) {
-      const n = new primitives_Dict(xref);
+      const n = new Dict(xref);
       ink.set("AP", n);
       n.set("N", apRef || ap);
     }
@@ -61084,16 +61541,16 @@ class InkAnnotation extends MarkupAnnotation {
     }
     appearanceBuffer.push("S");
     const appearance = appearanceBuffer.join("\n");
-    const appearanceStreamDict = new primitives_Dict(xref);
+    const appearanceStreamDict = new Dict(xref);
     appearanceStreamDict.set("FormType", 1);
     appearanceStreamDict.setIfName("Subtype", "Form");
     appearanceStreamDict.setIfName("Type", "XObject");
     appearanceStreamDict.set("BBox", rect);
     appearanceStreamDict.set("Length", appearance.length);
     if (opacity !== 1) {
-      const resources = new primitives_Dict(xref);
-      const extGState = new primitives_Dict(xref);
-      const r0 = new primitives_Dict(xref);
+      const resources = new Dict(xref);
+      const extGState = new Dict(xref);
+      const r0 = new Dict(xref);
       r0.set("CA", opacity);
       r0.setIfName("Type", "ExtGState");
       extGState.set("R0", r0);
@@ -61128,17 +61585,17 @@ class InkAnnotation extends MarkupAnnotation {
     }
     appearanceBuffer.push("h f");
     const appearance = appearanceBuffer.join("\n");
-    const appearanceStreamDict = new primitives_Dict(xref);
+    const appearanceStreamDict = new Dict(xref);
     appearanceStreamDict.set("FormType", 1);
     appearanceStreamDict.setIfName("Subtype", "Form");
     appearanceStreamDict.setIfName("Type", "XObject");
     appearanceStreamDict.set("BBox", rect);
     appearanceStreamDict.set("Length", appearance.length);
-    const resources = new primitives_Dict(xref);
-    const extGState = new primitives_Dict(xref);
+    const resources = new Dict(xref);
+    const extGState = new Dict(xref);
     resources.set("ExtGState", extGState);
     appearanceStreamDict.set("Resources", resources);
-    const r0 = new primitives_Dict(xref);
+    const r0 = new Dict(xref);
     extGState.set("R0", r0);
     r0.setIfName("BM", "Multiply");
     if (opacity !== 1) {
@@ -61203,9 +61660,9 @@ class HighlightAnnotation extends MarkupAnnotation {
       user,
       quadPoints
     } = annotation;
-    const highlight = oldAnnotation || new primitives_Dict(xref);
-    highlight.setIfNotExists("Type", primitives_Name.get("Annot"));
-    highlight.setIfNotExists("Subtype", primitives_Name.get("Highlight"));
+    const highlight = oldAnnotation || new Dict(xref);
+    highlight.setIfNotExists("Type", Name.get("Annot"));
+    highlight.setIfNotExists("Subtype", Name.get("Highlight"));
     highlight.set(oldAnnotation ? "M" : "CreationDate", `D:${getModificationDate(date)}`);
     highlight.setIfArray("Rect", rect);
     highlight.setIfNotExists("F", 4);
@@ -61216,7 +61673,7 @@ class HighlightAnnotation extends MarkupAnnotation {
     highlight.setIfNumber("CA", opacity);
     highlight.setIfDefined("T", stringToAsciiOrUTF16BE(user));
     if (apRef || ap) {
-      const n = new primitives_Dict(xref);
+      const n = new Dict(xref);
       highlight.set("AP", n);
       n.set("N", apRef || ap);
     }
@@ -61245,17 +61702,17 @@ class HighlightAnnotation extends MarkupAnnotation {
     }
     appearanceBuffer.push("f*");
     const appearance = appearanceBuffer.join("\n");
-    const appearanceStreamDict = new primitives_Dict(xref);
+    const appearanceStreamDict = new Dict(xref);
     appearanceStreamDict.set("FormType", 1);
     appearanceStreamDict.setIfName("Subtype", "Form");
     appearanceStreamDict.setIfName("Type", "XObject");
     appearanceStreamDict.set("BBox", rect);
     appearanceStreamDict.set("Length", appearance.length);
-    const resources = new primitives_Dict(xref);
-    const extGState = new primitives_Dict(xref);
+    const resources = new Dict(xref);
+    const extGState = new Dict(xref);
     resources.set("ExtGState", extGState);
     appearanceStreamDict.set("Resources", resources);
-    const r0 = new primitives_Dict(xref);
+    const r0 = new Dict(xref);
     extGState.set("R0", r0);
     r0.setIfName("BM", "Multiply");
     if (opacity !== 1) {
@@ -61422,9 +61879,9 @@ class StampAnnotation extends MarkupAnnotation {
       type: "image/jpeg",
       quality: 1
     }).then(blob => blob.arrayBuffer());
-    const xobjectName = primitives_Name.get("XObject");
-    const imageName = primitives_Name.get("Image");
-    const image = new primitives_Dict(xref);
+    const xobjectName = Name.get("XObject");
+    const imageName = Name.get("Image");
+    const image = new Dict(xref);
     image.set("Type", xobjectName);
     image.set("Subtype", imageName);
     image.set("BitsPerComponent", 8);
@@ -61445,7 +61902,7 @@ class StampAnnotation extends MarkupAnnotation {
           alphaBuffer[i] = buf32[i] & 0xff;
         }
       }
-      const smask = new primitives_Dict(xref);
+      const smask = new Dict(xref);
       smask.set("Type", xobjectName);
       smask.set("Subtype", imageName);
       smask.set("BitsPerComponent", 8);
@@ -61474,9 +61931,9 @@ class StampAnnotation extends MarkupAnnotation {
       rotation,
       user
     } = annotation;
-    const stamp = oldAnnotation || new primitives_Dict(xref);
-    stamp.setIfNotExists("Type", primitives_Name.get("Annot"));
-    stamp.setIfNotExists("Subtype", primitives_Name.get("Stamp"));
+    const stamp = oldAnnotation || new Dict(xref);
+    stamp.setIfNotExists("Type", Name.get("Annot"));
+    stamp.setIfNotExists("Subtype", Name.get("Stamp"));
     stamp.set(oldAnnotation ? "M" : "CreationDate", `D:${getModificationDate(date)}`);
     stamp.setIfArray("Rect", rect);
     stamp.setIfNotExists("F", 4);
@@ -61484,7 +61941,7 @@ class StampAnnotation extends MarkupAnnotation {
     stamp.setIfNumber("Rotate", rotation);
     stamp.setIfDefined("T", stringToAsciiOrUTF16BE(user));
     if (apRef || ap) {
-      const n = new primitives_Dict(xref);
+      const n = new Dict(xref);
       stamp.set("AP", n);
       n.set("N", apRef || ap);
     }
@@ -61505,12 +61962,12 @@ class StampAnnotation extends MarkupAnnotation {
       width,
       height
     } = params.image;
-    const resources = new primitives_Dict(xref);
-    const xobject = new primitives_Dict(xref);
+    const resources = new Dict(xref);
+    const xobject = new Dict(xref);
     resources.set("XObject", xobject);
     xobject.set("Im0", imageRef);
     const appearance = `q ${width} 0 0 ${height} 0 0 cm /Im0 Do Q`;
-    const appearanceStreamDict = new primitives_Dict(xref);
+    const appearanceStreamDict = new Dict(xref);
     appearanceStreamDict.set("FormType", 1);
     appearanceStreamDict.setIfName("Subtype", "Form");
     appearanceStreamDict.setIfName("Type", "XObject");
@@ -61553,7 +62010,7 @@ async function _createNewAppearanceStreamForDrawing(annotation, xref) {
   }
   appearanceBuffer.push(areContours ? "F" : "S");
   const appearance = appearanceBuffer.join("\n");
-  const appearanceStreamDict = new primitives_Dict(xref);
+  const appearanceStreamDict = new Dict(xref);
   appearanceStreamDict.set("FormType", 1);
   appearanceStreamDict.setIfName("Subtype", "Form");
   appearanceStreamDict.setIfName("Type", "XObject");
@@ -61576,7 +62033,7 @@ class FileAttachmentAnnotation extends MarkupAnnotation {
     this.data.noHTML = false;
     this.data.file = file.serializable;
     const name = dict.get("Name");
-    this.data.name = name instanceof primitives_Name ? stringToPDFString(name.name) : "PushPin";
+    this.data.name = name instanceof Name ? stringToPDFString(name.name) : "PushPin";
     const fillAlpha = dict.get("ca");
     this.data.fillAlpha = typeof fillAlpha === "number" && fillAlpha >= 0 && fillAlpha <= 1 ? fillAlpha : null;
   }
@@ -61738,25 +62195,16 @@ class DatasetReader {
 ;// ./src/core/intersector.js
 
 
-
-
-
-
-
-
-
 function intersector_classPrivateMethodInitSpec(e, a) { intersector_checkPrivateRedeclaration(e, a), a.add(e); }
+function intersector_defineProperty(e, r, t) { return (r = intersector_toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
+function intersector_toPropertyKey(t) { var i = intersector_toPrimitive(t, "string"); return "symbol" == typeof i ? i : i + ""; }
+function intersector_toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != typeof i) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
 function intersector_classPrivateFieldInitSpec(e, t, a) { intersector_checkPrivateRedeclaration(e, t), t.set(e, a); }
 function intersector_checkPrivateRedeclaration(e, t) { if (t.has(e)) throw new TypeError("Cannot initialize the same private elements twice on an object"); }
 function intersector_classPrivateFieldGet(s, a) { return s.get(intersector_assertClassBrand(s, a)); }
-function _toSetter(t, e, n) { e || (e = []); var r = e.length++; return Object.defineProperty({}, "_", { set: function (o) { e[r] = o, t.apply(n, e); } }); }
 function intersector_classPrivateFieldSet(s, a, r) { return s.set(intersector_assertClassBrand(s, a), r), r; }
 function intersector_assertClassBrand(e, t, n) { if ("function" == typeof e ? e === t : e.has(t)) return arguments.length < 3 ? t : n; throw new TypeError("Private element is not present on this object"); }
 var _annotation = /*#__PURE__*/new WeakMap();
-var _minX = /*#__PURE__*/new WeakMap();
-var _minY = /*#__PURE__*/new WeakMap();
-var _maxX = /*#__PURE__*/new WeakMap();
-var _maxY = /*#__PURE__*/new WeakMap();
 var _quadPoints = /*#__PURE__*/new WeakMap();
 var _text = /*#__PURE__*/new WeakMap();
 var _extraChars = /*#__PURE__*/new WeakMap();
@@ -61767,10 +62215,10 @@ class SingleIntersector {
   constructor(annotation) {
     intersector_classPrivateMethodInitSpec(this, _SingleIntersector_brand);
     intersector_classPrivateFieldInitSpec(this, _annotation, void 0);
-    intersector_classPrivateFieldInitSpec(this, _minX, Infinity);
-    intersector_classPrivateFieldInitSpec(this, _minY, Infinity);
-    intersector_classPrivateFieldInitSpec(this, _maxX, -Infinity);
-    intersector_classPrivateFieldInitSpec(this, _maxY, -Infinity);
+    intersector_defineProperty(this, "minX", Infinity);
+    intersector_defineProperty(this, "minY", Infinity);
+    intersector_defineProperty(this, "maxX", -Infinity);
+    intersector_defineProperty(this, "maxY", -Infinity);
     intersector_classPrivateFieldInitSpec(this, _quadPoints, null);
     intersector_classPrivateFieldInitSpec(this, _text, []);
     intersector_classPrivateFieldInitSpec(this, _extraChars, []);
@@ -61779,21 +62227,18 @@ class SingleIntersector {
     intersector_classPrivateFieldSet(_annotation, this, annotation);
     const _quadPoints2 = annotation.data.quadPoints;
     if (!_quadPoints2) {
-      [_toSetter(intersector_classPrivateFieldSet, [_minX, this])._, _toSetter(intersector_classPrivateFieldSet, [_minY, this])._, _toSetter(intersector_classPrivateFieldSet, [_maxX, this])._, _toSetter(intersector_classPrivateFieldSet, [_maxY, this])._] = annotation.data.rect;
+      [this.minX, this.minY, this.maxX, this.maxY] = annotation.data.rect;
       return;
     }
     for (let i = 0, ii = _quadPoints2.length; i < ii; i += 8) {
-      intersector_classPrivateFieldSet(_minX, this, Math.min(intersector_classPrivateFieldGet(_minX, this), _quadPoints2[i]));
-      intersector_classPrivateFieldSet(_maxX, this, Math.max(intersector_classPrivateFieldGet(_maxX, this), _quadPoints2[i + 2]));
-      intersector_classPrivateFieldSet(_minY, this, Math.min(intersector_classPrivateFieldGet(_minY, this), _quadPoints2[i + 5]));
-      intersector_classPrivateFieldSet(_maxY, this, Math.max(intersector_classPrivateFieldGet(_maxY, this), _quadPoints2[i + 1]));
+      this.minX = Math.min(this.minX, _quadPoints2[i]);
+      this.maxX = Math.max(this.maxX, _quadPoints2[i + 2]);
+      this.minY = Math.min(this.minY, _quadPoints2[i + 5]);
+      this.maxY = Math.max(this.maxY, _quadPoints2[i + 1]);
     }
     if (_quadPoints2.length > 8) {
       intersector_classPrivateFieldSet(_quadPoints, this, _quadPoints2);
     }
-  }
-  overlaps(other) {
-    return !(intersector_classPrivateFieldGet(_minX, this) >= intersector_classPrivateFieldGet(_maxX, other) || intersector_classPrivateFieldGet(_maxX, this) <= intersector_classPrivateFieldGet(_minX, other) || intersector_classPrivateFieldGet(_minY, this) >= intersector_classPrivateFieldGet(_maxY, other) || intersector_classPrivateFieldGet(_maxY, this) <= intersector_classPrivateFieldGet(_minY, other));
   }
   addGlyph(x, y, glyph) {
     if (!intersector_assertClassBrand(_SingleIntersector_brand, this, _intersects).call(this, x, y)) {
@@ -61825,7 +62270,7 @@ class SingleIntersector {
   }
 }
 function _intersects(x, y) {
-  if (intersector_classPrivateFieldGet(_minX, this) >= x || intersector_classPrivateFieldGet(_maxX, this) <= x || intersector_classPrivateFieldGet(_minY, this) >= y || intersector_classPrivateFieldGet(_maxY, this) <= y) {
+  if (this.minX >= x || this.maxX <= x || this.minY >= y || this.maxY <= y) {
     return false;
   }
   const quadPoints = intersector_classPrivateFieldGet(_quadPoints, this);
@@ -61847,56 +62292,94 @@ function _intersects(x, y) {
   }
   return false;
 }
+const STEPS = 64;
 var _intersectors = /*#__PURE__*/new WeakMap();
+var _grid = /*#__PURE__*/new WeakMap();
+var _minX = /*#__PURE__*/new WeakMap();
+var _maxX = /*#__PURE__*/new WeakMap();
+var _minY = /*#__PURE__*/new WeakMap();
+var _maxY = /*#__PURE__*/new WeakMap();
+var _invXRatio = /*#__PURE__*/new WeakMap();
+var _invYRatio = /*#__PURE__*/new WeakMap();
+var _Intersector_brand = /*#__PURE__*/new WeakSet();
 class Intersector {
   constructor(annotations) {
-    intersector_classPrivateFieldInitSpec(this, _intersectors, new Map());
+    intersector_classPrivateMethodInitSpec(this, _Intersector_brand);
+    intersector_classPrivateFieldInitSpec(this, _intersectors, []);
+    intersector_classPrivateFieldInitSpec(this, _grid, []);
+    intersector_classPrivateFieldInitSpec(this, _minX, void 0);
+    intersector_classPrivateFieldInitSpec(this, _maxX, void 0);
+    intersector_classPrivateFieldInitSpec(this, _minY, void 0);
+    intersector_classPrivateFieldInitSpec(this, _maxY, void 0);
+    intersector_classPrivateFieldInitSpec(this, _invXRatio, void 0);
+    intersector_classPrivateFieldInitSpec(this, _invYRatio, void 0);
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    const intersectors = intersector_classPrivateFieldGet(_intersectors, this);
     for (const annotation of annotations) {
       if (!annotation.data.quadPoints && !annotation.data.rect) {
         continue;
       }
       const intersector = new SingleIntersector(annotation);
-      for (const [otherIntersector, overlapping] of intersector_classPrivateFieldGet(_intersectors, this)) {
-        if (otherIntersector.overlaps(intersector)) {
-          if (!overlapping) {
-            intersector_classPrivateFieldGet(_intersectors, this).set(otherIntersector, new Set([intersector]));
-          } else {
-            overlapping.add(intersector);
+      intersectors.push(intersector);
+      minX = Math.min(minX, intersector.minX);
+      minY = Math.min(minY, intersector.minY);
+      maxX = Math.max(maxX, intersector.maxX);
+      maxY = Math.max(maxY, intersector.maxY);
+    }
+    intersector_classPrivateFieldSet(_minX, this, minX);
+    intersector_classPrivateFieldSet(_minY, this, minY);
+    intersector_classPrivateFieldSet(_maxX, this, maxX);
+    intersector_classPrivateFieldSet(_maxY, this, maxY);
+    intersector_classPrivateFieldSet(_invXRatio, this, (STEPS - 1) / (maxX - minX));
+    intersector_classPrivateFieldSet(_invYRatio, this, (STEPS - 1) / (maxY - minY));
+    for (const intersector of intersectors) {
+      const iMin = intersector_assertClassBrand(_Intersector_brand, this, _getGridIndex).call(this, intersector.minX, intersector.minY);
+      const iMax = intersector_assertClassBrand(_Intersector_brand, this, _getGridIndex).call(this, intersector.maxX, intersector.maxY);
+      const w = (iMax - iMin) % STEPS;
+      const h = Math.floor((iMax - iMin) / STEPS);
+      for (let i = iMin; i <= iMin + h * STEPS; i += STEPS) {
+        for (let j = 0; j <= w; j++) {
+          let existing = intersector_classPrivateFieldGet(_grid, this)[i + j];
+          if (!existing) {
+            intersector_classPrivateFieldGet(_grid, this)[i + j] = existing = [];
           }
+          existing.push(intersector);
         }
       }
-      intersector_classPrivateFieldGet(_intersectors, this).set(intersector, null);
     }
   }
   addGlyph(transform, width, height, glyph) {
     const x = transform[4] + width / 2;
     const y = transform[5] + height / 2;
-    let overlappingIntersectors;
-    for (const [intersector, overlapping] of intersector_classPrivateFieldGet(_intersectors, this)) {
-      if (overlappingIntersectors) {
-        if (overlappingIntersectors.has(intersector)) {
-          intersector.addGlyph(x, y, glyph);
-        } else {
-          intersector.disableExtraChars();
-        }
-        continue;
-      }
-      if (!intersector.addGlyph(x, y, glyph)) {
-        continue;
-      }
-      overlappingIntersectors = overlapping;
+    if (x < intersector_classPrivateFieldGet(_minX, this) || y < intersector_classPrivateFieldGet(_minY, this) || x > intersector_classPrivateFieldGet(_maxX, this) || y > intersector_classPrivateFieldGet(_maxY, this)) {
+      return;
+    }
+    const intersectors = intersector_classPrivateFieldGet(_grid, this)[intersector_assertClassBrand(_Intersector_brand, this, _getGridIndex).call(this, x, y)];
+    if (!intersectors) {
+      return;
+    }
+    for (const intersector of intersectors) {
+      intersector.addGlyph(x, y, glyph);
     }
   }
   addExtraChar(char) {
-    for (const intersector of intersector_classPrivateFieldGet(_intersectors, this).keys()) {
+    for (const intersector of intersector_classPrivateFieldGet(_intersectors, this)) {
       intersector.addExtraChar(char);
     }
   }
   setText() {
-    for (const intersector of intersector_classPrivateFieldGet(_intersectors, this).keys()) {
+    for (const intersector of intersector_classPrivateFieldGet(_intersectors, this)) {
       intersector.setText();
     }
   }
+}
+function _getGridIndex(x, y) {
+  const i = Math.floor((x - intersector_classPrivateFieldGet(_minX, this)) * intersector_classPrivateFieldGet(_invXRatio, this));
+  const j = Math.floor((y - intersector_classPrivateFieldGet(_minY, this)) * intersector_classPrivateFieldGet(_invYRatio, this));
+  return i + j * STEPS;
 }
 
 // EXTERNAL MODULE: ./node_modules/core-js/modules/es.object.has-own.js
@@ -62307,7 +62790,7 @@ const chunkSize = 512;
 class DecryptStream extends DecodeStream {
   constructor(str, maybeLength, decrypt) {
     super(maybeLength);
-    this.str = str;
+    this.stream = str;
     this.dict = str.dict;
     this.decrypt = decrypt;
     this.nextChunk = null;
@@ -62318,14 +62801,14 @@ class DecryptStream extends DecodeStream {
     if (this.initialized) {
       chunk = this.nextChunk;
     } else {
-      chunk = this.str.getBytes(chunkSize);
+      chunk = this.stream.getBytes(chunkSize);
       this.initialized = true;
     }
     if (!chunk?.length) {
       this.eof = true;
       return;
     }
-    this.nextChunk = this.str.getBytes(chunkSize);
+    this.nextChunk = this.stream.getBytes(chunkSize);
     const hasMoreData = this.nextChunk?.length > 0;
     const decrypt = this.decrypt;
     chunk = decrypt(chunk, !hasMoreData);
@@ -62334,6 +62817,9 @@ class DecryptStream extends DecodeStream {
       buffer = this.ensureBuffer(newLength);
     buffer.set(chunk, bufferLength);
     this.bufferLength = newLength;
+  }
+  getOriginalStream() {
+    return this;
   }
 }
 
@@ -62889,7 +63375,7 @@ class CipherTransformFactory {
   constructor(dict, _fileId, _password) {
     crypto_classPrivateMethodInitSpec(this, _CipherTransformFactory_brand);
     const filter = dict.get("Filter");
-    if (!primitives_isName(filter, "Standard")) {
+    if (!isName(filter, "Standard")) {
       throw new FormatError("unknown encryption method");
     }
     this.filterName = filter.name;
@@ -62906,7 +63392,7 @@ class CipherTransformFactory {
       } else {
         const cfDict = dict.get("CF");
         const streamCryptoName = dict.get("StmF");
-        if (cfDict instanceof primitives_Dict && streamCryptoName instanceof primitives_Name) {
+        if (cfDict instanceof Dict && streamCryptoName instanceof Name) {
           cfDict.suppressEncryption = true;
           const handlerDict = cfDict.get(streamCryptoName.name);
           _keyLength = handlerDict?.get("Length") || 128;
@@ -62971,12 +63457,12 @@ class CipherTransformFactory {
     }
     if (algorithm >= 4) {
       const cf = dict.get("CF");
-      if (cf instanceof primitives_Dict) {
+      if (cf instanceof Dict) {
         cf.suppressEncryption = true;
       }
       this.cf = cf;
-      this.stmf = dict.get("StmF") || primitives_Name.get("Identity");
-      this.strf = dict.get("StrF") || primitives_Name.get("Identity");
+      this.stmf = dict.get("StmF") || Name.get("Identity");
+      this.strf = dict.get("StrF") || Name.get("Identity");
       this.eff = dict.get("EFF") || this.stmf;
     }
   }
@@ -63123,7 +63609,7 @@ function _buildObjectKey(num, gen, encryptionKey) {
   return hash.subarray(0, Math.min(n + 5, 16));
 }
 function _buildCipherConstructor(cf, name, num, gen, key) {
-  if (!(name instanceof primitives_Name)) {
+  if (!(name instanceof Name)) {
     throw new FormatError("Invalid crypt filter name.");
   }
   const self = this;
@@ -63192,7 +63678,7 @@ class XRef {
     this.entries = [];
     this._xrefStms = new Set();
     this._cacheMap = new Map();
-    this._pendingRefs = new primitives_RefSet();
+    this._pendingRefs = new RefSet();
     this._newPersistentRefNum = null;
     this._newTemporaryRefNum = null;
     this._persistentRefsCache = null;
@@ -63203,7 +63689,7 @@ class XRef {
     }
     const num = this._newPersistentRefNum++;
     this._cacheMap.set(num, obj);
-    return primitives_Ref.get(num, 0);
+    return Ref.get(num, 0);
   }
   getNewTemporaryRef() {
     if (this._newTemporaryRefNum === null) {
@@ -63216,7 +63702,7 @@ class XRef {
         }
       }
     }
-    return primitives_Ref.get(this._newTemporaryRefNum++, 0);
+    return Ref.get(this._newTemporaryRefNum++, 0);
   }
   resetNewTemporaryRef() {
     this._newTemporaryRefNum = null;
@@ -63250,7 +63736,7 @@ class XRef {
       }
       warn(`XRef.parse - Invalid "Encrypt" reference: "${ex}".`);
     }
-    if (encrypt instanceof primitives_Dict) {
+    if (encrypt instanceof Dict) {
       const ids = trailerDict.get("ID");
       const fileId = ids?.length ? ids[0] : "";
       encrypt.suppressEncryption = true;
@@ -63265,10 +63751,10 @@ class XRef {
       }
       warn(`XRef.parse - Invalid "Root" reference: "${ex}".`);
     }
-    if (root instanceof primitives_Dict) {
+    if (root instanceof Dict) {
       try {
         const pages = root.get("Pages");
-        if (pages instanceof primitives_Dict) {
+        if (pages instanceof Dict) {
           this.root = root;
           return;
         }
@@ -63298,10 +63784,10 @@ class XRef {
       throw new FormatError("Invalid XRef table: could not find trailer dictionary");
     }
     let dict = parser.getObj();
-    if (!(dict instanceof primitives_Dict) && dict.dict) {
+    if (!(dict instanceof Dict) && dict.dict) {
       dict = dict.dict;
     }
-    if (!(dict instanceof primitives_Dict)) {
+    if (!(dict instanceof Dict)) {
       throw new FormatError("Invalid XRef table: could not parse trailer dictionary");
     }
     delete this.tableState;
@@ -63617,7 +64103,7 @@ class XRef {
         continue;
       }
       const dict = parser.getObj();
-      if (!(dict instanceof primitives_Dict)) {
+      if (!(dict instanceof Dict)) {
         continue;
       }
       trailerDicts.push(dict);
@@ -63637,11 +64123,11 @@ class XRef {
       let validPagesDict = false;
       try {
         const rootDict = dict.get("Root");
-        if (!(rootDict instanceof primitives_Dict)) {
+        if (!(rootDict instanceof Dict)) {
           continue;
         }
         const pagesDict = rootDict.get("Pages");
-        if (!(pagesDict instanceof primitives_Dict)) {
+        if (!(pagesDict instanceof Dict)) {
           continue;
         }
         const pagesCount = pagesDict.get("Count");
@@ -63669,7 +64155,7 @@ class XRef {
           continue;
         }
         const entry = this.entries[num];
-        const ref = primitives_Ref.get(parseInt(num), entry.gen);
+        const ref = Ref.get(parseInt(num), entry.gen);
         let obj;
         try {
           obj = this.fetch(ref);
@@ -63679,7 +64165,7 @@ class XRef {
         if (obj instanceof BaseStream) {
           obj = obj.dict;
         }
-        if (obj instanceof primitives_Dict && obj.has("Root")) {
+        if (obj instanceof Dict && obj.has("Root")) {
           return obj;
         }
       }
@@ -63734,7 +64220,7 @@ class XRef {
         obj = dict.get("Prev");
         if (Number.isInteger(obj)) {
           this.startXRefQueue.push(obj);
-        } else if (obj instanceof primitives_Ref) {
+        } else if (obj instanceof Ref) {
           this.startXRefQueue.push(obj.num);
         }
       } catch (e) {
@@ -63762,20 +64248,20 @@ class XRef {
   }
   fetchIfRef(obj) {
     let suppressEncryption = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
-    if (obj instanceof primitives_Ref) {
+    if (obj instanceof Ref) {
       return this.fetch(obj, suppressEncryption);
     }
     return obj;
   }
   fetch(ref) {
     let suppressEncryption = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
-    if (!(ref instanceof primitives_Ref)) {
+    if (!(ref instanceof Ref)) {
       throw new Error("ref object is not a reference");
     }
     const num = ref.num;
     const cacheEntry = this._cacheMap.get(num);
     if (cacheEntry !== undefined) {
-      if (cacheEntry instanceof primitives_Dict && !cacheEntry.objId) {
+      if (cacheEntry instanceof Dict && !cacheEntry.objId) {
         cacheEntry.objId = ref.toString();
       }
       return cacheEntry;
@@ -63797,7 +64283,7 @@ class XRef {
       this._pendingRefs.remove(ref);
       throw ex;
     }
-    if (xrefEntry instanceof primitives_Dict) {
+    if (xrefEntry instanceof Dict) {
       xrefEntry.objId = ref.toString();
     } else if (xrefEntry instanceof BaseStream) {
       xrefEntry.dict.objId = ref.toString();
@@ -63812,7 +64298,7 @@ class XRef {
       const msg = `Inconsistent generation in XRef: ${ref}`;
       if (this._generationFallback && xrefEntry.gen < gen) {
         warn(msg);
-        return this.fetchUncompressed(primitives_Ref.get(num, xrefEntry.gen), xrefEntry, suppressEncryption);
+        return this.fetchUncompressed(Ref.get(num, xrefEntry.gen), xrefEntry, suppressEncryption);
       }
       throw new XRefEntryException(msg);
     }
@@ -63846,7 +64332,7 @@ class XRef {
   fetchCompressed(ref, xrefEntry) {
     let suppressEncryption = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : false;
     const tableOffset = xrefEntry.offset;
-    const stream = this.fetch(primitives_Ref.get(tableOffset, 0));
+    const stream = this.fetch(Ref.get(tableOffset, 0));
     if (!(stream instanceof BaseStream)) {
       throw new FormatError("bad ObjStm stream");
     }
@@ -63908,7 +64394,7 @@ class XRef {
     return xrefEntry;
   }
   async fetchIfRefAsync(obj, suppressEncryption) {
-    if (obj instanceof primitives_Ref) {
+    if (obj instanceof Ref) {
       return this.fetchAsync(obj, suppressEncryption);
     }
     return obj;
@@ -64042,13 +64528,26 @@ class Page {
   }
   get resources() {
     const resources = document_assertClassBrand(_Page_brand, this, _getInheritableProperty).call(this, "Resources");
-    return shadow(this, "resources", resources instanceof primitives_Dict ? resources : primitives_Dict.empty);
+    return shadow(this, "resources", resources instanceof Dict ? resources : Dict.empty);
+  }
+  getBoundingBox(name) {
+    if (this.xfaData) {
+      return this.xfaData.bbox;
+    }
+    const box = lookupNormalRect(document_assertClassBrand(_Page_brand, this, _getInheritableProperty).call(this, name, true), null);
+    if (box) {
+      if (box[2] - box[0] > 0 && box[3] - box[1] > 0) {
+        return box;
+      }
+      warn(`Empty, or invalid, /${name} entry.`);
+    }
+    return null;
   }
   get mediaBox() {
-    return shadow(this, "mediaBox", document_assertClassBrand(_Page_brand, this, _getBoundingBox).call(this, "MediaBox") || LETTER_SIZE_MEDIABOX);
+    return shadow(this, "mediaBox", this.getBoundingBox("MediaBox") || LETTER_SIZE_MEDIABOX);
   }
   get cropBox() {
-    return shadow(this, "cropBox", document_assertClassBrand(_Page_brand, this, _getBoundingBox).call(this, "CropBox") || this.mediaBox);
+    return shadow(this, "cropBox", this.getBoundingBox("CropBox") || this.mediaBox);
   }
   get userUnit() {
     const obj = this.pageDict.get("UserUnit");
@@ -64100,15 +64599,15 @@ class Page {
     }
     const partialEvaluator = document_assertClassBrand(_Page_brand, this, _createPartialEvaluator).call(this, handler);
     const deletedAnnotations = new RefSetCache();
-    const existingAnnotations = new primitives_RefSet();
+    const existingAnnotations = new RefSet();
     await document_assertClassBrand(_Page_brand, this, _replaceIdByRef).call(this, annotations, deletedAnnotations, existingAnnotations);
     const pageDict = this.pageDict;
-    const annotationsArray = this.annotations.filter(a => !(a instanceof primitives_Ref && deletedAnnotations.has(a)));
+    const annotationsArray = this.annotations.filter(a => !(a instanceof Ref && deletedAnnotations.has(a)));
     const newData = await AnnotationFactory.saveNewAnnotations(partialEvaluator, task, annotations, imagePromises, changes);
     for (const {
       ref
     } of newData.annotations) {
-      if (ref instanceof primitives_Ref && !existingAnnotations.has(ref)) {
+      if (ref instanceof Ref && !existingAnnotations.has(ref)) {
         annotationsArray.push(ref);
       }
     }
@@ -64185,7 +64684,7 @@ class Page {
       } else {
         imagePromises = AnnotationFactory.generateImages(newAnnots, this.xref, isOffscreenCanvasSupported);
       }
-      deletedAnnotations = new primitives_RefSet();
+      deletedAnnotations = new RefSet();
       newAnnotationsPromise = Promise.all([annotationGlobalsPromise, document_assertClassBrand(_Page_brand, this, _replaceIdByRef).call(this, newAnnots, deletedAnnotations, null)]).then(_ref4 => {
         let [annotationGlobals] = _ref4;
         if (!annotationGlobals) {
@@ -64475,26 +64974,13 @@ function _getInheritableProperty(key) {
   if (!Array.isArray(value)) {
     return value;
   }
-  if (value.length === 1 || !(value[0] instanceof primitives_Dict)) {
+  if (value.length === 1 || !(value[0] instanceof Dict)) {
     return value[0];
   }
-  return primitives_Dict.merge({
+  return Dict.merge({
     xref: this.xref,
     dictArray: value
   });
-}
-function _getBoundingBox(name) {
-  if (this.xfaData) {
-    return this.xfaData.bbox;
-  }
-  const box = lookupNormalRect(document_assertClassBrand(_Page_brand, this, _getInheritableProperty).call(this, name, true), null);
-  if (box) {
-    if (box[2] - box[0] > 0 && box[3] - box[1] > 0) {
-      return box;
-    }
-    warn(`Empty, or invalid, /${name} entry.`);
-  }
-  return null;
 }
 function _onSubStreamError(reason, objId) {
   if (this.evaluatorOptions.ignoreErrors) {
@@ -64507,7 +64993,7 @@ async function _replaceIdByRef(annotations, deletedAnnotations, existingAnnotati
   const promises = [];
   for (const annotation of annotations) {
     if (annotation.id) {
-      const ref = primitives_Ref.fromString(annotation.id);
+      const ref = Ref.fromString(annotation.id);
       if (!ref) {
         warn(`A non-linked annotation cannot be modified: ${annotation.id}`);
         continue;
@@ -64515,7 +65001,7 @@ async function _replaceIdByRef(annotations, deletedAnnotations, existingAnnotati
       if (annotation.deleted) {
         deletedAnnotations.put(ref, ref);
         if (annotation.popupRef) {
-          const popupRef = primitives_Ref.fromString(annotation.popupRef);
+          const popupRef = Ref.fromString(annotation.popupRef);
           if (popupRef) {
             deletedAnnotations.put(popupRef, popupRef);
           }
@@ -64523,7 +65009,7 @@ async function _replaceIdByRef(annotations, deletedAnnotations, existingAnnotati
         continue;
       }
       if (annotation.popup?.deleted) {
-        const popupRef = primitives_Ref.fromString(annotation.popupRef);
+        const popupRef = Ref.fromString(annotation.popupRef);
         if (popupRef) {
           deletedAnnotations.put(popupRef, popupRef);
         }
@@ -64531,7 +65017,7 @@ async function _replaceIdByRef(annotations, deletedAnnotations, existingAnnotati
       existingAnnotations?.put(ref);
       annotation.ref = ref;
       promises.push(this.xref.fetchAsync(ref).then(obj => {
-        if (obj instanceof primitives_Dict) {
+        if (obj instanceof Dict) {
           annotation.oldAnnotation = obj.clone();
         }
       }, () => {
@@ -64544,11 +65030,11 @@ async function _replaceIdByRef(annotations, deletedAnnotations, existingAnnotati
 }
 async function _getMergedResources(streamDict, keys) {
   const localResources = streamDict?.get("Resources");
-  if (!(localResources instanceof primitives_Dict && localResources.size)) {
+  if (!(localResources instanceof Dict && localResources.size)) {
     return this.resources;
   }
   await ObjectLoader.load(localResources, keys, this.xref);
-  return primitives_Dict.merge({
+  return Dict.merge({
     xref: this.xref,
     dictArray: [localResources, this.resources],
     mergeSubDicts: true
@@ -64885,7 +65371,7 @@ class PDFDocument {
       }
       info("The document information dictionary is invalid.");
     }
-    if (!(infoDict instanceof primitives_Dict)) {
+    if (!(infoDict instanceof Dict)) {
       return shadow(this, "documentInfo", docInfo);
     }
     for (const [key, value] of infoDict) {
@@ -64904,7 +65390,7 @@ class PDFDocument {
           }
           break;
         case "Trapped":
-          if (value instanceof primitives_Name) {
+          if (value instanceof Name) {
             docInfo[key] = value;
             continue;
           }
@@ -64920,7 +65406,7 @@ class PDFDocument {
               customValue = value;
               break;
             default:
-              if (value instanceof primitives_Name) {
+              if (value instanceof Name) {
                 customValue = value;
               }
               break;
@@ -64967,7 +65453,7 @@ class PDFDocument {
     } = this;
     let promise;
     if (xfaFactory) {
-      promise = Promise.resolve([primitives_Dict.empty, null]);
+      promise = Promise.resolve([Dict.empty, null]);
     } else if (linearization?.pageFirst === pageIndex) {
       promise = document_assertClassBrand(_PDFDocument_brand, this, _getLinearizationPage).call(this, pageIndex);
     } else {
@@ -65106,7 +65592,7 @@ class PDFDocument {
       const {
         acroForm
       } = annotationGlobals;
-      const visitedRefs = new primitives_RefSet();
+      const visitedRefs = new RefSet();
       const allFields = Object.create(null);
       const fieldPromises = new Map();
       const orphanFields = new RefSetCache();
@@ -65151,7 +65637,7 @@ class PDFDocument {
     }
     const ids = [];
     for (const id of calculationOrder) {
-      if (id instanceof primitives_Ref) {
+      if (id instanceof Ref) {
         ids.push(id.toString());
       }
     }
@@ -65169,7 +65655,7 @@ function _hasOnlyDocumentSignatures(fields) {
   }
   return fields.every(field => {
     field = this.xref.fetchIfRef(field);
-    if (!(field instanceof primitives_Dict)) {
+    if (!(field instanceof Dict)) {
       return false;
     }
     if (field.has("Kids")) {
@@ -65179,46 +65665,11 @@ function _hasOnlyDocumentSignatures(fields) {
       }
       return document_assertClassBrand(_PDFDocument_brand, this, _hasOnlyDocumentSignatures).call(this, field.get("Kids"), recursionDepth);
     }
-    const isSignature = primitives_isName(field.get("FT"), "Sig");
+    const isSignature = isName(field.get("FT"), "Sig");
     const rectangle = field.get("Rect");
     const isInvisible = Array.isArray(rectangle) && rectangle.every(value => value === 0);
     return isSignature && isInvisible;
   });
-}
-function _collectSignatureCertificates(fields, collectedSignatureCertificates) {
-  let visited = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : new RefSet();
-  if (!Array.isArray(fields)) {
-    return;
-  }
-  for (let field of fields) {
-    if (field instanceof Ref) {
-      if (visited.has(field)) {
-        continue;
-      }
-      visited.put(field);
-    }
-    field = this.xref.fetchIfRef(field);
-    if (!(field instanceof Dict)) {
-      continue;
-    }
-    if (field.has("Kids")) {
-      document_assertClassBrand(_PDFDocument_brand, this, _collectSignatureCertificates).call(this, field.get("Kids"), collectedSignatureCertificates, visited);
-      continue;
-    }
-    const isSignature = isName(field.get("FT"), "Sig");
-    if (!isSignature) {
-      continue;
-    }
-    const value = field.get("V");
-    if (!(value instanceof Dict)) {
-      continue;
-    }
-    const subFilter = value.get("SubFilter");
-    if (!(subFilter instanceof Name)) {
-      continue;
-    }
-    collectedSignatureCertificates.add(subFilter.name);
-  }
 }
 async function _loadXfaImages() {
   const xfaImages = await this.pdfManager.ensureCatalog("xfaImages");
@@ -65233,12 +65684,12 @@ async function _loadXfaFonts(handler, task) {
     return;
   }
   const resources = await acroForm.getAsync("DR");
-  if (!(resources instanceof primitives_Dict)) {
+  if (!(resources instanceof Dict)) {
     return;
   }
   await ObjectLoader.load(resources, ["Font"], this.xref);
   const fontRes = resources.get("Font");
-  if (!(fontRes instanceof primitives_Dict)) {
+  if (!(fontRes instanceof Dict)) {
     return;
   }
   const options = Object.assign(Object.create(null), this.pdfManager.evaluatorOptions, {
@@ -65272,14 +65723,14 @@ async function _loadXfaFonts(handler, task) {
       return this;
     }
   };
-  const parseFont = (fontName, fallbackFontDict, cssFontInfo) => partialEvaluator.handleSetFont(resources, [primitives_Name.get(fontName), 1], null, operatorList, task, initialState, fallbackFontDict, cssFontInfo).catch(reason => {
+  const parseFont = (fontName, fallbackFontDict, cssFontInfo) => partialEvaluator.handleSetFont(resources, [Name.get(fontName), 1], null, operatorList, task, initialState, fallbackFontDict, cssFontInfo).catch(reason => {
     warn(`loadXfaFonts: "${reason}".`);
     return null;
   });
   const promises = [];
   for (const [fontName, font] of fontRes) {
     const descriptor = font.get("FontDescriptor");
-    if (!(descriptor instanceof primitives_Dict)) {
+    if (!(descriptor instanceof Dict)) {
       continue;
     }
     let fontFamily = descriptor.get("FontFamily");
@@ -65351,15 +65802,15 @@ async function _getLinearizationPage(pageIndex) {
     linearization,
     xref
   } = this;
-  const ref = primitives_Ref.get(linearization.objectNumberFirst, 0);
+  const ref = Ref.get(linearization.objectNumberFirst, 0);
   try {
     const obj = await xref.fetchAsync(ref);
-    if (obj instanceof primitives_Dict) {
+    if (obj instanceof Dict) {
       let type = obj.getRaw("Type");
-      if (type instanceof primitives_Ref) {
+      if (type instanceof Ref) {
         type = await xref.fetchAsync(type);
       }
-      if (primitives_isName(type, "Page") || !obj.has("Type") && !obj.has("Kids") && obj.has("Contents")) {
+      if (isName(type, "Page") || !obj.has("Type") && !obj.has("Kids") && obj.has("Contents")) {
         if (!catalog.pageKidsCountCache.has(ref)) {
           catalog.pageKidsCountCache.put(ref, 1);
         }
@@ -65379,16 +65830,16 @@ async function _collectFieldObjects(name, parentRef, fieldRef, promises, annotat
   const {
     xref
   } = this;
-  if (!(fieldRef instanceof primitives_Ref) || visitedRefs.has(fieldRef)) {
+  if (!(fieldRef instanceof Ref) || visitedRefs.has(fieldRef)) {
     return;
   }
   visitedRefs.put(fieldRef);
   const field = await xref.fetchAsync(fieldRef);
-  if (!(field instanceof primitives_Dict)) {
+  if (!(field instanceof Dict)) {
     return;
   }
   let subtype = await field.getAsync("Subtype");
-  subtype = subtype instanceof primitives_Name ? subtype.name : null;
+  subtype = subtype instanceof Name ? subtype.name : null;
   switch (subtype) {
     case "Link":
       return;
@@ -65400,13 +65851,13 @@ async function _collectFieldObjects(name, parentRef, fieldRef, promises, annotat
     let obj = field;
     while (true) {
       obj = obj.getRaw("Parent") || parentRef;
-      if (obj instanceof primitives_Ref) {
+      if (obj instanceof Ref) {
         if (visitedRefs.has(obj)) {
           break;
         }
         obj = await xref.fetchAsync(obj);
       }
-      if (!(obj instanceof primitives_Dict)) {
+      if (!(obj instanceof Dict)) {
         break;
       }
       if (obj.has("T")) {
@@ -65416,7 +65867,7 @@ async function _collectFieldObjects(name, parentRef, fieldRef, promises, annotat
       }
     }
   }
-  if (parentRef && !field.has("Parent") && primitives_isName(field.get("Subtype"), "Widget")) {
+  if (parentRef && !field.has("Parent") && isName(field.get("Subtype"), "Widget")) {
     orphanFields.put(fieldRef, parentRef);
   }
   if (!promises.has(name)) {
@@ -66054,37 +66505,34 @@ async function _deleteStreamController(streamController, streamId) {
 
 async function writeObject(ref, obj, buffer, _ref) {
   let {
-    encrypt = null
+    encrypt = null,
+    encryptRef = null
   } = _ref;
-  const transform = encrypt?.createCipherTransform(ref.num, ref.gen);
+  const transform = encrypt && encryptRef !== ref ? encrypt.createCipherTransform(ref.num, ref.gen) : null;
   buffer.push(`${ref.num} ${ref.gen} obj\n`);
-  if (obj instanceof primitives_Dict) {
-    await writeDict(obj, buffer, transform);
-  } else if (obj instanceof BaseStream) {
-    await writeStream(obj, buffer, transform);
-  } else if (Array.isArray(obj) || ArrayBuffer.isView(obj)) {
-    await writeArray(obj, buffer, transform);
-  }
+  await writeValue(obj, buffer, transform);
   buffer.push("\nendobj\n");
 }
 async function writeDict(dict, buffer, transform) {
   buffer.push("<<");
-  for (const key of dict.getKeys()) {
+  for (const [key, rawObj] of dict.getRawEntries()) {
     buffer.push(` /${escapePDFName(key)} `);
-    await writeValue(dict.getRaw(key), buffer, transform);
+    await writeValue(rawObj, buffer, transform);
   }
   buffer.push(">>");
 }
 async function writeStream(stream, buffer, transform) {
+  stream = stream.getOriginalStream();
+  stream.reset();
   let bytes = stream.getBytes();
   const {
     dict
   } = stream;
   const [filter, params] = await Promise.all([dict.getAsync("Filter"), dict.getAsync("DecodeParms")]);
   const filterZero = Array.isArray(filter) ? await dict.xref.fetchIfRefAsync(filter[0]) : filter;
-  const isFilterZeroFlateDecode = primitives_isName(filterZero, "FlateDecode");
+  const isFilterZeroFlateDecode = isName(filterZero, "FlateDecode");
   const MIN_LENGTH_FOR_COMPRESSING = 256;
-  if (bytes.length >= MIN_LENGTH_FOR_COMPRESSING || isFilterZeroFlateDecode) {
+  if (bytes.length >= MIN_LENGTH_FOR_COMPRESSING && !isFilterZeroFlateDecode) {
     try {
       const cs = new CompressionStream("deflate");
       const writer = cs.writable.getWriter();
@@ -66097,9 +66545,9 @@ async function writeStream(stream, buffer, transform) {
       bytes = new Uint8Array(buf);
       let newFilter, newParams;
       if (!filter) {
-        newFilter = primitives_Name.get("FlateDecode");
+        newFilter = Name.get("FlateDecode");
       } else if (!isFilterZeroFlateDecode) {
-        newFilter = Array.isArray(filter) ? [primitives_Name.get("FlateDecode"), ...filter] : [primitives_Name.get("FlateDecode"), filter];
+        newFilter = Array.isArray(filter) ? [Name.get("FlateDecode"), ...filter] : [Name.get("FlateDecode"), filter];
         if (params) {
           newParams = Array.isArray(params) ? [null, ...params] : [null, params];
         }
@@ -66124,21 +66572,18 @@ async function writeStream(stream, buffer, transform) {
 }
 async function writeArray(array, buffer, transform) {
   buffer.push("[");
-  let first = true;
-  for (const val of array) {
-    if (!first) {
+  for (let i = 0, ii = array.length; i < ii; i++) {
+    await writeValue(array[i], buffer, transform);
+    if (i < ii - 1) {
       buffer.push(" ");
-    } else {
-      first = false;
     }
-    await writeValue(val, buffer, transform);
   }
   buffer.push("]");
 }
 async function writeValue(value, buffer, transform) {
-  if (value instanceof primitives_Name) {
+  if (value instanceof Name) {
     buffer.push(`/${escapePDFName(value.name)}`);
-  } else if (value instanceof primitives_Ref) {
+  } else if (value instanceof Ref) {
     buffer.push(`${value.num} ${value.gen} R`);
   } else if (Array.isArray(value) || ArrayBuffer.isView(value)) {
     await writeArray(value, buffer, transform);
@@ -66148,10 +66593,10 @@ async function writeValue(value, buffer, transform) {
     }
     buffer.push(`(${escapeString(value)})`);
   } else if (typeof value === "number") {
-    buffer.push(numberToString(value));
+    buffer.push(value.toString());
   } else if (typeof value === "boolean") {
     buffer.push(value.toString());
-  } else if (value instanceof primitives_Dict) {
+  } else if (value instanceof Dict) {
     await writeDict(value, buffer, transform);
   } else if (value instanceof BaseStream) {
     await writeStream(value, buffer, transform);
@@ -66262,7 +66707,7 @@ function updateXFA(_ref3) {
     xfaData = writeXFADataForAcroform(datasets.getString(), changes);
   }
   const xfaDataStream = new StringStream(xfaData);
-  xfaDataStream.dict = new primitives_Dict(xref);
+  xfaDataStream.dict = new Dict(xref);
   xfaDataStream.dict.setIfName("Type", "EmbeddedFile");
   changes.put(xfaDatasetsRef, {
     data: xfaDataStream
@@ -66289,7 +66734,7 @@ async function getXRefTable(xrefInfo, baseOffset, newRefs, newXref, buffer) {
   }
   computeIDs(baseOffset, xrefInfo, newXref);
   buffer.push("trailer\n");
-  await writeDict(newXref, buffer);
+  await writeDict(newXref, buffer, null);
   buffer.push("\nstartxref\n", baseOffset.toString(), "\n%%EOF\n");
 }
 function getIndexes(newRefs) {
@@ -66311,11 +66756,16 @@ async function getXRefStreamTable(xrefInfo, baseOffset, newRefs, newXref, buffer
   let maxGen = 0;
   for (const {
     ref,
-    data
+    data,
+    objStreamRef,
+    index
   } of newRefs) {
     let gen;
     maxOffset = Math.max(maxOffset, baseOffset);
-    if (data !== null) {
+    if (objStreamRef) {
+      gen = index;
+      xrefTableData.push([2, objStreamRef.num, gen]);
+    } else if (data !== null) {
       gen = Math.min(ref.gen, 0xffff);
       xrefTableData.push([1, baseOffset, gen]);
       baseOffset += data.length;
@@ -66347,12 +66797,12 @@ async function getXRefStreamTable(xrefInfo, baseOffset, newRefs, newXref, buffer
 function computeIDs(baseOffset, xrefInfo, newXref) {
   if (Array.isArray(xrefInfo.fileIds) && xrefInfo.fileIds.length > 0) {
     const md5 = computeMD5(baseOffset, xrefInfo);
-    newXref.set("ID", [xrefInfo.fileIds[0], md5]);
+    newXref.set("ID", [xrefInfo.fileIds[0] || md5, md5]);
   }
 }
 function getTrailerDict(xrefInfo, changes, useXrefStream) {
-  const newXref = new primitives_Dict(null);
-  newXref.set("Prev", xrefInfo.startXRef);
+  const newXref = new Dict(null);
+  newXref.setIfDefined("Prev", xrefInfo?.startXRef);
   const refForXrefTable = xrefInfo.newRef;
   if (useXrefStream) {
     changes.put(refForXrefTable, {
@@ -66363,23 +66813,28 @@ function getTrailerDict(xrefInfo, changes, useXrefStream) {
   } else {
     newXref.set("Size", refForXrefTable.num);
   }
-  if (xrefInfo.rootRef !== null) {
-    newXref.set("Root", xrefInfo.rootRef);
-  }
-  if (xrefInfo.infoRef !== null) {
-    newXref.set("Info", xrefInfo.infoRef);
-  }
-  if (xrefInfo.encryptRef !== null) {
-    newXref.set("Encrypt", xrefInfo.encryptRef);
-  }
+  newXref.setIfDefined("Root", xrefInfo?.rootRef);
+  newXref.setIfDefined("Info", xrefInfo?.infoRef);
+  newXref.setIfDefined("Encrypt", xrefInfo?.encryptRef);
   return newXref;
 }
 async function writeChanges(changes, xref) {
   let buffer = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : [];
   const newRefs = [];
   for (const [ref, {
-    data
+    data,
+    objStreamRef,
+    index
   }] of changes.items()) {
+    if (objStreamRef) {
+      newRefs.push({
+        ref,
+        data,
+        objStreamRef,
+        index
+      });
+      continue;
+    }
     if (data === null || typeof data === "string") {
       newRefs.push({
         ref,
@@ -66454,6 +66909,1361 @@ async function incrementalUpdate(_ref4) {
     offset = writeString(str, offset, array);
   }
   return array;
+}
+
+;// ./src/core/editor/pdf_editor.js
+function pdf_editor_classPrivateMethodInitSpec(e, a) { pdf_editor_checkPrivateRedeclaration(e, a), a.add(e); }
+function pdf_editor_checkPrivateRedeclaration(e, t) { if (t.has(e)) throw new TypeError("Cannot initialize the same private elements twice on an object"); }
+function pdf_editor_assertClassBrand(e, t, n) { if ("function" == typeof e ? e === t : e.has(t)) return arguments.length < 3 ? t : n; throw new TypeError("Private element is not present on this object"); }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+const MAX_LEAVES_PER_PAGES_NODE = 16;
+const MAX_IN_NAME_TREE_NODE = 64;
+class PageData {
+  constructor(page, documentData) {
+    this.page = page;
+    this.documentData = documentData;
+    this.annotations = null;
+    this.pointingNamedDestinations = null;
+    documentData.pagesMap.put(page.ref, this);
+  }
+}
+class DocumentData {
+  constructor(document) {
+    this.document = document;
+    this.destinations = null;
+    this.pageLabels = null;
+    this.pagesMap = new RefSetCache();
+    this.oldRefMapping = new RefSetCache();
+    this.dedupNamedDestinations = new Map();
+    this.usedNamedDestinations = new Set();
+    this.postponedRefCopies = new RefSetCache();
+    this.usedStructParents = new Set();
+    this.oldStructParentMapping = new Map();
+    this.structTreeRoot = null;
+    this.parentTree = null;
+    this.idTree = null;
+    this.roleMap = null;
+    this.classMap = null;
+    this.namespaces = null;
+    this.structTreeAF = null;
+    this.structTreePronunciationLexicon = [];
+  }
+}
+class XRefWrapper {
+  constructor(entries) {
+    this.entries = entries;
+  }
+  fetch(ref) {
+    return ref instanceof Ref ? this.entries[ref.num] : ref;
+  }
+}
+var _PDFEditor_brand = /*#__PURE__*/new WeakSet();
+class PDFEditor {
+  constructor() {
+    let {
+      useObjectStreams = true,
+      title = "",
+      author = ""
+    } = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+    pdf_editor_classPrivateMethodInitSpec(this, _PDFEditor_brand);
+    this.hasSingleFile = false;
+    this.currentDocument = null;
+    this.oldPages = [];
+    this.newPages = [];
+    this.xref = [null];
+    this.xrefWrapper = new XRefWrapper(this.xref);
+    this.newRefCount = 1;
+    [this.rootRef, this.rootDict] = this.newDict;
+    [this.infoRef, this.infoDict] = this.newDict;
+    [this.pagesRef, this.pagesDict] = this.newDict;
+    this.namesDict = null;
+    this.useObjectStreams = useObjectStreams;
+    this.objStreamRefs = useObjectStreams ? new Set() : null;
+    this.version = "1.7";
+    this.title = title;
+    this.author = author;
+    this.pageLabels = null;
+    this.namedDestinations = new Map();
+    this.parentTree = new Map();
+    this.structTreeKids = [];
+    this.idTree = new Map();
+    this.classMap = new Dict();
+    this.roleMap = new Dict();
+    this.namespaces = new Map();
+    this.structTreeAF = [];
+    this.structTreePronunciationLexicon = [];
+  }
+  get newRef() {
+    const ref = Ref.get(this.newRefCount++, 0);
+    return ref;
+  }
+  get newDict() {
+    const ref = this.newRef;
+    const dict = this.xref[ref.num] = new Dict();
+    return [ref, dict];
+  }
+  cloneDict(dict) {
+    const newDict = dict.clone();
+    newDict.xref = this.xrefWrapper;
+    return newDict;
+  }
+  async extractPages(pageInfos) {
+    const promises = [];
+    let newIndex = 0;
+    this.hasSingleFile = pageInfos.length === 1;
+    const allDocumentData = [];
+    for (const {
+      document,
+      includePages,
+      excludePages
+    } of pageInfos) {
+      if (!document) {
+        continue;
+      }
+      const documentData = new DocumentData(document);
+      allDocumentData.push(documentData);
+      promises.push(pdf_editor_assertClassBrand(_PDFEditor_brand, this, _collectDocumentData).call(this, documentData));
+      let keptIndices, keptRanges, deletedIndices, deletedRanges;
+      for (const page of includePages || []) {
+        if (Array.isArray(page)) {
+          (keptRanges ||= []).push(page);
+        } else {
+          (keptIndices ||= new Set()).add(page);
+        }
+      }
+      for (const page of excludePages || []) {
+        if (Array.isArray(page)) {
+          (deletedRanges ||= []).push(page);
+        } else {
+          (deletedIndices ||= new Set()).add(page);
+        }
+      }
+      for (let i = 0, ii = document.numPages; i < ii; i++) {
+        if (deletedIndices?.has(i)) {
+          continue;
+        }
+        if (deletedRanges) {
+          let isDeleted = false;
+          for (const [start, end] of deletedRanges) {
+            if (i >= start && i <= end) {
+              isDeleted = true;
+              break;
+            }
+          }
+          if (isDeleted) {
+            continue;
+          }
+        }
+        let takePage = false;
+        if (keptIndices) {
+          takePage = keptIndices.has(i);
+        }
+        if (!takePage && keptRanges) {
+          for (const [start, end] of keptRanges) {
+            if (i >= start && i <= end) {
+              takePage = true;
+              break;
+            }
+          }
+        }
+        if (!takePage && !keptIndices && !keptRanges) {
+          takePage = true;
+        }
+        if (!takePage) {
+          continue;
+        }
+        const newPageIndex = newIndex++;
+        promises.push(document.getPage(i).then(page => {
+          this.oldPages[newPageIndex] = new PageData(page, documentData);
+        }));
+      }
+    }
+    await Promise.all(promises);
+    promises.length = 0;
+    pdf_editor_assertClassBrand(_PDFEditor_brand, this, _collectValidDestinations).call(this, allDocumentData);
+    pdf_editor_assertClassBrand(_PDFEditor_brand, this, _collectPageLabels).call(this);
+    for (const page of this.oldPages) {
+      promises.push(pdf_editor_assertClassBrand(_PDFEditor_brand, this, _postCollectPageData).call(this, page));
+    }
+    await Promise.all(promises);
+    pdf_editor_assertClassBrand(_PDFEditor_brand, this, _findDuplicateNamedDestinations).call(this);
+    pdf_editor_assertClassBrand(_PDFEditor_brand, this, _setPostponedRefCopies).call(this, allDocumentData);
+    for (let i = 0, ii = this.oldPages.length; i < ii; i++) {
+      this.newPages[i] = await pdf_editor_assertClassBrand(_PDFEditor_brand, this, _makePageCopy).call(this, i, null);
+    }
+    pdf_editor_assertClassBrand(_PDFEditor_brand, this, _fixPostponedRefCopies).call(this, allDocumentData);
+    await pdf_editor_assertClassBrand(_PDFEditor_brand, this, _mergeStructTrees).call(this, allDocumentData);
+    return this.writePDF();
+  }
+  async writePDF() {
+    await pdf_editor_assertClassBrand(_PDFEditor_brand, this, _makeRoot).call(this);
+    const infoMap = pdf_editor_assertClassBrand(_PDFEditor_brand, this, _makeInfo).call(this);
+    const [encryptRef, encrypt, fileIds] = await pdf_editor_assertClassBrand(_PDFEditor_brand, this, _makeEncrypt).call(this);
+    const [changes, xrefTableRef] = await pdf_editor_assertClassBrand(_PDFEditor_brand, this, _createChanges).call(this);
+    const header = [...`%PDF-${this.version}\n%`.split("").map(c => c.charCodeAt(0)), 0xfa, 0xde, 0xfa, 0xce];
+    return incrementalUpdate({
+      originalData: new Uint8Array(header),
+      changes,
+      xrefInfo: {
+        startXRef: null,
+        rootRef: this.rootRef,
+        infoRef: this.infoRef,
+        encryptRef,
+        newRef: xrefTableRef,
+        fileIds: fileIds || [null, null],
+        infoMap
+      },
+      useXrefStream: this.useObjectStreams,
+      xref: {
+        encrypt,
+        encryptRef
+      }
+    });
+  }
+}
+async function _cloneObject(obj, xref) {
+  const ref = this.newRef;
+  this.xref[ref.num] = await pdf_editor_assertClassBrand(_PDFEditor_brand, this, _collectDependencies).call(this, obj, true, xref);
+  return ref;
+}
+async function _collectDependencies(obj, mustClone, xref) {
+  if (obj instanceof Ref) {
+    const {
+      currentDocument: {
+        oldRefMapping
+      }
+    } = this;
+    let newRef = oldRefMapping.get(obj);
+    if (newRef) {
+      return newRef;
+    }
+    const oldRef = obj;
+    obj = await xref.fetchAsync(oldRef);
+    if (typeof obj === "number") {
+      return obj;
+    }
+    newRef = this.newRef;
+    oldRefMapping.put(oldRef, newRef);
+    this.xref[newRef.num] = await pdf_editor_assertClassBrand(_PDFEditor_brand, this, _collectDependencies).call(this, obj, true, xref);
+    return newRef;
+  }
+  const promises = [];
+  const {
+    currentDocument: {
+      postponedRefCopies
+    }
+  } = this;
+  if (Array.isArray(obj)) {
+    if (mustClone) {
+      obj = obj.slice();
+    }
+    for (let i = 0, ii = obj.length; i < ii; i++) {
+      const postponedActions = postponedRefCopies.get(obj[i]);
+      if (postponedActions) {
+        postponedActions.push(ref => obj[i] = ref);
+        continue;
+      }
+      promises.push(pdf_editor_assertClassBrand(_PDFEditor_brand, this, _collectDependencies).call(this, obj[i], true, xref).then(newObj => obj[i] = newObj));
+    }
+    await Promise.all(promises);
+    return obj;
+  }
+  let dict;
+  if (obj instanceof BaseStream) {
+    ({
+      dict
+    } = obj = obj.getOriginalStream().clone());
+    dict.xref = this.xrefWrapper;
+  } else if (obj instanceof Dict) {
+    if (mustClone) {
+      obj = obj.clone();
+      obj.xref = this.xrefWrapper;
+    }
+    dict = obj;
+  }
+  if (dict) {
+    for (const [key, rawObj] of dict.getRawEntries()) {
+      const postponedActions = postponedRefCopies.get(rawObj);
+      if (postponedActions) {
+        postponedActions.push(ref => dict.set(key, ref));
+        continue;
+      }
+      promises.push(pdf_editor_assertClassBrand(_PDFEditor_brand, this, _collectDependencies).call(this, rawObj, true, xref).then(newObj => dict.set(key, newObj)));
+    }
+    await Promise.all(promises);
+  }
+  return obj;
+}
+async function _cloneStructTreeNode(parentStructRef, node, xref, removedStructElements, dedupIDs, dedupClasses, dedupRoles) {
+  let visited = arguments.length > 7 && arguments[7] !== undefined ? arguments[7] : new RefSet();
+  const {
+    currentDocument: {
+      pagesMap,
+      oldRefMapping
+    }
+  } = this;
+  const pg = node.getRaw("Pg");
+  if (pg instanceof Ref && !pagesMap.has(pg)) {
+    return null;
+  }
+  let kids;
+  const k = kids = node.getRaw("K");
+  if (k instanceof Ref) {
+    if (visited.has(k)) {
+      return null;
+    }
+    kids = await xref.fetchAsync(k);
+    if (!Array.isArray(kids)) {
+      kids = [k];
+    }
+  }
+  kids = Array.isArray(kids) ? kids : [kids];
+  const newKids = [];
+  const structElemIndices = [];
+  for (let kid of kids) {
+    const kidRef = kid instanceof Ref ? kid : null;
+    if (kidRef) {
+      if (visited.has(kidRef)) {
+        continue;
+      }
+      visited.put(kidRef);
+      kid = await xref.fetchAsync(kidRef);
+    }
+    if (typeof kid === "number") {
+      newKids.push(kid);
+      continue;
+    }
+    if (!(kid instanceof Dict)) {
+      continue;
+    }
+    const pgRef = kid.getRaw("Pg");
+    if (pgRef instanceof Ref && !pagesMap.has(pgRef)) {
+      continue;
+    }
+    const type = kid.get("Type");
+    if (!type || isName(type, "StructElem")) {
+      let setAsSpan = false;
+      if (kidRef && removedStructElements.has(kidRef)) {
+        if (!isName(kid.get("S"), "Link")) {
+          continue;
+        }
+        setAsSpan = true;
+      }
+      const newKidRef = await pdf_editor_assertClassBrand(_PDFEditor_brand, this, _cloneStructTreeNode).call(this, kidRef, kid, xref, removedStructElements, dedupIDs, dedupClasses, dedupRoles, visited);
+      if (newKidRef) {
+        structElemIndices.push(newKids.length);
+        newKids.push(newKidRef);
+        if (kidRef) {
+          oldRefMapping.put(kidRef, newKidRef);
+        }
+        if (setAsSpan) {
+          this.xref[newKidRef.num].setIfName("S", "Span");
+        }
+      }
+      continue;
+    }
+    if (isName(type, "OBJR")) {
+      if (!kidRef) {
+        continue;
+      }
+      const newKidRef = oldRefMapping.get(kidRef);
+      if (!newKidRef) {
+        continue;
+      }
+      const newKid = this.xref[newKidRef.num];
+      const objRef = newKid.getRaw("Obj");
+      if (objRef instanceof Ref) {
+        const obj = this.xref[objRef.num];
+        if (obj instanceof Dict && !obj.has("StructParent") && parentStructRef) {
+          const structParent = this.parentTree.size;
+          this.parentTree.set(structParent, [oldRefMapping, parentStructRef]);
+          obj.set("StructParent", structParent);
+        }
+      }
+      newKids.push(newKidRef);
+      continue;
+    }
+    if (isName(type, "MCR")) {
+      const newKid = await pdf_editor_assertClassBrand(_PDFEditor_brand, this, _collectDependencies).call(this, kidRef || kid, true, xref);
+      newKids.push(newKid);
+      continue;
+    }
+    if (kidRef) {
+      const newKidRef = await pdf_editor_assertClassBrand(_PDFEditor_brand, this, _collectDependencies).call(this, kidRef, true, xref);
+      newKids.push(newKidRef);
+    }
+  }
+  if (kids.length !== 0 && newKids.length === 0) {
+    return null;
+  }
+  const newNodeRef = this.newRef;
+  const newNode = this.xref[newNodeRef.num] = this.cloneDict(node);
+  newNode.delete("ID");
+  newNode.delete("C");
+  newNode.delete("K");
+  newNode.delete("P");
+  newNode.delete("S");
+  await pdf_editor_assertClassBrand(_PDFEditor_brand, this, _collectDependencies).call(this, newNode, false, xref);
+  const classNames = node.get("C");
+  if (classNames instanceof Name) {
+    const newClassName = dedupClasses.get(classNames.name);
+    if (newClassName) {
+      newNode.set("C", Name.get(newClassName));
+    } else {
+      newNode.set("C", classNames);
+    }
+  } else if (Array.isArray(classNames)) {
+    const newClassNames = [];
+    for (const className of classNames) {
+      if (className instanceof Name) {
+        const newClassName = dedupClasses.get(className.name);
+        if (newClassName) {
+          newClassNames.push(Name.get(newClassName));
+        } else {
+          newClassNames.push(className);
+        }
+      }
+    }
+    newNode.set("C", newClassNames);
+  }
+  const roleName = node.get("S");
+  if (roleName instanceof Name) {
+    const newRoleName = dedupRoles.get(roleName.name);
+    if (newRoleName) {
+      newNode.set("S", Name.get(newRoleName));
+    } else {
+      newNode.set("S", roleName);
+    }
+  }
+  const id = node.get("ID");
+  if (typeof id === "string") {
+    const stringId = stringToPDFString(id, false);
+    const newId = dedupIDs.get(stringId);
+    if (newId) {
+      newNode.set("ID", stringToAsciiOrUTF16BE(newId));
+    } else {
+      newNode.set("ID", id);
+    }
+  }
+  let attributes = newNode.get("A");
+  if (attributes) {
+    if (!Array.isArray(attributes)) {
+      attributes = [attributes];
+    }
+    for (let attr of attributes) {
+      attr = this.xrefWrapper.fetch(attr);
+      if (isName(attr.get("O"), "Table") && attr.has("Headers")) {
+        const headers = this.xrefWrapper.fetch(attr.getRaw("Headers"));
+        if (Array.isArray(headers)) {
+          for (let i = 0, ii = headers.length; i < ii; i++) {
+            const newId = dedupIDs.get(stringToPDFString(headers[i], false));
+            if (newId) {
+              headers[i] = newId;
+            }
+          }
+        }
+      }
+    }
+  }
+  for (const index of structElemIndices) {
+    const structElemRef = newKids[index];
+    const structElem = this.xref[structElemRef.num];
+    structElem.set("P", newNodeRef);
+  }
+  if (newKids.length === 1) {
+    newNode.set("K", newKids[0]);
+  } else if (newKids.length > 1) {
+    newNode.set("K", newKids);
+  }
+  return newNodeRef;
+}
+async function _collectDocumentData(documentData) {
+  const {
+    document: {
+      pdfManager,
+      xref
+    }
+  } = documentData;
+  await Promise.all([pdfManager.ensureCatalog("destinations").then(destinations => documentData.destinations = destinations), pdfManager.ensureCatalog("rawPageLabels").then(pageLabels => documentData.pageLabels = pageLabels), pdfManager.ensureCatalog("structTreeRoot").then(structTreeRoot => documentData.structTreeRoot = structTreeRoot)]);
+  const structTreeRoot = documentData.structTreeRoot;
+  if (structTreeRoot) {
+    const rootDict = structTreeRoot.dict;
+    const parentTree = rootDict.get("ParentTree");
+    if (parentTree) {
+      const numberTree = new NumberTree(parentTree, xref);
+      documentData.parentTree = numberTree.getAll(true);
+    }
+    const idTree = rootDict.get("IDTree");
+    if (idTree) {
+      const nameTree = new NameTree(idTree, xref);
+      documentData.idTree = nameTree.getAll(true);
+    }
+    documentData.roleMap = rootDict.get("RoleMap") || null;
+    documentData.classMap = rootDict.get("ClassMap") || null;
+    let namespaces = rootDict.get("Namespaces") || null;
+    if (namespaces && !Array.isArray(namespaces)) {
+      namespaces = [namespaces];
+    }
+    documentData.namespaces = namespaces;
+    documentData.structTreeAF = rootDict.get("AF") || null;
+    documentData.structTreePronunciationLexicon = rootDict.get("PronunciationLexicon") || null;
+  }
+}
+async function _postCollectPageData(pageData) {
+  const {
+    page: {
+      xref,
+      annotations
+    },
+    documentData: {
+      pagesMap,
+      destinations,
+      usedNamedDestinations
+    }
+  } = pageData;
+  if (!annotations) {
+    return;
+  }
+  const promises = [];
+  let newAnnotations = [];
+  let newIndex = 0;
+  for (const annotationRef of annotations) {
+    const newAnnotationIndex = newIndex++;
+    promises.push(xref.fetchIfRefAsync(annotationRef).then(async annotationDict => {
+      if (!isName(annotationDict.get("Subtype"), "Link")) {
+        newAnnotations[newAnnotationIndex] = annotationRef;
+        return;
+      }
+      const action = annotationDict.get("A");
+      const dest = action instanceof Dict ? action.get("D") : annotationDict.get("Dest");
+      if (!dest || Array.isArray(dest) && (!(dest[0] instanceof Ref) || pagesMap.has(dest[0]))) {
+        newAnnotations[newAnnotationIndex] = annotationRef;
+      } else if (typeof dest === "string") {
+        const destString = stringToPDFString(dest, true);
+        if (destinations.has(destString)) {
+          newAnnotations[newAnnotationIndex] = annotationRef;
+          usedNamedDestinations.add(destString);
+        }
+      }
+    }));
+  }
+  await Promise.all(promises);
+  newAnnotations = newAnnotations.filter(annot => !!annot);
+  pageData.annotations = newAnnotations.length > 0 ? newAnnotations : null;
+}
+function _setPostponedRefCopies(allDocumentData) {
+  for (const {
+    postponedRefCopies,
+    pagesMap
+  } of allDocumentData) {
+    for (const oldPageRef of pagesMap.keys()) {
+      postponedRefCopies.put(oldPageRef, []);
+    }
+  }
+}
+function _fixPostponedRefCopies(allDocumentData) {
+  for (const {
+    postponedRefCopies,
+    oldRefMapping
+  } of allDocumentData) {
+    for (const [oldRef, actions] of postponedRefCopies.items()) {
+      const newRef = oldRefMapping.get(oldRef);
+      for (const action of actions) {
+        action(newRef);
+      }
+    }
+    postponedRefCopies.clear();
+  }
+}
+function _visitObject(obj, callback) {
+  let visited = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : new RefSet();
+  if (obj instanceof Ref) {
+    if (!visited.has(obj)) {
+      visited.put(obj);
+      pdf_editor_assertClassBrand(_PDFEditor_brand, this, _visitObject).call(this, this.xref[obj.num], callback, visited);
+    }
+    return;
+  }
+  if (Array.isArray(obj)) {
+    for (const item of obj) {
+      pdf_editor_assertClassBrand(_PDFEditor_brand, this, _visitObject).call(this, item, callback, visited);
+    }
+    return;
+  }
+  let dict;
+  if (obj instanceof BaseStream) {
+    ({
+      dict
+    } = obj);
+  } else if (obj instanceof Dict) {
+    dict = obj;
+  }
+  if (dict) {
+    callback(dict);
+    for (const value of dict.getRawValues()) {
+      pdf_editor_assertClassBrand(_PDFEditor_brand, this, _visitObject).call(this, value, callback, visited);
+    }
+  }
+}
+async function _mergeStructTrees(allDocumentData) {
+  let newStructParentId = 0;
+  const {
+    parentTree: newParentTree
+  } = this;
+  for (let i = 0, ii = this.newPages.length; i < ii; i++) {
+    const {
+      documentData: {
+        parentTree,
+        oldRefMapping,
+        oldStructParentMapping,
+        usedStructParents,
+        document: {
+          xref
+        }
+      }
+    } = this.oldPages[i];
+    if (!parentTree) {
+      continue;
+    }
+    const pageRef = this.newPages[i];
+    const pageDict = this.xref[pageRef.num];
+    pdf_editor_assertClassBrand(_PDFEditor_brand, this, _visitObject).call(this, pageDict, dict => {
+      const structParent = dict.get("StructParent") ?? dict.get("StructParents");
+      if (typeof structParent !== "number") {
+        return;
+      }
+      usedStructParents.add(structParent);
+      let parent = parentTree.get(structParent);
+      const parentRef = parent instanceof Ref ? parent : null;
+      if (parentRef) {
+        const array = xref.fetch(parentRef);
+        if (Array.isArray(array)) {
+          parent = array;
+        }
+      }
+      if (Array.isArray(parent) && parent.every(ref => ref === null)) {
+        parent = null;
+      }
+      if (!parent) {
+        if (dict.has("StructParent")) {
+          dict.delete("StructParent");
+        } else {
+          dict.delete("StructParents");
+        }
+        return;
+      }
+      let newStructParent = oldStructParentMapping.get(structParent);
+      if (newStructParent === undefined) {
+        newStructParent = newStructParentId++;
+        oldStructParentMapping.set(structParent, newStructParent);
+        newParentTree.set(newStructParent, [oldRefMapping, parent]);
+      }
+      if (dict.has("StructParent")) {
+        dict.set("StructParent", newStructParent);
+      } else {
+        dict.set("StructParents", newStructParent);
+      }
+    });
+  }
+  const {
+    structTreeKids,
+    idTree: newIdTree,
+    classMap: newClassMap,
+    roleMap: newRoleMap,
+    namespaces: newNamespaces,
+    structTreeAF: newStructTreeAF,
+    structTreePronunciationLexicon: newStructTreePronunciationLexicon
+  } = this;
+  for (const documentData of allDocumentData) {
+    const {
+      document: {
+        xref
+      },
+      oldRefMapping,
+      parentTree,
+      usedStructParents,
+      structTreeRoot,
+      idTree,
+      classMap,
+      roleMap,
+      namespaces,
+      structTreeAF,
+      structTreePronunciationLexicon
+    } = documentData;
+    if (!structTreeRoot) {
+      continue;
+    }
+    this.currentDocument = documentData;
+    const removedStructElements = new RefSet();
+    for (const [key, value] of parentTree || []) {
+      if (!usedStructParents.has(key) && value instanceof Ref) {
+        removedStructElements.put(value);
+      }
+    }
+    const dedupIDs = new Map();
+    for (const [id, nodeRef] of idTree || []) {
+      let _id = id;
+      if (newIdTree.has(id)) {
+        for (let i = 1;; i++) {
+          const newId = `${id}_${i}`;
+          if (!newIdTree.has(newId)) {
+            dedupIDs.set(id, newId);
+            _id = newId;
+            break;
+          }
+        }
+      }
+      newIdTree.set(_id, nodeRef);
+    }
+    const dedupClasses = new Map();
+    if (classMap?.size > 0) {
+      for (let [className, classDict] of classMap) {
+        classDict = await pdf_editor_assertClassBrand(_PDFEditor_brand, this, _collectDependencies).call(this, classDict, true, xref);
+        if (newClassMap.has(className)) {
+          for (let i = 1;; i++) {
+            const newClassName = `${className}_${i}`;
+            if (!newClassMap.has(newClassName)) {
+              dedupClasses.set(className, newClassName);
+              className = newClassName;
+              break;
+            }
+          }
+        }
+        newClassMap.set(className, classDict);
+      }
+    }
+    const dedupRoles = new Map();
+    if (roleMap?.size > 0) {
+      for (const [roleName, mappedName] of roleMap) {
+        const newMappedName = newRoleMap.get(roleName);
+        if (!newMappedName) {
+          newRoleMap.set(roleName, mappedName);
+          continue;
+        }
+        if (newMappedName === mappedName) {
+          continue;
+        }
+        for (let i = 1;; i++) {
+          const newRoleName = `${roleName}_${i}`;
+          if (!newRoleMap.has(newRoleName)) {
+            dedupRoles.set(roleName, newRoleName);
+            newRoleMap.set(newRoleName, mappedName);
+            break;
+          }
+        }
+      }
+    }
+    if (namespaces?.length > 0) {
+      for (const namespaceRef of namespaces) {
+        const namespace = await xref.fetchIfRefAsync(namespaceRef);
+        let ns = namespace.get("NS");
+        if (!ns || newNamespaces.has(ns)) {
+          continue;
+        }
+        ns = stringToPDFString(ns, false);
+        const newNamespace = await pdf_editor_assertClassBrand(_PDFEditor_brand, this, _collectDependencies).call(this, namespace, true, xref);
+        newNamespaces.set(ns, newNamespace);
+      }
+    }
+    if (structTreeAF) {
+      for (const afRef of structTreeAF) {
+        newStructTreeAF.push(await pdf_editor_assertClassBrand(_PDFEditor_brand, this, _collectDependencies).call(this, afRef, true, xref));
+      }
+    }
+    if (structTreePronunciationLexicon) {
+      for (const lexiconRef of structTreePronunciationLexicon) {
+        newStructTreePronunciationLexicon.push(await pdf_editor_assertClassBrand(_PDFEditor_brand, this, _collectDependencies).call(this, lexiconRef, true, xref));
+      }
+    }
+    let kids = structTreeRoot.dict.get("K");
+    if (!kids) {
+      continue;
+    }
+    kids = Array.isArray(kids) ? kids : [kids];
+    for (let kid of kids) {
+      const kidRef = kid instanceof Ref ? kid : null;
+      if (kidRef && removedStructElements.has(kidRef)) {
+        continue;
+      }
+      kid = await xref.fetchIfRefAsync(kid);
+      const newKidRef = await pdf_editor_assertClassBrand(_PDFEditor_brand, this, _cloneStructTreeNode).call(this, kidRef, kid, xref, removedStructElements, dedupIDs, dedupClasses, dedupRoles);
+      if (newKidRef) {
+        structTreeKids.push(newKidRef);
+      }
+    }
+    for (const [id, nodeRef] of idTree || []) {
+      const newNodeRef = oldRefMapping.get(nodeRef);
+      const newId = dedupIDs.get(id) || id;
+      if (newNodeRef) {
+        newIdTree.set(newId, newNodeRef);
+      } else {
+        newIdTree.delete(newId);
+      }
+    }
+  }
+  for (const [key, [oldRefMapping, parent]] of newParentTree) {
+    if (!parent) {
+      newParentTree.delete(key);
+      continue;
+    }
+    if (!Array.isArray(parent)) {
+      const newParent = oldRefMapping.get(parent);
+      if (newParent === undefined) {
+        newParentTree.delete(key);
+      } else {
+        newParentTree.set(key, newParent);
+      }
+      continue;
+    }
+    const newParents = parent.map(ref => ref instanceof Ref && oldRefMapping.get(ref) || null);
+    if (newParents.length === 0 || newParents.every(ref => ref === null)) {
+      newParentTree.delete(key);
+      continue;
+    }
+    newParentTree.set(key, newParents);
+  }
+  this.currentDocument = null;
+}
+function _collectValidDestinations(allDocumentData) {
+  for (const documentData of allDocumentData) {
+    if (!documentData.destinations) {
+      continue;
+    }
+    const {
+      destinations,
+      pagesMap
+    } = documentData;
+    const newDestinations = documentData.destinations = new Map();
+    for (const [key, dest] of Object.entries(destinations)) {
+      const pageRef = dest[0];
+      const pageData = pagesMap.get(pageRef);
+      if (!pageData) {
+        continue;
+      }
+      (pageData.pointingNamedDestinations ||= new Set()).add(key);
+      newDestinations.set(key, dest);
+    }
+  }
+}
+function _findDuplicateNamedDestinations() {
+  const {
+    namedDestinations
+  } = this;
+  for (let i = 0, ii = this.oldPages.length; i < ii; i++) {
+    const page = this.oldPages[i];
+    const {
+      documentData: {
+        destinations,
+        dedupNamedDestinations,
+        usedNamedDestinations
+      }
+    } = page;
+    let {
+      pointingNamedDestinations
+    } = page;
+    if (!pointingNamedDestinations) {
+      continue;
+    }
+    page.pointingNamedDestinations = pointingNamedDestinations = pointingNamedDestinations.intersection(usedNamedDestinations);
+    for (const pointingDest of pointingNamedDestinations) {
+      if (!usedNamedDestinations.has(pointingDest)) {
+        continue;
+      }
+      const dest = destinations.get(pointingDest).slice();
+      if (!namedDestinations.has(pointingDest)) {
+        namedDestinations.set(pointingDest, dest);
+        continue;
+      }
+      const newName = `${pointingDest}_p${i + 1}`;
+      dedupNamedDestinations.set(pointingDest, newName);
+      namedDestinations.set(newName, dest);
+    }
+  }
+}
+function _fixNamedDestinations(annotations, dedupNamedDestinations) {
+  if (dedupNamedDestinations.size === 0) {
+    return;
+  }
+  const fixDestination = (dict, key, dest) => {
+    if (typeof dest === "string") {
+      dict.set(key, dedupNamedDestinations.get(stringToPDFString(dest, true)) || dest);
+    }
+  };
+  for (const annotRef of annotations) {
+    const annotDict = this.xref[annotRef.num];
+    if (!isName(annotDict.get("Subtype"), "Link")) {
+      continue;
+    }
+    const action = annotDict.get("A");
+    if (action instanceof Dict && action.has("D")) {
+      const dest = action.get("D");
+      fixDestination(action, "D", dest);
+      continue;
+    }
+    const dest = annotDict.get("Dest");
+    fixDestination(annotDict, "Dest", dest);
+  }
+}
+async function _collectPageLabels() {
+  if (!this.hasSingleFile) {
+    return;
+  }
+  const {
+    documentData: {
+      document,
+      pageLabels
+    }
+  } = this.oldPages[0];
+  if (!pageLabels) {
+    return;
+  }
+  const numPages = document.numPages;
+  const oldPageLabels = [];
+  const oldPageIndices = new Set(this.oldPages.map(_ref => {
+    let {
+      page: {
+        pageIndex
+      }
+    } = _ref;
+    return pageIndex;
+  }));
+  let currentLabel = null;
+  let stFirstIndex = -1;
+  for (let i = 0; i < numPages; i++) {
+    const newLabel = pageLabels.get(i);
+    if (newLabel) {
+      currentLabel = newLabel;
+      stFirstIndex = currentLabel.has("St") ? i : -1;
+    }
+    if (!oldPageIndices.has(i)) {
+      continue;
+    }
+    if (stFirstIndex !== -1) {
+      const st = currentLabel.get("St");
+      currentLabel = this.cloneDict(currentLabel);
+      currentLabel.set("St", st + (i - stFirstIndex));
+      stFirstIndex = -1;
+    }
+    oldPageLabels.push(currentLabel);
+  }
+  currentLabel = oldPageLabels[0];
+  let currentIndex = 0;
+  const newPageLabels = this.pageLabels = [[0, currentLabel]];
+  for (let i = 0, ii = oldPageLabels.length; i < ii; i++) {
+    const label = oldPageLabels[i];
+    if (label === currentLabel) {
+      continue;
+    }
+    currentIndex = i;
+    currentLabel = label;
+    newPageLabels.push([currentIndex, currentLabel]);
+  }
+}
+async function _makePageCopy(pageIndex) {
+  const {
+    page,
+    documentData,
+    annotations,
+    pointingNamedDestinations
+  } = this.oldPages[pageIndex];
+  this.currentDocument = documentData;
+  const {
+    dedupNamedDestinations,
+    oldRefMapping
+  } = documentData;
+  const {
+    xref,
+    rotate,
+    mediaBox,
+    resources,
+    ref: oldPageRef
+  } = page;
+  const pageRef = this.newRef;
+  const pageDict = this.xref[pageRef.num] = this.cloneDict(page.pageDict);
+  oldRefMapping.put(oldPageRef, pageRef);
+  if (pointingNamedDestinations) {
+    for (const pointingDest of pointingNamedDestinations) {
+      const name = dedupNamedDestinations.get(pointingDest) || pointingDest;
+      const dest = this.namedDestinations.get(name);
+      dest[0] = pageRef;
+    }
+  }
+  for (const key of ["Rotate", "MediaBox", "CropBox", "BleedBox", "TrimBox", "ArtBox", "Resources", "Annots", "Parent", "UserUnit"]) {
+    pageDict.delete(key);
+  }
+  const lastRef = this.newRefCount;
+  await pdf_editor_assertClassBrand(_PDFEditor_brand, this, _collectDependencies).call(this, pageDict, false, xref);
+  pageDict.set("Rotate", rotate);
+  pageDict.set("MediaBox", mediaBox);
+  for (const boxName of ["CropBox", "BleedBox", "TrimBox", "ArtBox"]) {
+    const box = page.getBoundingBox(boxName);
+    if (box?.some((value, index) => value !== mediaBox[index])) {
+      pageDict.set(boxName, box);
+    }
+  }
+  const userUnit = page.userUnit;
+  if (userUnit !== 1) {
+    pageDict.set("UserUnit", userUnit);
+  }
+  pageDict.setIfDict("Resources", await pdf_editor_assertClassBrand(_PDFEditor_brand, this, _collectDependencies).call(this, resources, true, xref));
+  if (annotations) {
+    const newAnnotations = await pdf_editor_assertClassBrand(_PDFEditor_brand, this, _collectDependencies).call(this, annotations, true, xref);
+    pdf_editor_assertClassBrand(_PDFEditor_brand, this, _fixNamedDestinations).call(this, newAnnotations, dedupNamedDestinations);
+    pageDict.setIfArray("Annots", newAnnotations);
+  }
+  if (this.useObjectStreams) {
+    const newLastRef = this.newRefCount;
+    const pageObjectRefs = [];
+    for (let i = lastRef; i < newLastRef; i++) {
+      const obj = this.xref[i];
+      if (obj instanceof BaseStream) {
+        continue;
+      }
+      pageObjectRefs.push(Ref.get(i, 0));
+    }
+    for (let i = 0; i < pageObjectRefs.length; i += 0xffff) {
+      const objStreamRef = this.newRef;
+      this.objStreamRefs.add(objStreamRef.num);
+      this.xref[objStreamRef.num] = pageObjectRefs.slice(i, i + 0xffff);
+    }
+  }
+  this.currentDocument = null;
+  return pageRef;
+}
+function _makePageTree() {
+  const {
+    newPages: pages,
+    rootDict,
+    pagesRef,
+    pagesDict
+  } = this;
+  rootDict.set("Pages", pagesRef);
+  pagesDict.setIfName("Type", "Pages");
+  pagesDict.set("Count", pages.length);
+  const maxLeaves = MAX_LEAVES_PER_PAGES_NODE <= 1 ? pages.length : MAX_LEAVES_PER_PAGES_NODE;
+  const stack = [{
+    dict: pagesDict,
+    kids: pages,
+    parentRef: pagesRef
+  }];
+  while (stack.length > 0) {
+    const {
+      dict,
+      kids,
+      parentRef
+    } = stack.pop();
+    if (kids.length <= maxLeaves) {
+      dict.set("Kids", kids);
+      for (const ref of kids) {
+        this.xref[ref.num].set("Parent", parentRef);
+      }
+      continue;
+    }
+    const chunkSize = Math.max(maxLeaves, Math.ceil(kids.length / maxLeaves));
+    const kidsChunks = [];
+    for (let i = 0; i < kids.length; i += chunkSize) {
+      kidsChunks.push(kids.slice(i, i + chunkSize));
+    }
+    const kidsRefs = [];
+    dict.set("Kids", kidsRefs);
+    for (const chunk of kidsChunks) {
+      const [kidRef, kidDict] = this.newDict;
+      kidsRefs.push(kidRef);
+      kidDict.setIfName("Type", "Pages");
+      kidDict.set("Parent", parentRef);
+      kidDict.set("Count", chunk.length);
+      stack.push({
+        dict: kidDict,
+        kids: chunk,
+        parentRef: kidRef
+      });
+    }
+  }
+}
+function _makeNameNumTree(map, areNames) {
+  const allEntries = map.sort(areNames ? (_ref2, _ref3) => {
+    let [keyA] = _ref2;
+    let [keyB] = _ref3;
+    return keyA.localeCompare(keyB);
+  } : (_ref4, _ref5) => {
+    let [keyA] = _ref4;
+    let [keyB] = _ref5;
+    return keyA - keyB;
+  });
+  const maxLeaves = MAX_IN_NAME_TREE_NODE <= 1 ? allEntries.length : MAX_IN_NAME_TREE_NODE;
+  const [treeRef, treeDict] = this.newDict;
+  const stack = [{
+    dict: treeDict,
+    entries: allEntries
+  }];
+  const valueType = areNames ? "Names" : "Nums";
+  while (stack.length > 0) {
+    const {
+      dict,
+      entries
+    } = stack.pop();
+    if (entries.length <= maxLeaves) {
+      dict.set("Limits", [entries[0][0], entries.at(-1)[0]]);
+      dict.set(valueType, entries.flat());
+      continue;
+    }
+    const entriesChunks = [];
+    const chunkSize = Math.max(maxLeaves, Math.ceil(entries.length / maxLeaves));
+    for (let i = 0; i < entries.length; i += chunkSize) {
+      entriesChunks.push(entries.slice(i, i + chunkSize));
+    }
+    const entriesRefs = [];
+    dict.set("Kids", entriesRefs);
+    for (const chunk of entriesChunks) {
+      const [entriesRef, entriesDict] = this.newDict;
+      entriesRefs.push(entriesRef);
+      entriesDict.set("Limits", [chunk[0][0], chunk.at(-1)[0]]);
+      stack.push({
+        dict: entriesDict,
+        entries: chunk
+      });
+    }
+  }
+  return treeRef;
+}
+function _makePageLabelsTree() {
+  const {
+    pageLabels
+  } = this;
+  if (!pageLabels || pageLabels.length === 0) {
+    return;
+  }
+  const {
+    rootDict
+  } = this;
+  const pageLabelsRef = pdf_editor_assertClassBrand(_PDFEditor_brand, this, _makeNameNumTree).call(this, this.pageLabels, false);
+  rootDict.set("PageLabels", pageLabelsRef);
+}
+function _makeDestinationsTree() {
+  const {
+    namedDestinations
+  } = this;
+  if (namedDestinations.size === 0) {
+    return;
+  }
+  if (!this.namesDict) {
+    [this.namesRef, this.namesDict] = this.newDict;
+    this.rootDict.set("Names", this.namesRef);
+  }
+  this.namesDict.set("Dests", pdf_editor_assertClassBrand(_PDFEditor_brand, this, _makeNameNumTree).call(this, Array.from(namedDestinations.entries()), true));
+}
+function _makeStructTree() {
+  const {
+    structTreeKids
+  } = this;
+  if (!structTreeKids || structTreeKids.length === 0) {
+    return;
+  }
+  const {
+    rootDict
+  } = this;
+  const structTreeRef = this.newRef;
+  const structTree = this.xref[structTreeRef.num] = new Dict();
+  structTree.setIfName("Type", "StructTreeRoot");
+  structTree.setIfArray("K", structTreeKids);
+  for (const kidRef of structTreeKids) {
+    const kid = this.xref[kidRef.num];
+    const type = kid.get("Type");
+    if (!type || isName(type, "StructElem")) {
+      kid.set("P", structTreeRef);
+    }
+  }
+  if (this.parentTree.size > 0) {
+    const parentTreeRef = pdf_editor_assertClassBrand(_PDFEditor_brand, this, _makeNameNumTree).call(this, Array.from(this.parentTree.entries()), false);
+    const parentTree = this.xref[parentTreeRef.num];
+    parentTree.setIfName("Type", "ParentTree");
+    structTree.set("ParentTree", parentTreeRef);
+    structTree.set("ParentTreeNextKey", this.parentTree.size);
+  }
+  if (this.idTree.size > 0) {
+    const idTreeRef = pdf_editor_assertClassBrand(_PDFEditor_brand, this, _makeNameNumTree).call(this, Array.from(this.idTree.entries()), true);
+    const idTree = this.xref[idTreeRef.num];
+    idTree.setIfName("Type", "IDTree");
+    structTree.set("IDTree", idTreeRef);
+  }
+  if (this.classMap.size > 0) {
+    const classMapRef = this.newRef;
+    this.xref[classMapRef.num] = this.classMap;
+    structTree.set("ClassMap", classMapRef);
+  }
+  if (this.roleMap.size > 0) {
+    const roleMapRef = this.newRef;
+    this.xref[roleMapRef.num] = this.roleMap;
+    structTree.set("RoleMap", roleMapRef);
+  }
+  if (this.namespaces.size > 0) {
+    const namespacesRef = this.newRef;
+    this.xref[namespacesRef.num] = Array.from(this.namespaces.values());
+    structTree.set("Namespaces", namespacesRef);
+  }
+  if (this.structTreeAF.length > 0) {
+    const structTreeAFRef = this.newRef;
+    this.xref[structTreeAFRef.num] = this.structTreeAF;
+    structTree.set("AF", structTreeAFRef);
+  }
+  if (this.structTreePronunciationLexicon.length > 0) {
+    const structTreePronunciationLexiconRef = this.newRef;
+    this.xref[structTreePronunciationLexiconRef.num] = this.structTreePronunciationLexicon;
+    structTree.set("PronunciationLexicon", structTreePronunciationLexiconRef);
+  }
+  rootDict.set("StructTreeRoot", structTreeRef);
+}
+async function _makeRoot() {
+  const {
+    rootDict
+  } = this;
+  rootDict.setIfName("Type", "Catalog");
+  rootDict.setIfName("Version", this.version);
+  pdf_editor_assertClassBrand(_PDFEditor_brand, this, _makePageTree).call(this);
+  pdf_editor_assertClassBrand(_PDFEditor_brand, this, _makePageLabelsTree).call(this);
+  pdf_editor_assertClassBrand(_PDFEditor_brand, this, _makeDestinationsTree).call(this);
+  pdf_editor_assertClassBrand(_PDFEditor_brand, this, _makeStructTree).call(this);
+}
+function _makeInfo() {
+  const infoMap = new Map();
+  if (this.hasSingleFile) {
+    const {
+      xref: {
+        trailer
+      }
+    } = this.oldPages[0].documentData.document;
+    const oldInfoDict = trailer.get("Info");
+    for (const [key, value] of oldInfoDict || []) {
+      if (typeof value === "string") {
+        infoMap.set(key, stringToPDFString(value));
+      }
+    }
+  }
+  infoMap.delete("ModDate");
+  infoMap.set("CreationDate", getModificationDate());
+  infoMap.set("Creator", "PDF.js");
+  infoMap.set("Producer", "Firefox");
+  if (this.author) {
+    infoMap.set("Author", this.author);
+  }
+  if (this.title) {
+    infoMap.set("Title", this.title);
+  }
+  for (const [key, value] of infoMap) {
+    this.infoDict.set(key, stringToAsciiOrUTF16BE(value));
+  }
+  return infoMap;
+}
+async function _makeEncrypt() {
+  if (!this.hasSingleFile) {
+    return [null, null, null];
+  }
+  const {
+    documentData
+  } = this.oldPages[0];
+  const {
+    document: {
+      xref: {
+        trailer,
+        encrypt
+      }
+    }
+  } = documentData;
+  if (!trailer.has("Encrypt")) {
+    return [null, null, null];
+  }
+  const encryptDict = trailer.get("Encrypt");
+  if (!(encryptDict instanceof Dict)) {
+    return [null, null, null];
+  }
+  this.currentDocument = documentData;
+  const result = [await pdf_editor_assertClassBrand(_PDFEditor_brand, this, _cloneObject).call(this, encryptDict, trailer.xref), encrypt, trailer.get("ID")];
+  this.currentDocument = null;
+  return result;
+}
+async function _createChanges() {
+  const changes = new RefSetCache();
+  changes.put(Ref.get(0, 0xffff), {
+    data: null
+  });
+  for (let i = 1, ii = this.xref.length; i < ii; i++) {
+    if (this.objStreamRefs?.has(i)) {
+      await pdf_editor_assertClassBrand(_PDFEditor_brand, this, _createObjectStream).call(this, Ref.get(i, 0), this.xref[i], changes);
+    } else {
+      changes.put(Ref.get(i, 0), {
+        data: this.xref[i]
+      });
+    }
+  }
+  return [changes, this.newRef];
+}
+async function _createObjectStream(objStreamRef, objRefs, changes) {
+  const streamBuffer = [""];
+  const objOffsets = [];
+  let offset = 0;
+  const buffer = [];
+  for (let i = 0, ii = objRefs.length; i < ii; i++) {
+    const objRef = objRefs[i];
+    changes.put(objRef, {
+      data: null,
+      objStreamRef,
+      index: i
+    });
+    objOffsets.push(`${objRef.num} ${offset}`);
+    const data = this.xref[objRef.num];
+    await writeValue(data, buffer, null);
+    const obj = buffer.join("");
+    buffer.length = 0;
+    streamBuffer.push(obj);
+    offset += obj.length + 1;
+  }
+  streamBuffer[0] = objOffsets.join("\n");
+  const objStream = new StringStream(streamBuffer.join("\n"));
+  const objStreamDict = objStream.dict = new Dict();
+  objStreamDict.setIfName("Type", "ObjStm");
+  objStreamDict.set("N", objRefs.length);
+  objStreamDict.set("First", streamBuffer[0].length + 1);
+  changes.put(objStreamRef, {
+    data: objStream
+  });
 }
 
 ;// ./src/core/worker_stream.js
@@ -66608,6 +68418,7 @@ var _WorkerMessageHandler;
 
 
 
+
 if (!Promise.allSettled) {
   Promise.allSettled = function (promises) {
     const mappedPromises = promises.filter(o => !!o).map(p => {
@@ -66672,7 +68483,7 @@ class WorkerMessageHandler {
       docId,
       apiVersion
     } = docParams;
-    const workerVersion = "5.4.1105";
+    const workerVersion = "5.4.1414";
     if (apiVersion !== workerVersion) {
       throw new Error(`The API version "${apiVersion}" does not match ` + `the Worker version "${workerVersion}".`);
     }
@@ -66894,7 +68705,7 @@ class WorkerMessageHandler {
       });
     });
     handler.on("GetPageIndex", function (data) {
-      const pageRef = primitives_Ref.get(data.num, data.gen);
+      const pageRef = Ref.get(data.num, data.gen);
       return pdfManager.ensureCatalog("getPageIndex", [pageRef]);
     });
     handler.on("GetDestinations", function (data) {
@@ -66977,7 +68788,7 @@ class WorkerMessageHandler {
       return pdfManager.ensureCatalog("permissions");
     });
     handler.on("GetMetadata", function (data) {
-      return Promise.all([pdfManager.ensureDoc("documentInfo"), pdfManager.ensureCatalog("metadata")]);
+      return Promise.all([pdfManager.ensureDoc("documentInfo"), pdfManager.ensureCatalog("metadata"), pdfManager.ensureCatalog("hasStructTree")]);
     });
     handler.on("GetMarkInfo", function (data) {
       return pdfManager.ensureCatalog("markInfo");
@@ -67011,14 +68822,101 @@ class WorkerMessageHandler {
     handler.on("GetCalculationOrderIds", function (data) {
       return pdfManager.ensureDoc("calculationOrderIds");
     });
-    handler.on("SaveDocument", async function (_ref8) {
+    handler.on("ExtractPages", async function (_ref8) {
+      let {
+        pageInfos
+      } = _ref8;
+      if (!pageInfos) {
+        warn("extractPages: nothing to extract.");
+        return null;
+      }
+      if (!Array.isArray(pageInfos)) {
+        pageInfos = [pageInfos];
+      }
+      let newDocumentId = 0;
+      for (const pageInfo of pageInfos) {
+        if (pageInfo.document === null) {
+          pageInfo.document = pdfManager.pdfDocument;
+        } else if (ArrayBuffer.isView(pageInfo.document)) {
+          const manager = new LocalPdfManager({
+            source: pageInfo.document,
+            docId: `${docId}_extractPages_${newDocumentId++}`,
+            handler,
+            password: pageInfo.password ?? null,
+            evaluatorOptions: Object.assign({}, pdfManager.evaluatorOptions)
+          });
+          let recoveryMode = false;
+          let isValid = true;
+          while (true) {
+            try {
+              await manager.requestLoadedStream();
+              await manager.ensureDoc("checkHeader");
+              await manager.ensureDoc("parseStartXRef");
+              await manager.ensureDoc("parse", [recoveryMode]);
+              break;
+            } catch (e) {
+              if (e instanceof XRefParseException) {
+                if (recoveryMode === false) {
+                  recoveryMode = true;
+                  continue;
+                } else {
+                  isValid = false;
+                  warn("extractPages: XRefParseException.");
+                }
+              } else if (e instanceof PasswordException) {
+                const task = new WorkerTask(`PasswordException: response ${e.code}`);
+                startWorkerTask(task);
+                try {
+                  const {
+                    password
+                  } = await handler.sendWithPromise("PasswordRequest", e);
+                  manager.updatePassword(password);
+                } catch {
+                  isValid = false;
+                  warn("extractPages: invalid password.");
+                } finally {
+                  finishWorkerTask(task);
+                }
+              } else {
+                isValid = false;
+                warn("extractPages: invalid document.");
+              }
+              if (!isValid) {
+                break;
+              }
+            }
+          }
+          if (!isValid) {
+            pageInfo.document = null;
+          }
+          const isPureXfa = await manager.ensureDoc("isPureXfa");
+          if (isPureXfa) {
+            pageInfo.document = null;
+            warn("extractPages does not support pure XFA documents.");
+          } else {
+            pageInfo.document = manager.pdfDocument;
+          }
+        } else {
+          warn("extractPages: invalid document.");
+        }
+      }
+      try {
+        const pdfEditor = new PDFEditor();
+        const buffer = await pdfEditor.extractPages(pageInfos);
+        return buffer;
+      } catch (reason) {
+        console.error(reason);
+        return null;
+      }
+    });
+    handler.on("SaveDocument", async function (_ref9) {
       let {
         isPureXfa,
         numPages,
         annotationStorage,
         filename,
         pageOrder = null
-      } = _ref8;
+      } = _ref9;
       const globalPromises = [pdfManager.requestLoadedStream(), pdfManager.ensureCatalog("acroForm"), pdfManager.ensureCatalog("acroFormRef"), pdfManager.ensureDoc("startXRef"), pdfManager.ensureDoc("xref"), pdfManager.ensureCatalog("structTreeRoot")];
       const changes = new RefSetCache();
       const promises = [];
@@ -67119,8 +69017,8 @@ class WorkerMessageHandler {
       } else if (changes.size === 0) {
         return stream.bytes;
       }
-      const needAppearances = acroFormRef && acroForm instanceof primitives_Dict && changes.values().some(ref => ref.needAppearances);
-      const xfa = acroForm instanceof primitives_Dict && acroForm.get("XFA") || null;
+      const needAppearances = acroFormRef && acroForm instanceof Dict && changes.values().some(ref => ref.needAppearances);
+      const xfa = acroForm instanceof Dict && acroForm.get("XFA") || null;
       let xfaDatasetsRef = null;
       let hasXfaDatasetsEntry = false;
       if (Array.isArray(xfa)) {
@@ -67140,7 +69038,7 @@ class WorkerMessageHandler {
       if (xref.trailer) {
         const infoMap = new Map();
         const xrefInfo = xref.trailer.get("Info") || null;
-        if (xrefInfo instanceof primitives_Dict) {
+        if (xrefInfo instanceof Dict) {
           for (const [key, value] of xrefInfo) {
             if (typeof value === "string") {
               infoMap.set(key, stringToPDFString(value));
@@ -67296,4 +69194,4 @@ globalThis.pdfjsWorker = {
   WorkerMessageHandler: WorkerMessageHandler
 };
 
-// export { WorkerMessageHandler };
+export { WorkerMessageHandler };
