@@ -4,7 +4,9 @@ from datetime import date, datetime
 import json
 import logging
 from urllib.parse import urlencode
-from urllib.request import Request, urlopen
+from urllib.request import Request
+
+from ingestion.scrapper._proxy import get_urllib_proxy_opener
 
 from ingestion.scrapper.base import IScraper, ScrapeDetectionResult
 from ingestion.scrapper.dto import Circular
@@ -102,7 +104,8 @@ class NSEScraper(IScraper):
             self._build_listing_url(from_date, to_date),
             headers=self.default_headers,
         )
-        with urlopen(request, timeout=30) as response:
+        opener = get_urllib_proxy_opener()
+        with opener.open(request, timeout=30) as response:
             return json.loads(response.read().decode("utf-8"))
 
     def _build_listing_url(self, from_date: date, to_date: date) -> str:

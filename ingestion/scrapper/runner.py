@@ -8,6 +8,7 @@ from config import Config
 from db.postgres_client import get_postgres_client
 from ingestion.logging_utils import configure_logging
 from ingestion.scrapper.orchestrator import ScraperOrchestrator
+from storage.s3_client import S3StorageClient
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -63,10 +64,17 @@ def main() -> int:
     )
     db_client = get_postgres_client()
     db_pool = db_client.get_pool()
+    s3_client = S3StorageClient(
+        bucket=Config.AWS_S3_BUCKET,
+        region=Config.AWS_S3_REGION,
+        aws_access_key_id=Config.AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=Config.AWS_SECRET_ACCESS_KEY,
+        endpoint_url=Config.AWS_S3_ENDPOINT_URL,
+    ) if Config.AWS_S3_BUCKET else None
 
     orchestrator = ScraperOrchestrator(
         db_pool=db_pool,
-        storage_path=Config.RAW_STORAGE_PATH,
+        s3_client=s3_client,
         default_lookback_days=Config.SCRAPER_DEFAULT_LOOKBACK_DAYS,
         enabled_sources=selected_sources,
         from_date=from_date,

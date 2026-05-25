@@ -9,7 +9,9 @@ import shutil
 import time
 from typing import Any
 from urllib.parse import urlparse
-from urllib.request import Request, urlopen
+from urllib.request import Request
+
+from ingestion.scrapper._proxy import get_urllib_proxy_opener
 import zipfile
 
 from config import Config
@@ -30,8 +32,6 @@ class ScraperOrchestrator:
     def __init__(
         self,
         db_pool: Any = None,
-        redis_client: Any = None,
-        storage_path: str = "data/regulatory_raw",
         default_lookback_days: int = 7,
         circular_repository: CircularRepository | None = None,
         asset_repository: AssetRepository | None = None,
@@ -47,8 +47,6 @@ class ScraperOrchestrator:
                 "ScraperOrchestrator requires circular_repository or db_pool"
             )
         self.db_pool = db_pool
-        self.redis_client = redis_client
-        self.storage_path = Path(storage_path)
         self.default_lookback_days = default_lookback_days
         self.circular_repository = circular_repository or CircularRepository(db_pool)
         self.asset_repository = asset_repository or AssetRepository(db_pool)
@@ -69,9 +67,8 @@ class ScraperOrchestrator:
         today = date.today()
         enabled_scrapers = self._get_enabled_scrapers()
         self.logger.info(
-            "Starting ingestion run enabled_sources=%s storage_path=%s lookback_days=%s from_date=%s to_date=%s",
+            "Starting ingestion run enabled_sources=%s lookback_days=%s from_date=%s to_date=%s",
             [source.source_name for source in enabled_scrapers],
-            self.storage_path,
             self.default_lookback_days,
             self.from_date,
             self.to_date,
@@ -413,7 +410,8 @@ class ScraperOrchestrator:
                 pdf_url,
                 headers={"User-Agent": "Mozilla/5.0", "Referer": circular.url or pdf_url},
             )
-            with urlopen(request, timeout=30) as response:
+            opener = get_urllib_proxy_opener()
+            with opener.open(request, timeout=30) as response:
                 return response.read()
 
         placeholder = (

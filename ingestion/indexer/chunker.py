@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import hashlib
 import re
-from ingestion.indexer.dto import TextChunk
-
-
 from abc import ABC, abstractmethod
+
+from ingestion.indexer.dto import TextChunk
+from ingestion.indexer.pdf_extractor import Block
 
 # Interface for chunking strategies that can be swapped out as needed. For example, we could implement a more advanced semantic chunker in the future.
 class ChunkingStrategy(ABC):
@@ -251,3 +251,131 @@ class ParagraphSentenceChunker(ChunkingStrategy):
             chunk_index=index,
             text=text.strip(),
         )
+
+
+# ---------------------------------------------------------------------------
+# NSE Circular PDF Chunker
+# ---------------------------------------------------------------------------
+
+class NSEPdfChunkingStrategy:
+    """
+    PDF-aware chunker for NSE circulars.
+
+    Works with pre-extracted blocks from PDFPlumberExtractor.
+    Tables are kept atomic — never split mid-table.
+    """
+
+    def __init__(self, chunk_size: int = 1000, overlap: int = 100):
+        self._chunk_size = chunk_size
+        self._overlap = overlap
+
+    @property
+    def chunk_size(self) -> int:
+        return self._chunk_size
+
+    @property
+    def overlap(self) -> int:
+        return self._overlap
+
+    def chunk(self, blocks: list[Block], *, circular_key: str) -> list[TextChunk]:
+        """Pack pre-extracted blocks into chunks."""
+        raw_chunks = self._pack_into_chunks(blocks)
+        overlapped = self._apply_overlap(raw_chunks)
+
+        return [
+            TextChunk(
+                chunk_id=f"{circular_key}_{i}",
+                chunk_index=i,
+                text=chunk.strip(),
+            )
+            for i, chunk in enumerate(overlapped)
+            if chunk.strip()
+        ]
+
+    def _pack_into_chunks(self, blocks: list[Block]) -> list[str]:
+        chunks: list[str] = []
+        buffer: list[str] = []
+        buf_len = 0
+
+        def flush():
+            nonlocal buffer, buf_len
+            if buffer:
+                chunks.append("\n\n".join(buffer))
+                buffer, buf_len = [], 0
+
+        for block in blocks:
+            content = block.content
+            clen = len(content)
+
+            if block.kind == "table":
+                if buf_len + clen > self._chunk_size and buffer:
+                    flush()
+                if clen > self._chunk_size:
+                    flush()
+                    chunks.append(content)
+                else:
+                    buffer.append(content)
+                    buf_len += clen
+            else:
+                if clen > self._chunk_size:
+                    flush()
+                    for sub in self._split_prose(content):
+                        chunks.append(sub)
+                elif buf_len + clen > self._chunk_size:
+                    flush()
+                    buffer.append(content)
+                    buf_len = clen
+                else:
+                    buffer.append(content)
+                    buf_len += clen
+
+        flush()
+        return chunks
+
+    def _split_prose(self, text: str) -> list[str]:
+        paragraphs = re.split(r'\n\s*\n', text)
+        chunks: list[str] = []
+        buffer: list[str] = []
+        buf_len = 0
+
+        def flush_buf():
+            nonlocal buffer, buf_len
+            if buffer:
+                chunks.append(" ".join(buffer))
+                buffer, buf_len = [], 0
+
+        for para in paragraphs:
+            sentences = re.split(r'(?<=[.!?])\s+', para.strip())
+            for sentence in sentences:
+                if len(sentence) > self._chunk_size:
+                    flush_buf()
+                    for word in sentence.split():
+                        if buf_len + len(word) + 1 > self._chunk_size:
+                            flush_buf()
+                        buffer.append(word)
+                        buf_len += len(word) + 1
+                    flush_buf()
+                elif buf_len + len(sentence) > self._chunk_size:
+                    flush_buf()
+                    buffer.append(sentence)
+                    buf_len = len(sentence)
+                else:
+                    buffer.append(sentence)
+                    buf_len += len(sentence)
+
+        flush_buf()
+        return chunks
+
+    def _apply_overlap(self, chunks: list[str]) -> list[str]:
+        if self._overlap == 0 or len(chunks) < 2:
+            return chunks
+
+        result = [chunks[0]]
+        for i in range(1, len(chunks)):
+            prev = chunks[i - 1]
+            tail = prev[-self._overlap:]
+            boundary = tail.find(" ")
+            tail = tail[boundary + 1:] if boundary != -1 else tail
+            result.append(tail + "\n\n" + chunks[i])
+
+        return result

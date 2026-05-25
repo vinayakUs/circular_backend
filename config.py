@@ -39,7 +39,6 @@ class Config:
     )
     DB_MIN_SIZE = int(os.getenv("DB_MIN_SIZE", "3"))
     DB_MAX_SIZE = int(os.getenv("DB_MAX_SIZE", "20"))
-    RAW_STORAGE_PATH = os.getenv("RAW_STORAGE_PATH", "data/regulatory_raw")
     SEBI_DETAIL_TIMEOUT_SECONDS = int(
         os.getenv("SEBI_DETAIL_TIMEOUT_SECONDS", "30")
     )
@@ -64,8 +63,8 @@ class Config:
         "ELASTICSEARCH_INDEX_NAME", "circulars_chunks"
     )
     ES_INDEXER_BATCH_SIZE = int(os.getenv("ES_INDEXER_BATCH_SIZE", "50"))
-    ES_CHUNK_SIZE = int(os.getenv("ES_CHUNK_SIZE", "600"))
-    ES_CHUNK_OVERLAP = int(os.getenv("ES_CHUNK_OVERLAP", "80"))
+    ES_CHUNK_SIZE = int(os.getenv("ES_CHUNK_SIZE", "800"))
+    ES_CHUNK_OVERLAP = int(os.getenv("ES_CHUNK_OVERLAP", "50"))
     ES_REQUEST_TIMEOUT_SECONDS = int(os.getenv("ES_REQUEST_TIMEOUT_SECONDS", "30"))
     ES_ENABLE_VECTORS = os.getenv("ES_ENABLE_VECTORS", "true").lower() == "true"
     ES_EMBEDDING_PROVIDER = os.getenv(
@@ -103,6 +102,8 @@ class Config:
     AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID", "test")
     AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "test")
     AWS_S3_ENDPOINT_URL = os.getenv("AWS_S3_ENDPOINT_URL", "http://localhost:4566")
+    HTTP_PROXY = os.getenv("HTTP_PROXY", "")
+    HTTPS_PROXY = os.getenv("HTTPS_PROXY", "")
 
     # SMTP / Email settings
     SMTP_HOST = os.getenv("SMTP_HOST", "smtp.company.com")

@@ -9,6 +9,8 @@ import time
 from urllib.parse import parse_qs, urlencode, urljoin, urlparse
 import requests
 
+from ingestion.scrapper._proxy import get_requests_proxies
+
 from config import Config
 from ingestion.scrapper.base import IScraper, ScrapeDetectionResult
 from ingestion.scrapper.dto import Circular
@@ -284,6 +286,7 @@ class SEBIScraper(IScraper):
                     headers=self.default_headers,
                     timeout=self.listing_timeout_seconds,
                     allow_redirects=True,
+                    proxies=get_requests_proxies(),
                 )
                 return response.text
             except Exception as exc:
@@ -344,6 +347,7 @@ class SEBIScraper(IScraper):
                     headers={"User-Agent": "Mozilla/5.0"},
                     timeout=self.detail_timeout_seconds,
                     allow_redirects=True,
+                    proxies=get_requests_proxies(),
                 )
                 return response.text
             except Exception as exc:

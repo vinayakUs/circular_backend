@@ -5,12 +5,12 @@ import logging
 from uuid import UUID
 
 from config import Config
-from ingestion.indexer.chunker import ChunkingStrategy, FixedSizeChunker
+from ingestion.indexer.chunker import NSEPdfChunkingStrategy
 from ingestion.indexer.contextualizer import get_contextualizer
 from ingestion.indexer.dto import IndexDocument
 from ingestion.indexer.embedding_provider import EmbeddingProvider, NoOpEmbeddingProvider
 from ingestion.indexer.es_client import ElasticsearchClient
-from ingestion.indexer.pdf_extractor import PDFTextExtractor
+from ingestion.indexer.pdf_extractor import PDFPlumberExtractor
 from ingestion.repository import AssetRepository, CircularAssetRecord, CircularRecord, CircularRepository
 from storage.s3_client import S3StorageClient
 
@@ -23,8 +23,8 @@ class ElasticsearchIndexer:
         circular_repository: CircularRepository,
         es_client: ElasticsearchClient,
         asset_repository: AssetRepository | None = None,
-        pdf_extractor: PDFTextExtractor | None = None,
-        chunker: ChunkingStrategy | None = None,
+        pdf_extractor: PDFPlumberExtractor | None = None,
+        pdf_chunker: NSEPdfChunkingStrategy | None = None,
         embedding_provider: EmbeddingProvider | None = None,
         batch_size: int = 50,
         s3_client: S3StorageClient | None = None,
@@ -33,8 +33,8 @@ class ElasticsearchIndexer:
         self.circular_repository = circular_repository
         self.asset_repository = asset_repository or AssetRepository(circular_repository.db_pool)
         self.es_client = es_client
-        self.pdf_extractor = pdf_extractor or PDFTextExtractor()
-        self.chunker = chunker or FixedSizeChunker()
+        self.pdf_extractor = pdf_extractor or PDFPlumberExtractor()
+        self.pdf_chunker = pdf_chunker or NSEPdfChunkingStrategy()
         self.embedding_provider = embedding_provider or NoOpEmbeddingProvider()
         self.batch_size = batch_size
         self.s3_client = s3_client or (S3StorageClient() if Config.AWS_S3_BUCKET else None)
@@ -102,7 +102,7 @@ class ElasticsearchIndexer:
                     )
                     continue
                 try:
-                    extracted_text = self.pdf_extractor.extract(asset.file_path)
+                    blocks = self.pdf_extractor.extract_blocks(asset.file_path)
                 except Exception:
                     self.logger.exception(
                         "Failed to read S3 asset record_id=%s asset_id=%s file_path=%s",
@@ -111,13 +111,16 @@ class ElasticsearchIndexer:
                         asset.file_path,
                     )
                     continue
-                chunks = self.chunker.chunk(
-                    extracted_text,
+                chunks = self.pdf_chunker.chunk(
+                    blocks,
                     circular_key=(
                         f"{record.source}:{record.circular_id}:"
                         f"{asset.asset_role}:{asset.archive_member_path or asset.file_path}"
                     ),
                 )
+
+                # Build full text for contextual retrieval (concatenate chunk texts)
+                full_text_for_context = " ".join(c.text for c in chunks)
 
                 # Generate contextual text if enabled
                 chunk_texts = [chunk.text for chunk in chunks]
@@ -128,7 +131,7 @@ class ElasticsearchIndexer:
                         contextualizer = get_contextualizer()
                         contexts = contextualizer.contextualize_chunks_wrt_full_doc(
                             chunks=chunk_texts,
-                            full_doc_text=extracted_text,
+                            full_doc_text=full_text_for_context,
                             circular_title=record.title,
                             full_reference=record.full_reference,
                         )
