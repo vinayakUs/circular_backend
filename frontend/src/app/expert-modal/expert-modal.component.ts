@@ -39,10 +39,10 @@ export class ExpertModalComponent implements OnInit {
   pendingSelection = '';
   private annotationsRestored = false;
 
-  constructor(private api: CircularsApiService,private pdfViewerService: NgxExtendedPdfViewerService) {}
+  constructor(private api: CircularsApiService, private pdfViewerService: NgxExtendedPdfViewerService) { }
 
 
-saveHighlights(): void {
+  saveHighlights(): void {
     if (this.isRestoring || this.isRestoringHighlights) return;
     const annotations = this.pdfViewerService.getSerializedAnnotations();
     if (annotations && annotations.length !== this.lastSavedCount) {
@@ -50,15 +50,15 @@ saveHighlights(): void {
       this.lastSavedCount = annotations.length;
     }
   }
-async onPdfLoaded(): Promise<void> {
+  async onPdfLoaded(): Promise<void> {
     this.isLoadingPdf = false;
     this.pdfViewerService.switchAnnotationEdtorMode(9);
-}
+  }
 
   ngOnInit(): void {
     this.loadDepartments();
   }
-async onEvent(type: string, event: any): Promise<void> {
+  async onEvent(type: string, event: any): Promise<void> {
     console.log(type, event);
     if (type === 'annotationLayerRendered' && !this.annotationsRestored) {
       // Only restore on first page
@@ -108,7 +108,7 @@ async onEvent(type: string, event: any): Promise<void> {
         console.log('Restoring annotation ' + (i + 1) + ' of ' + annotations.length + ':', annotation);
         await this.pdfViewerService.addEditorAnnotation(annotation);
         console.log('Annotation ' + (i + 1) + ' restore called successfully');
-      } catch(e) {
+      } catch (e) {
         console.warn('Failed to restore annotation:', e);
       }
     });
@@ -134,7 +134,7 @@ async onEvent(type: string, event: any): Promise<void> {
               if (a.rect && oldHighlight.rect && a.rect.length === oldHighlight.rect.length) {
                 // Check first 2 coordinates (top-left) to verify it's same position
                 return Math.abs(a.rect[0] - oldHighlight.rect[0]) < 2 &&
-                       Math.abs(a.rect[1] - oldHighlight.rect[1]) < 2;
+                  Math.abs(a.rect[1] - oldHighlight.rect[1]) < 2;
               }
               return false;
             });
@@ -152,7 +152,7 @@ async onEvent(type: string, event: any): Promise<void> {
           }
         }
       }
-      console.log('Experts after syncing:', JSON.stringify(this.experts.map(e => ({id: e.id, highlightsCount: e.highlights?.length})), null, 2));
+      console.log('Experts after syncing:', JSON.stringify(this.experts.map(e => ({ id: e.id, highlightsCount: e.highlights?.length })), null, 2));
     }
 
     this.isRestoring = false;
@@ -400,6 +400,7 @@ async onEvent(type: string, event: any): Promise<void> {
       },
       error: (err) => {
         console.error('Failed to save experts:', err);
+        alert('Failed to save experts : ' + err.error?.error || '');
         this.isSaving = false;
       }
     });

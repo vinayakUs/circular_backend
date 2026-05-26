@@ -75,7 +75,7 @@ class ExpertService:
                     return {"error": f"Update failed for id {row_id}"}, 404
             else:
                 if not dept_id:
-                    return {"error": "dept_id is required for new experts"}, 400
+                    return {"error": "department is required for new experts"}, 400
                 self.repository.save_expert_mapping(
                     circular_id=circular_id,
                     dept_id=UUID(dept_id),
