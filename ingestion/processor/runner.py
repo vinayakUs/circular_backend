@@ -7,6 +7,8 @@ import sys
 from db.postgres_client import get_postgres_client
 from ingestion.processor.pipeline import ProcessorPipeline
 from ingestion.processor.nse_applicability_processor import NSEApplicabilityProcessor
+from ingestion.processor.designation_extractor_processor import DesignationExtractorProcessor
+from ingestion.processor.hybrid_reference_extractor import HybridReferenceExtractor
 
 
 def main():
@@ -35,6 +37,8 @@ def main():
 
         # Register processors
         pipeline.register_processor(NSEApplicabilityProcessor(pool))
+        pipeline.register_processor(DesignationExtractorProcessor(pool))
+        pipeline.register_processor(HybridReferenceExtractor(pool))
 
         logger.info(f"Running pipeline with limit {args.limit}...")
         pipeline.run(limit_per_processor=args.limit)

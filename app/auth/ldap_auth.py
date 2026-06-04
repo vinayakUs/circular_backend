@@ -1,5 +1,6 @@
 import ldap3
 import jwt
+import ssl
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from typing import Any
@@ -7,6 +8,13 @@ from typing import Any
 from flask import request, g
 
 from config import Config
+
+# ==== AUTH METHOD SELECTOR ====
+# Uncomment USE_NTLM = True for Windows AD (production)
+# Uncomment USE_NTLM = False for OpenLDAP (development)
+
+USE_NTLM = False  # Set to False to use simple bind
+# ==============================
 
 
 class LDAPAuth:
@@ -24,10 +32,31 @@ class LDAPAuth:
 
     def authenticate(self, username: str, password: str) -> bool:
         """Authenticate user against LDAP directory."""
-        user_dn = self.user_dn_template.format(username=username)
-        server = ldap3.Server(self.server, get_info=ldap3.DSA)
-        conn = ldap3.Connection(server, user=user_dn, password=password, auto_bind=True)
-        return conn.bound
+
+        # ==== NTLM (Windows AD / Production) ====
+        if USE_NTLM:
+            try:
+                from ldap3 import Tls, Server, Connection, ALL, NTLM
+                tls = Tls(validate=ssl.CERT_NONE)
+                srv = Server(self.server, port=Config.LDAP_PORT, use_ssl=True, tls=tls, get_info=ALL)
+                user = f"{Config.LDAP_DOMAIN}\\{username}"
+                conn = Connection(srv, user=user, password=password, authentication=NTLM, auto_bind=True)
+                conn.unbind()
+                return True
+            except Exception as e:
+                print(f"NTLM Auth failed: {e}")
+                return False
+
+        # ==== Simple Bind (OpenLDAP / Development) ====
+        else:
+            try:
+                user_dn = self.user_dn_template.format(username=username)
+                server = ldap3.Server(self.server, get_info=ldap3.DSA)
+                conn = ldap3.Connection(server, user=user_dn, password=password, auto_bind=True)
+                return conn.bound
+            except Exception as e:
+                print(f"Simple Bind failed: {e}")
+                return False
 
     def create_token(self, username: str) -> str:
         """Create JWT token for authenticated user."""

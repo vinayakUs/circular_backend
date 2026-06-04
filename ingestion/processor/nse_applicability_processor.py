@@ -1,7 +1,6 @@
 '''
-  python -m ingestion.processor.nse_applicability_processor --circular_id "SEBI/HO/CFD/..."             
-  python -m ingestion.processor.runner --limit 100                                                      
   python -m ingestion.processor.nse_applicability_processor --circular_id "SEBI/HO/CFD/..."
+  python -m ingestion.processor.nse_applicability_processor --limit 100
 '''
 import argparse
 import logging
@@ -44,6 +43,10 @@ class NSEApplicabilityProcessor(BaseProcessor):
 
     def process(self, record: CircularRecord) -> None:
         if record.source == 'NSE':
+            self.circular_repo.update_applicable_to_nse(record.id, True)
+            if record.es_indexed_at is not None:
+                get_es_client().update_applicable_to_nse(str(record.id), True)
+            self.logger.info("Source is NSE, set applicable_to_nse=True for %s", record.id)
             return
 
         file_path = self._get_pdf_path(record)
@@ -54,16 +57,30 @@ class NSEApplicabilityProcessor(BaseProcessor):
         if not first_page_text:
             raise ValueError("First page is empty")
 
+        self.logger.info("=== NSE Check START ===")
+        self.logger.info("circular_id=%s current_applicable_to_nse=%s", record.id, record.applicable_to_nse)
+
         is_applicable = self._check_nse_applicable(first_page_text)
+        self.logger.info("Pattern match result: is_applicable=%s", is_applicable)
 
         # If pattern not found for SEBI circulars, use LLM to determine
         if not is_applicable:
             is_applicable = self._check_with_llm(first_page_text, record.title)
+            self.logger.info("LLM result: is_applicable=%s", is_applicable)
+        else:
+            self.logger.info("Skipping LLM (pattern already matched)")
+
+        self.logger.info("Final is_applicable=%s for %s", is_applicable, record.id)
 
         if is_applicable:
             self.circular_repo.update_applicable_to_nse(record.id, True)
             if record.es_indexed_at is not None:
                 get_es_client().update_applicable_to_nse(str(record.id), True)
+            self.logger.info("Updated applicable_to_nse=True for %s", record.id)
+        else:
+            self.logger.info("NOT updating (is_applicable=False)")
+
+        self.logger.info("=== NSE Check END ===")
 
     def _get_pdf_path(self, record: CircularRecord) -> str | None:
         assets = self.asset_repo.list_assets(record.id)
@@ -112,47 +129,82 @@ class NSEApplicabilityProcessor(BaseProcessor):
     def _check_with_llm(self, text: str, title: str) -> bool:
         """Use LLM to determine if circular is applicable to NSE when pattern match fails."""
 
-        class NSEApplicabilityResponse(BaseModel):
-            answer: str = Field(description="YES or NO")
+        class RecipientExtractionResponse(BaseModel):
+            recipients: list[str] = Field(description="List of entities this circular is addressed to")
 
         llm_client = get_llm_provider(Config.LLM_PROVIDER)
         model = Config.ACTION_ITEM_MODEL
 
-        prompt = f"""You are a regulatory compliance assistant. Determine if the following SEBI circular is applicable to NSE (National Stock Exchange of India).
-
-Circular Title: {title}
+        prompt = f"""Extract the list of entities this SEBI circular is addressed to.
 
 First Page Text:
 {text[:2000]}
 
-Answer YES if:
-1. This circular is addressed to NSE or any stock exchange (e.g., "All Stock Exchanges", "Recognised Stock Exchanges", "NSE", etc.)
-2. OR there is NO recipient listed after "To" (i.e., the To field is blank/empty)
+Only list the entities that appear in the "To:" field. For example:
+- If "To: All Stock Exchanges" → extract ["All Stock Exchanges"]
+- If "To: All AIFs, All Merchant Bankers" → extract ["All AIFs", "All Merchant Bankers"]
+- If "To: All Alternative Investment Funds" → extract ["All Alternative Investment Funds"]
 
-Answer NO if the circular is addressed to specific entities only (like specific banks, brokers, etc.) and does not mention stock exchanges."""
+Only extract entities from the "To" field, not from the body of the circular."""
 
         try:
-            response = llm_client.create_completions_parallel(
+            # Step 1: Extract recipients
+            extraction_response = llm_client.create_completions_parallel(
                 prompts=[prompt],
                 model=model,
-                response_model=NSEApplicabilityResponse,
+                response_model=RecipientExtractionResponse,
             )[0]
-            return response.answer.upper() == "YES"
+
+            recipients = extraction_response.recipients
+
+            print(f"LLM extracted recipients: {recipients}")
+
+            # Empty recipients = no specific recipient = likely applicable
+            if not recipients:
+                self.logger.info("No recipients extracted, treating as applicable to NSE")
+                return True
+
+            # Step 2: Classify based on recipients
+            stock_exchange_keywords = ["stock exchange", "nse", "bse", "national stock exchange", "bombay stock exchange", "exchanges"]
+            for recipient in recipients:
+                recipient_lower = recipient.lower()
+                matched_keyword = None
+                for keyword in stock_exchange_keywords:
+                    if keyword in recipient_lower:
+                        matched_keyword = keyword
+                        break
+                if matched_keyword:
+                    self.logger.info("Recipient '%s' matched keyword '%s' → applicable", recipient, matched_keyword)
+                    return True
+                if not any(word in recipient_lower for word in ["stock", "exchange", "nse", "bse"]):
+                    # If no stock exchange keyword found, it's not applicable
+                    self.logger.info("Recipient '%s' has no stock exchange keywords → not applicable", recipient)
+                    continue
+            self.logger.info("No recipients matched stock exchange criteria → not applicable")
+            return False
         except Exception as e:
             self.logger.warning("LLM check failed: %s", e)
-            return False
+            return True  # Changed from False
 
 
 def main():
     parser = argparse.ArgumentParser(description="Check NSE applicability for a circular.")
-    parser.add_argument("--circular_id", type=str, required=True, help="The circular ID to process (e.g. SEBI/HO/CFD/...)")
+    parser.add_argument("--circular_id", type=str, help="The circular ID to process (e.g. SEBI/HO/CFD/...)")
+    parser.add_argument("--limit", type=int, default=100, help="Maximum number of pending circulars to process")
 
     args = parser.parse_args()
 
-    print(f"Checking NSE applicability for: {args.circular_id}")
-    try:
-        db_client = get_postgres_client()
-        pool = db_client.get_pool()
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
+
+    db_client = get_postgres_client()
+    pool = db_client.get_pool()
+    processor = NSEApplicabilityProcessor(pool)
+
+    if args.circular_id:
+        print(f"Checking NSE applicability for: {args.circular_id}")
         repo = CircularRepository(pool)
 
         record = repo.get_record_by_circular_id(args.circular_id)
@@ -160,7 +212,6 @@ def main():
             print(f"No circular found with ID: {args.circular_id}", file=sys.stderr)
             sys.exit(1)
 
-        processor = NSEApplicabilityProcessor(pool)
         success = processor.run(record)
 
         if success:
@@ -171,10 +222,15 @@ def main():
         else:
             print("Failed to process circular.", file=sys.stderr)
             sys.exit(1)
-
-    except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+    else:
+        from ingestion.repository.processor_repository import ProcessorRepository
+        processor_repo = ProcessorRepository(pool)
+        pending = processor_repo.get_pending_circulars_for_processor(processor.name, limit=args.limit)
+        print(f"Found {len(pending)} pending circulars for '{processor.name}'")
+        for record in pending:
+            print(f"Processing: {record.circular_id}")
+            processor.run(record)
+        print(f"Completed {len(pending)} circulars.")
 
 
 if __name__ == "__main__":

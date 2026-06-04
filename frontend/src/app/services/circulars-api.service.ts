@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 export interface CountsResponse {
   total: number;
@@ -111,7 +112,7 @@ export interface Signatory {
 @Injectable({ providedIn: 'root' })
 export class CircularsApiService {
   private http = inject(HttpClient);
-  private baseUrl = '';
+  private baseUrl = environment.apiUrl;
   getCounts(): Observable<CountsResponse> {
     return this.http.get<CountsResponse>(
       `${this.baseUrl}/api/circulars/counts`

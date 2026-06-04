@@ -1,6 +1,7 @@
-  python -m ingestion.scrapper.runner --sources NSE,SEBI --from-date 2026-05-10 --to-date 2026-05-20
+python -m ingestion.scrapper.runner --sources SEBI --from-date 2026-05-10 --to-date 2026-05-20
 
-  run-indexer --delete-index --reset-db --reset-bloom
+
+run-indexer --delete-index --reset-db --reset-bloom
 
 
 Create the ES index once:

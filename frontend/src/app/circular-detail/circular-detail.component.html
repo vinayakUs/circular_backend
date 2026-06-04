@@ -45,7 +45,7 @@
             </svg>
             View Source
           </button>
-          <button class="action-btn">
+          <!-- <button class="action-btn">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
               <polyline points="7 10 12 15 17 10" />
@@ -59,7 +59,7 @@
               <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
             </svg>
             View Reference Chain
-          </button>
+          </button> -->
           <button class="action-btn" (click)="openExpertModal()">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
@@ -67,14 +67,14 @@
               <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
               <path d="M16 3.13a4 4 0 0 1 0 7.75" />
             </svg>
-            Add Expert
+            Add Task
           </button>
-          <button class="action-btn">
+          <!-- <button class="action-btn">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
             </svg>
             Bookmark
-          </button>
+          </button> -->
         </div>
       </div>
 
@@ -98,16 +98,16 @@
 
           <div class="experts-section">
             <div class="section-header">
-              <h2>Experts</h2>
+              <h2>Tasks</h2>
             </div>
 
             <div class="loading-state small" *ngIf="expertsLoading">
               <div class="loading-spinner small"></div>
-              <p>Loading experts...</p>
+              <p>Loading tasks...</p>
             </div>
 
             <div class="empty-state" *ngIf="!expertsLoading && experts.length === 0">
-              <p>No experts found.</p>
+              <p>No tasks found.</p>
             </div>
 
             <div class="expert-card" *ngFor="let expert of experts">

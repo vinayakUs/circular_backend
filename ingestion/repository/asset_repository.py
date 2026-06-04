@@ -75,8 +75,8 @@ class AssetRepository:
                 WHERE circular_id = %s
                 ORDER BY CASE asset_role
                         WHEN 'original_pdf' THEN 0
-                        WHEN 'original_zip' THEN 1
-                        WHEN 'extracted_pdf' THEN 2
+                        WHEN 'extracted_pdf' THEN 1
+                        WHEN 'original_zip' THEN 2
                         ELSE 9
                     END,
                     COALESCE(archive_member_path, ''), file_path

@@ -616,6 +616,19 @@
   100% { background-position: -200% 0; }
 }
 
+/* Footer */
+.home-footer {
+  padding: 24px;
+  text-align: center;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.home-footer p {
+  font-size: 13px;
+  color: #9e9e9e;
+  margin: 0;
+}
+
 @media (max-width: 640px) {
   .hero-section {
     padding: 60px 20px 40px;

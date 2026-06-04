@@ -3,7 +3,7 @@
 
   <main class="main-content">
     <div class="page-header">
-      <h1 class="page-title">Experts by Department</h1>
+      <h1 class="page-title">Tasks by Department</h1>
     </div>
 
     <!-- Filter Bar -->
@@ -48,7 +48,7 @@
     <!-- Expert List -->
     <div class="experts-list" *ngIf="!loading; else loadingTpl">
       <div *ngIf="experts.length === 0" class="empty-state">
-        No experts found
+        No Task found
       </div>
       <div
         *ngFor="let expert of experts"

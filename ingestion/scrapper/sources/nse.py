@@ -100,11 +100,12 @@ class NSEScraper(IScraper):
         return circulars
 
     def _fetch_circulars(self, from_date: date, to_date: date) -> dict:
+        url = self._build_listing_url(from_date, to_date)
         request = Request(
-            self._build_listing_url(from_date, to_date),
+            url,
             headers=self.default_headers,
         )
-        opener = get_urllib_proxy_opener()
+        opener = get_urllib_proxy_opener(url)
         with opener.open(request, timeout=30) as response:
             return json.loads(response.read().decode("utf-8"))
 

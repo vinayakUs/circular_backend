@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { NgxExtendedPdfViewerModule, NgxExtendedPdfViewerService } from 'ngx-extended-pdf-viewer';
 import { CircularsApiService, Department } from '../services/circulars-api.service';
+import { environment } from 'src/environments/environment';
 
 interface Expert {
   id?: string;
@@ -232,7 +233,7 @@ async onEvent(type: string, event: any): Promise<void> {
       complete: () => {
         this.isLoadingExperts = false;
         // Start loading PDF after experts are ready
-        this.pdfUrl = `/api/circulars/${this.circularId}/content`;
+        this.pdfUrl = `${environment.apiUrl}/api/circulars/${this.circularId}/content`;
       }
     });
   }
@@ -363,6 +364,14 @@ async onEvent(type: string, event: any): Promise<void> {
   }
 
   onSave(): void {
+    // Check all tasks have department assigned
+    const unassignedTasks = this.experts.filter(e => !e.dept_id);
+    if (unassignedTasks.length > 0) {
+      this.isSaving = false;
+      alert('Please assign a department to all tasks before saving.');
+      return;
+    }
+
     this.isSaving = true;
 
     // Get current annotations from the PDF viewer
@@ -399,8 +408,9 @@ async onEvent(type: string, event: any): Promise<void> {
         this.close.emit();
       },
       error: (err) => {
-        console.error('Failed to save experts:', err);
+        console.error('Failed to save tasks:', err);
         this.isSaving = false;
+        alert('Failed to save tasks. Please try again.');
       }
     });
   }

@@ -410,7 +410,7 @@ class ScraperOrchestrator:
                 pdf_url,
                 headers={"User-Agent": "Mozilla/5.0", "Referer": circular.url or pdf_url},
             )
-            opener = get_urllib_proxy_opener()
+            opener = get_urllib_proxy_opener(pdf_url)
             with opener.open(request, timeout=30) as response:
                 return response.read()
 

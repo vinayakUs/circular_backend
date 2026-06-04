@@ -1,6 +1,7 @@
 import os
 
 from dotenv import load_dotenv
+load_dotenv(override=True)
 
 
 load_dotenv()
@@ -25,9 +26,16 @@ class Config:
     ACTION_ITEM_MODEL = os.getenv(
         "ACTION_ITEM_MODEL", "minimaxai/minimax-m2.7"
     )
-    LDAP_SERVER = os.getenv("LDAP_SERVER", "ldap://localhost:389")
-    LDAP_BASE_DN = os.getenv("LDAP_BASE_DN", "dc=company,dc=com")
-    LDAP_USER_DN_TEMPLATE = os.getenv("LDAP_USER_DN_TEMPLATE", "uid={username},ou=users,dc=company,dc=com")
+    # ==== LDAP Configuration ====
+    # For NTLM (Windows AD / Production) - set USE_NTLM=True in ldap_auth.py
+    LDAP_SERVER = os.getenv("LDAP_SERVER", "ldap://localhost:389")  # e.g. ldaps://rootdc01.nseroot.com
+    LDAP_PORT = int(os.getenv("LDAP_PORT", "389"))  # 636 for LDAPS (NTLM), 389 for simple bind
+    LDAP_DOMAIN = os.getenv("LDAP_DOMAIN", "")  # e.g. ENSEROOT (only for NTLM)
+
+    # For Simple Bind (OpenLDAP / Development) - set USE_NTLM=False in ldap_auth.py
+    LDAP_BASE_DN = os.getenv("LDAP_BASE_DN", "dc=company,dc=com")  # only for simple bind
+    LDAP_USER_DN_TEMPLATE = os.getenv("LDAP_USER_DN_TEMPLATE", "uid={username},ou=users,dc=company,dc=com")  # only for simple bind
+    # ==== End LDAP ====
     JWT_SECRET = os.getenv("JWT_SECRET", "s2L65pGQtRN0Tu1ZDAH80SqP1Rl7FgWXOzanvGKeOS0")
     JWT_ALGORITHM = "HS256"
     JWT_EXPIRATION_HOURS = int(os.getenv("JWT_EXPIRATION_HOURS", "24"))
@@ -47,7 +55,7 @@ class Config:
         os.getenv("SEBI_DETAIL_RETRY_BACKOFF_SECONDS", "2")
     )
     SCRAPER_DEFAULT_LOOKBACK_DAYS = int(
-        os.getenv("SCRAPER_DEFAULT_LOOKBACK_DAYS", "10") # default to 10 days if no data in db fetching historical data
+        os.getenv("SCRAPER_DEFAULT_LOOKBACK_DAYS", "5") # default to 10 days if no data in db fetching historical data
     ) 
     SCRAPER_ENABLED_SOURCES = _parse_scraper_sources(
         os.getenv("SCRAPER_ENABLED_SOURCES")
@@ -97,13 +105,13 @@ class Config:
     RAG_MAX_CHUNKS = int(os.getenv("RAG_MAX_CHUNKS", "10"))
     RAG_MAX_TOKENS = int(os.getenv("RAG_MAX_TOKENS", "4000"))
     LLM_PROVIDER = os.getenv("LLM_PROVIDER", "nvidia").strip().lower()
+    OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY", "")
+    OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")
     AWS_S3_BUCKET = os.getenv("AWS_S3_BUCKET", "my-app-dev-bucket")
     AWS_S3_REGION = os.getenv("AWS_S3_REGION", "us-east-1")
     AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID", "test")
     AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "test")
     AWS_S3_ENDPOINT_URL = os.getenv("AWS_S3_ENDPOINT_URL", "http://localhost:4566")
-    HTTP_PROXY = os.getenv("HTTP_PROXY", "")
-    HTTPS_PROXY = os.getenv("HTTPS_PROXY", "")
 
     # SMTP / Email settings
     SMTP_HOST = os.getenv("SMTP_HOST", "smtp.company.com")

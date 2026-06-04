@@ -25,8 +25,16 @@ from utils.llm_providers import get_llm_provider
 class DesignationExtractorProcessor(BaseProcessor):
     """Processor to extract signatory name and designation from circulars."""
 
+    NSE_SIGNATORY_PATTERNS = [
+        re.compile(r"For\s+and\s+on\s+behalf\s+of", re.IGNORECASE),
+        re.compile(r"For\s+&\s+on\s+behalf\s+of", re.IGNORECASE),
+        re.compile(r"For\s+National\s+Stock\s+Exchange\s+of\s+India\s+Limited", re.IGNORECASE),
+        re.compile(r"for\s+and\s+on\s+behalf\s+of\s+national\s+stock\s+exchange", re.IGNORECASE),
+        re.compile(r"for\s+national\s+stock\s+exchange\s+of\s+india\s+limited", re.IGNORECASE),
+        re.compile(r"For\s+and\s+on\s+behalf\s+of\s+National\s+Stock\s+Exchange\s+of\s+India\s+Ltd", re.IGNORECASE),
+        re.compile(r"For\s+and\s+on\s+behalf\s+of\s+National\s+Stock\s+Exchange\s+of\s+India\s+Limited", re.IGNORECASE),
+    ]
     SEBI_SIGNATORY_PATTERN = re.compile(r"Yours\s+(?:faithfully|sincerely)", re.IGNORECASE)
-    NSE_SIGNATORY_PATTERN = re.compile(r"For\s+and\s+on\s+behalf\s+of", re.IGNORECASE)
 
     def __init__(self, db_pool: Any):
         super().__init__(db_pool)
@@ -103,12 +111,16 @@ class DesignationExtractorProcessor(BaseProcessor):
 
     def _extract_signatory_block(self, source: str, text: str) -> str | None:
         if source == "NSE":
-            pattern = self.NSE_SIGNATORY_PATTERN
+            patterns = self.NSE_SIGNATORY_PATTERNS
         else:
             # Default to SEBI pattern for SEBI or unknown sources
-            pattern = self.SEBI_SIGNATORY_PATTERN
+            patterns = [self.SEBI_SIGNATORY_PATTERN]
 
-        match = pattern.search(text)
+        match = None
+        for pattern in patterns:
+            match = pattern.search(text)
+            if match:
+                break
         if not match:
             return None
 
@@ -145,12 +157,18 @@ class DesignationExtractorProcessor(BaseProcessor):
         llm_client = get_llm_provider(Config.LLM_PROVIDER)
         model = Config.ACTION_ITEM_MODEL
 
-        prompt = f"""Extract ALL signatories (name and designation) from the following text taken from a {source} circular. There may be one or multiple signatories. Return every signatory you find.
+        prompt = f"""Extract ONLY the INDIVIDUAL human signatories (name and designation) from the following text taken from a {source} circular.
+
+IMPORTANT:
+- Extract ONLY named persons with their personal designations (e.g., "Meghna Chavan, Senior Manager")
+- DO NOT include company names, organization names, or entity names (e.g., "National Stock Exchange of India Limited")
+- DO NOT include "For and on behalf of" phrases
+- Skip any line that is just an organization/company name without a personal name
 
 Signatory Block:
 {signatory_text}
 
-Return all officials and their roles/designations. Be precise - use the exact text as it appears."""
+Return only the actual human signatories with their roles. Ignore organizations and entity names."""
 
         try:
             response = llm_client.create_completions_parallel(
@@ -166,33 +184,41 @@ Return all officials and their roles/designations. Be precise - use the exact te
 
 def main():
     parser = argparse.ArgumentParser(description="Extract signatory designation from a circular.")
-    parser.add_argument("--circular_id", type=str, required=True, help="The circular ID to process")
-
+    parser.add_argument("--circular_id", type=str, help="Process a specific circular by ID")
+    parser.add_argument("--limit", type=int, default=100, help="Maximum number of pending circulars to process")
     args = parser.parse_args()
 
-    print(f"Extracting signatory for: {args.circular_id}")
-    try:
-        db_client = get_postgres_client()
-        pool = db_client.get_pool()
-        repo = CircularRepository(pool)
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
 
+    db_client = get_postgres_client()
+    pool = db_client.get_pool()
+    processor = DesignationExtractorProcessor(pool)
+
+    if args.circular_id:
+        print(f"Extracting signatory for: {args.circular_id}")
+        repo = CircularRepository(pool)
         record = repo.get_record_by_circular_id(args.circular_id)
         if not record:
             print(f"No circular found with ID: {args.circular_id}", file=sys.stderr)
             sys.exit(1)
-
-        processor = DesignationExtractorProcessor(pool)
         success = processor.run(record)
-
         if success:
             print("Processing complete.")
         else:
             print("Failed to process circular.", file=sys.stderr)
             sys.exit(1)
-
-    except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+    else:
+        from ingestion.repository.processor_repository import ProcessorRepository
+        processor_repo = ProcessorRepository(pool)
+        pending = processor_repo.get_pending_circulars_for_processor(processor.name, limit=args.limit)
+        print(f"Found {len(pending)} pending circulars for '{processor.name}'")
+        for record in pending:
+            print(f"Processing: {record.circular_id}")
+            processor.run(record)
+        print(f"Completed {len(pending)} circulars.")
 
 
 if __name__ == "__main__":

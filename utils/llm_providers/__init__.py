@@ -1,12 +1,14 @@
 from utils.llm_providers.base import BaseLLMClient
 from utils.llm_providers.minmax_llm_client import MinmaxLLMClient
 from utils.llm_providers.nvidia_llm_client import NvidiaLLMClient
+from utils.llm_providers.ollama_llm_client import OllamaLLMClient
 
-__all__ = ["BaseLLMClient", "MinmaxLLMClient", "NvidiaLLMClient", "LLM_PROVIDERS"]
+__all__ = ["BaseLLMClient", "MinmaxLLMClient", "NvidiaLLMClient", "OllamaLLMClient", "LLM_PROVIDERS"]
 
 LLM_PROVIDERS: dict[str, type[BaseLLMClient]] = {
     "nvidia": NvidiaLLMClient,
     "minmax": MinmaxLLMClient,
+    "ollama": OllamaLLMClient,
 }
 
 

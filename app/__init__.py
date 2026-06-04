@@ -92,7 +92,8 @@ def create_app() -> Flask:
 
         auth = LDAPAuth()
         try:
-            auth.authenticate(username, password)
+            if not auth.authenticate(username, password):
+                return {"error": "Invalid credentials"}, 401
         except Exception as e:
             logging.getLogger(__name__).error("LDAP auth error: %s", e)
             error_msg = str(e).lower()

@@ -60,6 +60,7 @@ class SEBIScraper(IScraper):
 
     def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
+        print(f"REQUESTS_CA_BUNDLE: {os.getenv('REQUESTS_CA_BUNDLE')}")
         self.detail_timeout_seconds = Config.SEBI_DETAIL_TIMEOUT_SECONDS
         self.listing_timeout_seconds = int(
             os.getenv("SEBI_LISTING_TIMEOUT_SECONDS", "300")
@@ -286,7 +287,8 @@ class SEBIScraper(IScraper):
                     headers=self.default_headers,
                     timeout=self.listing_timeout_seconds,
                     allow_redirects=True,
-                    proxies=get_requests_proxies(),
+                    proxies=get_requests_proxies(self.LISTING_URL),
+                    verify=False,
                 )
                 return response.text
             except Exception as exc:
@@ -347,7 +349,8 @@ class SEBIScraper(IScraper):
                     headers={"User-Agent": "Mozilla/5.0"},
                     timeout=self.detail_timeout_seconds,
                     allow_redirects=True,
-                    proxies=get_requests_proxies(),
+                    proxies=get_requests_proxies(detail_url),
+                    verify=False,
                 )
                 return response.text
             except Exception as exc:
