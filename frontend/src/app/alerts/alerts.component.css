@@ -1,0 +1,33 @@
+.alerts-page {
+  min-height: 100vh;
+  background: #fafafa;
+}
+
+.main-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.header-section {
+  padding: 48px 0 32px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  margin-bottom: 32px;
+}
+
+.page-title {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: #0a0a0a;
+  margin: 0 0 8px;
+}
+
+.page-subtitle {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 15px;
+  font-weight: 400;
+  color: #5e5e5e;
+  margin: 0;
+}

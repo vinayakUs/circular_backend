@@ -419,6 +419,26 @@ class CircularRepository:
             conn.commit()
         self.logger.info("Cleared ES metadata for all circular records")
 
+    def list_recent_fetched_circulars_for_notification(self, hours: int = 24) -> list[CircularRecord]:
+        """List circulars with status FETCHED within the given time window."""
+        with self.db_pool.acquire() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT id, source, circular_id, source_item_key, full_reference,
+                       department, title, issue_date, effective_date, url, pdf_url,
+                       content_hash, status, error_message, detected_at,
+                       created_at, updated_at, es_indexed_at, es_chunk_count,
+                       es_index_name, applicable_to_nse
+                FROM circulars
+                WHERE status = 'FETCHED'
+                  AND detected_at >= NOW() - MAKE_INTERVAL(hours => %s)
+                ORDER BY issue_date ASC, created_at ASC, id ASC
+                """,
+                (hours,),
+            )
+            return [r for row in cursor.fetchall() if (r := self._row_to_record(row))]
+
     def list_pending_es_records(self, limit: int = 100) -> list[CircularRecord]:
         with self.db_pool.acquire() as conn:
             cursor = conn.cursor()

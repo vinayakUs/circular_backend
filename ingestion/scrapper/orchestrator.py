@@ -5,25 +5,26 @@ import hashlib
 import logging
 from pathlib import Path
 import re
-import shutil
 import time
 from typing import Any
 from urllib.parse import urlparse
-from urllib.request import Request
 
-from ingestion.scrapper._proxy import get_urllib_proxy_opener
+import requests
+
+from ingestion.scrapper._proxy import get_requests_proxies
 import zipfile
 
 from config import Config
 from ingestion.repository import CircularAsset, CircularRepository
 from ingestion.repository.asset_repository import AssetRepository
 from ingestion.repository.checkpoint_repository import CheckpointRepository
-from ingestion.scrapper.base import IScraper, ScrapeDetectionResult
+from ingestion.scrapper.base import DEFAULT_USER_AGENT, IScraper, ScrapeDetectionResult
 from ingestion.scrapper.dto import Circular
 from ingestion.scrapper.registry import ScraperRegistry
 from storage.s3_client import S3StorageClient
-import ingestion.scrapper.sources.nse
-import ingestion.scrapper.sources.sebi
+import importlib
+importlib.import_module("ingestion.scrapper.sources.nse")
+importlib.import_module("ingestion.scrapper.sources.sebi")
 
 
 class ScraperOrchestrator:
@@ -111,10 +112,7 @@ class ScraperOrchestrator:
         failed_count = 0
         earliest_failed_issue_date: date | None = None
         for circular in circulars:
-            record_id, _created = self.circular_repository.upsert_circular(circular)
-            record = self.circular_repository.get_record(
-                circular.source, circular.circular_id
-            )
+            record = self.circular_repository.get_record(circular.source, circular.circular_id)
             if (
                 record is not None
                 and record.status == "FETCHED"
@@ -125,9 +123,11 @@ class ScraperOrchestrator:
                     "Skipping already fetched circular source=%s circular_id=%s record_id=%s",
                     circular.source,
                     circular.circular_id,
-                    record_id,
+                    record.id,
                 )
                 continue
+
+            record_id, _created = self.circular_repository.upsert_circular(circular)
 
             try:
                 self.circular_repository.update_status(record_id, "DISCOVERED")
@@ -406,13 +406,15 @@ class ScraperOrchestrator:
 
     def _fetch_pdf_bytes(self, pdf_url: str, circular: Circular) -> bytes:
         if pdf_url:
-            request = Request(
+            response = requests.get(
                 pdf_url,
-                headers={"User-Agent": "Mozilla/5.0", "Referer": circular.url or pdf_url},
+                headers={"User-Agent": DEFAULT_USER_AGENT, "Referer": circular.url or pdf_url},
+                timeout=30,
+                allow_redirects=True,
+                proxies=get_requests_proxies(pdf_url),
+                verify=False,
             )
-            opener = get_urllib_proxy_opener(pdf_url)
-            with opener.open(request, timeout=30) as response:
-                return response.read()
+            return response.content
 
         placeholder = (
             f"PDF download pending for {circular.circular_id}\n"

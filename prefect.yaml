@@ -1,0 +1,6 @@
+deployments:
+  - name: scraper-deployment
+    entrypoint: prefect_dags/flows/scraper_flow.py:scraper_flow
+    work_pool:
+      name: default
+      work_queue_name: default

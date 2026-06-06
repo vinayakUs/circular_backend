@@ -117,7 +117,11 @@ class NotificationLogRepository:
             return count > 0
 
     def get_notified_circular_ids(self, circular_ids: list[str]) -> set[str]:
-        """Given a list of circular_ids, return those that have already been notified."""
+        """Given a list of circular_ids (UUIDs), return those that have already been notified."""
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"[NOTIFICATION_LOG_REPO] get_notified_circular_ids called with: {circular_ids}")
+
         if not circular_ids:
             return set()
         placeholders = ",".join(["%s"] * len(circular_ids))
@@ -125,12 +129,14 @@ class NotificationLogRepository:
             cursor = conn.cursor()
             cursor.execute(
                 f"""
-                SELECT DISTINCT variables->>'circular_id'
+                SELECT DISTINCT variables->>'circular_uuid'
                 FROM notification_logs
                 WHERE status = 'SENT'
                 AND template_name = 'circular_notification.html'
-                AND variables->>'circular_id' IN ({placeholders})
+                AND variables->>'circular_uuid' IN ({placeholders})
                 """,
                 circular_ids,
             )
-            return {row[0] for row in cursor.fetchall() if row[0]}
+            result = {row[0] for row in cursor.fetchall() if row[0]}
+            logger.info(f"[NOTIFICATION_LOG_REPO] Query returned notified IDs: {result}")
+            return result

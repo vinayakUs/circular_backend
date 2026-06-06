@@ -11,8 +11,6 @@ from jinja2 import Template
 from config import Config
 from db.postgres_client import get_postgres_client
 from ingestion.repository.circular_repository import CircularRepository
-from ingestion.repository.processor_repository import ProcessorRepository
-from ingestion.processor.nse_applicability_processor import NSEApplicabilityProcessor
 from services.notification_log_repository import NotificationLogRepository
 
 
@@ -103,34 +101,46 @@ class EmailService:
         return success, error
 
     def get_pending_circulars(self) -> list[dict[str, Any]]:
-        """Get circulars where nse_applicability_processor completed but notification not sent."""
+        """Get circulars with status FETCHED (within 24h) that haven't been notified yet."""
+        import logging
+        logger = logging.getLogger(__name__)
+
         db_pool = get_postgres_client().get_pool()
-        processor_repo = ProcessorRepository(db_pool)
         circular_repo = CircularRepository(db_pool)
 
-        # Get completed nse_applicability_processor tasks
-        completed = processor_repo.get_completed_by_processor(NSEApplicabilityProcessor.name)
+        # Get recently fetched circulars (last 24h)
+        fetched = circular_repo.list_recent_fetched_circulars_for_notification(hours=24)
+        logger.info(f"[NOTIFICATION DEBUG] Fetched circulars: {len(fetched)}")
+        for f in fetched:
+            logger.info(f"[NOTIFICATION DEBUG]   - id={f.id} full_reference={f.full_reference} status={f.status}")
 
         # Filter out already notified
-        circular_ids = [cid for _, cid in completed]
+        circular_ids = [str(r.id) for r in fetched]
+        logger.info(f"[NOTIFICATION DEBUG] circular_ids (as strings): {circular_ids}")
+
         notified = self.log_repo.get_notified_circular_ids(circular_ids)
+        logger.info(f"[NOTIFICATION DEBUG] Already notified UUIDs: {notified}")
 
         result = []
-        for raw_id, circular_id in completed:
-            if circular_id in notified:
+        for record in fetched:
+            record_id_str = str(record.id)
+            logger.info(f"[NOTIFICATION DEBUG] Checking record.id={record_id_str} in notified={notified} -> {record_id_str in notified}")
+            if record_id_str in notified:
+                logger.info(f"[NOTIFICATION DEBUG]   SKIP (already notified): {record.full_reference}")
                 continue
-            record = circular_repo.get_record_by_id(_raw_to_uuid(raw_id))
-            if record:
-                result.append({
-                    "id": record.id,
-                    "circular_id": record.circular_id,
-                    "title": record.title,
-                    "department": record.department,
-                    "issue_date": str(record.issue_date) if record.issue_date else "",
-                    "source": record.source,
-                    "url": record.url,
-                    "pdf_url": record.pdf_url,
-                })
+            logger.info(f"[NOTIFICATION DEBUG]   INCLUDE: {record.full_reference}")
+            result.append({
+                "id": record.id,
+                "circular_id": record.full_reference,
+                "circular_uuid": str(record.id),
+                "title": record.title,
+                "department": record.department,
+                "issue_date": str(record.issue_date) if record.issue_date else "",
+                "source": record.source,
+                "url": f"https://abc.com/circular/{record.id}",
+                "pdf_url": record.pdf_url,
+            })
+        logger.info(f"[NOTIFICATION DEBUG] Final pending list: {len(result)} circulars")
         return result
 
     def send_pending_notifications(self) -> int:
@@ -148,7 +158,8 @@ class EmailService:
 
         for circular in pending:
             variables = {
-                "circular_id": circular["circular_id"],
+                "full_reference": circular["circular_id"],
+                "circular_uuid": circular["circular_uuid"],
                 "title": circular["title"],
                 "department": circular["department"],
                 "issue_date": circular["issue_date"],
@@ -158,22 +169,19 @@ class EmailService:
             subject = f"Regulatory Circular: {circular['circular_id']}"
             html = self._render_template(template_name, variables)
 
-            # Create log entries for each recipient first
-            log_ids = []
-            for recipient in recipients:
-                log_id = self.log_repo.create_log(template_name, recipient, subject, variables)
-                log_ids.append((log_id, recipient))
+            # Create single log entry for all recipients (BCC)
+            log_id = self.log_repo.create_log(
+                template_name, ",".join(recipients), subject, variables
+            )
 
             # Send one email with all recipients in BCC
             success, error = self._send_bcc_email(recipients, subject, html)
 
-            # Mark logs as sent or failed
+            # Mark log as sent or failed
             if success:
-                for log_id, _ in log_ids:
-                    self.log_repo.mark_sent(log_id)
+                self.log_repo.mark_sent(log_id)
                 sent_count += 1
             else:
-                for log_id, _ in log_ids:
-                    self.log_repo.mark_failed(log_id, error or "Unknown error")
+                self.log_repo.mark_failed(log_id, error or "Unknown error")
 
         return sent_count

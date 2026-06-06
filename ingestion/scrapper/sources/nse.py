@@ -2,13 +2,10 @@ from __future__ import annotations
 
 from datetime import date, datetime
 import json
-import logging
+import os
 from urllib.parse import urlencode
-from urllib.request import Request
 
-from ingestion.scrapper._proxy import get_urllib_proxy_opener
-
-from ingestion.scrapper.base import IScraper, ScrapeDetectionResult
+from ingestion.scrapper.base import DEFAULT_USER_AGENT, IScraper, ScrapeDetectionResult
 from ingestion.scrapper.dto import Circular
 from ingestion.scrapper.registry import ScraperRegistry
 
@@ -19,13 +16,16 @@ class NSEScraper(IScraper):
     API_URL = "https://www.nseindia.com/api/circulars"
     base_url = "https://www.nseindia.com"
     default_headers = {
-        "User-Agent": "Mozilla/5.0",
+        "User-Agent": DEFAULT_USER_AGENT,
         "Accept": "application/json, text/plain, */*",
         "Referer": "https://www.nseindia.com/",
     }
 
     def __init__(self) -> None:
-        self.logger = logging.getLogger(__name__)
+        super().__init__()
+        self.max_retries = max(1, int(os.getenv("NSE_MAX_RETRIES", "3")))
+        self.backoff_seconds = max(0.0, float(os.getenv("NSE_RETRY_BACKOFF_SECONDS", "2.0")))
+        self.timeout_seconds = float(os.getenv("NSE_TIMEOUT_SECONDS", "30"))
 
     def detect_new(self, from_date: date, to_date: date) -> ScrapeDetectionResult:
         self.logger.info(
@@ -101,13 +101,16 @@ class NSEScraper(IScraper):
 
     def _fetch_circulars(self, from_date: date, to_date: date) -> dict:
         url = self._build_listing_url(from_date, to_date)
-        request = Request(
-            url,
+        text = self._fetch_with_retry(
+            method="GET",
+            url=url,
+            max_retries=self.max_retries,
+            backoff_seconds=self.backoff_seconds,
+            timeout=self.timeout_seconds,
+            extra_log={"from_date": str(from_date), "to_date": str(to_date)},
             headers=self.default_headers,
         )
-        opener = get_urllib_proxy_opener(url)
-        with opener.open(request, timeout=30) as response:
-            return json.loads(response.read().decode("utf-8"))
+        return json.loads(text)
 
     def _build_listing_url(self, from_date: date, to_date: date) -> str:
         query = urlencode(
