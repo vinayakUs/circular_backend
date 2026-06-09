@@ -110,22 +110,39 @@ class ScraperOrchestrator:
         fetched_count = 0
         skipped_count = 0
         failed_count = 0
+
+
         earliest_failed_issue_date: date | None = None
         for circular in circulars:
+            self.logger.info("detected circular source=%s circular_id=%s issue_date=%s url=%s pdf_url=%s", source.source_name, circular.circular_id, circular.issue_date, circular.url, circular.pdf_url)
+
             record = self.circular_repository.get_record(circular.source, circular.circular_id)
-            if (
-                record is not None
-                and record.status == "FETCHED"
-                and record.pdf_url == circular.pdf_url
-            ):
-                skipped_count += 1
-                self.logger.info(
-                    "Skipping already fetched circular source=%s circular_id=%s record_id=%s",
-                    circular.source,
-                    circular.circular_id,
-                    record.id,
-                )
-                continue
+
+            self.logger.info("existing record=%s", record)  
+
+            if record is not None:
+                reasons = []
+                if record.status != "FETCHED":
+                    reasons.append(f"status={record.status} (expected FETCHED)")
+                # if record.pdf_url != circular.pdf_url:
+                #     reasons.append(f"pdf_url mismatch (db={record.pdf_url}, incoming={circular.pdf_url})")
+                if reasons:
+                    self.logger.info(
+                        "Record already exists but will be updated source=%s circular_id=%s record_id=%s reasons=%s",
+                        circular.source,
+                        circular.circular_id,
+                        record.id,
+                        "; ".join(reasons),
+                    )
+                else:
+                    skipped_count += 1
+                    self.logger.info(
+                        "Skipping already fetched circular source=%s circular_id=%s record_id=%s",
+                        circular.source,
+                        circular.circular_id,
+                        record.id,
+                    )
+                    continue
 
             record_id, _created = self.circular_repository.upsert_circular(circular)
 

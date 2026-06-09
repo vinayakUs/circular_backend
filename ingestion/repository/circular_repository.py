@@ -43,6 +43,7 @@ class CircularRepository:
         self.db_pool = db_pool
 
     def upsert_circular(self, circular: Any) -> tuple[UUID, bool]:
+        self.logger.info("upsert_circular %s" , circular)
         source = circular.source
         circular_id = circular.circular_id
         source_item_key = circular.source_item_key
@@ -73,13 +74,12 @@ class CircularRepository:
                     UPDATE circulars
                     SET source_item_key = %s, full_reference = %s, department = %s, title = %s,
                         issue_date = %s, url = %s, pdf_url = %s,
-                        content_hash = %s, status = %s, detected_at = %s, updated_at = NOW(),
-                        applicable_to_nse = %s
+                        content_hash = %s, status = %s, detected_at = %s, updated_at = NOW()
                     WHERE id = %s
                     """,
                     (source_item_key, full_reference, department, title, issue_date,
                      url, pdf_url, content_hash, "DISCOVERED", detected_at,
-                     applicable_to_nse, existing[0]),
+                     existing[0]),
                 )
                 conn.commit()
                 record_id = existing[0]
@@ -337,6 +337,8 @@ class CircularRepository:
     def update_applicable_to_nse(self, record_id: UUID, applicable: bool) -> None:
         with self.db_pool.acquire() as conn:
             cursor = conn.cursor()
+            self.logger.info("inside update_applicable_to_nse record_id=%s applicable=%s", record_id, applicable)
+
             cursor.execute(
                 """
                 UPDATE circulars
