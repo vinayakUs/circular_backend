@@ -83,7 +83,7 @@ class NSEScraper(IScraper):
                     department=file_dept,
                     title=str(item.get("sub", "")).strip(),
                     issue_date=issue_date,
-                    applicable_to_nse=False,
+                    applicable_to_nse=True,
                     url=download_url,
                     pdf_url=download_url,
                     source_item_key=circular_id,
