@@ -3,7 +3,7 @@ from typing import Any
 
 from config import Config
 from ingestion.indexer.dto import SearchHit
-from services.rag.dto import Citation, RAGAnswer
+from services.rag.dto import RAGAnswer
 from utils.llm_providers import get_llm_provider
 
 
@@ -73,6 +73,7 @@ class RAGAnswerGenerator:
                     len(response.answer) if response.answer else 0,
                     len(response.references),
                 )
+                self.logger.info("logger info ------ %s" , response)
                 return response
             except Exception as e:
                 last_error = e
@@ -121,10 +122,7 @@ class RAGAnswerGenerator:
                     "circular_id": doc.circular_id,
                     "title": doc.title,
                     "source": doc.source,
-                    "url": doc.url,
-                    "full_reference": doc.full_reference,
                     "chunk_text": doc.chunk_text,
-                    "score": hit.score or 0.0,
                 }
             )
         return chunks
@@ -135,7 +133,6 @@ class RAGAnswerGenerator:
             [
                 f"--- Circular: {chunk['circular_id']} ({chunk['source']}) ---\n"
                 f"Title: {chunk['title']}\n"
-                f"Reference: {chunk['full_reference']}\n"
                 f"Content: {chunk['chunk_text']}"
                 for chunk in context_chunks
             ]
@@ -145,11 +142,10 @@ class RAGAnswerGenerator:
 
 Guidelines:
 1. Answer the question comprehensively using information from the circulars
-2. Cite specific circulars using their circular_id (e.g., NSE/CML/73791)
-3. Extract relevant snippets that support your answer
-4. Be factual and reference-based - do not hallucinate
-5. If the information is not available in the provided context, say so
-6. Format your answer clearly with bullet points or numbered lists where appropriate
+2. Include all relevant circular_ids in the references list
+3. Be factual and reference-based - do not hallucinate
+4. If the information is not available in the provided context, say so
+5. Format your answer clearly with bullet points or numbered lists where appropriate
 
 User Question:
 {query}
@@ -159,6 +155,5 @@ Relevant Circular Excerpts:
 
 Provide your answer with:
 - A clear, comprehensive response
-- List of referenced circulars with their IDs, titles, sources, and URLs
-- Relevant text snippets that support your answer
+- A list of referenced circular IDs in the references field
 """

@@ -12,13 +12,13 @@
             <circle cx="11" cy="11" r="8"/>
             <path d="m21 21-4.35-4.35"/>
           </svg>
-          <input type="text" [(ngModel)]="filters.search" [disabled]="searchType==='browse'" placeholder="Search circulars..." class="search-input" (keyup.enter)="onSearch()" />
+          <input type="text" [(ngModel)]="filters.search" [disabled]="searchType==='browse' || isSearching" placeholder="Search circulars..." class="search-input" (keyup.enter)="onSearch()" />
           <div class="search-type-toggle">
             <button class="toggle-btn" [class.active]="searchType === 'browse'" (click)="setSearchType('browse')">Browse</button>
             <button class="toggle-btn" [class.active]="searchType === 'keyword'" (click)="setSearchType('keyword')">Keyword</button>
             <button class="toggle-btn" [class.active]="searchType === 'semantic'" (click)="setSearchType('semantic')">Semantic</button>
           </div>
-          <button class="search-btn" [disabled]="searchType==='browse'" (click)="onSearch()">Search</button>
+          <button class="search-btn" [disabled]="searchType==='browse' || isSearching" (click)="onSearch()">Search</button>
         </div>
       </div>
     </section>
@@ -116,11 +116,11 @@
             </ng-container>
           </div>
 
-          <div class="no-results" *ngIf="!loading && circulars.length === 0 && !isApiError">
+          <div class="no-results" *ngIf="!loading && circulars.length === 0 && !isApiError && !showSemanticResult">
             <span>No circulars found matching your criteria</span>
           </div>
 
-          <div class="no-results error" *ngIf="!loading && isApiError">
+          <div class="no-results error" *ngIf="!loading && isApiError && !showSemanticResult">
             <span>Unable to load circulars. Please check your connection.</span>
           </div>
 
@@ -140,18 +140,8 @@
                 <h3>References</h3>
                 <div class="reference-item" *ngFor="let ref of semanticResult.references">
                   <div class="ref-header">
-                    <span class="ref-id">{{ ref.circular_id }}</span>
-                    <span class="ref-score">{{ (ref.relevance_score * 100).toFixed(0) }}% match</span>
+                    <span class="ref-id">{{ ref }}</span>
                   </div>
-                  <span class="ref-title" (click)="navigateToCircular(ref.circular_id, ref)">{{ ref.title }}</span>
-                  <span class="ref-source">{{ ref.source }}</span>
-                </div>
-              </div>
-
-              <div class="snippets-section" *ngIf="semanticResult.snippets.length > 0">
-                <h3>Relevant Snippets</h3>
-                <div class="snippet-item" *ngFor="let snippet of semanticResult.snippets">
-                  <p>{{ snippet }}</p>
                 </div>
               </div>
 

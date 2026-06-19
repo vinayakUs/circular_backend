@@ -224,7 +224,7 @@ def create_app() -> Flask:
         try:
             import time
             search_start = time.perf_counter()
-            results = get_es_client().search(query, search_metadata, strategy=strategy)
+            results = get_es_client().search(query, search_metadata, strategy=strategy,size=10000)
             search_elapsed_ms = (time.perf_counter() - search_start) * 1000
 
             result_count = len(results)
@@ -336,8 +336,7 @@ def create_app() -> Flask:
                 "query": query,
                 "strategy": strategy,
                 "answer": rag_answer.answer,
-                "references": [ref.to_dict() for ref in rag_answer.references],
-                "snippets": rag_answer.snippets,
+                "references": rag_answer.references,
             }
         except Exception as e:
             logger.warning("RAG failed, returning raw chunks: query=%r, error=%s", query, e)
@@ -495,6 +494,16 @@ def create_app() -> Flask:
         service = ExpertService(db_pool=db_client.get_pool())
         experts = service.get_experts_for_circular(record_id)
         return {"experts": experts}
+
+    @app.get("/api/circulars/<uuid:record_id>/summary")
+    def get_circular_summary(record_id):
+        from ingestion.repository.summary_repository import SummaryRepository
+        db_client = get_postgres_client()
+        repository = SummaryRepository(db_pool=db_client.get_pool())
+        summary_text = repository.get_summary_text(record_id)
+        if summary_text is None:
+            return {"error": "Summary not found"}, 404
+        return {"summary": summary_text}
 
     @app.get("/api/circulars/<uuid:record_id>/signatories")
     def get_circular_signatories(record_id):

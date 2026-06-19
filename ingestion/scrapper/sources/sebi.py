@@ -271,6 +271,12 @@ class SEBIScraper(IScraper):
         return "title='Next'" in html or 'title="Next"' in html
 
     def _fetch_detail_page(self, detail_url: str) -> str:
+                # --- SIMULATED RANDOM FAILURE (for testing) ---
+        # import random
+        # if random.random() < 0.8:  # ~80% of requests fail randomly
+        #     raise RuntimeError(f"[SIMULATED] HTTP fetch failed for {detail_url}")
+        # # -----------------------------------------------
+
         return self._fetch_with_retry(
             method="GET",
             url=detail_url,

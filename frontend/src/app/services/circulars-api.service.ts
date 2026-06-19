@@ -51,14 +51,7 @@ export interface SemanticSearchResponse {
   query: string;
   strategy: string;
   answer: string;
-  references: {
-    circular_id: string;
-    relevance_score: number;
-    source: string;
-    title: string;
-    url: string;
-  }[];
-  snippets: string[];
+  references: string[];
   rag_error?: string;
 }
 
@@ -120,7 +113,8 @@ export class CircularsApiService {
   }
 
   getLatestCirculars(): Observable<PaginatedCircularsResponse> {
-    const url = `${this.baseUrl}/api/circulars?source=ALL&limit=4&offset=0`;
+    const today: string = new Date().toISOString().split('T')[0];
+    const url = `${this.baseUrl}/api/circulars?source=ALL&offset=0&from_date=${today}&to_date=${today}`;
     return this.http.get<PaginatedCircularsResponse>(url);
   }
 

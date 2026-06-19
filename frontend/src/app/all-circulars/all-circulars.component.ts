@@ -42,6 +42,7 @@ export class AllCircularsComponent implements OnInit {
   semanticResult: SemanticSearchResponse | null = null;
   semanticLoading = false;
   showSemanticResult = false;
+  isSearching = false;
 
   pagination = {
     limit: 10,
@@ -73,6 +74,7 @@ export class AllCircularsComponent implements OnInit {
   }
 
   loadCirculars(): void {
+    if (this.isSearching) return;
     this.loading = true;
     this.searchResults = [];
     this.apiService.getCirculars({
@@ -107,6 +109,7 @@ export class AllCircularsComponent implements OnInit {
     this.semanticResult = null;
     this.total = 0;
     this.showSemanticResult = false;
+    this.isSearching = false;
     if (type === 'browse') {
       this.loadCirculars();
     }
@@ -126,6 +129,7 @@ export class AllCircularsComponent implements OnInit {
   }
 
   performKeywordSearch(): void {
+    if (this.isSearching) return;
     console.log("Performing keyword search with query:", this.filters.search);
     if (!this.filters.search.trim()) {
       this.searchResults = [];
@@ -134,6 +138,7 @@ export class AllCircularsComponent implements OnInit {
       return;
     }
 
+    this.isSearching = true;
     this.loading = true;
     this.apiService.keywordSearch({
       query: this.filters.search,
@@ -165,21 +170,25 @@ export class AllCircularsComponent implements OnInit {
         this.total = data.results.length;
         this.loading = false;
         this.isApiError = false;
+        this.isSearching = false;
       },
       error: () => {
         this.circulars = [];
         this.total = 0;
         this.loading = false;
         this.isApiError = true;
+        this.isSearching = false;
       }
     });
   }
 
   performSemanticSearch(): void {
+    if (this.isSearching) return;
     this.searchResults = [];
     this.circulars = [];
     if (!this.filters.search.trim()) return;
 
+    this.isSearching = true;
     this.semanticLoading = true;
     this.semanticResult = null;
     this.showSemanticResult = true;
@@ -197,11 +206,13 @@ export class AllCircularsComponent implements OnInit {
         this.semanticResult = data;
         this.semanticLoading = false;
         this.isApiError = false;
+        this.isSearching = false;
       },
       error: () => {
         this.semanticResult = null;
         this.semanticLoading = false;
         this.isApiError = true;
+        this.isSearching = false;
       }
     });
   }
@@ -220,6 +231,7 @@ export class AllCircularsComponent implements OnInit {
     this.searchResults = [];
     this.showSemanticResult = false;
     this.pagination.offset = 0;
+    this.isSearching = false;
     this.onSearch();
   }
 

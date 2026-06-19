@@ -42,7 +42,10 @@ class NSEApplicabilityProcessor(BaseProcessor):
     name = "nse_applicability_processor"
 
     def process(self, record: CircularRecord) -> None:
+        self.logger.info('nse applicability process start %s', record.applicable_to_nse)
         if record.source == 'NSE':
+            self.logger.info('nse applicability process inside nse blocks')
+
             self.circular_repo.update_applicable_to_nse(record.id, True)
             if record.es_indexed_at is not None:
                 get_es_client().update_applicable_to_nse(str(record.id), True)
@@ -72,13 +75,10 @@ class NSEApplicabilityProcessor(BaseProcessor):
 
         self.logger.info("Final is_applicable=%s for %s", is_applicable, record.id)
 
-        if is_applicable:
-            self.circular_repo.update_applicable_to_nse(record.id, True)
-            if record.es_indexed_at is not None:
-                get_es_client().update_applicable_to_nse(str(record.id), True)
-            self.logger.info("Updated applicable_to_nse=True for %s", record.id)
-        else:
-            self.logger.info("NOT updating (is_applicable=False)")
+        self.circular_repo.update_applicable_to_nse(record.id, is_applicable)
+        if record.es_indexed_at is not None:
+            get_es_client().update_applicable_to_nse(str(record.id), is_applicable)
+        self.logger.info("Updated applicable_to_nse=%s for %s", is_applicable, record.id)
 
         self.logger.info("=== NSE Check END ===")
 
@@ -157,7 +157,7 @@ Only extract entities from the "To" field, not from the body of the circular."""
 
             recipients = extraction_response.recipients
 
-            print(f"LLM extracted recipients: {recipients}")
+            self.logger.info("LLM extracted recipients: %s", recipients)
 
             # Empty recipients = no specific recipient = likely applicable
             if not recipients:
@@ -194,22 +194,17 @@ def main():
 
     args = parser.parse_args()
 
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    )
-
     db_client = get_postgres_client()
     pool = db_client.get_pool()
     processor = NSEApplicabilityProcessor(pool)
 
     if args.circular_id:
-        print(f"Checking NSE applicability for: {args.circular_id}")
+        logging.info("Checking NSE applicability for: %s", args.circular_id)
         repo = CircularRepository(pool)
 
         record = repo.get_record_by_circular_id(args.circular_id)
         if not record:
-            print(f"No circular found with ID: {args.circular_id}", file=sys.stderr)
+            logging.error("No circular found with ID: %s", args.circular_id)
             sys.exit(1)
 
         success = processor.run(record)
@@ -217,22 +212,20 @@ def main():
         if success:
             # Fetch updated record to show result
             updated = repo.get_record_by_circular_id(args.circular_id)
-            print(f"\nProcessing complete.")
-            print(f"  applicable_to_nse: {updated.applicable_to_nse}")
+            logging.info("Processing complete. applicable_to_nse: %s", updated.applicable_to_nse)
         else:
-            print("Failed to process circular.", file=sys.stderr)
+            logging.error("Failed to process circular: %s", args.circular_id)
             sys.exit(1)
     else:
         from ingestion.repository.processor_repository import ProcessorRepository
         processor_repo = ProcessorRepository(pool)
         pending = processor_repo.get_pending_circulars_for_processor(processor.name, limit=args.limit)
-        print(f"Found {len(pending)} pending circulars for '{processor.name}'")
+        logging.info("Found %d pending circulars for '%s'", len(pending), processor.name)
         for record in pending:
-            print(f"Processing: {record.circular_id}")
+            logging.info("Processing: %s", record.circular_id)
             processor.run(record)
-        print(f"Completed {len(pending)} circulars.")
+        logging.info("Completed %d circulars.", len(pending))
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
     main()

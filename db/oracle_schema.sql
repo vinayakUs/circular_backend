@@ -80,7 +80,7 @@ CREATE TABLE circulars (
     es_index_name  VARCHAR2(100),
     APPLICABLE_TO_NSE NUMBER(1,0) DEFAULT 0 NOT NULL
     CONSTRAINT pk_circulars PRIMARY KEY (id),
-    CONSTRAINT uq_circulars_source UNIQUE (source, circular_id)
+    CONSTRAINT uq_circulars_source UNIQUE (source, source_item_key)
 );
 CREATE INDEX idx_circulars_status ON circulars(status);
 CREATE INDEX idx_circulars_source ON circulars(source);

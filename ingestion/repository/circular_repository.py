@@ -63,8 +63,8 @@ class CircularRepository:
             circular_id_upper = circular_id.upper()
 
             cursor.execute(
-                "SELECT id FROM circulars WHERE source = %s AND circular_id = %s",
-                (source_upper, circular_id_upper),
+                "SELECT id FROM circulars WHERE source = %s AND source_item_key = %s",
+                (source_upper, source_item_key),
             )
             existing = cursor.fetchone()
 
@@ -72,12 +72,12 @@ class CircularRepository:
                 cursor.execute(
                     """
                     UPDATE circulars
-                    SET source_item_key = %s, full_reference = %s, department = %s, title = %s,
+                    SET circular_id = %s, source_item_key = %s, full_reference = %s, department = %s, title = %s,
                         issue_date = %s, url = %s, pdf_url = %s,
                         content_hash = %s, status = %s, detected_at = %s, updated_at = NOW()
                     WHERE id = %s
                     """,
-                    (source_item_key, full_reference, department, title, issue_date,
+                    (circular_id_upper, source_item_key, full_reference, department, title, issue_date,
                      url, pdf_url, content_hash, "DISCOVERED", detected_at,
                      existing[0]),
                 )
@@ -106,7 +106,7 @@ class CircularRepository:
                 self.logger.info("Circular upserted (insert) source=%s circular_id=%s", source_upper, circular_id_upper)
                 return record_id, True
 
-    def get_record(self, source: str, circular_id: str) -> CircularRecord | None:
+    def get_record(self, source: str, source_item_key: str) -> CircularRecord | None:
         with self.db_pool.acquire() as conn:
             cursor = conn.cursor()
             cursor.execute(
@@ -117,9 +117,9 @@ class CircularRepository:
                        created_at, updated_at, es_indexed_at, es_chunk_count,
                        es_index_name, applicable_to_nse
                 FROM circulars
-                WHERE source = %s AND circular_id = %s
+                WHERE source = %s AND source_item_key = %s
                 """,
-                (source.upper(), circular_id.upper()),
+                (source.upper(), source_item_key),
             )
             return self._row_to_record(cursor.fetchone())
 
@@ -434,7 +434,7 @@ class CircularRepository:
                        es_index_name, applicable_to_nse
                 FROM circulars
                 WHERE status = 'FETCHED'
-                  AND detected_at >= NOW() - MAKE_INTERVAL(hours => %s)
+                  AND issue_date >= CURRENT_DATE - MAKE_INTERVAL(hours => %s)
                 ORDER BY issue_date ASC, created_at ASC, id ASC
                 """,
                 (hours,),

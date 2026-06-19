@@ -21,6 +21,9 @@ export class HomeComponent implements OnInit {
   loadingCirculars = true;
   isApiError = false;
   searchQuery = '';
+  today: string = new Date().toISOString().split('T')[0];
+  todaySebiCount = 0;
+  todayNseCount = 0;
 
   ngOnInit(): void {
     this.apiService.getCounts().subscribe({
@@ -37,6 +40,8 @@ export class HomeComponent implements OnInit {
     this.apiService.getLatestCirculars().subscribe({
       next: (data: PaginatedCircularsResponse) => {
         this.circulars = data.data.circulars;
+        this.todaySebiCount = this.circulars.filter(c => c.source.toUpperCase() === 'SEBI').length;
+        this.todayNseCount = this.circulars.filter(c => c.source.toUpperCase() === 'NSE').length;
         this.loadingCirculars = false;
         this.isApiError = false;
       },

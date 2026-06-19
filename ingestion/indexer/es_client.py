@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any
 
@@ -164,19 +165,32 @@ class ElasticsearchClient:
         }
         if strategy == "bm25":
             exact_query = self._build_exact_match_query(query, filters)
+            self.logger.info("Executing exact match ES query:\n%s", json.dumps(exact_query, indent=2))
             exact_response = self.client.search(index=self.index_name, query=exact_query, size=size)
+            self.logger.info("Exact match raw response total: %s, hit_count: %d",
+                exact_response.get("hits", {}).get("total"), len(exact_response.get("hits", {}).get("hits", [])))
             exact_hits = self._parse_hits(exact_response)
+            self.logger.info("Parsed exact_hits count: %d", len(exact_hits))
 
             if exact_hits:
                 hits = self._deduplicate_by_circular_id(exact_hits)
                 return hits
 
             bm25_query = self._build_bm25_query(query, filters)
+            self.logger.info("BM25 ES query:\n%s", json.dumps(bm25_query, indent=2))
             bm25_response = self.client.search(index=self.index_name, query=bm25_query, size=size)
+            total = bm25_response.get("hits", {}).get("total", {})
+            hits_list = bm25_response.get("hits", {}).get("hits", [])
+            self.logger.info("BM25 raw ES response total: %s, hit_count: %d", total, len(hits_list))
+            if hits_list:
+                for h in hits_list[:3]:
+                    self.logger.info("BM25 hit: _id=%s, source=%s, title=%s, score=%s",
+                        h.get("_id"), h.get("_source", {}).get("source"),
+                        h.get("_source", {}).get("title"), h.get("_score"))
             hits = self._parse_hits(bm25_response)
             hits = self._deduplicate_by_circular_id(hits)
             return hits
-        elif strategy == "vector":
+        # elif strategy == "vector":
             if query_vector is None:
                 search_kwargs["query"] = bm25_query
                 response = self.client.search(**search_kwargs)
@@ -282,6 +296,9 @@ class ElasticsearchClient:
                 filters.append({"range": {"issue_date": {"lte": value, "format": "yyyy-MM-dd" if "T" not in str(value) else "strict_date_optional_time"}}})
             elif key == "applicable_to_nse":
                 filters.append({"term": {"applicable_to_nse": value}})
+            elif key == "source":
+                vals = value if isinstance(value, list) else [value]
+                filters.append({"terms": {key: [v.upper() for v in vals]}})
             elif value:
                 filters.append({"terms": {key: value if isinstance(value, list) else [value]}})
         return filters
@@ -339,9 +356,9 @@ class ElasticsearchClient:
                             "query": query,
                             "fields": [
                                 "chunk_text^2",         # raw text
-                                "title^2",             # title
-                                "department",          # department
-                                "source"               # source
+                                "title^2",              # title
+                                "department",           # department
+                                # "source" removed — keyword field, use filter for exact match
                             ],
                             "type": "best_fields",
                             "tie_breaker": 0.3

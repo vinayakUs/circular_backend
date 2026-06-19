@@ -45,6 +45,8 @@ class DesignationExtractorProcessor(BaseProcessor):
     name = "designation_extractor_processor"
 
     def process(self, record: CircularRecord) -> None:
+        self.logger.info('designation extractor process start %s', record.applicable_to_nse)
+
         file_path = self._get_pdf_path(record)
         if not file_path:
             raise ValueError(f"No PDF file path found for circular: {record.circular_id}")
@@ -58,7 +60,11 @@ class DesignationExtractorProcessor(BaseProcessor):
             result = self._extract_with_llm(signatory_text, record.source)
             if result and result.signatories:
                 signatories = [
-                    Signatory(name=s.name, designation=s.designation) for s in result.signatories
+                    Signatory(
+                        name=s.name.title(),
+                        designation=s.designation,
+                    )
+                    for s in result.signatories
                 ]
                 self.signatory_repo.upsert_signatories(record.id, signatories)
                 for s in result.signatories:
@@ -94,6 +100,12 @@ class DesignationExtractorProcessor(BaseProcessor):
         if str(path).startswith("s3://"):
             s3_client = S3StorageClient()
             pdf_bytes = s3_client.download_bytes(str(path))
+            if not pdf_bytes.startswith(b"%PDF"):
+                raise ValueError(
+                    f"Downloaded content from {path} is not a valid PDF "
+                    f"(starts with: {pdf_bytes[:50]!r}). "
+                    f"Check that the S3 URL is correct and the object exists."
+                )
             with TemporaryDirectory() as tmp_dir:
                 tmp_path = Path(tmp_dir) / "doc.pdf"
                 tmp_path.write_bytes(pdf_bytes)
@@ -188,39 +200,33 @@ def main():
     parser.add_argument("--limit", type=int, default=100, help="Maximum number of pending circulars to process")
     args = parser.parse_args()
 
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    )
-
     db_client = get_postgres_client()
     pool = db_client.get_pool()
     processor = DesignationExtractorProcessor(pool)
 
     if args.circular_id:
-        print(f"Extracting signatory for: {args.circular_id}")
+        logging.info("Extracting signatory for: %s", args.circular_id)
         repo = CircularRepository(pool)
         record = repo.get_record_by_circular_id(args.circular_id)
         if not record:
-            print(f"No circular found with ID: {args.circular_id}", file=sys.stderr)
+            logging.error("No circular found with ID: %s", args.circular_id)
             sys.exit(1)
         success = processor.run(record)
         if success:
-            print("Processing complete.")
+            logging.info("Processing complete for: %s", args.circular_id)
         else:
-            print("Failed to process circular.", file=sys.stderr)
+            logging.error("Failed to process circular: %s", args.circular_id)
             sys.exit(1)
     else:
         from ingestion.repository.processor_repository import ProcessorRepository
         processor_repo = ProcessorRepository(pool)
         pending = processor_repo.get_pending_circulars_for_processor(processor.name, limit=args.limit)
-        print(f"Found {len(pending)} pending circulars for '{processor.name}'")
+        logging.info("Found %d pending circulars for '%s'", len(pending), processor.name)
         for record in pending:
-            print(f"Processing: {record.circular_id}")
+            logging.info("Processing: %s", record.circular_id)
             processor.run(record)
-        print(f"Completed {len(pending)} circulars.")
+        logging.info("Completed %d circulars.", len(pending))
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
     main()

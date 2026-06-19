@@ -22,6 +22,7 @@ from ingestion.scrapper.base import DEFAULT_USER_AGENT, IScraper, ScrapeDetectio
 from ingestion.scrapper.dto import Circular
 from ingestion.scrapper.registry import ScraperRegistry
 from storage.s3_client import S3StorageClient
+from utils.s3_utils import build_safe_filename
 import importlib
 importlib.import_module("ingestion.scrapper.sources.nse")
 importlib.import_module("ingestion.scrapper.sources.sebi")
@@ -116,7 +117,7 @@ class ScraperOrchestrator:
         for circular in circulars:
             self.logger.info("detected circular source=%s circular_id=%s issue_date=%s url=%s pdf_url=%s", source.source_name, circular.circular_id, circular.issue_date, circular.url, circular.pdf_url)
 
-            record = self.circular_repository.get_record(circular.source, circular.circular_id)
+            record = self.circular_repository.get_record(circular.source, circular.source_item_key)
 
             self.logger.info("existing record=%s", record)  
 
@@ -267,7 +268,8 @@ class ScraperOrchestrator:
         prefix = (
             f"{circular.source.upper()}/"
             f"{circular.issue_date:%Y}/{circular.issue_date:%m}/"
-            f"{self._build_safe_filename(circular.circular_id)}"
+            f"{build_safe_filename(circular.circular_id)}_"
+            f"{hashlib.md5(circular.source_item_key.encode()).hexdigest()[:12]}"
         )
 
         if self.s3_client:
@@ -321,11 +323,6 @@ class ScraperOrchestrator:
             ],
         )
 
-    def _build_safe_filename(self, value: str) -> str:
-        safe_value = re.sub(r'[<>:"/\\\\|?*]+', "_", value).strip()
-        safe_value = re.sub(r"\s+", "_", safe_value)
-        safe_value = re.sub(r"_+", "_", safe_value).strip("._")
-        return safe_value or "document"
 
     def _detect_download_type(self, pdf_url: str, content: bytes) -> str:
         if content.startswith(b"PK\x03\x04"):
@@ -361,7 +358,7 @@ class ScraperOrchestrator:
 
             for index, member in enumerate(selected_members):
                 member_name = Path(member.filename).name or f"document_{index + 1}.pdf"
-                safe_name = self._build_safe_filename(Path(member_name).stem) + ".pdf"
+                safe_name = build_safe_filename(Path(member_name).stem) + ".pdf"
                 target_key = f"{prefix}/extracted/{index:03d}_{safe_name}"
 
                 with archive.open(member) as source:
@@ -431,7 +428,16 @@ class ScraperOrchestrator:
                 proxies=get_requests_proxies(pdf_url),
                 verify=False,
             )
-            return response.content
+            content = response.content
+
+            # Validate it's actually PDF or ZIP, not an HTML error page
+            if not content.startswith(b"%PDF") and not content.startswith(b"PK\x03\x04"):
+                raise ValueError(
+                    f"NSE returned invalid content for {pdf_url}: "
+                    f"Content-Type={response.headers.get('Content-Type')!r}, "
+                    f"first 50 bytes={content[:50]!r}"
+                )
+            return content
 
         placeholder = (
             f"PDF download pending for {circular.circular_id}\n"

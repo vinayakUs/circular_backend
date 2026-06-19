@@ -203,10 +203,60 @@
   border-radius: 4px;
 }
 
+.today-counts {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 10px;
+}
+
+.count-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 4px 8px;
+  border-radius: 4px;
+
+}
+
+.count-badge.sebi {
+  background: rgba(168, 85, 247, 0.1);
+  color: #a855f7;
+}
+
+.count-badge.nse {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.count-badge.datecard {
+  background: #3c47e21a;
+  color: oklch(48.436% 0.22092 283.032);
+}
+
 .circular-list {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  max-height: 330px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #e0e0e0 transparent;
+}
+
+.circular-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.circular-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.circular-list::-webkit-scrollbar-thumb {
+  background: #e0e0e0;
+  border-radius: 3px;
 }
 
 .circular-item {
@@ -321,6 +371,24 @@
 .stat-icon.nse {
   background: rgba(239, 68, 68, 0.1);
   color: #ef4444;
+}
+
+.stat-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  background: #fafafa;
+  padding: 8px;
+}
+
+.org-logo {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
 }
 
 .stat-icon.bse {

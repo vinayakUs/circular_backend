@@ -36,7 +36,28 @@
             [class.sebi]="circular?.source === 'SEBI'">{{ circular?.source }}</div>
           <span class="circular-id">{{ circular?.full_reference || circular?.circular_id }}</span>
         </div>
-        <div class="header-actions">
+        
+      </div>
+
+      <div class="detail-content">
+        <div class="content-main">
+          <h1 class="circular-title">{{ circular?.title }}</h1>
+          <div class="circular-meta">
+            <div class="date">
+              <span class="meta-item">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+              {{ (circular?.issue_date | date:'dd MMM yyyy') }}
+            </span>
+            <!-- <span class="meta-item">
+              <span class="category-badge">{{ circular?.source }}</span>
+            </span> -->
+            </div>
+            <div class="header-actions">
           <button class="action-btn" *ngIf="circular?.url" (click)="openSource()">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
@@ -45,21 +66,6 @@
             </svg>
             View Source
           </button>
-          <!-- <button class="action-btn">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
-            Download PDF
-          </button>
-          <button class="action-btn">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-            </svg>
-            View Reference Chain
-          </button> -->
           <button class="action-btn" (click)="openExpertModal()">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
@@ -69,32 +75,9 @@
             </svg>
             Add Task
           </button>
-          <!-- <button class="action-btn">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-            </svg>
-            Bookmark
-          </button> -->
         </div>
-      </div>
-
-      <div class="detail-content">
-        <div class="content-main">
-          <h1 class="circular-title">{{ circular?.title }}</h1>
-          <div class="circular-meta">
-            <span class="meta-item">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                <line x1="16" y1="2" x2="16" y2="6" />
-                <line x1="8" y1="2" x2="8" y2="6" />
-                <line x1="3" y1="10" x2="21" y2="10" />
-              </svg>
-              {{ (circular?.issue_date | date:'dd MMM yyyy') }}
-            </span>
-            <span class="meta-item">
-              <span class="category-badge">{{ circular?.source }}</span>
-            </span>
           </div>
+          
 
           <div class="experts-section">
             <div class="section-header">
@@ -121,11 +104,11 @@
             </div>
           </div>
 
-          <!-- AI Summary and Reference Graph sections commented out
+          <!-- AI Summary and Reference Graph sections commented out -->
           <div class="ai-summary-section">
             <div class="section-header">
               <h2>AI Summary</h2>
-              <button class="regenerate-btn">Regenerate</button>
+              <!-- <button class="regenerate-btn">Regenerate</button> -->
             </div>
             <div class="loading-state small" *ngIf="summaryLoading">
               <div class="loading-spinner small"></div>
@@ -135,18 +118,18 @@
               <div class="ai-summary-content" [innerHTML]="parseMarkdown(summary)"></div>
             </div>
             <div class="empty-state small" *ngIf="!summaryLoading && !summary">
-              <p>No summary available.</p>
+              <p>No summary available at the Moment.</p>
             </div>
           </div>
 
-          <div class="reference-graph-section">
+          <!-- <div class="reference-graph-section">
             <div class="section-header">
               <h2>Reference Graph</h2>
             </div>
             <div class="graph-container" #graphContainer [innerHTML]="graphSvg"></div>
             <div class="graph-hint">Drag nodes · Scroll to zoom · Drag background to pan</div>
-          </div>
-          -->
+          </div> -->
+         
         </div>
 
         <div class="content-sidebar">

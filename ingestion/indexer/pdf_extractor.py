@@ -30,6 +30,12 @@ class PDFTextExtractor:
         if str(path).startswith("s3://"):
             s3_client = S3StorageClient()
             pdf_bytes = s3_client.download_bytes(str(path))
+            if not pdf_bytes.startswith(b"%PDF"):
+                raise ValueError(
+                    f"Downloaded content from {path} is not a valid PDF "
+                    f"(starts with: {pdf_bytes[:50]!r}). "
+                    f"Check that the S3 URL is correct and the object exists."
+                )
             with TemporaryDirectory() as tmp_dir:
                 tmp_path = Path(tmp_dir) / "doc.pdf"
                 tmp_path.write_bytes(pdf_bytes)
@@ -80,6 +86,12 @@ class PDFPlumberExtractor:
         if str(path).startswith("s3://"):
             s3_client = S3StorageClient()
             pdf_bytes = s3_client.download_bytes(str(path))
+            if not pdf_bytes.startswith(b"%PDF"):
+                raise ValueError(
+                    f"Downloaded content from {path} is not a valid PDF "
+                    f"(starts with: {pdf_bytes[:50]!r}). "
+                    f"Check that the S3 URL is correct and the object exists."
+                )
             with TemporaryDirectory() as tmp_dir:
                 tmp_path = Path(tmp_dir) / "doc.pdf"
                 tmp_path.write_bytes(pdf_bytes)

@@ -100,6 +100,40 @@ class EmailService:
 
         return success, error
 
+    def send_notification_for_circular_to_all_bcc(self, circular_uuid: str, circular_data: dict[str, Any]) -> tuple[bool, str | None]:
+        """Send notification for a specific circular to all configured recipients in BCC."""
+        recipients = Config.NOTIFICATION_RECIPIENTS
+        if not recipients:
+            return False, "No notification recipients configured"
+
+        template_name = "circular_notification.html"
+        variables = {
+            "circular_id": circular_data.get("circular_id", ""),
+            "circular_uuid": circular_uuid,
+            "title": circular_data.get("title", ""),
+            "department": circular_data.get("department", ""),
+            "issue_date": str(circular_data.get("issue_date", "")),
+            "source": circular_data.get("source", ""),
+            "url": circular_data.get("url", ""),
+        }
+        subject = f"Regulatory Circular: {circular_data.get('circular_id', '')}"
+        html = self._render_template(template_name, variables)
+
+        # Create log entry before sending
+        log_id = self.log_repo.create_log(
+            template_name, ",".join(recipients), subject, variables
+        )
+
+        # Send one email with all recipients in BCC
+        success, error = self._send_bcc_email(recipients, subject, html)
+
+        if success:
+            self.log_repo.mark_sent(log_id)
+        else:
+            self.log_repo.mark_failed(log_id, error or "Unknown error")
+
+        return success, error
+
     def get_pending_circulars(self) -> list[dict[str, Any]]:
         """Get circulars with status FETCHED (within 24h) that haven't been notified yet."""
         import logging

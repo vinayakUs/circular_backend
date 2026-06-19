@@ -52,8 +52,6 @@ class NSEScraper(IScraper):
 
     def parse_response(self, payload: dict) -> list[Circular]:
         circulars: list[Circular] = []
-        seen_ids: set[str] = set()
-        duplicate_count = 0
         skipped_unsupported_count = 0
         for item in payload.get("data", []):
             file_ext = str(item.get("fileExt", "")).lower()
@@ -64,38 +62,37 @@ class NSEScraper(IScraper):
             file_dept = str(item.get("fileDept", "")).strip().upper()
             circ_number = str(item.get("circNumber", "")).strip()
             circular_id = self.parse_circular_id(f"{file_dept}{circ_number}")
-            if circular_id in seen_ids:
-                duplicate_count += 1
-                continue
 
-            seen_ids.add(circular_id)
             issue_date = self._parse_issue_date(item.get("cirDate", ""))
             full_reference = str(item.get("circDisplayNo", "")).strip() or circular_id
             download_url = str(item.get("circFilelink", "")).strip() or self.get_pdf_download_url(
                 circular_id
             )
 
+            # source_item_key includes circDepartment to allow same circular_id from different departments
+            circ_dept = str(item.get("circDepartment", "")).strip()
+            source_item_key = f"{circular_id}:{circ_dept}"
+
             circulars.append(
                 Circular(
                     source=self.source_name,
                     circular_id=circular_id,
                     full_reference=full_reference,
-                    department=file_dept,
+                    department=circ_dept,
                     title=str(item.get("sub", "")).strip(),
                     issue_date=issue_date,
                     applicable_to_nse=True,
                     url=download_url,
                     pdf_url=download_url,
-                    source_item_key=circular_id,
+                    source_item_key=source_item_key,
                 )
             )
 
         self.logger.info(
-            "NSE payload processed total_items=%s supported_circulars=%s skipped_unsupported=%s duplicates_skipped=%s",
+            "NSE payload processed total_items=%s supported_circulars=%s skipped_unsupported=%s",
             len(payload.get("data", [])),
             len(circulars),
             skipped_unsupported_count,
-            duplicate_count,
         )
         return circulars
 

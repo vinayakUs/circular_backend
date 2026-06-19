@@ -4,3 +4,15 @@ deployments:
     work_pool:
       name: default
       work_queue_name: default
+
+  - name: watchdog-deployment
+    entrypoint: prefect_dags/flows/watchdog_flow.py:watchdog_flow
+    work_pool:
+      name: default
+      work_queue_name: default
+
+  - name: circular-index-deployment
+    entrypoint: prefect_dags/flows/circular_index_flow.py:circular_index
+    work_pool:
+      name: default
+      work_queue_name: default

@@ -109,9 +109,9 @@ class NotificationLogRepository:
                 FROM notification_logs
                 WHERE status = 'SENT'
                 AND template_name = %s
-                AND variables->>'circular_id' = %s
+                AND (variables->>'circular_id' = %s OR variables->>'circular_uuid' = %s)
                 """,
-                ("circular_notification.html", circular_id),
+                ("circular_notification.html", circular_id, circular_id),
             )
             count = cursor.fetchone()[0]
             return count > 0

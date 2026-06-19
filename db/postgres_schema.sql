@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS circulars (
     es_indexed_at TIMESTAMPTZ,
     es_chunk_count INT,
     es_index_name VARCHAR(100),
-    UNIQUE (source, circular_id)
+    UNIQUE (source, source_item_key)
 );
 CREATE INDEX IF NOT EXISTS idx_circulars_status ON circulars(status);
 CREATE INDEX IF NOT EXISTS idx_circulars_source ON circulars(source);
@@ -120,3 +120,15 @@ CREATE TABLE IF NOT EXISTS circular_department_mapping (
 );
 CREATE INDEX IF NOT EXISTS idx_cdm_circular_id ON circular_department_mapping(circular_id);
 CREATE INDEX IF NOT EXISTS idx_cdm_department_id ON circular_department_mapping(department_id);
+
+
+-- summaries
+
+CREATE TABLE IF NOT EXISTS summaries (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    circular_id     UUID NOT NULL REFERENCES circulars(id) ON DELETE CASCADE,
+    summary_key     TEXT NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (circular_id)
+  )
