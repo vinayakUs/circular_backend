@@ -154,6 +154,49 @@ def create_app() -> Flask:
         return _serialize_circular_record(record)
 
 
+    @app.get("/api/circulars/lookup")
+    def lookup_circulars():
+        raw_q = request.args.get("q", "").strip()
+        if not raw_q:
+            return {"error": "q query parameter is required."}, 400
+
+        raw_field = request.args.get("field", "").strip()
+        if not raw_field:
+            return {
+                "error": (
+                    "field query parameter is required. "
+                    f"Must be one of {list(CircularRepository.LOOKUP_FIELDS)}."
+                )
+            }, 400
+        if raw_field not in CircularRepository.LOOKUP_FIELDS:
+            return {
+                "error": (
+                    f"Invalid field {raw_field!r}. "
+                    f"Must be one of {list(CircularRepository.LOOKUP_FIELDS)}."
+                )
+            }, 400
+
+        db_client = get_postgres_client()
+        repository = CircularRepository(db_pool=db_client.get_pool())
+        try:
+            matches = repository.lookup(raw_q, field=raw_field, limit=100)
+        except ValueError as exc:
+            return {"error": str(exc)}, 400
+
+        return {
+            "query": raw_q,
+            "field": raw_field,
+            "matches": [
+                {
+                    "id": m["id"],
+                    "matchedField": m["matched_field"],
+                    "matchedValue": m["matched_value"],
+                }
+                for m in matches
+            ],
+            "count": len(matches),
+        }
+
     @app.get("/api/circulars/<uuid:record_id>/content")
     def get_circular_content(record_id):
         db_client = get_postgres_client()
@@ -369,12 +412,20 @@ def create_app() -> Flask:
         elif normalized_source and normalized_source not in {"NSE", "SEBI"}:
             return {"error": "source must be 'NSE', 'SEBI', or 'ALL'."}, 400
 
-        raw_signatory = request.args.get("signatory", "").strip() or None
-        raw_signatory = request.args.get("signatory", "").strip() or None
+        # raw_signatory = request.args.get("signatory", "").strip() or None
+        raw_signatory = [s for s in request.args.getlist("signatory") if s.strip()]
         raw_from_date = request.args.get("from_date", "").strip() or None
         raw_to_date = request.args.get("to_date", "").strip() or None
         raw_applicable_to_nse = request.args.get("applicable_to_nse", "").strip() or None
 
+        raw_circular_nos = [s for s in request.args.getlist("circular_no") if s.strip()]
+        circular_nos: list[UUID] = []
+        for value in raw_circular_nos:
+            try:
+                circular_nos.append(str(UUID(value)))
+            except ValueError:
+                return {"error": f"Invalid circular_no: {value!r}"}, 400
+              
         from_date = None
         to_date = None
         if raw_from_date:
@@ -408,6 +459,7 @@ def create_app() -> Flask:
             to_date=to_date,
             applicable_to_nse=applicable_to_nse,
             signatory=raw_signatory,
+            circular_nos=circular_nos
         )
 
 

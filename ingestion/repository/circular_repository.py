@@ -193,6 +193,54 @@ class CircularRepository:
             )
             return self._row_to_record(cursor.fetchone())
 
+    LOOKUP_FIELDS = ("circular_id", "title", "full_reference")
+    # Index in the SELECT list: id=0, circular_id=1, title=2, full_reference=3
+    _LOOKUP_COL_IDX = {"circular_id": 1, "title": 2, "full_reference": 3}
+
+    def lookup(
+        self,
+        query: str,
+        field: str,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        """ILIKE substring lookup on a single column.
+
+        `field` must be one of LOOKUP_FIELDS. Only rows with status='FETCHED'
+        are considered. The returned dict tags the column that matched
+        (always `field`) and the matched value.
+        """
+        if field not in self.LOOKUP_FIELDS:
+            raise ValueError(
+                f"Invalid field {field!r}. Must be one of {self.LOOKUP_FIELDS}."
+            )
+
+        pattern = f"%{query}%"
+        col_idx = self._LOOKUP_COL_IDX[field]
+
+        with self.db_pool.acquire() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                f"""
+                SELECT id, circular_id, title, full_reference
+                FROM circulars
+                WHERE status = 'FETCHED'
+                  AND {field} ILIKE %s
+                ORDER BY issue_date DESC, id DESC
+                LIMIT %s
+                """,
+                (pattern, limit),
+            )
+            rows = cursor.fetchall()
+
+        return [
+            {
+                "id": str(row[0]),
+                "matched_field": field,
+                "matched_value": row[col_idx] or "",
+            }
+            for row in rows
+        ]
+
     def list_records(self, source: str | None = None) -> list[CircularRecord]:
         with self.db_pool.acquire() as conn:
             cursor = conn.cursor()
@@ -233,6 +281,7 @@ class CircularRepository:
         to_date: date | None = None,
         applicable_to_nse: bool | None = None,
         signatory: str | None = None,
+        circular_nos: list[str] | None = None
     ) -> tuple[list[CircularRecord], int]:
         args: list = []
         where: list[str] = []
@@ -257,8 +306,12 @@ class CircularRepository:
             idx += 1
         if signatory:
             join_sql = " INNER JOIN circular_signatories cs ON cs.circular_id = c.id"
-            where.append(f"cs.signatory_name = %s")
+            where.append(f"cs.signatory_name = ANY(%s)")
             args.append(signatory)
+            idx += 1
+        if circular_nos:
+            where.append("c.id = ANY(%s::uuid[])")
+            args.append(circular_nos)
             idx += 1
 
         where_sql = " AND ".join(where) if where else "1=1"

@@ -6,6 +6,7 @@ import { ChangesComponent } from './changes/changes.component';
 import { LoginComponent } from './login/login.component';
 import { ExpertsByDepartmentComponent } from './experts-by-department/experts-by-department.component';
 import { AlertsComponent } from './alerts/alerts.component';
+import { TestComponent } from './test/test.component';
 
 export const routes: Routes = [
   { path: '', component: HomeComponent },
@@ -15,5 +16,6 @@ export const routes: Routes = [
   { path: 'login', component: LoginComponent },
   { path: 'experts-by-department', component: ExpertsByDepartmentComponent },
   { path: 'alerts', component: AlertsComponent },
+  { path: 'test', component: TestComponent },
   { path: '**', redirectTo: '' }
 ];

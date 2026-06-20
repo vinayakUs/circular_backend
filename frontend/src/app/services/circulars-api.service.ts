@@ -102,6 +102,18 @@ export interface Signatory {
   extracted_at: string;
 }
 
+export interface CircularDbLookupItem {
+  id: string;
+  matchedField: string;
+  matchedValue: string;
+}
+
+export interface CircularDbLookupResponse {
+  count: number;
+  query: string;
+  matches: CircularDbLookupItem[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class CircularsApiService {
   private http = inject(HttpClient);
@@ -116,6 +128,15 @@ export class CircularsApiService {
     const today: string = new Date().toISOString().split('T')[0];
     const url = `${this.baseUrl}/api/circulars?source=ALL&offset=0&from_date=${today}&to_date=${today}`;
     return this.http.get<PaginatedCircularsResponse>(url);
+  }
+
+  getlookupCirculars(params: { q: string; field?: string }): Observable<CircularDbLookupResponse> {
+    const queryParams = new URLSearchParams();
+    if (params.q) queryParams.set('q', params.q);
+    if (params.field) queryParams.set('field', params.field);
+
+    const url = `${this.baseUrl}/api/circulars/lookup?${queryParams.toString()}`;
+    return this.http.get<CircularDbLookupResponse>(url);
   }
 
   getCirculars(params: {
@@ -144,6 +165,38 @@ export class CircularsApiService {
     return this.http.get<PaginatedCircularsResponse>(url);
   }
 
+  getCircularsv2(params: {
+    source?: string;
+    limit?: number;
+    offset?: number;
+    from_date?: string;
+    to_date?: string;
+    search?: string;
+    applicable_to_nse?: boolean | null;
+    signatory?: string[];
+          circular_nos?: string[];
+  }): Observable<PaginatedCircularsResponse> {
+    const queryParams = new URLSearchParams();
+    if (params.source) queryParams.set('source', params.source);
+    if (params.limit) queryParams.set('limit', params.limit.toString());
+    if (params.offset !== undefined) queryParams.set('offset', params.offset.toString());
+    if (params.from_date) queryParams.set('from_date', params.from_date);
+    if (params.to_date) queryParams.set('to_date', params.to_date);
+    if (params.search) queryParams.set('search', params.search);
+    if (params.applicable_to_nse !== null && params.applicable_to_nse !== undefined) {
+      queryParams.set('applicable_to_nse', params.applicable_to_nse.toString());
+    }
+    if (params.signatory) {
+      // queryParams.set('signatory', params.signatory)
+      params.signatory?.forEach(signatory => queryParams.append('signatory', signatory));
+    };
+    if(params.circular_nos){
+      params.circular_nos.forEach(n=>queryParams.append('circular_no',n));
+    }
+
+    const url = `${this.baseUrl}/api/circulars?${queryParams.toString()}`;
+    return this.http.get<PaginatedCircularsResponse>(url);
+  }
   semanticSearch(params: {
     query: string;
     strategy?: string;
