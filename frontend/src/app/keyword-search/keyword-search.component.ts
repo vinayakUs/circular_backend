@@ -9,6 +9,12 @@ import { NavbarComponent } from '../navbar/navbar.component';
 import { CircularsApiService, SearchResult } from '../services/circulars-api.service';
 
 type ExchangeTab = 'ALL' | 'NSE' | 'SEBI';
+type SortOption = 'score' | 'date';
+
+interface SortTab {
+  value: SortOption;
+  label: string;
+}
 
 @Component({
   selector: 'app-keyword-search',
@@ -25,12 +31,17 @@ export class KeywordSearchComponent implements OnInit {
 
   query = '';
   source: ExchangeTab = 'ALL';
+  sort: SortOption = 'score';
   results: SearchResult[] = [];
   loading = false;
   error = false;
   hasSearched = false;
 
   readonly exchanges: ExchangeTab[] = ['ALL', 'NSE', 'SEBI'];
+  readonly sortOptions: SortTab[] = [
+    { value: 'score', label: 'Most Relevant' },
+    { value: 'date', label: 'Newest First' },
+  ];
 
   private queryInput$ = new Subject<string>();
   private searchToken = 0;
@@ -64,6 +75,12 @@ export class KeywordSearchComponent implements OnInit {
     this.runSearch();
   }
 
+  onSortChange(value: SortOption): void {
+    if (this.sort === value) return;
+    this.sort = value;
+    this.runSearch();
+  }
+
   onResultClick(result: SearchResult): void {
     this.router.navigate(['/circular', result.id]);
   }
@@ -77,9 +94,21 @@ export class KeywordSearchComponent implements OnInit {
   }
 
   safePreview(preview: string | undefined): SafeHtml {
-    // Backend returns preview as HTML with <mark> tags wrapping matched terms.
-    // Sanitize to strip any unsafe markup but keep the highlight tags.
+    // Backend-built fallback preview (HTML with <mark> tags). Used only when
+    // ES highlights are unavailable.
     return this.sanitizer.bypassSecurityTrustHtml(preview ?? '');
+  }
+
+  safeHighlight(highlights: Record<string, string[]> | null | undefined): SafeHtml {
+    // ES returns the highlighted fragment wrapped in <mark>...</mark> tags
+    // (configured via pre_tags/post_tags on the bm25v2 search query).
+    // The unified highlighter also escapes other HTML special characters in
+    // the source text, so the result is render-ready HTML.
+    const fragment = highlights?.['chunk_text']?.[0];
+    if (fragment) {
+      return this.sanitizer.bypassSecurityTrustHtml(fragment);
+    }
+    return this.safePreview(undefined);
   }
 
   runSearch(): void {
@@ -97,9 +126,10 @@ export class KeywordSearchComponent implements OnInit {
     this.error = false;
     this.hasSearched = true;
 
-    this.apiService.keywordSearch({
+    this.apiService.keywordSearchV2({
       query: q,
-      source: this.source === 'ALL' ? undefined : this.source
+      source: this.source === 'ALL' ? undefined : this.source,
+      sort: this.sort,
     }).subscribe({
       next: (response) => {
         if (token !== this.searchToken) return;

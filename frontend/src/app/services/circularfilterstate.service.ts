@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { ExchangeSource } from '../test/test.component';
+import { ExchangeSource } from '../allcirculars/allcirculars.component';
 
 @Injectable({
   providedIn: 'root'

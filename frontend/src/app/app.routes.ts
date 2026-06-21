@@ -1,23 +1,21 @@
 import { Routes } from '@angular/router';
 import { HomeComponent } from './home/home.component';
-import { AllCircularsComponent } from './all-circulars/all-circulars.component';
+import { AllCircularsComponent } from './allcirculars/allcirculars.component';
 import { CircularDetailComponent } from './circular-detail/circular-detail.component';
 import { ChangesComponent } from './changes/changes.component';
 import { LoginComponent } from './login/login.component';
 import { ExpertsByDepartmentComponent } from './experts-by-department/experts-by-department.component';
 import { AlertsComponent } from './alerts/alerts.component';
-import { TestComponent } from './test/test.component';
 import { KeywordSearchComponent } from './keyword-search/keyword-search.component';
 
 export const routes: Routes = [
   { path: '', component: HomeComponent },
-  { path: 'all-circulars', component: AllCircularsComponent },
   { path: 'changes', component: ChangesComponent },
   { path: 'circular/:id', component: CircularDetailComponent },
   { path: 'login', component: LoginComponent },
   { path: 'experts-by-department', component: ExpertsByDepartmentComponent },
   { path: 'alerts', component: AlertsComponent },
   { path: 'keyword-search', component: KeywordSearchComponent },
-  { path: 'test', component: TestComponent },
+  { path: 'allcirculars', component: AllCircularsComponent },
   { path: '**', redirectTo: '' }
 ];

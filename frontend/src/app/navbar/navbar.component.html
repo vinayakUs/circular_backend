@@ -9,7 +9,8 @@
       <!-- <a href="/personas" class="nav-link">Personas</a> -->
       <a routerLink="/experts-by-department" class="nav-link">Tasks</a>
       <!-- <a href="/changes" class="nav-link">Changes</a> -->
-      <a routerLink="/all-circulars" class="nav-link">All Circulars</a>
+      <a routerLink="/keyword-search" class="nav-link">Search</a>
+      <a routerLink="/allcirculars" class="nav-link">All Circulars</a>
       <a routerLink="/login" *ngIf="!isAuthenticated" class="btn btn-outline">Login</a>
       <div *ngIf="isAuthenticated" class="user-menu">
         <button class="user-dropdown-trigger" (click)="toggleDropdown()">

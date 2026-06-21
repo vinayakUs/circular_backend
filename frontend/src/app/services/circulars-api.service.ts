@@ -74,6 +74,7 @@ export interface SearchResult {
   url: string;
   chunkIndex: number;
   preview: string;
+  highlights?: Record<string, string[]> | null;
   applicableToNse?: boolean;
 }
 
@@ -221,6 +222,17 @@ export class CircularsApiService {
     return this.http.post<SearchResponse>(
       `${this.baseUrl}/api/circulars/search/bm25`,
       { q: params.query, source: params.source, from_date: params.from_date, to_date: params.to_date, applicable_to_nse: params.applicable_to_nse }
+    );
+  }
+
+  keywordSearchV2(params: {
+    query: string;
+    source?: string;
+    sort?: 'score' | 'date';
+  }): Observable<SearchResponse> {
+    return this.http.post<SearchResponse>(
+      `${this.baseUrl}/api/circulars/search/bm25v2`,
+      { q: params.query, source: params.source, sort: params.sort ?? 'score' }
     );
   }
 

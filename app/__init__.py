@@ -298,6 +298,69 @@ def create_app() -> Flask:
             "results": [search_hit_to_dict(result, query) for result in results],
         }
 
+    @app.post("/api/circulars/search/bm25v2")
+    def search_circulars_bm25v2():
+        body = request.get_json() or {}
+        query = body.get("q", "").strip()
+        raw_source = body.get("source", "").strip().upper()
+        if raw_source == "ALL":
+            raw_source = ""
+        sort = body.get("sort", "score").strip().lower()
+
+        if not query:
+            return {"error": "Query parameter 'q' is required."}, 400
+        if sort not in ("score", "date"):
+            return {"error": "sort must be 'score' or 'date'."}, 400
+
+        logger.info(
+            "BM25v2 search request: query=%r, source=%s, sort=%s",
+            query,
+            raw_source or "ALL",
+            sort,
+        )
+
+        try:
+            results = get_es_client().search_bm25_v2(
+                query,
+                source=raw_source or None,
+                sort=sort,
+            )
+            logger.info(
+                "BM25v2 first result (pretty):\n%s",
+                json.dumps(
+                    results[0],
+                    indent=2,
+                    ensure_ascii=False,
+                    default=str,
+                ),
+            )
+            
+        except ConnectionTimeout:
+            logger.warning("BM25v2 search timeout: query=%r", query)
+            return {
+                "error": "Search service is temporarily unavailable.",
+                "query": query,
+                "results": [],
+            }, 503
+        except ValueError as e:
+            logger.warning("BM25v2 search invalid arg: query=%r, error=%s", query, e)
+            return {"error": str(e), "query": query, "results": []}, 400
+        except Exception as e:
+            logger.error("BM25v2 search failed: query=%r, error=%s", query, e)
+            return {
+                "error": "Search service encountered an error.",
+                "query": query,
+                "results": [],
+            }, 500
+
+        return {
+            "query": query,
+            "strategy": "bm25v2",
+            "source": raw_source or None,
+            "sort": sort,
+            "results": [search_hit_to_dict(result, query) for result in results],
+        }
+
     @app.post("/api/circulars/search/hybrid")
     def search_circulars_hybrid():
         body = request.get_json() or {}

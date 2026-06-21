@@ -320,6 +320,94 @@ class ElasticsearchClient:
 
         return hits
 
+    def search_bm25_v2(
+        self,
+        query: str,
+        *,
+        source: str | None = None,
+        sort: str = "score",
+        size: int = 40,
+    ) -> list[SearchHit]:
+        """Pure BM25 search with operator=or, server-side collapse on circular_db_id.
+
+        Unlike the ``bm25`` strategy in :meth:`search`, this method:
+          * skips the exact-match pre-step,
+          * sends a single match query against ``chunk_text`` with operator ``or``,
+          * collapses on ``circular_db_id`` server-side (one hit per circular),
+          * returns ES highlights with ``<<`` / ``>>`` markers.
+
+        Args:
+            query: Raw user query (analyzed via the field's ``english_analyzer``).
+            source: Optional source filter, e.g. ``"NSE"`` or ``"SEBI"``. ``None`` = no filter.
+            sort: ``"score"`` (default, relevance desc) or ``"date"`` (issue_date desc, score tie-breaker).
+            size: Max hits to return. Defaults to 40.
+
+        Returns:
+            List of :class:`SearchHit`, at most one per ``circular_db_id``.
+
+        Raises:
+            ValueError: If ``sort`` is not ``"score"`` or ``"date"``.
+        """
+        if sort not in ("score", "date"):
+            raise ValueError(f"sort must be 'score' or 'date', got {sort!r}")
+
+        filters: list[dict[str, Any]] = []
+        if source:
+            filters.append({"terms": {"source": [source.upper()]}})
+
+        es_query: dict[str, Any] = {
+            "bool": {
+                "must": [
+                    {
+                        "match": {
+                            "chunk_text": {
+                                "query": query,
+                                "operator": "or",
+                            }
+                        }
+                    }
+                ],
+                "filter": filters,
+            }
+        }
+
+        sort_clause: list[dict[str, Any]]
+        if sort == "date":
+            sort_clause = [
+                {"issue_date": {"order": "desc"}},
+                {"_score": {"order": "desc"}},
+            ]
+        else:
+            sort_clause = [{"_score": {"order": "desc"}}]
+
+        highlight_clause: dict[str, Any] = {
+            "pre_tags": ["<mark>"],
+            "post_tags": ["</mark>"],
+            "fields": {
+                "chunk_text": {"number_of_fragments": 1, "fragment_size": 400}
+            },
+        }
+
+        self.logger.info(
+            "Executing BM25v2 search: query=%r, source=%s, sort=%s, size=%d",
+            query, source or "ALL", sort, size,
+        )
+        response = self.client.search(
+            index=self.index_name,
+            query=es_query,
+            sort=sort_clause,
+            collapse={"field": "circular_db_id"},
+            highlight=highlight_clause,
+            size=size,
+        )
+        self.logger.info(
+            "BM25v2 raw ES response total: %s, hit_count: %d",
+            response.get("hits", {}).get("total"),
+            len(response.get("hits", {}).get("hits", [])),
+        )
+
+        return self._parse_hits(response)
+
     def _build_filters(self, metadata: dict[str, Any]) -> list[dict[str, Any]]:
         filters: list[dict[str, Any]] = []
         for key, value in metadata.items():
@@ -342,6 +430,7 @@ class ElasticsearchClient:
                 es_id=hit.get("_id"),
                 score=hit.get("_score"),
                 document=IndexDocument.from_es_source(hit.get("_source", {})),
+                highlights=hit.get("highlight"),
             )
             for hit in response.get("hits", {}).get("hits", [])
         ]

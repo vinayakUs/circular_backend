@@ -38,7 +38,19 @@
 
         <section class="results-section">
             <div class="results-panel">
-                <div class="filter-label">Search Results</div>
+                <div class="results-header">
+                    <span class="filter-label">Search Results</span>
+                    <div class="sort-links" *ngIf="results.length > 0">
+                        <span class="sort-links-label">Sort by</span>
+                        <ng-container *ngFor="let option of sortOptions; let last = last">
+                            <a class="sort-link" [class.active]="sort === option.value"
+                                (click)="onSortChange(option.value)" role="button" tabindex="0">
+                                {{ option.label }}
+                            </a>
+                            <span class="sort-link-sep" *ngIf="!last">·</span>
+                        </ng-container>
+                    </div>
+                </div>
 
                 <div class="results-empty" *ngIf="!loading && hasSearched && results.length === 0 && !error">
                     <p class="results-empty-title">No matches found</p>
@@ -66,8 +78,8 @@
                                     <span class="circular-time">{{ result.issueDate | date:'dd-MMM-yyyy'}}</span>
                                 </div>
                                 <span class="circular-title">{{ result.title }}</span>
-                                <p class="circular-preview" *ngIf="result.preview"
-                                    [innerHTML]="safePreview(result.preview)"></p>
+                                <p class="circular-preview" *ngIf="result.highlights?.['chunk_text']?.[0] || result.preview"
+                                    [innerHTML]="safeHighlight(result.highlights)"></p>
                                 <div class="circular-tags">
                                     <span class="tag tag-nse" *ngIf="result.applicableToNse === true">Applicable to
                                         NSE</span>

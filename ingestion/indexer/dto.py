@@ -107,6 +107,7 @@ class SearchHit:
     es_id: str | None
     score: float | None
     document: IndexDocument
+    highlights: dict[str, list[str]] | None = None
 
     # def to_dict(self, query: str) -> dict[str, Any]:
     #     return {

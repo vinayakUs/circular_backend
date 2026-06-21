@@ -15,13 +15,13 @@ export enum ExchangeSource {
 }
 
 @Component({
-  selector: 'app-test',
+  selector: 'app-allcirculars',
   imports: [NavbarComponent, CommonModule, FormsModule, ReactiveFormsModule],
-  templateUrl: './test.component.html',
-  styleUrl: './test.component.css',
+  templateUrl: './allcirculars.component.html',
+  styleUrl: './allcirculars.component.css',
   standalone: true
 })
-export class TestComponent implements OnInit {
+export class AllCircularsComponent implements OnInit {
 
   private apiService = inject(CircularsApiService);
   state = inject(CircularfilterstateService);

@@ -112,6 +112,8 @@
 
 .filter-group {
   margin-bottom: 20px;
+  display: flex;
+  align-items:center;
 }
 
 .filter-label {
@@ -122,8 +124,9 @@
   color: #9e9e9e;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  margin-bottom: 10px;
+  /* margin-bottom: 10px; */
   text-align: left;
+  padding-right: 8px;
 }
 
 .filter-tabs.horizontal {
@@ -134,7 +137,8 @@
 .filter-tabs.horizontal .filter-tab {
   flex: 1;
   text-align: center;
-  padding: 6px 8px;
+  /* padding: 6px 8px; */
+  padding: 2px 5px ;
   font-size: 13px;
   font-weight: 500;
   color: #5e5e5e;
@@ -168,6 +172,63 @@
 .results-panel {
   min-width: 0;
   padding-top: 8px;
+}
+
+.results-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.results-header .filter-label {
+  margin-bottom: 0;
+}
+
+.sort-links {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 13px;
+}
+
+.sort-links-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #9e9e9e;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-right: 2px;
+}
+
+.sort-link {
+  color: #9e9e9e;
+  text-decoration: none;
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.12s ease;
+  padding: 2px 0;
+}
+
+.sort-link:hover {
+  color: #0a0a0a;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+
+.sort-link.active {
+  color: #0a0a0a;
+  font-weight: 500;
+}
+
+.sort-link-sep {
+  color: #d4d4d4;
+  user-select: none;
+  margin: 0 2px;
 }
 
 .results-empty {
