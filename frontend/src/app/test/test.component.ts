@@ -262,16 +262,10 @@ export class TestComponent implements OnInit {
   onSearch() {
     console.log('Search initiated with query:', this.state.filters.search);
 
-    this.apiService.getlookupCirculars({ q: this.state.filters.search || '', field: 'full_reference' }).subscribe({
-      next: (data) => {
-        this.circularNoOptions = data.matches;
-        console.log('Search results:', this.circularNoOptions);
-      },
-      error: (error) => {
-        console.error('Error during search:', error);
-      }
-    });
+    const query = (this.state.filters.search || '').trim();
+    if (!query) return;
 
+    this.router.navigate(['/keyword-search'], { queryParams: { q: query } });
   }
 
   isCircularNoSelected(id: string): boolean {

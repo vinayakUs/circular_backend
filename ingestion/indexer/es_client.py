@@ -27,7 +27,7 @@ DEFAULT_INDEX_MAPPING: dict[str, Any] = {
             "asset_id": {"type": "keyword"},
             "asset_role": {"type": "keyword"},
             "source": {"type": "keyword"},
-            "title": {"type": "text"},
+            "title": {"type": "text", "analyzer": "english_analyzer"},
             "department": {"type": "keyword"},
             "issue_date": {"type": "date"},
             "applicable_to_nse": {"type": "boolean"},
@@ -38,7 +38,7 @@ DEFAULT_INDEX_MAPPING: dict[str, Any] = {
             "archive_member_path": {"type": "keyword"},
             "content_hash": {"type": "keyword"},
             "chunk_index": {"type": "integer"},
-            "chunk_text": {"type": "text"},
+            "chunk_text": {"type": "text", "analyzer": "english_analyzer"},
             "chunk_text_contextual": {"type": "text"},
             "embedding": {
                 "type": "dense_vector",
@@ -48,6 +48,38 @@ DEFAULT_INDEX_MAPPING: dict[str, Any] = {
             },
             "indexed_at": {"type": "date"},
         }
+    }
+}
+
+
+DEFAULT_INDEX_SETTINGS: dict[str, Any] = {
+    "analysis": {
+        "filter": {
+            "english_stop": {
+                "type": "stop",
+                "stopwords": "_english_",
+            },
+            "english_stemmer": {
+                "type": "stemmer",
+                "language": "english",
+            },
+            "english_possessive_stemmer": {
+                "type": "stemmer",
+                "language": "possessive_english",
+            },
+        },
+        "analyzer": {
+            "english_analyzer": {
+                "type": "custom",
+                "tokenizer": "standard",
+                "filter": [
+                    "lowercase",
+                    "english_possessive_stemmer",
+                    "english_stop",
+                    "english_stemmer",
+                ],
+            }
+        },
     }
 }
 
@@ -75,7 +107,8 @@ class ElasticsearchClient:
         self.logger = logging.getLogger(__name__)
 
     def _mapping(self) -> dict[str, Any]:
-        mapping = {
+        mapping: dict[str, Any] = {
+            "settings": DEFAULT_INDEX_SETTINGS,
             "mappings": {
                 "properties": dict(DEFAULT_INDEX_MAPPING["mappings"]["properties"])
             }

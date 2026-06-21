@@ -107,7 +107,7 @@ class PDFPlumberExtractor:
         with pdfplumber.open(str(path)) as pdf:
             print(path)
             for page_num, page in enumerate(pdf.pages):
-                print(page_num , page.extract_text())
+                # print(page_num , page.extract_text())
                 page_blocks = self._extract_page_blocks(page, page_num)
                 all_blocks.extend(page_blocks)
 

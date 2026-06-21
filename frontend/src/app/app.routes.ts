@@ -7,6 +7,7 @@ import { LoginComponent } from './login/login.component';
 import { ExpertsByDepartmentComponent } from './experts-by-department/experts-by-department.component';
 import { AlertsComponent } from './alerts/alerts.component';
 import { TestComponent } from './test/test.component';
+import { KeywordSearchComponent } from './keyword-search/keyword-search.component';
 
 export const routes: Routes = [
   { path: '', component: HomeComponent },
@@ -16,6 +17,7 @@ export const routes: Routes = [
   { path: 'login', component: LoginComponent },
   { path: 'experts-by-department', component: ExpertsByDepartmentComponent },
   { path: 'alerts', component: AlertsComponent },
+  { path: 'keyword-search', component: KeywordSearchComponent },
   { path: 'test', component: TestComponent },
   { path: '**', redirectTo: '' }
 ];

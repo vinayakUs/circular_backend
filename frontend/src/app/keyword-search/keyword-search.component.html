@@ -1,0 +1,85 @@
+<div class="keyword-search-page">
+    <app-navbar></app-navbar>
+
+    <main class="main-content">
+        <section class="header-section">
+            <h1 class="page-title">Search Circulars</h1>
+            <p class="page-subtitle">Find circulars using keyword search</p>
+
+            <div class="search-wrapper">
+                <div class="search-relative">
+                    <form class="search-form" (ngSubmit)="onSubmit()">
+                        <div class="search-field-wrapper">
+                            <input type="text" placeholder="Search circulars..." class="search-field"
+                                [ngModel]="query" (ngModelChange)="onQueryChange($event)" name="q" />
+                            <button type="submit" class="search-submit" aria-label="Search">
+                                <svg class="search-submit-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="exchange-tabs-wrapper">
+                <div class="filter-group">
+                    <span class="filter-label">Exchange</span>
+                    <div class="filter-tabs horizontal">
+                        <button *ngFor="let value of exchanges" type="button" class="filter-tab"
+                            [class.active]="source === value" (click)="onSourceChange(value)">
+                            {{ exchangeLabel(value) }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="results-section">
+            <div class="results-panel">
+                <div class="filter-label">Search Results</div>
+
+                <div class="results-empty" *ngIf="!loading && hasSearched && results.length === 0 && !error">
+                    <p class="results-empty-title">No matches found</p>
+                    <p class="results-empty-hint">Try a different keyword or change the exchange filter.</p>
+                </div>
+
+                <div class="results-empty" *ngIf="!loading && !hasSearched">
+                    <p class="results-empty-title">Start a keyword search</p>
+                    <p class="results-empty-hint">Type a term above to find matching circulars.</p>
+                </div>
+
+                <div class="results-empty" *ngIf="error">
+                    <p class="results-empty-title">Something went wrong</p>
+                    <p class="results-empty-hint">Please try again in a moment.</p>
+                </div>
+
+                <div class="circulars-list" *ngIf="results.length > 0" [class.is-loading]="loading">
+                    <ng-container *ngFor="let result of results">
+                        <div class="circular-item" (click)="onResultClick(result)">
+                            <div class="exchange-badge" [class]="badgeClass(result.source)">{{ result.source }}
+                            </div>
+                            <div class="circular-content">
+                                <div class="circular-header">
+                                    <span class="circular-id">{{ result.fullReference }}</span>
+                                    <span class="circular-time">{{ result.issueDate | date:'dd-MMM-yyyy'}}</span>
+                                </div>
+                                <span class="circular-title">{{ result.title }}</span>
+                                <p class="circular-preview" *ngIf="result.preview"
+                                    [innerHTML]="safePreview(result.preview)"></p>
+                                <div class="circular-tags">
+                                    <span class="tag tag-nse" *ngIf="result.applicableToNse === true">Applicable to
+                                        NSE</span>
+                                    <span class="tag tag-sebi-only" *ngIf="result.applicableToNse === false">Not
+                                        Applicable to NSE</span>
+                                    <span class="tag tag-dept" *ngIf="result.department">{{ result.department }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </ng-container>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
