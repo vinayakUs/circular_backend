@@ -4,6 +4,7 @@ import { FormControl, FormsModule } from '@angular/forms';
 import { NavbarComponent } from "../navbar/navbar.component";
 import { CircularsApiService, Circular, SemanticSearchResponse, SearchResult, SearchResponse, CircularDbLookupItem } from '../services/circulars-api.service';
 import { CircularfilterstateService } from '../services/circularfilterstate.service';
+import { RecentSearchesService } from '../services/recent-searches.service';
 import { Router } from '@angular/router';
 import { debounceTime, distinctUntilChanged, EMPTY, finalize, switchMap, tap } from 'rxjs';
 import { ReactiveFormsModule } from '@angular/forms';
@@ -25,6 +26,7 @@ export class AllCircularsComponent implements OnInit {
 
   private apiService = inject(CircularsApiService);
   state = inject(CircularfilterstateService);
+  private recentSearches = inject(RecentSearchesService);
   private router = inject(Router);
 
   loading = true;
@@ -39,6 +41,11 @@ export class AllCircularsComponent implements OnInit {
   circulars: Circular[] = [];
   circularNoOptions: CircularDbLookupItem[] = [];
   total = 0;
+
+  // Recent searches for the top search field
+  showRecentSearches = false;
+  recentSearchesList: string[] = [];
+  private recentSearchBlurTimeout: ReturnType<typeof setTimeout> | null = null;
 
 
   circNoSearchControl = new FormControl('');
@@ -70,6 +77,7 @@ export class AllCircularsComponent implements OnInit {
 
   ngOnInit(): void {
     console.log('Initial filters:', this.state.filters);
+    this.recentSearchesList = this.recentSearches.getRecent();
     this.loadSignatoryOptions();
     this.loadCirculars();
 
@@ -154,6 +162,10 @@ export class AllCircularsComponent implements OnInit {
 
     if (this.showCircNoDropdown && !target.closest('.multi-select')) {
       this.showCircNoDropdown = false;
+    }
+
+    if (this.showRecentSearches && !target.closest('.search-relative')) {
+      this.showRecentSearches = false;
     }
   }
 
@@ -265,7 +277,65 @@ export class AllCircularsComponent implements OnInit {
     const query = (this.state.filters.search || '').trim();
     if (!query) return;
 
+    this.recentSearchesList = this.recentSearches.addRecent(query);
+    this.showRecentSearches = false;
     this.router.navigate(['/keyword-search'], { queryParams: { q: query } });
+  }
+
+  onSearchFocus(): void {
+    if (this.recentSearchBlurTimeout) {
+      clearTimeout(this.recentSearchBlurTimeout);
+      this.recentSearchBlurTimeout = null;
+    }
+    this.refreshRecentSearches();
+    this.showRecentSearches = this.recentSearchesList.length > 0
+      && !(this.state.filters.search || '').toString().trim();
+  }
+
+  onSearchBlur(): void {
+    // Delay so click handlers on dropdown items can fire first.
+    this.recentSearchBlurTimeout = setTimeout(() => {
+      this.showRecentSearches = false;
+      this.recentSearchBlurTimeout = null;
+    }, 150);
+  }
+
+  onSearchInput(): void {
+    // Hide the dropdown as soon as the user starts typing a new query.
+    if ((this.state.filters.search || '').toString().trim().length > 0) {
+      this.showRecentSearches = false;
+    } else if (this.recentSearchesList.length > 0) {
+      this.showRecentSearches = true;
+    }
+  }
+
+  applyRecentSearch(query: string): void {
+    if (this.recentSearchBlurTimeout) {
+      clearTimeout(this.recentSearchBlurTimeout);
+      this.recentSearchBlurTimeout = null;
+    }
+    this.state.filters.search = query;
+    this.showRecentSearches = false;
+    this.onSearch();
+  }
+
+  removeRecentSearch(event: MouseEvent, query: string): void {
+    event.stopPropagation();
+    this.recentSearchesList = this.recentSearches.removeRecent(query);
+    if (this.recentSearchesList.length === 0) {
+      this.showRecentSearches = false;
+    }
+  }
+
+  clearRecentSearches(event: MouseEvent): void {
+    event.stopPropagation();
+    this.recentSearches.clearRecent();
+    this.recentSearchesList = [];
+    this.showRecentSearches = false;
+  }
+
+  private refreshRecentSearches(): void {
+    this.recentSearchesList = this.recentSearches.getRecent();
   }
 
   isCircularNoSelected(id: string): boolean {
