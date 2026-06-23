@@ -1,0 +1,33 @@
+[core]
+	repositoryformatversion = 0
+	filemode = true
+	bare = false
+	logallrefupdates = true
+[remote "origin"]
+	url = https://github.com/vinayakUs/circular_backend.git
+	fetch = +refs/heads/*:refs/remotes/origin/*
+[branch "main"]
+	remote = origin
+	merge = refs/heads/main
+	vscode-merge-base = origin/main
+[branch "elastic_rag"]
+	vscode-merge-base = origin/main
+	remote = origin
+	merge = refs/heads/elastic_rag
+[branch "migration_oracle"]
+	vscode-merge-base = origin/elastic_rag
+	remote = origin
+	merge = refs/heads/migration_oracle
+[branch "elastic_rag_clean"]
+	vscode-merge-base = origin/elastic_rag
+	remote = origin
+	merge = refs/heads/elastic_rag_clean
+[branch "undefined"]
+	vscode-merge-base = origin/main
+[branch "nse"]
+	remote = origin
+	merge = refs/heads/nse
+[branch "wip"]
+	vscode-merge-base = origin/elastic_rag_clean
+	remote = origin
+	merge = refs/heads/wip

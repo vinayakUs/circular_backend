@@ -1,0 +1,9 @@
+0000000000000000000000000000000000000000 ea1477d19976f2bf9f8acb9bb63b1d5351d6f81e vinayakUs <vinayak200054321@gmail.com> 1780778496 +0530	branch: Created from HEAD
+ea1477d19976f2bf9f8acb9bb63b1d5351d6f81e 4ccdfae2b5a9a4a2708bf05048e5faadba57b6e8 vinayakUs <vinayak200054321@gmail.com> 1780778508 +0530	commit: wip
+4ccdfae2b5a9a4a2708bf05048e5faadba57b6e8 a934d0173215638849185c30182e36fae35ea6af vinayakUs <vinayak200054321@gmail.com> 1781012401 +0530	commit: Fix: preserve applicable_to_nse on scraper re-runs
+a934d0173215638849185c30182e36fae35ea6af 222c6ba6b4f19f9d09ddc6f3acc806bdd7c4351c vinayakUs <vinayak200054321@gmail.com> 1781012646 +0530	commit: Move applicable_to_nse business logic out of repository
+222c6ba6b4f19f9d09ddc6f3acc806bdd7c4351c 91a621516b2b31affa60cfffd5a857a3c2a498f7 vinayakUs <vinayak200054321@gmail.com> 1781850527 +0530	commit: wip
+91a621516b2b31affa60cfffd5a857a3c2a498f7 3dc55e2e13b8466284b29391ab7fde25c72f2f60 vinayakUs <vinayak200054321@gmail.com> 1781989909 +0530	commit: wip
+3dc55e2e13b8466284b29391ab7fde25c72f2f60 9ca2b494ab0e5e56f29ff212e7969628377e8b1a vinayakUs <vinayak200054321@gmail.com> 1782065904 +0530	commit: commit before bm25 v2 api
+9ca2b494ab0e5e56f29ff212e7969628377e8b1a 4306aed71c485ce97b0b085d78f8055c7c424922 vinayakUs <vinayak200054321@gmail.com> 1782073086 +0530	commit: bm25v2 api working
+4306aed71c485ce97b0b085d78f8055c7c424922 ff93b4949fc650bcc25bb1e54029c89941efca31 vinayakUs <vinayak200054321@gmail.com> 1782074189 +0530	commit: added recent queries

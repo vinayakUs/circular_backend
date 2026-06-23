@@ -22,32 +22,103 @@
                         </div>
 
                         <div class="recent-searches-dropdown" *ngIf="showRecentSearches" (mousedown)="$event.preventDefault()">
-                            <div class="recent-searches-header">
-                                <span class="recent-searches-title">Recent searches</span>
-                                <button type="button" class="recent-searches-clear" (mousedown)="clearRecentSearches($event)">
-                                    Clear
-                                </button>
-                            </div>
-                            <ul class="recent-searches-list" role="listbox">
-                                <li *ngFor="let query of recentSearchesList" class="recent-searches-item"
-                                    (mousedown)="applyRecentSearch(query)" role="option" [attr.aria-label]="query">
-                                    <svg class="recent-searches-icon" viewBox="0 0 24 24" fill="none"
-                                        stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                        stroke-linejoin="round" aria-hidden="true">
-                                        <circle cx="12" cy="12" r="9"></circle>
-                                        <polyline points="12 7 12 12 15 14"></polyline>
-                                    </svg>
-                                    <span class="recent-searches-text">{{ query }}</span>
-                                    <button type="button" class="recent-searches-remove"
-                                        (mousedown)="removeRecentSearch($event, query)" aria-label="Remove from recent searches">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                            <line x1="18" y1="6" x2="6" y2="18"></line>
-                                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                            <ng-container *ngIf="hasQueryInput; else recentSearchesOnly">
+                                <div class="recent-searches-header">
+                                    <span class="recent-searches-title">Search using</span>
+                                </div>
+                                <ul class="recent-searches-list" role="listbox" aria-label="Search mode suggestions">
+                                    <li class="recent-searches-item search-suggestion" (mousedown)="searchInMode('keyword')"
+                                        role="option" [attr.aria-label]="'Search ' + state.filters.search + ' in keyword mode'">
+                                        <svg class="recent-searches-icon" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round" aria-hidden="true">
+                                            <circle cx="11" cy="11" r="7"></circle>
+                                            <path d="m21 21-4.35-4.35"></path>
                                         </svg>
+                                        <span class="recent-searches-text">
+                                            <span class="search-suggestion-label">Search in</span>
+                                            <span class="search-suggestion-mode">Keyword</span>
+                                        </span>
+                                        <span class="search-suggestion-cta">↵</span>
+                                    </li>
+                                    <li class="recent-searches-item search-suggestion" (mousedown)="searchInMode('semantic')"
+                                        role="option" [attr.aria-label]="'Search ' + state.filters.search + ' in semantic mode'">
+                                        <svg class="recent-searches-icon" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round" aria-hidden="true">
+                                            <path d="M12 3v3"></path>
+                                            <path d="M12 18v3"></path>
+                                            <path d="M5.6 5.6l2.1 2.1"></path>
+                                            <path d="M16.3 16.3l2.1 2.1"></path>
+                                            <path d="M3 12h3"></path>
+                                            <path d="M18 12h3"></path>
+                                            <path d="M5.6 18.4l2.1-2.1"></path>
+                                            <path d="M16.3 7.7l2.1-2.1"></path>
+                                            <circle cx="12" cy="12" r="3"></circle>
+                                        </svg>
+                                        <span class="recent-searches-text">
+                                            <span class="search-suggestion-label">Search in</span>
+                                            <span class="search-suggestion-mode">Semantic</span>
+                                        </span>
+                                        <span class="search-suggestion-cta">↵</span>
+                                    </li>
+                                </ul>
+                                <div class="search-suggestion-divider" *ngIf="recentSearchesList.length > 0"></div>
+                                <div class="recent-searches-header" *ngIf="recentSearchesList.length > 0">
+                                    <span class="recent-searches-title">Recent searches</span>
+                                    <button type="button" class="recent-searches-clear" (mousedown)="clearRecentSearches($event)">
+                                        Clear
                                     </button>
-                                </li>
-                            </ul>
+                                </div>
+                                <ul class="recent-searches-list" role="listbox" *ngIf="recentSearchesList.length > 0">
+                                    <li *ngFor="let query of recentSearchesList" class="recent-searches-item"
+                                        (mousedown)="applyRecentSearch(query)" role="option" [attr.aria-label]="query">
+                                        <svg class="recent-searches-icon" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round" aria-hidden="true">
+                                            <circle cx="12" cy="12" r="9"></circle>
+                                            <polyline points="12 7 12 12 15 14"></polyline>
+                                        </svg>
+                                        <span class="recent-searches-text">{{ query }}</span>
+                                        <button type="button" class="recent-searches-remove"
+                                            (mousedown)="removeRecentSearch($event, query)" aria-label="Remove from recent searches">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                                            </svg>
+                                        </button>
+                                    </li>
+                                </ul>
+                            </ng-container>
+                            <ng-template #recentSearchesOnly>
+                                <div class="recent-searches-header">
+                                    <span class="recent-searches-title">Recent searches</span>
+                                    <button type="button" class="recent-searches-clear" (mousedown)="clearRecentSearches($event)">
+                                        Clear
+                                    </button>
+                                </div>
+                                <ul class="recent-searches-list" role="listbox">
+                                    <li *ngFor="let query of recentSearchesList" class="recent-searches-item"
+                                        (mousedown)="applyRecentSearch(query)" role="option" [attr.aria-label]="query">
+                                        <svg class="recent-searches-icon" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round" aria-hidden="true">
+                                            <circle cx="12" cy="12" r="9"></circle>
+                                            <polyline points="12 7 12 12 15 14"></polyline>
+                                        </svg>
+                                        <span class="recent-searches-text">{{ query }}</span>
+                                        <button type="button" class="recent-searches-remove"
+                                            (mousedown)="removeRecentSearch($event, query)" aria-label="Remove from recent searches">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                                            </svg>
+                                        </button>
+                                    </li>
+                                </ul>
+                            </ng-template>
                         </div>
                     </form>
                 </div>

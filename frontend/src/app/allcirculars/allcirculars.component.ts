@@ -279,7 +279,24 @@ export class AllCircularsComponent implements OnInit {
 
     this.recentSearchesList = this.recentSearches.addRecent(query);
     this.showRecentSearches = false;
-    this.router.navigate(['/keyword-search'], { queryParams: { q: query } });
+    this.router.navigate(['/keyword-search'], { queryParams: { q: query, mode: 'keyword' } });
+  }
+
+  searchInMode(mode: 'keyword' | 'semantic'): void {
+    const query = (this.state.filters.search || '').trim();
+    if (!query) return;
+
+    if (this.recentSearchBlurTimeout) {
+      clearTimeout(this.recentSearchBlurTimeout);
+      this.recentSearchBlurTimeout = null;
+    }
+    this.recentSearchesList = this.recentSearches.addRecent(query);
+    this.showRecentSearches = false;
+    this.router.navigate(['/keyword-search'], { queryParams: { q: query, mode } });
+  }
+
+  get hasQueryInput(): boolean {
+    return (this.state.filters.search || '').toString().trim().length > 0;
   }
 
   onSearchFocus(): void {
@@ -288,8 +305,12 @@ export class AllCircularsComponent implements OnInit {
       this.recentSearchBlurTimeout = null;
     }
     this.refreshRecentSearches();
-    this.showRecentSearches = this.recentSearchesList.length > 0
-      && !(this.state.filters.search || '').toString().trim();
+    if (this.hasQueryInput) {
+      // While the user has typed text, surface the mode-suggestion chips.
+      this.showRecentSearches = true;
+      return;
+    }
+    this.showRecentSearches = this.recentSearchesList.length > 0;
   }
 
   onSearchBlur(): void {
@@ -301,11 +322,12 @@ export class AllCircularsComponent implements OnInit {
   }
 
   onSearchInput(): void {
-    // Hide the dropdown as soon as the user starts typing a new query.
-    if ((this.state.filters.search || '').toString().trim().length > 0) {
-      this.showRecentSearches = false;
-    } else if (this.recentSearchesList.length > 0) {
+    // While the user is typing, swap from "recent searches" to the
+    // "search using keyword / semantic" suggestions.
+    if (this.hasQueryInput) {
       this.showRecentSearches = true;
+    } else {
+      this.showRecentSearches = this.recentSearchesList.length > 0;
     }
   }
 

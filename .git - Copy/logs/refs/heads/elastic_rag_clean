@@ -1,0 +1,14 @@
+0000000000000000000000000000000000000000 dd8398813264cab87eb224754acc54053ff1d04b vinayakUs <vinayak200054321@gmail.com> 1778998575 +0530	branch: Created from HEAD
+dd8398813264cab87eb224754acc54053ff1d04b 2efd97cf9751a4a60b2088e0113d4cc05d283693 vinayakUs <vinayak200054321@gmail.com> 1779047112 +0530	commit: moved to oracle repos indexer and proceesor tested
+2efd97cf9751a4a60b2088e0113d4cc05d283693 506ea7d7f9421b9d428f845691969b7e88f03ab4 vinayakUs <vinayak200054321@gmail.com> 1779116021 +0530	commit: added till notiofication service bugs pending
+506ea7d7f9421b9d428f845691969b7e88f03ab4 5f39f3e10e86ac1a05be5e20035736a69c2ae237 vinayakUs <vinayak200054321@gmail.com> 1779260414 +0530	commit: fix multiple signatories not working n+1
+5f39f3e10e86ac1a05be5e20035736a69c2ae237 b4e2fe189ff08051b2e7972b8949667c1ba4f67f vinayakUs <vinayak200054321@gmail.com> 1779285016 +0530	commit: wip multiplt signatrues fix search filters
+b4e2fe189ff08051b2e7972b8949667c1ba4f67f e4f2764453226e6829289553c3d3dd01dc77cd61 vinayakUs <vinayak200054321@gmail.com> 1779455136 +0530	commit: working pdf annotations
+e4f2764453226e6829289553c3d3dd01dc77cd61 65f7bcc078ce15fd663554cdb8fb760d875ae273 vinayakUs <vinayak200054321@gmail.com> 1779460961 +0530	commit: before db save
+65f7bcc078ce15fd663554cdb8fb760d875ae273 6a6f16ae14abfe3cc43004d6ac10ef8b8e8efea3 vinayakUs <vinayak200054321@gmail.com> 1779472195 +0530	commit: wokfing experts
+6a6f16ae14abfe3cc43004d6ac10ef8b8e8efea3 8273541776b4699cf14210bed8fc89d902814ae5 vinayakUs <vinayak200054321@gmail.com> 1779559526 +0530	commit: wokfing migrated to postgres again
+8273541776b4699cf14210bed8fc89d902814ae5 ce23f0efc2ab22f75a1fcb58019d4e5ec5f7fbdc vinayakUs <vinayak200054321@gmail.com> 1779696419 +0530	commit: fix assets folder for ngx pdf extended v26
+ce23f0efc2ab22f75a1fcb58019d4e5ec5f7fbdc f3898a2af426d3713cfb5ee31b9a9e467e8cabfc vinayakUs <vinayak200054321@gmail.com> 1779712556 +0530	commit: added proxy and removed somethings
+f3898a2af426d3713cfb5ee31b9a9e467e8cabfc 07cf1f542d883cf694dfda64cd73df9a535cf51e vinayakUs <vinayak200054321@gmail.com> 1779803076 +0530	commit: wip
+07cf1f542d883cf694dfda64cd73df9a535cf51e 4ce57ad8e4f0f28cb0ea32af98eef0b803f7cee8 vinayakUs <vinayak200054321@gmail.com> 1779862495 +0530	commit: restored model service and frontend
+4ce57ad8e4f0f28cb0ea32af98eef0b803f7cee8 ea1477d19976f2bf9f8acb9bb63b1d5351d6f81e vinayakUs <vinayak200054321@gmail.com> 1780553438 +0530	commit: wip

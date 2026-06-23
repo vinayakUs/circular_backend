@@ -4,7 +4,7 @@
     <main class="main-content">
         <section class="header-section">
             <h1 class="page-title">Search Circulars</h1>
-            <p class="page-subtitle">Find circulars using keyword search</p>
+            <p class="page-subtitle">Find circulars using keyword or semantic search</p>
 
             <div class="search-wrapper">
                 <div class="search-relative">
@@ -12,6 +12,15 @@
                         <div class="search-field-wrapper">
                             <input type="text" placeholder="Search circulars..." class="search-field"
                                 [ngModel]="query" (ngModelChange)="onQueryChange($event)" name="q" />
+                            <div class="mode-toggle" role="tablist" aria-label="Search mode">
+                                <button *ngFor="let option of modes" type="button" role="tab"
+                                    class="mode-toggle-btn"
+                                    [class.active]="mode === option.value"
+                                    [attr.aria-selected]="mode === option.value"
+                                    (click)="onModeChange(option.value)">
+                                    {{ option.label }}
+                                </button>
+                            </div>
                             <button type="submit" class="search-submit" aria-label="Search">
                                 <svg class="search-submit-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -39,8 +48,8 @@
         <section class="results-section">
             <div class="results-panel">
                 <div class="results-header">
-                    <span class="filter-label">Search Results</span>
-                    <div class="sort-links" *ngIf="results.length > 0">
+                    <span class="filter-label">{{ isKeywordMode ? 'Search Results' : 'Semantic Answer' }}</span>
+                    <div class="sort-links" *ngIf="isKeywordMode && results.length > 0">
                         <span class="sort-links-label">Sort by</span>
                         <ng-container *ngFor="let option of sortOptions; let last = last">
                             <a class="sort-link" [class.active]="sort === option.value"
@@ -52,22 +61,31 @@
                     </div>
                 </div>
 
-                <div class="results-empty" *ngIf="!loading && hasSearched && results.length === 0 && !error">
+                <!-- Keyword mode: loading -->
+                <div class="results-empty" *ngIf="isKeywordMode && loading">
+                    <p class="results-empty-title">Searching...</p>
+                </div>
+
+                <!-- Keyword mode: empty results -->
+                <div class="results-empty" *ngIf="showKeywordEmpty">
                     <p class="results-empty-title">No matches found</p>
                     <p class="results-empty-hint">Try a different keyword or change the exchange filter.</p>
                 </div>
 
-                <div class="results-empty" *ngIf="!loading && !hasSearched">
+                <!-- Keyword mode: initial state -->
+                <div class="results-empty" *ngIf="showKeywordInitial">
                     <p class="results-empty-title">Start a keyword search</p>
                     <p class="results-empty-hint">Type a term above to find matching circulars.</p>
                 </div>
 
-                <div class="results-empty" *ngIf="error">
+                <!-- Keyword mode: error -->
+                <div class="results-empty" *ngIf="showKeywordError">
                     <p class="results-empty-title">Something went wrong</p>
                     <p class="results-empty-hint">Please try again in a moment.</p>
                 </div>
 
-                <div class="circulars-list" *ngIf="results.length > 0" [class.is-loading]="loading">
+                <!-- Keyword mode: results -->
+                <div class="circulars-list" *ngIf="showKeywordResults" [class.is-loading]="loading">
                     <ng-container *ngFor="let result of results">
                         <div class="circular-item" (click)="onResultClick(result)">
                             <div class="exchange-badge" [class]="badgeClass(result.source)">{{ result.source }}
@@ -90,6 +108,49 @@
                             </div>
                         </div>
                     </ng-container>
+                </div>
+
+                <!-- Semantic mode: loading -->
+                <div class="results-empty semantic-loading" *ngIf="showSemanticLoading">
+                    <div class="semantic-spinner"></div>
+                    <p class="results-empty-title">Generating semantic answer...</p>
+                    <p class="results-empty-hint">This may take a few seconds.</p>
+                </div>
+
+                <!-- Semantic mode: initial state -->
+                <div class="results-empty" *ngIf="showSemanticInitial">
+                    <p class="results-empty-title">Start a semantic search</p>
+                    <p class="results-empty-hint">Ask a question and we'll synthesize an answer from the circulars.</p>
+                </div>
+
+                <!-- Semantic mode: empty results -->
+                <div class="results-empty" *ngIf="showSemanticEmpty">
+                    <p class="results-empty-title">No answer generated</p>
+                    <p class="results-empty-hint">Try rephrasing your question or switching to keyword search.</p>
+                </div>
+
+                <!-- Semantic mode: error -->
+                <div class="results-empty" *ngIf="showSemanticError">
+                    <p class="results-empty-title">Something went wrong</p>
+                    <p class="results-empty-hint">Please try again in a moment.</p>
+                </div>
+
+                <!-- Semantic mode: answer + references -->
+                <div class="semantic-result" *ngIf="showSemanticAnswer">
+                    <div class="semantic-answer" [innerHTML]="safeMarkdown(semanticResult?.answer)"></div>
+
+                    <div class="semantic-references" *ngIf="semanticResult?.references?.length">
+                        <div class="semantic-references-label">References</div>
+                        <ul class="semantic-references-list">
+                            <li class="semantic-reference-item" *ngFor="let ref of semanticResult?.references">
+                                {{ ref }}
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="semantic-meta" *ngIf="semanticResult?.rag_error">
+                        <span class="semantic-meta-warning">RAG fallback used: {{ semanticResult?.rag_error }}</span>
+                    </div>
                 </div>
             </div>
         </section>

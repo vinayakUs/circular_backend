@@ -1,0 +1,86 @@
+0000000000000000000000000000000000000000 4469cfa6c6c642434c0e7569857290ae4056e3c7 Super User <root@DESKTOP-KT1ENDR.localdomain> 1775805163 +0530	clone: from https://github.com/vinayakUs/circular_backend.git
+4469cfa6c6c642434c0e7569857290ae4056e3c7 6e21023c60eeaacf2e9a6d858bac6512f045067b vinayakUs <vinayak200054321@gmail.com> 1775837160 +0530	commit: added filter backend and frontend
+6e21023c60eeaacf2e9a6d858bac6512f045067b 20e25660c6f79354124d950288b454e17919d6ff vinayakUs <vinayak200054321@gmail.com> 1776231744 +0530	pull: Fast-forward
+20e25660c6f79354124d950288b454e17919d6ff 20e25660c6f79354124d950288b454e17919d6ff vinayakUs <vinayak200054321@gmail.com> 1776231760 +0530	reset: moving to HEAD
+20e25660c6f79354124d950288b454e17919d6ff 20e25660c6f79354124d950288b454e17919d6ff vinayakUs <vinayak200054321@gmail.com> 1776232284 +0530	reset: moving to HEAD
+20e25660c6f79354124d950288b454e17919d6ff 00c4df714bf83843cf66fd47e7e80e0e09c7ad27 vinayakUs <vinayak200054321@gmail.com> 1776257581 +0530	commit: scrapper ui working
+00c4df714bf83843cf66fd47e7e80e0e09c7ad27 59a481100863bbcf1698f2f4dbc7638f0e66515f vinayakUs <vinayak200054321@gmail.com> 1776258856 +0530	commit: replace uri in circular with actual file link
+59a481100863bbcf1698f2f4dbc7638f0e66515f 59a481100863bbcf1698f2f4dbc7638f0e66515f vinayakUs <vinayak200054321@gmail.com> 1776345621 +0530	checkout: moving from main to elastic_rag
+59a481100863bbcf1698f2f4dbc7638f0e66515f 4615410ee69990647aa9ffb73c5ca5cc5e82f36b vinayakUs <vinayak200054321@gmail.com> 1776345667 +0530	commit: added hybrid seach using elastic
+4615410ee69990647aa9ffb73c5ca5cc5e82f36b 1a27cc8f156aa5c4b0881558220294a2c1c58da0 vinayakUs <vinayak200054321@gmail.com> 1776405142 +0530	pull: Fast-forward
+1a27cc8f156aa5c4b0881558220294a2c1c58da0 54e6955a3afd93e7cb2923a0945a61dafe54abe5 vinayakUs <vinayak200054321@gmail.com> 1776430286 +0530	commit: added code for action items processor
+54e6955a3afd93e7cb2923a0945a61dafe54abe5 6fc512bd26a3c8cbbf08f8d1257e63ca7626bba8 vinayakUs <vinayak200054321@gmail.com> 1776454326 +0530	commit: fix sql query for processor picking up other status in circular != FETCHED only
+6fc512bd26a3c8cbbf08f8d1257e63ca7626bba8 73806919a53357e982de455bb23772af08b9c232 vinayakUs <vinayak200054321@gmail.com> 1776454357 +0530	commit: change to nvidia for free api models
+73806919a53357e982de455bb23772af08b9c232 491c00a3a91ef43998f89fe4c29cc0d45360fc55 vinayakUs <vinayak200054321@gmail.com> 1776492148 +0530	commit: added api and ui for action items
+491c00a3a91ef43998f89fe4c29cc0d45360fc55 8290aaacb658c44a42f0817b89a63c545f38ffa2 vinayakUs <vinayak200054321@gmail.com> 1776544965 +0530	commit: remove certs verify false for dev
+8290aaacb658c44a42f0817b89a63c545f38ffa2 b0551609b70a95567d2bbeeb4163ee80c8ac4533 vinayakUs <vinayak200054321@gmail.com> 1776544996 +0530	commit: fixed bug [multiple ensure schema]
+b0551609b70a95567d2bbeeb4163ee80c8ac4533 ebaf86637276113cb2a375014b4def9ce9e30501 vinayakUs <vinayak200054321@gmail.com> 1776577255 +0530	commit: working before new rag architecture
+ebaf86637276113cb2a375014b4def9ce9e30501 356cf21b63d2b2690ad80fb60a253b44289dd6ce vinayakUs <vinayak200054321@gmail.com> 1776618126 +0530	commit: added rag retriver es change and rrf for reorder
+356cf21b63d2b2690ad80fb60a253b44289dd6ce 235b292f49d010be727f105481cf55178acc12ff vinayakUs <vinayak200054321@gmail.com> 1776783222 +0530	commit: feat: Enhance Elasticsearch integration with RRF and parallel LLM calls
+235b292f49d010be727f105481cf55178acc12ff b8428455473de6c2cbee7f64304045a3b5caed48 vinayakUs <vinayak200054321@gmail.com> 1776863398 +0530	commit: Implement paginated listing for circulars and add DTOs for action items and circulars
+b8428455473de6c2cbee7f64304045a3b5caed48 bde1df89d895e287c1242b7abe9d22ba48dfcd25 vinayakUs <vinayak200054321@gmail.com> 1776943442 +0530	commit: wip
+bde1df89d895e287c1242b7abe9d22ba48dfcd25 a9f3db359a38462dc12d7a14377607f74189b782 vinayakUs <vinayak200054321@gmail.com> 1776953452 +0530	commit: commit
+a9f3db359a38462dc12d7a14377607f74189b782 78054f8816eb67c01aef5c384c62afc2ce197e28 vinayakUs <vinayak200054321@gmail.com> 1777291801 +0530	commit: migragated frontend
+78054f8816eb67c01aef5c384c62afc2ce197e28 21abd4c808b245536f74e9c842b7dd0d658dec35 vinayakUs <vinayak200054321@gmail.com> 1777381184 +0530	commit: wip
+21abd4c808b245536f74e9c842b7dd0d658dec35 52d8b9bca1221be556cbb57e32eb2e5f9599ad1e vinayakUs <vinayak200054321@gmail.com> 1778071714 +0530	commit: wip
+52d8b9bca1221be556cbb57e32eb2e5f9599ad1e c3034ccd76ee956df57d601057fdd3131ae673ec vinayakUs <vinayak200054321@gmail.com> 1778083308 +0530	commit: wip
+c3034ccd76ee956df57d601057fdd3131ae673ec 4e5adc23a8853b59b37ab5244ae4a88259907159 vinayakUs <vinayak200054321@gmail.com> 1778164771 +0530	commit: commit
+4e5adc23a8853b59b37ab5244ae4a88259907159 c44d9a40eb657df2736038df207dde8407ba46d8 vinayakUs <vinayak200054321@gmail.com> 1778769542 +0530	commit: wip
+c44d9a40eb657df2736038df207dde8407ba46d8 2c595749d873e27d5fc1f75b1d29689bf2ee2874 vinayakUs <vinayak200054321@gmail.com> 1778863205 +0530	commit: wip
+2c595749d873e27d5fc1f75b1d29689bf2ee2874 600c3ac3c3f3ab3a1678f5ca6161026e03f935d5 vinayakUs <vinayak200054321@gmail.com> 1778906294 +0530	commit: wip
+600c3ac3c3f3ab3a1678f5ca6161026e03f935d5 dd8398813264cab87eb224754acc54053ff1d04b vinayakUs <vinayak200054321@gmail.com> 1778908051 +0530	commit: removed the transacton code
+dd8398813264cab87eb224754acc54053ff1d04b dd8398813264cab87eb224754acc54053ff1d04b vinayakUs <vinayak200054321@gmail.com> 1778908642 +0530	checkout: moving from elastic_rag to migration_oracle
+dd8398813264cab87eb224754acc54053ff1d04b dd8398813264cab87eb224754acc54053ff1d04b vinayakUs <vinayak200054321@gmail.com> 1778908658 +0530	checkout: moving from migration_oracle to migration_oracle
+dd8398813264cab87eb224754acc54053ff1d04b 4c920025f696adf68f886f1e6b75c551d2845430 vinayakUs <vinayak200054321@gmail.com> 1778952017 +0530	commit: mm
+4c920025f696adf68f886f1e6b75c551d2845430 dd8398813264cab87eb224754acc54053ff1d04b vinayakUs <vinayak200054321@gmail.com> 1778952038 +0530	checkout: moving from migration_oracle to elastic_rag
+dd8398813264cab87eb224754acc54053ff1d04b dd8398813264cab87eb224754acc54053ff1d04b vinayakUs <vinayak200054321@gmail.com> 1778998511 +0530	reset: moving to HEAD
+dd8398813264cab87eb224754acc54053ff1d04b dd8398813264cab87eb224754acc54053ff1d04b vinayakUs <vinayak200054321@gmail.com> 1778998531 +0530	reset: moving to HEAD
+dd8398813264cab87eb224754acc54053ff1d04b dd8398813264cab87eb224754acc54053ff1d04b vinayakUs <vinayak200054321@gmail.com> 1778998537 +0530	reset: moving to HEAD
+dd8398813264cab87eb224754acc54053ff1d04b dd8398813264cab87eb224754acc54053ff1d04b vinayakUs <vinayak200054321@gmail.com> 1778998545 +0530	reset: moving to HEAD
+dd8398813264cab87eb224754acc54053ff1d04b dd8398813264cab87eb224754acc54053ff1d04b vinayakUs <vinayak200054321@gmail.com> 1778998575 +0530	checkout: moving from elastic_rag to elastic_rag_clean
+dd8398813264cab87eb224754acc54053ff1d04b 2efd97cf9751a4a60b2088e0113d4cc05d283693 vinayakUs <vinayak200054321@gmail.com> 1779047112 +0530	commit: moved to oracle repos indexer and proceesor tested
+2efd97cf9751a4a60b2088e0113d4cc05d283693 506ea7d7f9421b9d428f845691969b7e88f03ab4 vinayakUs <vinayak200054321@gmail.com> 1779116021 +0530	commit: added till notiofication service bugs pending
+506ea7d7f9421b9d428f845691969b7e88f03ab4 5f39f3e10e86ac1a05be5e20035736a69c2ae237 vinayakUs <vinayak200054321@gmail.com> 1779260414 +0530	commit: fix multiple signatories not working n+1
+5f39f3e10e86ac1a05be5e20035736a69c2ae237 b4e2fe189ff08051b2e7972b8949667c1ba4f67f vinayakUs <vinayak200054321@gmail.com> 1779285016 +0530	commit: wip multiplt signatrues fix search filters
+b4e2fe189ff08051b2e7972b8949667c1ba4f67f e4f2764453226e6829289553c3d3dd01dc77cd61 vinayakUs <vinayak200054321@gmail.com> 1779455136 +0530	commit: working pdf annotations
+e4f2764453226e6829289553c3d3dd01dc77cd61 65f7bcc078ce15fd663554cdb8fb760d875ae273 vinayakUs <vinayak200054321@gmail.com> 1779460961 +0530	commit: before db save
+65f7bcc078ce15fd663554cdb8fb760d875ae273 6a6f16ae14abfe3cc43004d6ac10ef8b8e8efea3 vinayakUs <vinayak200054321@gmail.com> 1779472195 +0530	commit: wokfing experts
+6a6f16ae14abfe3cc43004d6ac10ef8b8e8efea3 8273541776b4699cf14210bed8fc89d902814ae5 vinayakUs <vinayak200054321@gmail.com> 1779559526 +0530	commit: wokfing migrated to postgres again
+8273541776b4699cf14210bed8fc89d902814ae5 8273541776b4699cf14210bed8fc89d902814ae5 vinayakUs <vinayak200054321@gmail.com> 1779643994 +0530	reset: moving to HEAD
+8273541776b4699cf14210bed8fc89d902814ae5 8273541776b4699cf14210bed8fc89d902814ae5 vinayakUs <vinayak200054321@gmail.com> 1779644007 +0530	reset: moving to HEAD
+8273541776b4699cf14210bed8fc89d902814ae5 8273541776b4699cf14210bed8fc89d902814ae5 vinayakUs <vinayak200054321@gmail.com> 1779646578 +0530	reset: moving to HEAD
+8273541776b4699cf14210bed8fc89d902814ae5 8273541776b4699cf14210bed8fc89d902814ae5 vinayakUs <vinayak200054321@gmail.com> 1779648018 +0530	reset: moving to HEAD
+8273541776b4699cf14210bed8fc89d902814ae5 8273541776b4699cf14210bed8fc89d902814ae5 vinayakUs <vinayak200054321@gmail.com> 1779648034 +0530	reset: moving to HEAD
+8273541776b4699cf14210bed8fc89d902814ae5 8273541776b4699cf14210bed8fc89d902814ae5 vinayakUs <vinayak200054321@gmail.com> 1779690157 +0530	reset: moving to HEAD
+8273541776b4699cf14210bed8fc89d902814ae5 8273541776b4699cf14210bed8fc89d902814ae5 vinayakUs <vinayak200054321@gmail.com> 1779690162 +0530	reset: moving to HEAD
+8273541776b4699cf14210bed8fc89d902814ae5 8273541776b4699cf14210bed8fc89d902814ae5 vinayakUs <vinayak200054321@gmail.com> 1779690906 +0530	reset: moving to HEAD
+8273541776b4699cf14210bed8fc89d902814ae5 8273541776b4699cf14210bed8fc89d902814ae5 vinayakUs <vinayak200054321@gmail.com> 1779690935 +0530	reset: moving to HEAD
+8273541776b4699cf14210bed8fc89d902814ae5 6a6f16ae14abfe3cc43004d6ac10ef8b8e8efea3 vinayakUs <vinayak200054321@gmail.com> 1779690958 +0530	checkout: moving from elastic_rag_clean to 6a6f16ae14abfe3cc43004d6ac10ef8b8e8efea3
+6a6f16ae14abfe3cc43004d6ac10ef8b8e8efea3 8273541776b4699cf14210bed8fc89d902814ae5 vinayakUs <vinayak200054321@gmail.com> 1779692503 +0530	checkout: moving from 6a6f16ae14abfe3cc43004d6ac10ef8b8e8efea3 to 8273541776b4699cf14210bed8fc89d902814ae5
+8273541776b4699cf14210bed8fc89d902814ae5 86e39bfbed3d5658f4d8bb69c25ce1b1caa75adb vinayakUs <vinayak200054321@gmail.com> 1779693973 +0530	commit: fix assets folder for ngx pdf extended v26
+86e39bfbed3d5658f4d8bb69c25ce1b1caa75adb 8273541776b4699cf14210bed8fc89d902814ae5 vinayakUs <vinayak200054321@gmail.com> 1779694031 +0530	checkout: moving from 86e39bfbed3d5658f4d8bb69c25ce1b1caa75adb to elastic_rag_clean
+8273541776b4699cf14210bed8fc89d902814ae5 8273541776b4699cf14210bed8fc89d902814ae5 vinayakUs <vinayak200054321@gmail.com> 1779694423 +0530	reset: moving to HEAD
+8273541776b4699cf14210bed8fc89d902814ae5 ce23f0efc2ab22f75a1fcb58019d4e5ec5f7fbdc vinayakUs <vinayak200054321@gmail.com> 1779696419 +0530	commit: fix assets folder for ngx pdf extended v26
+ce23f0efc2ab22f75a1fcb58019d4e5ec5f7fbdc f3898a2af426d3713cfb5ee31b9a9e467e8cabfc vinayakUs <vinayak200054321@gmail.com> 1779712556 +0530	commit: added proxy and removed somethings
+f3898a2af426d3713cfb5ee31b9a9e467e8cabfc 07cf1f542d883cf694dfda64cd73df9a535cf51e vinayakUs <vinayak200054321@gmail.com> 1779803076 +0530	commit: wip
+07cf1f542d883cf694dfda64cd73df9a535cf51e f3898a2af426d3713cfb5ee31b9a9e467e8cabfc vinayakUs <vinayak200054321@gmail.com> 1779856906 +0530	checkout: moving from elastic_rag_clean to f3898a2af426d3713cfb5ee31b9a9e467e8cabfc
+f3898a2af426d3713cfb5ee31b9a9e467e8cabfc 07cf1f542d883cf694dfda64cd73df9a535cf51e vinayakUs <vinayak200054321@gmail.com> 1779861460 +0530	checkout: moving from f3898a2af426d3713cfb5ee31b9a9e467e8cabfc to elastic_rag_clean
+07cf1f542d883cf694dfda64cd73df9a535cf51e 07cf1f542d883cf694dfda64cd73df9a535cf51e vinayakUs <vinayak200054321@gmail.com> 1779861480 +0530	checkout: moving from elastic_rag_clean to elastic_rag_clean
+07cf1f542d883cf694dfda64cd73df9a535cf51e 4ce57ad8e4f0f28cb0ea32af98eef0b803f7cee8 vinayakUs <vinayak200054321@gmail.com> 1779862495 +0530	commit: restored model service and frontend
+4ce57ad8e4f0f28cb0ea32af98eef0b803f7cee8 4ce57ad8e4f0f28cb0ea32af98eef0b803f7cee8 vinayakUs <vinayak200054321@gmail.com> 1779862574 +0530	checkout: moving from elastic_rag_clean to nse
+4ce57ad8e4f0f28cb0ea32af98eef0b803f7cee8 4ce57ad8e4f0f28cb0ea32af98eef0b803f7cee8 vinayakUs <vinayak200054321@gmail.com> 1779862616 +0530	checkout: moving from nse to elastic_rag_clean
+4ce57ad8e4f0f28cb0ea32af98eef0b803f7cee8 4ce57ad8e4f0f28cb0ea32af98eef0b803f7cee8 vinayakUs <vinayak200054321@gmail.com> 1779863215 +0530	checkout: moving from elastic_rag_clean to nse
+4ce57ad8e4f0f28cb0ea32af98eef0b803f7cee8 9392310a596ca49bdd80383837eb9171586d9f4e vinayakUs <vinayak200054321@gmail.com> 1779863982 +0530	commit: removed uncessery files
+9392310a596ca49bdd80383837eb9171586d9f4e 4ce57ad8e4f0f28cb0ea32af98eef0b803f7cee8 vinayakUs <vinayak200054321@gmail.com> 1779864006 +0530	checkout: moving from nse to elastic_rag_clean
+4ce57ad8e4f0f28cb0ea32af98eef0b803f7cee8 9392310a596ca49bdd80383837eb9171586d9f4e vinayakUs <vinayak200054321@gmail.com> 1779864639 +0530	checkout: moving from elastic_rag_clean to nse
+9392310a596ca49bdd80383837eb9171586d9f4e 4ce57ad8e4f0f28cb0ea32af98eef0b803f7cee8 vinayakUs <vinayak200054321@gmail.com> 1779883972 +0530	checkout: moving from nse to elastic_rag_clean
+4ce57ad8e4f0f28cb0ea32af98eef0b803f7cee8 ea1477d19976f2bf9f8acb9bb63b1d5351d6f81e vinayakUs <vinayak200054321@gmail.com> 1780553438 +0530	commit: wip
+ea1477d19976f2bf9f8acb9bb63b1d5351d6f81e ea1477d19976f2bf9f8acb9bb63b1d5351d6f81e vinayakUs <vinayak200054321@gmail.com> 1780778496 +0530	checkout: moving from elastic_rag_clean to wip
+ea1477d19976f2bf9f8acb9bb63b1d5351d6f81e 4ccdfae2b5a9a4a2708bf05048e5faadba57b6e8 vinayakUs <vinayak200054321@gmail.com> 1780778508 +0530	commit: wip
+4ccdfae2b5a9a4a2708bf05048e5faadba57b6e8 a934d0173215638849185c30182e36fae35ea6af vinayakUs <vinayak200054321@gmail.com> 1781012401 +0530	commit: Fix: preserve applicable_to_nse on scraper re-runs
+a934d0173215638849185c30182e36fae35ea6af 222c6ba6b4f19f9d09ddc6f3acc806bdd7c4351c vinayakUs <vinayak200054321@gmail.com> 1781012646 +0530	commit: Move applicable_to_nse business logic out of repository
+222c6ba6b4f19f9d09ddc6f3acc806bdd7c4351c 91a621516b2b31affa60cfffd5a857a3c2a498f7 vinayakUs <vinayak200054321@gmail.com> 1781850527 +0530	commit: wip
+91a621516b2b31affa60cfffd5a857a3c2a498f7 3dc55e2e13b8466284b29391ab7fde25c72f2f60 vinayakUs <vinayak200054321@gmail.com> 1781989909 +0530	commit: wip
+3dc55e2e13b8466284b29391ab7fde25c72f2f60 9ca2b494ab0e5e56f29ff212e7969628377e8b1a vinayakUs <vinayak200054321@gmail.com> 1782065904 +0530	commit: commit before bm25 v2 api
+9ca2b494ab0e5e56f29ff212e7969628377e8b1a 4306aed71c485ce97b0b085d78f8055c7c424922 vinayakUs <vinayak200054321@gmail.com> 1782073086 +0530	commit: bm25v2 api working
+4306aed71c485ce97b0b085d78f8055c7c424922 ff93b4949fc650bcc25bb1e54029c89941efca31 vinayakUs <vinayak200054321@gmail.com> 1782074189 +0530	commit: added recent queries
