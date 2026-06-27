@@ -177,18 +177,21 @@ class EmailService:
         logger.info(f"[NOTIFICATION DEBUG] Final pending list: {len(result)} circulars")
         return result
 
-    def send_pending_notifications(self) -> int:
-        """Send one email per pending circular to all recipients in BCC. Returns count sent."""
+    def send_pending_notifications(self) -> tuple[int, int]:
+        """Send one email per pending circular to all recipients in BCC.
+        Returns (sent_count, failed_count) so callers can detect partial failure.
+        """
         recipients = Config.NOTIFICATION_RECIPIENTS
         if not recipients:
-            return 0
+            return 0, 0
 
         pending = self.get_pending_circulars()
         if not pending:
-            return 0
+            return 0, 0
 
         template_name = "circular_notification.html"
         sent_count = 0
+        failed_count = 0
 
         for circular in pending:
             variables = {
@@ -217,5 +220,6 @@ class EmailService:
                 sent_count += 1
             else:
                 self.log_repo.mark_failed(log_id, error or "Unknown error")
+                failed_count += 1
 
-        return sent_count
+        return sent_count, failed_count

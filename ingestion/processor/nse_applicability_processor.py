@@ -155,6 +155,9 @@ Only extract entities from the "To" field, not from the body of the circular."""
                 response_model=RecipientExtractionResponse,
             )[0]
 
+            if extraction_response is None:
+                raise RuntimeError("LLM returned no response after retries")
+
             recipients = extraction_response.recipients
 
             self.logger.info("LLM extracted recipients: %s", recipients)
@@ -183,8 +186,8 @@ Only extract entities from the "To" field, not from the body of the circular."""
             self.logger.info("No recipients matched stock exchange criteria → not applicable")
             return False
         except Exception as e:
-            self.logger.warning("LLM check failed: %s", e)
-            return True  # Changed from False
+            self.logger.exception("LLM check failed; refusing to determine applicability")
+            raise
 
 
 def main():

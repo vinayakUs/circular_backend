@@ -98,8 +98,9 @@ export class KeywordSearchComponent implements OnInit {
   onModeChange(value: SearchMode): void {
     if (this.mode === value) return;
     this.mode = value;
+    // Only flip UI state; the user has to hit Search to run with the new mode.
     this.semanticError = false;
-    this.runSearch();
+    this.error = false;
   }
 
   onResultClick(result: SearchResult): void {

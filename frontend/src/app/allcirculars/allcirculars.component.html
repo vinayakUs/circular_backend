@@ -11,8 +11,13 @@
                     <form class="search-form" (ngSubmit)="onApply()">
                         <div class="search-field-wrapper">
                             <input type="text" placeholder="Search circulars..." class="search-field"
-                                [(ngModel)]="state.filters.search" name="search" autocomplete="off"
-                                (focus)="onSearchFocus()" (blur)="onSearchBlur()" (input)="onSearchInput()" />
+                                [(ngModel)]="state.filters.search" name="search" role="combobox"
+                                aria-autocomplete="list" [attr.aria-expanded]="showRecentSearches"
+                                autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"
+                                data-form-type="other" data-lpignore="true" data-1p-ignore="true"
+                                data-bwignore="true" data-ms-disable-autocomplete="true"
+                                (focus)="onSearchFocus()" (blur)="onSearchBlur()"
+                                (input)="onSearchInput()" />
                             <button type="submit" (click)="onSearch()" class="search-submit" aria-label="Search">
                                 <svg class="search-submit-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"

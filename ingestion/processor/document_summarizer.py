@@ -6,11 +6,13 @@
 
 import logging
 import sys
+from functools import lru_cache
 from typing import Any
 
 from langchain_classic.chains.summarize import load_summarize_chain
 from langchain_core.documents import Document
 from langchain_core.prompts import PromptTemplate
+from transformers import AutoTokenizer
 
 from config import Config
 from db.postgres_client import get_postgres_client
@@ -56,6 +58,22 @@ IMPORTANT: You MUST wrap the following in **bold** in your output: key entities 
 Document:
 {text}""",
 )
+
+
+@lru_cache(maxsize=1)
+def _load_bge_tokenizer():
+    """Load the BGE tokenizer from the local HF cache (offline)."""
+    return AutoTokenizer.from_pretrained(
+        Config.ES_EMBEDDING_MODEL_NAME,
+        local_files_only=True,
+    )
+
+
+def _bge_token_ids(text: str) -> list[int]:
+    """Token counter backed by the BGE tokenizer for LangChain chain sizing."""
+    if not text:
+        return []
+    return _load_bge_tokenizer().encode(text, add_special_tokens=False)
 
 
 class DocumentSummarizerProcessor(BaseProcessor):
@@ -120,10 +138,14 @@ class DocumentSummarizerProcessor(BaseProcessor):
         if not text.strip():
             raise ValueError("Extracted text from PDF is empty.")
 
-        # Build LangChain adapter
+        # Build LangChain adapter. We supply a custom token counter backed by
+        # the locally-cached BGE embedding tokenizer so LangChain's internal
+        # token counting (used by map_reduce's collapse pre-check) never tries
+        # to download GPT-2 from HuggingFace at runtime.
         llm_adapter = LangChainLLMAdapter(
             provider_name=Config.LLM_PROVIDER,
             model_name=Config.SUMMARIZATION_MODEL,
+            custom_get_token_ids=_bge_token_ids,
         )
 
         # Use map_reduce for large documents, stuff for small ones

@@ -4,9 +4,6 @@ from dotenv import load_dotenv
 load_dotenv(override=True)
 
 
-load_dotenv()
-
-
 def _parse_scraper_sources(raw_value: str | None) -> tuple[str, ...]:
     if raw_value is None:
         return ()
@@ -55,7 +52,7 @@ class Config:
         os.getenv("SEBI_DETAIL_RETRY_BACKOFF_SECONDS", "2")
     )
     SCRAPER_DEFAULT_LOOKBACK_DAYS = int(
-        os.getenv("SCRAPER_DEFAULT_LOOKBACK_DAYS", "20") # default to 1 day if no data in db fetching historical data
+        os.getenv("SCRAPER_DEFAULT_LOOKBACK_DAYS", "2") # default to 1 day if no data in db fetching historical data
     ) 
     SCRAPER_ENABLED_SOURCES = _parse_scraper_sources(
         os.getenv("SCRAPER_ENABLED_SOURCES")

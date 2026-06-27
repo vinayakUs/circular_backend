@@ -1,7 +1,7 @@
 """LangChain adapter wrapping existing LLM providers (minimax/nvidia)."""
 
 import json
-from typing import Any, Iterator, Literal
+from typing import Any, Callable, Iterator, Literal
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
@@ -21,7 +21,26 @@ class LangChainLLMAdapter(BaseChatModel):
 
     model_name: str = None  # type: ignore[assignment]
 
-    def __init__(self, provider_name: str = None, model_name: str = None, **kwargs):
+    def __init__(
+        self,
+        provider_name: str = None,
+        model_name: str = None,
+        custom_get_token_ids: Callable[[str], list[int]] | None = None,
+        **kwargs,
+    ):
+        # Caller must supply a `custom_get_token_ids` callable so LangChain
+        # chains that size prompts (e.g. map_reduce's collapse pre-check) don't
+        # try to download GPT-2 from HuggingFace. We deliberately do not fall
+        # back to the HF download — misconfiguration should surface as a clear
+        # error rather than a silent network call.
+        if custom_get_token_ids is None:
+            raise ValueError(
+                "LangChainLLMAdapter requires `custom_get_token_ids` to be set "
+                "(e.g. backed by a locally-cached tokenizer) so LangChain's "
+                "internal token counting does not try to download GPT-2 from "
+                "HuggingFace at runtime."
+            )
+        kwargs["custom_get_token_ids"] = custom_get_token_ids
         super().__init__(**kwargs)
         self._provider_name = provider_name or Config.LLM_PROVIDER
         self._model_name = model_name or Config.RAG_MODEL

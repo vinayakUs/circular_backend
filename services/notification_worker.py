@@ -1,38 +1,49 @@
 """
-Background notification worker.
+Cron-friendly notification worker.
 
-Run with: python -m services.notification_worker
+Processes circulars in 'FETCHED' status that have not been notified yet,
+sends one BCC email per circular to all configured recipients, and exits
+with a status code suitable for cron monitoring.
+
+Run with:  python -m services.notification_worker
+
+Exit codes:
+  0  success (including "nothing to do")
+  1  at least one notification failed to send
+  2  unexpected error (raised exception)
+
+Cron example (every 5 minutes):
+  */5 * * * * cd /path/to/circular_backend && /path/to/venv/bin/python -m services.notification_worker >> /var/log/circular_notifications.log 2>&1
 """
 
 import logging
-import time
+import sys
 
-from config import Config
 from services.notification_service import EmailService
 
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
 
-def main():
-    logger.info("Starting notification worker...")
+def main() -> int:
+    logger.info("Notification worker starting")
     email_svc = EmailService()
 
-    while True:
-        try:
-            count = email_svc.send_pending_notifications()
-            if count > 0:
-                logger.info(f"Sent {count} notification(s)")
-            else:
-                logger.debug("No pending notifications")
-        except Exception as e:
-            logger.error(f"Error in notification worker: {e}")
+    try:
+        sent, failed = email_svc.send_pending_notifications()
+    except Exception:
+        logger.exception("Notification worker aborted with an unexpected error")
+        return 2
 
-        time.sleep(300)  # Check every 5 minutes
+    if failed:
+        logger.warning("Notification worker finished: %d sent, %d failed", sent, failed)
+        return 1
+    logger.info("Notification worker finished: %d sent, 0 failed", sent)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

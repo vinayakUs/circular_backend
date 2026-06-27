@@ -59,8 +59,11 @@ export class HomeComponent implements OnInit {
 
   onSearch(): void {
     if (this.searchQuery.trim()) {
-      this.router.navigate(['/all-circulars'], {
-        queryParams: { q: this.searchQuery.trim() }
+      this.router.navigate(['/keyword-search'], {
+        queryParams: {
+          q: this.searchQuery.trim(),
+          mode: 'keyword',
+        }
       });
     }
   }
