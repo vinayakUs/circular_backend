@@ -1,0 +1,91 @@
+<div class="modal-overlay" (click)="close.emit()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+            <h3>User Management</h3>
+            <button class="modal-close" (click)="close.emit()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+        <div class="modal-body split-body">
+            <div class="split-panel left-panel">
+                <h4 class="panel-title">Departments</h4>
+                @if (isLoading) {
+                    <div class="loading-state">
+                        <div class="loading-spinner small"></div>
+                        <p>Loading...</p>
+                    </div>
+                } @else if (departments.length > 0) {
+                    <ul class="item-list">
+                        @for (dept of departments; track dept.id) {
+                            <li
+                                [class.selected]="selectedDepartment?.id === dept.id"
+                                (click)="selectDepartment(dept)">
+                                {{ dept.name }}
+                            </li>
+                        }
+                    </ul>
+                } @else {
+                    <p class="empty-text">No departments found</p>
+                }
+            </div>
+
+            <div class="split-panel right-panel">
+                <h4 class="panel-title">Users in {{ selectedDepartment?.name || '...' }}</h4>
+
+                @if (selectedDepartment) {
+                    <div class="add-form">
+                        <input type="text"
+                            [(ngModel)]="newUserId"
+                            placeholder="Enter user ID"
+                            class="input-field"
+                            (keyup.enter)="onAddUser()">
+                        <button class="btn btn-add" (click)="onAddUser()">Add</button>
+                    </div>
+
+                    @if (errorMessage) {
+                        <p class="error-text">{{ errorMessage }}</p>
+                    }
+                    @if (successMessage) {
+                        <p class="success-text">{{ successMessage }}</p>
+                    }
+
+                    @if (isLoadingUsers) {
+                        <div class="loading-state">
+                            <div class="loading-spinner small"></div>
+                            <p>Loading users...</p>
+                        </div>
+                    } @else if (users.length > 0) {
+                        <ul class="item-list">
+                            @for (user of users; track user.id) {
+                                <li class="user-row">
+                                    <div class="user-details">
+                                        <span class="user-name">{{ user.user_id }}</span>
+                                        <span class="user-meta">Added by {{ user.created_by }} on {{ user.created_at | date:'short' }}</span>
+                                    </div>
+                                    <button class="btn-remove" (click)="onRemoveUser(user.user_id)">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                                        </svg>
+                                    </button>
+                                </li>
+                            }
+                        </ul>
+                    } @else {
+                        <p class="empty-text">No users in this department</p>
+                    }
+                } @else {
+                    <p class="empty-text">Select a department</p>
+                }
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-cancel" (click)="close.emit()">Close</button>
+        </div>
+    </div>
+</div>

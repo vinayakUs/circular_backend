@@ -7,6 +7,9 @@ import { LoginComponent } from './login/login.component';
 import { ExpertsByDepartmentComponent } from './experts-by-department/experts-by-department.component';
 import { AlertsComponent } from './alerts/alerts.component';
 import { KeywordSearchComponent } from './keyword-search/keyword-search.component';
+import { PdfViewerPageComponent } from './pdf-viewer-page/pdf-viewer-page.component';
+import { TaskviewComponent } from './taskview/taskview.component';
+import { authGuard } from './auth.guard';
 
 export const routes: Routes = [
   { path: '', component: HomeComponent },
@@ -17,5 +20,8 @@ export const routes: Routes = [
   { path: 'alerts', component: AlertsComponent },
   { path: 'keyword-search', component: KeywordSearchComponent },
   { path: 'allcirculars', component: AllCircularsComponent },
+  { path: 'pdf-viewer/:id', component: PdfViewerPageComponent },
+  { path: 'taskview/:id', component: TaskviewComponent, canActivate: [authGuard] },
+
   { path: '**', redirectTo: '' }
 ];

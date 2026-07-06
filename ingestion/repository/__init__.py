@@ -16,6 +16,10 @@ from ingestion.repository.expert_mapping_repository import (
 from ingestion.repository.checkpoint_repository import (
     CheckpointRepository,
 )
+from ingestion.repository.comments_repository import (
+    CommentRecord,
+    CommentsRepository,
+)
 
 __all__ = [
     "CircularRecord",
@@ -26,4 +30,6 @@ __all__ = [
     "ExpertMappingRecord",
     "ExpertMappingRepository",
     "CheckpointRepository",
+    "CommentRecord",
+    "CommentsRepository",
 ]

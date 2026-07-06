@@ -19,10 +19,12 @@
             <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
             <circle cx="12" cy="7" r="4"></circle>
           </svg>
+          <span class="username">{{ currentUsername }}</span>
         </button>
         @if (dropdownOpen) {
         <div class="dropdown-menu" *ngIf="dropdownOpen">
           <button class="dropdown-item" (click)="navigateToDepartmentModel()">Department</button>
+          <button class="dropdown-item" (click)="navigateToUserManagement()">Manage Users</button>
           <button (click)="logout()" class="dropdown-item">Logout</button>
 
         </div>
@@ -36,3 +38,6 @@
 <!-- Modal is separate, not inside dropdown -->
 <app-department-modal *ngIf="showDepartmentModal" (close)="showDepartmentModal = false">
 </app-department-modal>
+
+<app-user-management-modal *ngIf="showUserManagementModal" (close)="showUserManagementModal = false">
+</app-user-management-modal>

@@ -58,10 +58,11 @@ class LDAPAuth:
                 print(f"Simple Bind failed: {e}")
                 return False
 
-    def create_token(self, username: str) -> str:
+    def create_token(self, username: str, user_db_id: str | None = None) -> str:
         """Create JWT token for authenticated user."""
         payload = {
             "sub": username,
+            "user_db_id": user_db_id,
             "exp": datetime.now(timezone.utc) + timedelta(hours=Config.JWT_EXPIRATION_HOURS),
             "iat": datetime.now(timezone.utc),
         }
@@ -98,6 +99,11 @@ def require_auth(f):
             return {"error": "Invalid or expired token"}, 401
 
         g.current_user = payload.get("sub")
+        g.user_db_id = payload.get("user_db_id")
+
+        if not g.user_db_id:
+            return {"error": "User not authorized"}, 403
+
         return f(*args, **kwargs)
 
     return decorated

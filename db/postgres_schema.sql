@@ -106,20 +106,49 @@ CREATE TABLE IF NOT EXISTS notification_logs (
 CREATE INDEX IF NOT EXISTS idx_notification_logs_status ON notification_logs(status);
 CREATE INDEX IF NOT EXISTS idx_notification_logs_recipient ON notification_logs(recipient_email);
 
--- circular_department_mapping
-CREATE TABLE IF NOT EXISTS circular_department_mapping (
+-- experts (renamed from circular_department_mapping)
+CREATE TABLE IF NOT EXISTS experts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     circular_id UUID NOT NULL REFERENCES circulars(id) ON DELETE CASCADE,
     department_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
     expert_name VARCHAR(255) NOT NULL,
     highlight_text VARCHAR(4000) NOT NULL,
     highlights JSONB DEFAULT '[]',
+    status VARCHAR(20) DEFAULT 'open',
+    created_by_user_id UUID REFERENCES users(id),
+    created_by_dep_id UUID REFERENCES properties(id),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE(circular_id, department_id, expert_name)
 );
-CREATE INDEX IF NOT EXISTS idx_cdm_circular_id ON circular_department_mapping(circular_id);
-CREATE INDEX IF NOT EXISTS idx_cdm_department_id ON circular_department_mapping(department_id);
+CREATE INDEX IF NOT EXISTS idx_experts_circular_id ON experts(circular_id);
+CREATE INDEX IF NOT EXISTS idx_experts_department_id ON experts(department_id);
+CREATE INDEX IF NOT EXISTS idx_experts_status ON experts(status);
+
+
+-- comments
+CREATE TABLE IF NOT EXISTS comments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    expert_id UUID NOT NULL REFERENCES experts(id) ON DELETE CASCADE,
+    user_id VARCHAR(255) NOT NULL,
+    username VARCHAR(255) NOT NULL,
+    text TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_comments_expert_id ON comments(expert_id);
+
+
+-- users (LDAP user to department mapping with audit)
+CREATE TABLE IF NOT EXISTS users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id VARCHAR(255) NOT NULL UNIQUE,    -- LDAP uid (unique)
+    department_id UUID NOT NULL REFERENCES properties(id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_by VARCHAR(255) NOT NULL,        -- LDAP uid of admin who added
+    updated_at TIMESTAMPTZ,
+    updated_by VARCHAR(255)
+);
+CREATE INDEX IF NOT EXISTS idx_users_department ON users(department_id);
 
 
 -- summaries

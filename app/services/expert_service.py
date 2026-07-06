@@ -42,7 +42,14 @@ class ExpertService:
             "total_pages": total_pages,
         }
 
-    def save_experts(self, circular_id: UUID, experts: list[dict], original_ids: list[str] | None = None) -> dict[str, Any]:
+    def save_experts(
+        self,
+        circular_id: UUID,
+        experts: list[dict],
+        original_ids: list[str] | None = None,
+        created_by_user_id: UUID | None = None,
+        created_by_dep_id: UUID | None = None,
+    ) -> dict[str, Any]:
         """Save/update experts for a circular. Delete any that were removed."""
         # Delete removed experts
         if original_ids:
@@ -82,9 +89,15 @@ class ExpertService:
                     title=title,
                     text=text,
                     highlights=highlights,
+                    created_by_user_id=created_by_user_id,
+                    created_by_dep_id=created_by_dep_id,
                 )
 
         return {"success": True}
+
+    def update_expert_status(self, expert_id: UUID, status: str) -> bool:
+        """Update the status of an expert."""
+        return self.repository.update_expert_status(expert_id, status)
 
     def get_experts_for_circular(self, circular_id: UUID) -> list[dict]:
         """Get all experts for a specific circular."""

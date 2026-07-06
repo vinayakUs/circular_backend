@@ -95,6 +95,11 @@ export interface Expert {
   title: string;
   text: string;
   highlights: any[];
+  status?: 'open' | 'closed';
+  created_by_user_id?: string;
+  created_by_dep_id?: string;
+  created_by_username?: string;
+  created_at?: string;
 }
 
 export interface Signatory {
@@ -270,6 +275,26 @@ export class CircularsApiService {
   getExperts(circularId: string): Observable<{ experts: Expert[] }> {
     return this.http.get<{ experts: Expert[] }>(
       `${this.baseUrl}/api/circulars/${circularId}/experts`
+    );
+  }
+
+  getComments(circularId: string, expertId: string): Observable<{ comments: any[] }> {
+    return this.http.get<{ comments: any[] }>(
+      `${this.baseUrl}/api/circulars/${circularId}/experts/${expertId}/comments`
+    );
+  }
+
+  createComment(circularId: string, expertId: string, text: string): Observable<{ comment: any }> {
+    return this.http.post<{ comment: any }>(
+      `${this.baseUrl}/api/circulars/${circularId}/experts/${expertId}/comments`,
+      { text }
+    );
+  }
+
+  updateExpertStatus(circularId: string, expertId: string, status: 'open' | 'closed'): Observable<{ success: boolean }> {
+    return this.http.patch<{ success: boolean }>(
+      `${this.baseUrl}/api/circulars/${circularId}/experts/${expertId}/status`,
+      { status }
     );
   }
 

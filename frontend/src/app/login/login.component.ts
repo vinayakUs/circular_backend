@@ -39,7 +39,19 @@ export class LoginComponent {
         const expiry = new Date();
         expiry.setHours(expiry.getHours() + 24);
         document.cookie = `access_token=${response.access_token}; path=/; expires=${expiry.toUTCString()}`;
-        this.router.navigate(['/']);
+
+        // Fetch user details right after login and store in localStorage
+        this.loginService.getCurrentUser().subscribe({
+          next: (user) => {
+            console.log('User details:', user);
+            localStorage.setItem('user_details', JSON.stringify(user));
+            this.router.navigate(['/']);
+          },
+          error: (err) => {
+            console.error('Failed to fetch user details:', err);
+            this.router.navigate(['/']);
+          }
+        });
       },
       error: (error) => {
         console.error('Login failed:', error);

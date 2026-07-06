@@ -104,6 +104,7 @@
   max-width: 1200px;
   margin: 0 auto;
   padding: 32px 24px 60px;
+  padding-top: 0px !important;
   text-align: left;
 }
 
@@ -948,4 +949,17 @@
   height: 1px;
   background: rgba(0, 0, 0, 0.06);
   margin: 4px 0;
+}
+
+.topfilter-section {
+  max-width: 1200px;
+    margin: 0 auto;
+    padding: 0px 24px 0px;
+    padding-top: 0px !important;
+    text-align: left;
+}
+
+.filter-year-section{
+  display: flex;
+  align-items: flex-end;
 }

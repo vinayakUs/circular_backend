@@ -12,11 +12,10 @@
                         <div class="search-field-wrapper">
                             <input type="text" placeholder="Search circulars..." class="search-field"
                                 [(ngModel)]="state.filters.search" name="search" role="combobox"
-                                aria-autocomplete="list" [attr.aria-expanded]="showRecentSearches"
-                                autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"
-                                data-form-type="other" data-lpignore="true" data-1p-ignore="true"
-                                data-bwignore="true" data-ms-disable-autocomplete="true"
-                                (focus)="onSearchFocus()" (blur)="onSearchBlur()"
+                                aria-autocomplete="list" [attr.aria-expanded]="showRecentSearches" autocomplete="off"
+                                autocapitalize="none" autocorrect="off" spellcheck="false" data-form-type="other"
+                                data-lpignore="true" data-1p-ignore="true" data-bwignore="true"
+                                data-ms-disable-autocomplete="true" (focus)="onSearchFocus()" (blur)="onSearchBlur()"
                                 (input)="onSearchInput()" />
                             <button type="submit" (click)="onSearch()" class="search-submit" aria-label="Search">
                                 <svg class="search-submit-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -26,14 +25,16 @@
                             </button>
                         </div>
 
-                        <div class="recent-searches-dropdown" *ngIf="showRecentSearches" (mousedown)="$event.preventDefault()">
+                        <div class="recent-searches-dropdown" *ngIf="showRecentSearches"
+                            (mousedown)="$event.preventDefault()">
                             <ng-container *ngIf="hasQueryInput; else recentSearchesOnly">
                                 <div class="recent-searches-header">
                                     <span class="recent-searches-title">Search using</span>
                                 </div>
                                 <ul class="recent-searches-list" role="listbox" aria-label="Search mode suggestions">
-                                    <li class="recent-searches-item search-suggestion" (mousedown)="searchInMode('keyword')"
-                                        role="option" [attr.aria-label]="'Search ' + state.filters.search + ' in keyword mode'">
+                                    <li class="recent-searches-item search-suggestion"
+                                        (mousedown)="searchInMode('keyword')" role="option"
+                                        [attr.aria-label]="'Search ' + state.filters.search + ' in keyword mode'">
                                         <svg class="recent-searches-icon" viewBox="0 0 24 24" fill="none"
                                             stroke="currentColor" stroke-width="2" stroke-linecap="round"
                                             stroke-linejoin="round" aria-hidden="true">
@@ -46,8 +47,9 @@
                                         </span>
                                         <span class="search-suggestion-cta">↵</span>
                                     </li>
-                                    <li class="recent-searches-item search-suggestion" (mousedown)="searchInMode('semantic')"
-                                        role="option" [attr.aria-label]="'Search ' + state.filters.search + ' in semantic mode'">
+                                    <li class="recent-searches-item search-suggestion"
+                                        (mousedown)="searchInMode('semantic')" role="option"
+                                        [attr.aria-label]="'Search ' + state.filters.search + ' in semantic mode'">
                                         <svg class="recent-searches-icon" viewBox="0 0 24 24" fill="none"
                                             stroke="currentColor" stroke-width="2" stroke-linecap="round"
                                             stroke-linejoin="round" aria-hidden="true">
@@ -71,7 +73,8 @@
                                 <div class="search-suggestion-divider" *ngIf="recentSearchesList.length > 0"></div>
                                 <div class="recent-searches-header" *ngIf="recentSearchesList.length > 0">
                                     <span class="recent-searches-title">Recent searches</span>
-                                    <button type="button" class="recent-searches-clear" (mousedown)="clearRecentSearches($event)">
+                                    <button type="button" class="recent-searches-clear"
+                                        (mousedown)="clearRecentSearches($event)">
                                         Clear
                                     </button>
                                 </div>
@@ -86,7 +89,8 @@
                                         </svg>
                                         <span class="recent-searches-text">{{ query }}</span>
                                         <button type="button" class="recent-searches-remove"
-                                            (mousedown)="removeRecentSearch($event, query)" aria-label="Remove from recent searches">
+                                            (mousedown)="removeRecentSearch($event, query)"
+                                            aria-label="Remove from recent searches">
                                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                                 <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -99,7 +103,8 @@
                             <ng-template #recentSearchesOnly>
                                 <div class="recent-searches-header">
                                     <span class="recent-searches-title">Recent searches</span>
-                                    <button type="button" class="recent-searches-clear" (mousedown)="clearRecentSearches($event)">
+                                    <button type="button" class="recent-searches-clear"
+                                        (mousedown)="clearRecentSearches($event)">
                                         Clear
                                     </button>
                                 </div>
@@ -114,7 +119,8 @@
                                         </svg>
                                         <span class="recent-searches-text">{{ query }}</span>
                                         <button type="button" class="recent-searches-remove"
-                                            (mousedown)="removeRecentSearch($event, query)" aria-label="Remove from recent searches">
+                                            (mousedown)="removeRecentSearch($event, query)"
+                                            aria-label="Remove from recent searches">
                                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                                 <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -128,6 +134,49 @@
                     </form>
                 </div>
             </div>
+
+
+
+
+
+
+
+
+
+            <section class="topfilter-section">
+                <div class="content-grid">
+
+                    <aside class="filters-sidebar">
+                    </aside>
+
+                    <div class="results-panel">
+
+                        <div class="filter-year-section">
+                            <span class="filter-label">From:</span>
+                            <div class="horizontal">
+                                <button *ngFor="let y of availableYears" type="button" class="filter-tab"
+                                    [class.active]="state.filters.selectedyear === y" (click)="onYearSelect(y)">
+                                    {{ y }}
+                                </button>
+                                <button *ngIf="state.filters.selectedyear !== null" type="button"
+                                    class="filter-tab clear-year" (click)="onYearSelect(null)">Clear</button>
+                            </div>
+                        </div>
+
+
+                    </div>
+
+                </div>
+
+
+            </section>
+
+
+
+
+
+
+
 
             <section class="circulars-section">
                 <div class="content-grid">
@@ -157,6 +206,9 @@
 
 
 
+
+
+
                         <div class="filter-group">
                             <span class="filter-label">Circular No</span>
                             <div class="multi-select">
@@ -179,7 +231,7 @@
                                         <input type="checkbox"
                                             (change)="toggleCircularNo(opt.id,$any($event.target).checked)"
                                             [checked]="isCircularNoSelected(opt.id)" />
-                                            
+
                                         <span>{{ opt.matchedValue }}</span>
 
                                     </label>
@@ -248,6 +300,9 @@
 
                     </aside>
 
+
+
+
                     <div class="results-panel">
                         <div class="filter-label">All Circulars</div>
                         <div class="results-empty" *ngIf="!loading && circulars.length === 0">
@@ -258,7 +313,7 @@
                         <div class="circulars-list" *ngIf="circulars.length > 0" [class.is-loading]="loading">
 
                             <ng-container *ngFor="let circ of circulars; let i=index">
-                                <div class="circular-item" (click)="navigateToCircular(circ.id, circ)">
+                                <a class="circular-item" [routerLink]="['/circular', circ.id]" target="_blank">
                                     <div class="exchange-badge" [class]="circ.source.toLowerCase()">{{ circ.source }}
                                     </div>
                                     <div class="circular-content">
@@ -285,7 +340,7 @@
                                     </div>
 
 
-                                </div>
+                                </a>
 
                             </ng-container>
 

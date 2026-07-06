@@ -13,10 +13,12 @@ from db.postgres_client import get_postgres_client
 from ingestion.indexer.es_provider import get_es_client
 from ingestion.repository import AssetRepository, CircularRepository
 from ingestion.repository.properties_repository import PropertiesRepository
+from ingestion.repository.users_repository import UsersRepository
 from app.dto.circular_dto import CircularListResponseDTO, CircularSummaryDTO, SignatoryDTO
 from app.dto.search_result_dto import search_hit_to_dict
 from app.auth.ldap_auth import LDAPAuth, require_auth
 from app.services.expert_service import ExpertService
+from app.services.comments_service import CommentsService
 from services.rag.answer_generator import RAGAnswerGenerator
 
 try:
@@ -101,13 +103,39 @@ def create_app() -> Flask:
                 return {"error": "Invalid credentials"}, 401
             return {"error": "Authentication failed"}, 500
 
-        token = auth.create_token(username)
+        # Get user's database ID to include in JWT
+        user_db_id = None
+        try:
+            from ingestion.repository.users_repository import UsersRepository
+            db_client = get_postgres_client()
+            users_repo = UsersRepository(db_pool=db_client.get_pool())
+            user_records = users_repo.get_departments_by_user(username)
+            if user_records:
+                user_db_id = str(user_records[0].id)
+        except Exception as e:
+            logging.getLogger(__name__).warning("Could not fetch user DB id: %s", e)
+
+        token = auth.create_token(username, user_db_id)
         return {"access_token": token, "token_type": "bearer"}
 
     @app.get("/api/auth/me")
     @require_auth
     def me():
-        return {"username": g.current_user}
+        db_client = get_postgres_client()
+        users_repo = UsersRepository(db_pool=db_client.get_pool())
+        properties_repo = PropertiesRepository(db_pool=db_client.get_pool())
+
+        user = users_repo.get_user(g.current_user)
+        if not user:
+            return {"username": g.current_user, "department": None}
+
+        dept = properties_repo.get_by_id(user.department_id)
+        return {
+            "username": g.current_user,
+            "user_db_id": str(user.id),
+            "department_id": str(user.department_id),
+            "department": dept.name if dept else None
+        }
 
     @app.get("/api/circulars/counts")
     def get_circular_counts():
@@ -559,7 +587,7 @@ def create_app() -> Flask:
         return response.model_dump()
 
     @app.post("/api/circulars/<uuid:record_id>/experts")
-    # @require_auth  # TEMP DISABLED FOR TESTING
+    @require_auth
     def save_circular_experts(record_id):
         body = request.get_json() or {}
         experts = body.get("experts", [])
@@ -569,11 +597,22 @@ def create_app() -> Flask:
             return {"error": "experts list is required"}, 400
 
         db_client = get_postgres_client()
+        users_repo = UsersRepository(db_pool=db_client.get_pool())
+        user = users_repo.get_user(g.current_user)
+        user_dep_id = user.department_id if user else None
+        try:
+            user_db_id = UUID(g.user_db_id) if g.user_db_id else None
+        except (ValueError, TypeError):
+            user_db_id = None
+
         service = ExpertService(db_pool=db_client.get_pool())
-        result = service.save_experts(record_id, experts, original_ids)
+        result = service.save_experts(
+            record_id, experts, original_ids, user_db_id, user_dep_id
+        )
         return result
 
     @app.get("/api/circulars/<uuid:record_id>/experts")
+    @require_auth
     def get_circular_experts(record_id):
         # TEST DATA - for testing highlight restoration
         # test_experts = [
@@ -609,6 +648,40 @@ def create_app() -> Flask:
         service = ExpertService(db_pool=db_client.get_pool())
         experts = service.get_experts_for_circular(record_id)
         return {"experts": experts}
+
+    @app.get("/api/circulars/<uuid:record_id>/experts/<uuid:expert_id>/comments")
+    @require_auth
+    def get_expert_comments(record_id, expert_id):
+        service = CommentsService()
+        comments = service.get_comments(expert_id)
+        return {"comments": comments}
+
+    @app.post("/api/circulars/<uuid:record_id>/experts/<uuid:expert_id>/comments")
+    @require_auth
+    def create_expert_comment(record_id, expert_id):
+        body = request.get_json() or {}
+        text = body.get("text", "").strip()
+        if not text:
+            return {"error": "text is required"}, 400
+
+        service = CommentsService()
+        comment = service.create_comment(expert_id, g.user_db_id, g.current_user, text)
+        return {"comment": comment}, 201
+
+    @app.patch("/api/circulars/<uuid:record_id>/experts/<uuid:expert_id>/status")
+    @require_auth
+    def update_expert_status(record_id, expert_id):
+        body = request.get_json() or {}
+        status = body.get("status", "").strip()
+        if status not in ("open", "closed"):
+            return {"error": "status must be 'open' or 'closed'"}, 400
+
+        db_client = get_postgres_client()
+        service = ExpertService(db_pool=db_client.get_pool())
+        success = service.update_expert_status(expert_id, status)
+        if not success:
+            return {"error": "Expert not found"}, 404
+        return {"success": True}
 
     @app.get("/api/circulars/<uuid:record_id>/summary")
     def get_circular_summary(record_id):
@@ -670,8 +743,15 @@ def create_app() -> Flask:
         repo = CircularSignatoryRepository(db_pool=db_client.get_pool())
         names = repo.list_distinct_names()
         return {"items": [{"name": n} for n in names]}
+    
+
+    @app.get("/api/departments")
+    def list_departments():
+        db_client = get_postgres_client()
+        
 
     @app.get("/api/properties/<string:prop_type>")
+    @require_auth
     def list_properties(prop_type: str):
         include_archived = request.args.get("include_archived", "false").strip().lower() == "true"
         db_client = get_postgres_client()
@@ -741,6 +821,92 @@ def create_app() -> Flask:
                 "to_date": raw_to_date,
                 "full_circular_no": raw_circular_no,
             },
+        }
+
+    # === Admin: User-Department Management ===
+
+    @app.get("/api/admin/departments/<uuid:dept_id>/users")
+    @require_auth
+    def list_department_users(dept_id):
+        """List all users in a department."""
+        db_client = get_postgres_client()
+        repository = UsersRepository(db_pool=db_client.get_pool())
+        users = repository.get_users_by_department(dept_id)
+        return {
+            "users": [
+                {
+                    "id": str(u.id),
+                    "user_id": u.user_id,
+                    "department_id": str(u.department_id),
+                    "created_at": u.created_at.isoformat(),
+                    "created_by": u.created_by,
+                    "updated_at": u.updated_at.isoformat() if u.updated_at else None,
+                    "updated_by": u.updated_by,
+                }
+                for u in users
+            ]
+        }
+
+    @app.post("/api/admin/departments/<uuid:dept_id>/users")
+    @require_auth
+    def add_user_to_department(dept_id):
+        """Add a user to a department."""
+        body = request.get_json() or {}
+        user_id = body.get("user_id", "").strip()
+        created_by = g.current_user  # Use authenticated user automatically
+
+        if not user_id:
+            return {"error": "user_id is required"}, 400
+
+        db_client = get_postgres_client()
+        repository = UsersRepository(db_pool=db_client.get_pool())
+
+        # Verify department exists
+        props_repo = PropertiesRepository(db_pool=db_client.get_pool())
+        dept = props_repo.get_by_id(dept_id)
+        if dept is None:
+            return {"error": "Department not found"}, 404
+
+        record = repository.add_user(user_id, dept_id, created_by)
+        if record is None:
+            return {"error": "User already exists in this or another department"}, 409
+
+        return {
+            "id": str(record.id),
+            "user_id": record.user_id,
+            "department_id": str(record.department_id),
+            "created_at": record.created_at.isoformat(),
+            "created_by": record.created_by,
+        }, 201
+
+    @app.delete("/api/admin/departments/<uuid:dept_id>/users/<user_id>")
+    @require_auth
+    def remove_user_from_department(dept_id, user_id):
+        """Remove a user from a department."""
+        db_client = get_postgres_client()
+        repository = UsersRepository(db_pool=db_client.get_pool())
+        deleted = repository.remove_user(user_id)
+        if not deleted:
+            return {"error": "User not found"}, 404
+        return {"success": True}
+
+    @app.get("/api/admin/users/<user_id>")
+    @require_auth
+    def get_user_details(user_id):
+        """Get user details by user_id."""
+        db_client = get_postgres_client()
+        repository = UsersRepository(db_pool=db_client.get_pool())
+        user = repository.get_user(user_id)
+        if user is None:
+            return {"error": "User not found"}, 404
+        return {
+            "id": str(user.id),
+            "user_id": user.user_id,
+            "department_id": str(user.department_id),
+            "created_at": user.created_at.isoformat(),
+            "created_by": user.created_by,
+            "updated_at": user.updated_at.isoformat() if user.updated_at else None,
+            "updated_by": user.updated_by,
         }
 
     return app

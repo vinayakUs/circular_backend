@@ -71,7 +71,7 @@ class ExpertMappingRepositoryPositiveTestCase(unittest.TestCase):
     def _cleanup_mappings(self, circular_id) -> None:
         with self.pool.acquire() as conn:
             cursor = conn.cursor()
-            cursor.execute("DELETE FROM circular_department_mapping WHERE circular_id = :1", (_uuid_to_raw(circular_id),))
+            cursor.execute("DELETE FROM experts WHERE circular_id = :1", (_uuid_to_raw(circular_id),))
             conn.commit()
 
     def tearDown(self) -> None:

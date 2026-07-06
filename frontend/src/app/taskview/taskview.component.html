@@ -1,0 +1,196 @@
+<div class="page-container">
+  <app-navbar></app-navbar>
+  <div class="main-content">
+    <div class="pdf-viewer-section" (contextmenu)="$event.preventDefault()" (mouseup)="onPdfMouseUp($event)">
+      <div class="pdf-viewer-container">
+        <ngx-extended-pdf-viewer
+          [src]="pdfUrl"
+          [showToolbar]="true"
+          [showSidebarButton]="false"
+          [showFindButton]="false"
+          [showPagingButtons]="true"
+          [showSignatureEditor]="false"
+          [showDrawEditor]="false"
+          [showCommentEditor]="false"
+          [showStampEditor]="false"
+          [showTextEditor]="false"
+          [showHighlightEditor]="false"
+          [showPresentationModeButton]="false"
+          [showOpenFileButton]="false"
+          [showPrintButton]="false"
+          [showDownloadButton]="true"
+          [showSecondaryToolbarButton]="false"
+          [showMovePageButton]="false"
+          [showRotateButton]="false"
+          [showRotateCwButton]="false"
+          [showRotateCcwButton]="false"
+          [showHandToolButton]="false"
+          [showScrollingButtons]="false"
+          [showSpreadButton]="false"
+          [showPropertiesButton]="false"
+          [showBorders]="false"
+          [textLayer]="true"
+          [handTool]="false"
+          (pdfLoaded)="onPdfLoaded()"
+          (annotationLayerRendered)="onEvent('annotationLayerRendered', $event)"
+          (annotationEditorEvent)="onAnnotationEvent($event)">
+        </ngx-extended-pdf-viewer>
+      </div>
+    </div>
+  </div>
+
+  <div class="tasks-section">
+    <div class="list-header">
+      <h2>Tasks</h2>
+      @if (!isAddingTask) {
+        <button class="add-btn" (click)="toggleAddTask()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          Add Task
+        </button>
+      }
+    </div>
+
+    @if (isAddingTask) {
+      <div class="add-task-hint">
+        <p>Highlight text in PDF to create a task</p>
+        <button class="cancel-btn" (click)="cancelAddTask()">Cancel</button>
+      </div>
+    }
+
+    @if (experts.length === 0 && !isAddingTask) {
+      <div class="empty-state">No tasks</div>
+    }
+
+    <div class="tasks-list">
+      @if (pendingHighlight && isAddingTask) {
+        <div class="task-item pending-task">
+          <div class="task-dot active"></div>
+          <div class="task-content">
+            <input class="task-title-input" type="text" [(ngModel)]="newTaskTitle" placeholder="Task name">
+            <div class="task-text">"{{ pendingHighlight.text }}"</div>
+            <div class="dept-row">
+              <div class="dept-selector">
+                <button class="dept-btn" (click)="showDeptDropdown = !showDeptDropdown">
+                  <span>{{ newTaskDeptId ? getDeptName(newTaskDeptId) : 'Select Department' }}</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </button>
+                @if (showDeptDropdown) {
+                  <div class="dept-dropdown">
+                    @for (dept of departments; track dept.id) {
+                      <div class="dept-option" (click)="newTaskDeptId = dept.id; showDeptDropdown = false">
+                        {{ dept.name }}
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+              <button class="cancel-btn" (click)="cancelAddTask()">Cancel</button>
+              <button class="save-btn" (click)="saveTask()">Save</button>
+            </div>
+          </div>
+        </div>
+      }
+
+      @for (expert of sortedExperts; track $index; let i = $index) {
+        <div class="task-item" (click)="selectExpert(expert)">
+          <div class="task-dot" [class.active]="expert.highlights && expert.highlights.length" [class.inactive]="!expert.highlights || !expert.highlights.length"></div>
+          <div class="task-content">
+            <div class="task-title">{{ expert.title }}</div>
+            <div class="task-text">"{{ expert.text }}"</div>
+            <div class="task-meta">
+              @if (expert.status === 'closed') {
+                <span class="task-status closed">Closed</span>
+              } @else {
+                <span class="task-status open">Open</span>
+              }
+              {{ expert.dept_name || 'Unassigned' }}
+              @if (expert.created_at) {
+                <span class="task-date"> · {{ expert.created_at | date:'MMM d, yyyy' }}</span>
+              }
+              @if (expert.created_by_username) {
+                <span class="task-creator"> · {{ expert.created_by_username }}</span>
+              }
+            </div>
+          </div>
+          <button class="remove-btn" (click)="removeExpert(i); $event.stopPropagation()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+      }
+    </div>
+
+    @if (selectedExpert && !isAddingTask) {
+      <div class="detail-view">
+        <div class="detail-header">
+          <button class="back-btn" (click)="deselectExpert()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="19" y1="12" x2="5" y2="12"></line>
+              <polyline points="12 19 5 12 12 5"></polyline>
+            </svg>
+            Back to tasks
+          </button>
+          @if (selectedExpert.status !== 'closed') {
+            <button class="close-expert-btn" (click)="closeExpert()">
+              Close Task
+            </button>
+          }
+        </div>
+
+        <div class="expert-section">
+          <div class="expert-title">{{ selectedExpert.title }}</div>
+          <div class="expert-quote">"{{ selectedExpert.text }}"</div>
+          <div class="expert-dept">
+            {{ selectedExpert.dept_name || 'Unassigned' }}
+            @if (selectedExpert.created_at) {
+              <span class="expert-date"> · {{ selectedExpert.created_at | date:'MMM d, yyyy' }}</span>
+            }
+            @if (selectedExpert.created_by_username) {
+              <span class="expert-creator"> · {{ selectedExpert.created_by_username }}</span>
+            }
+          </div>
+        </div>
+
+        <div class="comments-section">
+          <div class="comments-label">Comments</div>
+          @if (isLoadingComments) {
+            <div class="loading">Loading...</div>
+          } @else if (comments.length === 0) {
+            <div class="no-comments">No comments yet</div>
+          } @else {
+            <div class="comments-list">
+              @for (comment of comments; track comment.id) {
+                <div class="comment-item">
+                  <div class="comment-header">
+                    <span class="comment-author">{{ comment.username }}</span>
+                    <span class="comment-time">{{ comment.created_at | date:'MMM d, h:mm a' }}</span>
+                  </div>
+                  <div class="comment-text">{{ comment.text }}</div>
+                </div>
+              }
+            </div>
+          }
+          <div class="comment-input">
+            <input
+              type="text"
+              [(ngModel)]="newComment"
+              placeholder="Add a comment..."
+              [disabled]="selectedExpert.status === 'closed'"
+              (keyup.enter)="addComment()">
+            <button (click)="addComment()" [disabled]="!newComment.trim() || selectedExpert.status === 'closed' || isSubmittingComment">Post</button>
+          </div>
+          @if (selectedExpert.status === 'closed') {
+            <div class="comments-closed-notice">Comments are disabled for closed tasks</div>
+          }
+        </div>
+      </div>
+    }
+  </div>
+</div>

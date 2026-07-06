@@ -1,6 +1,6 @@
 import { Component, AfterViewInit, OnDestroy, ViewChild, ElementRef, OnInit } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink, RouterModule } from '@angular/router';
 import { NavbarComponent } from '../navbar/navbar.component';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { marked } from 'marked';
@@ -29,7 +29,7 @@ interface ActionItem {
 @Component({
   selector: 'app-circular-detail',
   standalone: true,
-  imports: [CommonModule, NavbarComponent, DatePipe, ExpertModalComponent],
+  imports: [CommonModule, NavbarComponent, DatePipe, ExpertModalComponent, RouterModule,RouterLink],
   templateUrl: './circular-detail.component.html',
   styleUrl: './circular-detail.component.css'
 })

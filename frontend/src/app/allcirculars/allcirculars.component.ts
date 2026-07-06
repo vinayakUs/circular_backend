@@ -5,19 +5,19 @@ import { NavbarComponent } from "../navbar/navbar.component";
 import { CircularsApiService, Circular, SemanticSearchResponse, SearchResult, SearchResponse, CircularDbLookupItem } from '../services/circulars-api.service';
 import { CircularfilterstateService } from '../services/circularfilterstate.service';
 import { RecentSearchesService } from '../services/recent-searches.service';
-import { Router } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { debounceTime, distinctUntilChanged, EMPTY, finalize, switchMap, tap } from 'rxjs';
 import { ReactiveFormsModule } from '@angular/forms';
 
 export enum ExchangeSource {
-  ALL = 'ALL',
-  NSE = 'NSE',
   SEBI = 'SEBI',
+  NSE = 'NSE',
+  ALL = 'ALL',
 }
 
 @Component({
   selector: 'app-allcirculars',
-  imports: [NavbarComponent, CommonModule, FormsModule, ReactiveFormsModule],
+  imports: [NavbarComponent, CommonModule, FormsModule, ReactiveFormsModule, RouterModule],
   templateUrl: './allcirculars.component.html',
   styleUrl: './allcirculars.component.css',
   standalone: true
@@ -50,6 +50,8 @@ export class AllCircularsComponent implements OnInit {
 
   circNoSearchControl = new FormControl('');
 
+  availableYears: number[] = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i);
+
 
   pagination = {
     limit: 10,
@@ -75,8 +77,14 @@ export class AllCircularsComponent implements OnInit {
     return this.pagination.offset + this.pagination.limit < this.total;
   }
 
+  getAvailableYears(): number[] {
+  const currentYear = new Date().getFullYear();
+  return Array.from({ length: 4 }, (_, i) => currentYear - i);
+}
+
   ngOnInit(): void {
     console.log('Initial filters:', this.state.filters);
+    this.availableYears = this.getAvailableYears();
     this.recentSearchesList = this.recentSearches.getRecent();
     this.loadSignatoryOptions();
     this.loadCirculars();
@@ -215,10 +223,12 @@ export class AllCircularsComponent implements OnInit {
 
   onApplicableToNseChange(value: boolean | null): void {
     this.state.filters.applicable_to_nse = value;
+    this.onApply();
   }
 
   onExchangeChange(value: ExchangeSource): void {
     this.state.filters.source = value;
+    this.onApply();
   }
 
   onApply(): void {
@@ -259,7 +269,8 @@ export class AllCircularsComponent implements OnInit {
     this.router.navigate(['/circular', circularId]);
   }
   clearFilters(): void {
-    this.state.filters.source = ExchangeSource.ALL;
+    this.state.filters.selectedyear = null;
+    this.state.filters.source = ExchangeSource.SEBI;
     this.state.filters.from_date = '';
     this.state.filters.to_date = '';
     this.state.filters.search = '';
@@ -372,5 +383,18 @@ export class AllCircularsComponent implements OnInit {
     } else {
       this.state.filters.circular_nos = this.state.filters.circular_nos.filter(v => v !== id);
     }
+  }
+
+
+  onYearSelect(year: number|null): void {
+    this.state.filters.selectedyear = year;
+    if(year !== null) {
+      this.state.filters.from_date = `${year}-01-01`;
+      this.state.filters.to_date = `${year}-12-31`;
+    }else{
+      this.state.filters.from_date = '';
+      this.state.filters.to_date = '';
+    }
+    this.onApply();
   }
 }
