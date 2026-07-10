@@ -7,8 +7,8 @@ import { environment } from 'src/environments/environment';
 
 interface Expert {
   id?: string;
-  dept_id: string;
-  dept_name?: string;
+  dept_ids: string[];
+  dept_names?: string[];
   title: string;
   text: string;
   highlights: any[];
@@ -184,8 +184,8 @@ async onEvent(type: string, event: any): Promise<void> {
         this.originalExpertIds = res.experts.map((e: any) => e.id).filter((id: string) => id);
         this.experts = res.experts.map((e: any) => ({
           id: e.id,
-          dept_id: e.dept_id,
-          dept_name: e.dept_name,
+          dept_ids: e.dept_ids ?? (e.dept_id ? [e.dept_id] : []),
+          dept_names: e.dept_names ?? (e.dept_name ? [e.dept_name] : []),
           title: e.title,
           text: e.text,
           highlights: (typeof e.highlights === 'string' ? JSON.parse(e.highlights) : (e.highlights || [])).map((h: any) => {
@@ -260,12 +260,35 @@ async onEvent(type: string, event: any): Promise<void> {
     // No longer used - highlights are added automatically via onAnnotationEvent
   }
 
-  assignDepartment(expertIndex: number, deptId: string): void {
+  toggleDepartment(expertIndex: number, deptId: string): void {
+    const expert = this.experts[expertIndex];
+    if (!expert) return;
     const dept = this.departments.find(d => d.id === deptId);
-    if (this.experts[expertIndex] && dept) {
-      this.experts[expertIndex].dept_id = dept.id;
+    if (!dept) return;
+    const idx = expert.dept_ids.indexOf(deptId);
+    if (idx === -1) {
+      expert.dept_ids = [...expert.dept_ids, deptId];
+    } else {
+      expert.dept_ids = expert.dept_ids.filter(id => id !== deptId);
     }
-    this.openDeptDropdownIndex = null;
+  }
+
+  removeDepartment(expertIndex: number, deptId: string): void {
+    const expert = this.experts[expertIndex];
+    if (!expert) return;
+    expert.dept_ids = expert.dept_ids.filter(id => id !== deptId);
+  }
+
+  isDeptSelected(expertIndex: number, deptId: string): boolean {
+    return this.experts[expertIndex]?.dept_ids?.includes(deptId) ?? false;
+  }
+
+  getDeptNames(ids: string[] | undefined | null): string {
+    if (!ids || ids.length === 0) return '';
+    return ids
+      .map(id => this.departments.find(d => d.id === id)?.name ?? '')
+      .filter(name => !!name)
+      .join(', ');
   }
 
   getDeptName(deptId: string): string {
@@ -308,7 +331,7 @@ async onEvent(type: string, event: any): Promise<void> {
 
         if (highlightText) {
           const newExpert: Expert = {
-            dept_id: '',
+            dept_ids: [],
             title: 'Expert ' + (this.experts.length + 1),
             text: highlightText,
             highlights: [] // will be updated after saveHighlights
@@ -364,11 +387,11 @@ async onEvent(type: string, event: any): Promise<void> {
   }
 
   onSave(): void {
-    // Check all tasks have department assigned
-    const unassignedTasks = this.experts.filter(e => !e.dept_id);
+    // Check all tasks have at least one department assigned
+    const unassignedTasks = this.experts.filter(e => !e.dept_ids || e.dept_ids.length === 0);
     if (unassignedTasks.length > 0) {
       this.isSaving = false;
-      alert('Please assign a department to all tasks before saving.');
+      alert('Please assign at least one department to all tasks before saving.');
       return;
     }
 
@@ -387,7 +410,7 @@ async onEvent(type: string, event: any): Promise<void> {
         const highlightsJson = JSON.stringify(expertAnnotations);
 
         const expertPayload: any = {
-          dept_id: e.dept_id,
+          dept_ids: [...e.dept_ids],
           title: e.title,
           text: e.text,
           highlights: highlightsJson

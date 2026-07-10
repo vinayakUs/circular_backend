@@ -36,8 +36,14 @@ export class TaskviewComponent implements OnInit {
   pendingSelection = '';
   pendingHighlight: any = null;
   newTaskTitle = '';
-  newTaskDeptId = '';
+  newTaskDeptIds: string[] = [];
   showDeptDropdown = false;
+
+  // Inline dept edit (rendered at the top of the comments section)
+  isEditingDept = false;
+  editedDeptIds: string[] = [];
+  showEditDeptDropdown = false;
+  isSavingDept = false;
 
   private annotationsRestored = false;
   private isRestoring = false;
@@ -66,6 +72,41 @@ export class TaskviewComponent implements OnInit {
         this.pdfUrl = `${environment.apiUrl}/api/circulars/${id}/content`;
         this.loadExperts(id);
         this.loadDepartments();
+      }
+    });
+
+    // Handle expertId query param to auto-select an expert
+    this.route.queryParams.subscribe(queryParams => {
+      const expertId = queryParams['expertId'];
+      console.log("expertid" , expertId);
+      if (expertId) {
+        // Experts may not be loaded yet, so select after they load
+        const existingId = expertId;
+        // const trySelect = () => {
+        //   const expert = this.experts.find(e => e.id === existingId);
+        //   console.log('Trying to select expert with ID:', existingId, 'Found:', expert);
+        //   if (expert) {
+        //     this.selectExpert(expert);
+        //   }
+        // };
+
+        console.log('Experts length:', this.experts.length);
+
+        if (this.experts.length > 0) {
+          // trySelect();
+          const expert = this.experts.find(e => e.id === existingId);
+          console.log('Trying to select expert with ID:', existingId, 'Found:', expert);
+
+        }
+        //  else {
+        //   // Poll until experts are loaded
+        //   const checkExperts = setInterval(() => {
+        //     if (this.experts.length > 0) {
+        //       clearInterval(checkExperts);
+        //       trySelect();
+        //     }
+        //   }, 100);
+        // }
       }
     });
   }
@@ -100,10 +141,29 @@ export class TaskviewComponent implements OnInit {
     this.loadComments(expert.id!);
   }
 
+  /**
+   * Programmatically select an expert by ID.
+   * This will:
+   * 1. Set the selected expert
+   * 2. Switch to the expert's comments tab
+   * 3. Show only the expert's highlights on the PDF
+   * 4. Load the expert's comments
+   */
+  selectExpertById(expertId: string | undefined): void {
+    if (!expertId) return;
+    const expert = this.experts.find(e => e.id === expertId);
+    if (expert) {
+      this.selectExpert(expert);
+    } else {
+      console.warn(`Expert with ID ${expertId} not found`);
+    }
+  }
+
   deselectExpert(): void {
     this.selectedExpert = null;
     this.comments = [];
     this.isAddingTask = false;
+    this.resetDeptEditState();
     // Force view mode and keep it there
     this.forceViewMode();
     this.showAllHighlights();
@@ -357,35 +417,44 @@ export class TaskviewComponent implements OnInit {
     setTimeout(() => { this.isClearingHighlights = false; }, 100);
   }
 
-  assignDepartment(deptId: string): void {
-    const expert = this.experts[this.experts.length - 1];
-    if (expert) {
-      expert.dept_id = deptId;
-      const dept = this.departments.find(d => d.id === deptId);
-      if (dept) {
-        expert.dept_name = dept.name;
-      }
+  toggleNewTaskDepartment(deptId: string): void {
+    const idx = this.newTaskDeptIds.indexOf(deptId);
+    if (idx === -1) {
+      this.newTaskDeptIds = [...this.newTaskDeptIds, deptId];
+    } else {
+      this.newTaskDeptIds = this.newTaskDeptIds.filter(id => id !== deptId);
     }
-    this.showDeptDropdown = false;
+  }
+
+  isNewTaskDeptSelected(deptId: string): boolean {
+    return this.newTaskDeptIds.includes(deptId);
+  }
+
+  removeNewTaskDept(deptId: string): void {
+    this.newTaskDeptIds = this.newTaskDeptIds.filter(id => id !== deptId);
+  }
+
+  getDeptNames(ids: string[] | undefined | null): string {
+    if (!ids || ids.length === 0) return '';
+    return ids
+      .map(id => this.departments.find(d => d.id === id)?.name ?? '')
+      .filter(name => !!name)
+      .join(', ');
   }
 
   saveTask(): void {
     if (!this.pendingHighlight) return;
+    if (this.newTaskDeptIds.length === 0) return;
 
     // Capture values before clearing
     const pendingText = this.pendingHighlight.text;
     const pendingAnnotationId = this.pendingHighlight.annotationId;
     const title = this.newTaskTitle || 'New Task ' + (this.experts.length + 1);
-    const deptId = this.newTaskDeptId;
-
-    // Get dept_name from departments list
-    const dept = this.departments.find(d => d.id === deptId);
-    const deptName = dept ? dept.name : '';
+    const deptIds = [...this.newTaskDeptIds];
 
     // Create the expert object
     const newExpert: Expert = {
-      dept_id: deptId,
-      dept_name: deptName,
+      dept_ids: deptIds,
       title: title,
       text: pendingText,
       highlights: []
@@ -425,7 +494,7 @@ export class TaskviewComponent implements OnInit {
   private resetPendingState(): void {
     this.pendingHighlight = null;
     this.newTaskTitle = '';
-    this.newTaskDeptId = '';
+    this.newTaskDeptIds = [];
     this.pendingSelection = '';
     this.showDeptDropdown = false;
   }
@@ -443,5 +512,66 @@ export class TaskviewComponent implements OnInit {
   getDeptName(deptId: string): string {
     const dept = this.departments.find(d => d.id === deptId);
     return dept ? dept.name : '';
+  }
+
+  // ===== Inline dept edit (comments section) =====
+
+  private resetDeptEditState(): void {
+    this.isEditingDept = false;
+    this.editedDeptIds = [];
+    this.showEditDeptDropdown = false;
+    this.isSavingDept = false;
+  }
+
+  startEditDept(): void {
+    if (!this.selectedExpert) return;
+    this.editedDeptIds = [...(this.selectedExpert.dept_ids ?? [])];
+    this.isEditingDept = true;
+    this.showEditDeptDropdown = false;
+  }
+
+  cancelEditDept(): void {
+    this.resetDeptEditState();
+  }
+
+  toggleEditDept(deptId: string): void {
+    this.editedDeptIds = this.editedDeptIds.includes(deptId)
+      ? this.editedDeptIds.filter(id => id !== deptId)
+      : [...this.editedDeptIds, deptId];
+  }
+
+  isEditDeptSelected(deptId: string): boolean {
+    return this.editedDeptIds.includes(deptId);
+  }
+
+  removeEditDept(deptId: string): void {
+    this.editedDeptIds = this.editedDeptIds.filter(id => id !== deptId);
+  }
+
+  saveEditDept(): void {
+    const expert = this.selectedExpert;
+    if (!expert?.id || this.isSavingDept) return;
+    if (this.editedDeptIds.length === 0) return;
+
+    const expertId = expert.id;
+    const newDeptIds = [...this.editedDeptIds];
+
+    this.isSavingDept = true;
+    this.api
+      .saveExperts(this.circularId, [{ ...expert, dept_ids: newDeptIds }], [expertId])
+      .subscribe({
+        next: () => {
+          // safe: `expert` was captured from `this.selectedExpert` above
+          this.selectedExpert!.dept_ids = newDeptIds;
+          const listEntry = this.experts.find(e => e.id === expertId);
+          if (listEntry) listEntry.dept_ids = newDeptIds;
+          this.resetDeptEditState();
+        },
+        error: (err) => {
+          console.error('Failed to save departments', err);
+          this.isSavingDept = false;
+          alert('Failed to save departments. Please try again.');
+        },
+      });
   }
 }

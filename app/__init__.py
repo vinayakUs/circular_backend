@@ -103,17 +103,31 @@ def create_app() -> Flask:
                 return {"error": "Invalid credentials"}, 401
             return {"error": "Authentication failed"}, 500
 
-        # Get user's database ID to include in JWT
+        # Get user's database ID to include in JWT.
+        # Narrow except clause: only DB connectivity / pool errors are recoverable
+        # here. Programming bugs (AttributeError, KeyError, etc.) propagate so
+        # they're visible in logs instead of being silently swallowed into a
+        # half-broken token.
         user_db_id = None
         try:
+            import psycopg2
             from ingestion.repository.users_repository import UsersRepository
             db_client = get_postgres_client()
             users_repo = UsersRepository(db_pool=db_client.get_pool())
             user_records = users_repo.get_departments_by_user(username)
             if user_records:
                 user_db_id = str(user_records[0].id)
-        except Exception as e:
-            logging.getLogger(__name__).warning("Could not fetch user DB id: %s", e)
+        except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
+            logging.getLogger(__name__).error("DB unavailable during login for %s: %s", username, e)
+            return {"error": "Service temporarily unavailable"}, 503
+
+        # Explicit empty-result handling: if the LDAP-authenticated user has no
+        # row in the users table, refuse to issue a token. require_auth blocks
+        # every protected route on g.user_db_id, so a None-id token would let
+        # the user click around and then 403 on the first real request.
+        if not user_db_id:
+            logging.getLogger(__name__).warning("LDAP user %s has no row in users table; refusing login", username)
+            return {"error": "User not provisioned in DB"}, 403
 
         token = auth.create_token(username, user_db_id)
         return {"access_token": token, "token_type": "bearer"}

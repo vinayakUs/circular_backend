@@ -106,24 +106,41 @@ CREATE TABLE IF NOT EXISTS notification_logs (
 CREATE INDEX IF NOT EXISTS idx_notification_logs_status ON notification_logs(status);
 CREATE INDEX IF NOT EXISTS idx_notification_logs_recipient ON notification_logs(recipient_email);
 
--- experts (renamed from circular_department_mapping)
-CREATE TABLE IF NOT EXISTS experts (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    circular_id UUID NOT NULL REFERENCES circulars(id) ON DELETE CASCADE,
-    department_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
-    expert_name VARCHAR(255) NOT NULL,
-    highlight_text VARCHAR(4000) NOT NULL,
-    highlights JSONB DEFAULT '[]',
-    status VARCHAR(20) DEFAULT 'open',
-    created_by_user_id UUID REFERENCES users(id),
-    created_by_dep_id UUID REFERENCES properties(id),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE(circular_id, department_id, expert_name)
-);
-CREATE INDEX IF NOT EXISTS idx_experts_circular_id ON experts(circular_id);
-CREATE INDEX IF NOT EXISTS idx_experts_department_id ON experts(department_id);
-CREATE INDEX IF NOT EXISTS idx_experts_status ON experts(status);
+-- experts (renamed from circular_department_mapping) old table one to one mapping
+-- CREATE TABLE IF NOT EXISTS experts (
+--     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--     circular_id UUID NOT NULL REFERENCES circulars(id) ON DELETE CASCADE,
+--     department_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+--     expert_name VARCHAR(255) NOT NULL,
+--     highlight_text VARCHAR(4000) NOT NULL,
+--     highlights JSONB DEFAULT '[]',
+--     status VARCHAR(20) DEFAULT 'open',
+--     created_by_user_id UUID REFERENCES users(id),
+--     created_by_dep_id UUID REFERENCES properties(id),
+--     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+--     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+--     UNIQUE(circular_id, department_id, expert_name)
+-- );
+-- CREATE INDEX IF NOT EXISTS idx_experts_circular_id ON experts(circular_id);
+-- CREATE INDEX IF NOT EXISTS idx_experts_department_id ON experts(department_id);
+-- CREATE INDEX IF NOT EXISTS idx_experts_status ON experts(status);
+
+
+  CREATE TABLE IF NOT EXISTS experts (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      circular_id UUID NOT NULL REFERENCES circulars(id) ON DELETE CASCADE,
+      expert_name VARCHAR(255) NOT NULL,
+      highlight_text VARCHAR(4000) NOT NULL,
+      highlights JSONB DEFAULT '[]',
+      status VARCHAR(20) DEFAULT 'open',
+      created_by_user_id UUID REFERENCES users(id),
+      created_by_dep_id UUID REFERENCES properties(id),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(circular_id, expert_name)
+  );
+  CREATE INDEX IF NOT EXISTS idx_experts_circular_id ON experts(circular_id);
+  CREATE INDEX IF NOT EXISTS idx_experts_status ON experts(status);
 
 
 -- comments
@@ -161,3 +178,17 @@ CREATE TABLE IF NOT EXISTS summaries (
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (circular_id)
   )
+
+
+-- expert_departments_mapping: many-to-many junction (one expert → many departments)
+CREATE TABLE IF NOT EXISTS expert_departments_mapping (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    expert_id UUID NOT NULL REFERENCES experts(id) ON DELETE CASCADE,
+    department_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(expert_id, department_id)
+);
+CREATE INDEX IF NOT EXISTS idx_expert_departments_mapping_expert
+    ON expert_departments_mapping(expert_id);
+CREATE INDEX IF NOT EXISTS idx_expert_departments_mapping_department
+    ON expert_departments_mapping(department_id);

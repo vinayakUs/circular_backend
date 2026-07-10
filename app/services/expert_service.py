@@ -50,48 +50,86 @@ class ExpertService:
         created_by_user_id: UUID | None = None,
         created_by_dep_id: UUID | None = None,
     ) -> dict[str, Any]:
-        """Save/update experts for a circular. Delete any that were removed."""
-        # Delete removed experts
-        if original_ids:
-            current_ids = {e.get("id") for e in experts if e.get("id")}
-            removed_ids = set(original_ids) - current_ids
-            for removed_id in removed_ids:
-                self.repository.delete_expert_mapping(UUID(removed_id))
+        """Save/update experts for a circular. Delete any that were removed.
 
-        # Upsert current experts
+        Each expert provides ``dept_ids`` (list of department UUIDs). Departments
+        are synced via the expert_departments_mapping junction. The full set of
+        writes runs in a single transaction — any failure rolls back the entire
+        save, so a circular can never end up half-updated.
+
+        Validation is done BEFORE entering the transaction. The 400 (missing
+        dept_ids on new experts) and 404 (referencing non-existent expert ids)
+        paths return early; the transaction body itself has no error returns,
+        so a normal exit always commits cleanly.
+        """
+        # ---- Pre-validation (no DB writes yet) ----
+
+        # 1. New experts must have dept_ids
         for expert in experts:
-            row_id = expert.get("id")
-            title = expert.get("title", "")
-            text = expert.get("text", "")
-            dept_id = expert.get("dept_id")
-            highlights_raw = expert.get("highlights", "[]")
-            # Parse if it's a JSON string (sent by frontend)
-            highlights = json.loads(highlights_raw) if isinstance(highlights_raw, str) else highlights_raw
+            if not expert.get("id"):
+                dept_ids_raw = expert.get("dept_ids") or []
+                if not dept_ids_raw:
+                    return {"error": "dept_ids is required for new experts"}, 400
 
-            if row_id:
-                row_uuid = UUID(row_id)
-                dept_uuid = UUID(dept_id) if dept_id else None
-                success = self.repository.update_expert_mapping(
-                    row_id=row_uuid,
-                    dept_id=dept_uuid,
-                    title=title,
-                    text=text,
-                    highlights=highlights,
-                )
-                if not success:
-                    return {"error": f"Update failed for id {row_id}"}, 404
-            else:
-                if not dept_id:
-                    return {"error": "dept_id is required for new experts"}, 400
-                self.repository.save_expert_mapping(
-                    circular_id=circular_id,
-                    dept_id=UUID(dept_id),
-                    title=title,
-                    text=text,
-                    highlights=highlights,
-                    created_by_user_id=created_by_user_id,
-                    created_by_dep_id=created_by_dep_id,
-                )
+        # 2. Referenced expert ids must exist (404 detection before any writes)
+        requested_ids = {UUID(e["id"]) for e in experts if e.get("id")}
+        if requested_ids:
+            existing_ids = self.repository.get_existing_expert_ids(list(requested_ids))
+            missing = requested_ids - existing_ids
+            if missing:
+                return {"error": f"Update failed for id {next(iter(missing))}"}, 404
+
+        # ---- Transactional write (no early returns inside) ----
+        with self.repository.acquire() as conn:
+            with conn.transaction():
+                # 1. Delete removed experts
+                if original_ids:
+                    current_ids = {e.get("id") for e in experts if e.get("id")}
+                    removed_ids = set(original_ids) - current_ids
+                    for removed_id in removed_ids:
+                        self.repository.delete_expert_mapping(UUID(removed_id), conn=conn)
+
+                # 2. Upsert current experts
+                for expert in experts:
+                    row_id = expert.get("id")
+                    title = expert.get("title", "")
+                    text = expert.get("text", "")
+
+                    # New format only: dept_ids (list). Single-dept_id payloads are not accepted.
+                    dept_ids: list[UUID] = [UUID(d) for d in (expert.get("dept_ids") or []) if d]
+
+                    highlights_raw = expert.get("highlights", "[]")
+                    highlights = (
+                        json.loads(highlights_raw)
+                        if isinstance(highlights_raw, str)
+                        else highlights_raw
+                    )
+
+                    if row_id:
+                        # ---- UPDATE existing expert ----
+                        row_uuid = UUID(row_id)
+                        self.repository.update_expert_mapping(
+                            row_id=row_uuid,
+                            title=title,
+                            text=text,
+                            highlights=highlights,
+                            conn=conn,
+                        )
+                        # Re-sync departments: delete old, insert new
+                        self.repository.delete_expert_departments_mapping(row_uuid, conn=conn)
+                        self.repository.save_expert_departments_mapping(row_uuid, dept_ids, conn=conn)
+                    else:
+                        # ---- CREATE new expert ----
+                        new_id = self.repository.save_expert_mapping(
+                            circular_id=circular_id,
+                            title=title,
+                            text=text,
+                            highlights=highlights,
+                            created_by_user_id=created_by_user_id,
+                            created_by_dep_id=created_by_dep_id,
+                            conn=conn,
+                        )
+                        self.repository.save_expert_departments_mapping(new_id, dept_ids, conn=conn)
 
         return {"success": True}
 

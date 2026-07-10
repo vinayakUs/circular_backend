@@ -103,13 +103,17 @@
               <p>No tasks found.</p>
             </div>
 
-            <div class="expert-card" *ngFor="let expert of experts">
+            <div class="expert-card" *ngFor="let expert of experts"
+            [routerLink]="['/taskview' , circular?.id]"
+            [queryParams]="{ expertId: expert.id }"
+            style="cursor: pointer;"
+            >
               <div class="expert-header">
                 <span class="expert-title">{{ expert.title }}</span>
               </div>
               <div class="expert-text">{{ expert.text }}</div>
-              <div class="expert-dept" *ngIf="expert.dept_name || expert.dept_id">
-                <span class="dept-badge" *ngIf="expert.dept_name">{{ expert.dept_name }}</span>
+              <div class="expert-dept" *ngIf="expert.dept_names?.length || expert.dept_ids?.length">
+                <span class="dept-badge" *ngFor="let name of expert.dept_names">{{ name }}</span>
               </div>
               <div class="expert-meta" *ngIf="expert.created_by_username">
                 <span class="meta-text">Created by {{ expert.created_by_username }}</span>

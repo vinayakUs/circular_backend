@@ -90,8 +90,8 @@ export interface HighlightDetail {
 
 export interface Expert {
   id?: string;
-  dept_id: string;
-  dept_name?: string;
+  dept_ids: string[];
+  dept_names?: string[];
   title: string;
   text: string;
   highlights: any[];

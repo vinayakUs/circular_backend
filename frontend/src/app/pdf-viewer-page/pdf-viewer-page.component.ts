@@ -173,7 +173,7 @@ export class PdfViewerPageComponent implements OnInit {
 
         if (highlightText) {
           const newExpert: Expert = {
-            dept_id: '',
+            dept_ids: [],
             title: 'Task ' + (this.experts.length + 1),
             text: highlightText,
             highlights: []
@@ -311,13 +311,33 @@ export class PdfViewerPageComponent implements OnInit {
     this.pdfViewerService.removeEditorAnnotations(() => true);
   }
 
-  assignDepartment(expertIndex: number, deptId: string): void {
-    const dept = this.departments.find(d => d.id === deptId);
-    if (this.experts[expertIndex] && dept) {
-      this.experts[expertIndex].dept_id = dept.id;
-      this.experts[expertIndex].dept_name = dept.name;
+  toggleDepartment(expertIndex: number, deptId: string): void {
+    const expert = this.experts[expertIndex];
+    if (!expert) return;
+    const idx = expert.dept_ids.indexOf(deptId);
+    if (idx === -1) {
+      expert.dept_ids = [...expert.dept_ids, deptId];
+    } else {
+      expert.dept_ids = expert.dept_ids.filter(id => id !== deptId);
     }
-    this.showDeptDropdown = false;
+  }
+
+  removeDepartment(expertIndex: number, deptId: string): void {
+    const expert = this.experts[expertIndex];
+    if (!expert) return;
+    expert.dept_ids = expert.dept_ids.filter(id => id !== deptId);
+  }
+
+  isDeptSelected(expertIndex: number, deptId: string): boolean {
+    return this.experts[expertIndex]?.dept_ids?.includes(deptId) ?? false;
+  }
+
+  getDeptNames(ids: string[] | undefined | null): string {
+    if (!ids || ids.length === 0) return '';
+    return ids
+      .map(id => this.departments.find(d => d.id === id)?.name ?? '')
+      .filter(name => !!name)
+      .join(', ');
   }
 
   getDeptName(deptId: string): string {

@@ -61,18 +61,26 @@
                                     <span class="highlight-text">"{{ expert.text }}"</span>
                                 </div>
                                 <div class="dept-selector">
-                                    <button class="dept-btn"
-                                        (click)="openDeptDropdownIndex = openDeptDropdownIndex === i ? null : i">
-                                        <span *ngIf="expert.dept_id">{{ getDeptName(expert.dept_id) }}</span>
-                                        <span *ngIf="!expert.dept_id">Assign Department</span>
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
-                                            stroke="currentColor" stroke-width="2">
-                                            <polyline points="6 9 12 15 18 9"></polyline>
-                                        </svg>
-                                    </button>
+                                    <div class="dept-chips">
+                                        <span *ngFor="let deptId of expert.dept_ids" class="dept-chip">
+                                            {{ getDeptName(deptId) }}
+                                            <button type="button" class="chip-x" (click)="removeDepartment(i, deptId)">×</button>
+                                        </span>
+                                        <button type="button" class="dept-btn"
+                                            (click)="openDeptDropdownIndex = openDeptDropdownIndex === i ? null : i">
+                                            <span *ngIf="expert.dept_ids.length === 0">Assign Department</span>
+                                            <span *ngIf="expert.dept_ids.length > 0">Add Department</span>
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+                                                stroke="currentColor" stroke-width="2">
+                                                <polyline points="6 9 12 15 18 9"></polyline>
+                                            </svg>
+                                        </button>
+                                    </div>
                                     <div class="dept-dropdown" *ngIf="openDeptDropdownIndex === i">
                                         <div class="dept-option" *ngFor="let dept of departments"
-                                            (click)="assignDepartment(i, dept.id)">
+                                            [class.selected]="isDeptSelected(i, dept.id)"
+                                            (click)="toggleDepartment(i, dept.id)">
+                                            <span class="dept-check">{{ isDeptSelected(i, dept.id) ? '✓' : '' }}</span>
                                             {{ dept.name }}
                                         </div>
                                     </div>

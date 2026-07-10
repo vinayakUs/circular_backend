@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
 from threading import Lock
 from typing import Any
 
@@ -22,6 +23,16 @@ class _PoolConn:
 
     def commit(self) -> None:
         self._conn.commit()
+
+    @contextmanager
+    def transaction(self):
+        """psycopg2-compatible transaction context. Mirrors psycopg3's API."""
+        try:
+            yield self
+            self._conn.commit()
+        except Exception:
+            self._conn.rollback()
+            raise
 
     def __enter__(self) -> "_PoolConn":
         return self

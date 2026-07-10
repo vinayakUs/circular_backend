@@ -30,57 +30,96 @@ class ExpertMappingRepository:
         self.logger = __import__("logging").getLogger(__name__)
         self.db_pool = db_pool
 
+    def _run(self, work, *, conn):
+        """Run `work(conn)` on a caller-provided connection, or in a fresh transaction.
+
+        Returns whatever `work` returns. When `conn` is provided, the caller owns
+        the transaction lifecycle (use with `with conn.transaction():`). When `conn`
+        is None, a connection is acquired and committed on success.
+        """
+        if conn is None:
+            with self.db_pool.acquire() as c:
+                result = work(c)
+                c.commit()
+                return result
+        return work(conn)
+
+    def acquire(self):
+        """Acquire a connection from the pool. Caller owns the transaction lifecycle.
+
+        Use for multi-step orchestration that needs atomicity across several
+        repository calls: ``with self.repository.acquire() as conn: with conn.transaction(): ...``.
+        """
+        return self.db_pool.acquire()
+
     def save_expert_mapping(
-        self, circular_id: UUID, dept_id: UUID, title: str, text: str, highlights: list[dict],
-        created_by_user_id: UUID | None = None, created_by_dep_id: UUID | None = None
+        self,
+        circular_id: UUID,
+        title: str,
+        text: str,
+        highlights: list[dict],
+        created_by_user_id: UUID | None = None,
+        created_by_dep_id: UUID | None = None,
+        *,
+        conn: Any = None,
     ) -> UUID:
-        with self.db_pool.acquire() as conn:
-            cursor = conn.cursor()
+        def _work(c):
+            cursor = c.cursor()
             cursor.execute(
                 """
                 INSERT INTO experts
-                    (circular_id, department_id, expert_name, highlight_text, highlights,
+                    (circular_id, expert_name, highlight_text, highlights,
                      created_by_user_id, created_by_dep_id)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s)
                 RETURNING id
                 """,
-                (str(circular_id), str(dept_id), title, text, json.dumps(highlights),
-                 str(created_by_user_id) if created_by_user_id else None,
-                 str(created_by_dep_id) if created_by_dep_id else None),
+                (
+                    str(circular_id),
+                    title,
+                    text,
+                    json.dumps(highlights),
+                    str(created_by_user_id) if created_by_user_id else None,
+                    str(created_by_dep_id) if created_by_dep_id else None,
+                ),
             )
-            row_id = cursor.fetchone()[0]
-            conn.commit()
-        return row_id
+            return cursor.fetchone()[0]
+        return self._run(_work, conn=conn)
 
     def update_expert_mapping(
-        self, row_id: UUID, dept_id: UUID, title: str, text: str, highlights: list[dict]
+        self,
+        row_id: UUID,
+        title: str,
+        text: str,
+        highlights: list[dict],
+        *,
+        conn: Any = None,
     ) -> bool:
-        with self.db_pool.acquire() as conn:
-            cursor = conn.cursor()
+        def _work(c):
+            cursor = c.cursor()
             cursor.execute(
                 """
                 UPDATE experts
-                SET department_id = %s, expert_name = %s, highlight_text = %s,
+                SET expert_name = %s, highlight_text = %s,
                     highlights = %s, updated_at = NOW()
                 WHERE id = %s
                 RETURNING id
                 """,
-                (str(dept_id), title, text, json.dumps(highlights), str(row_id)),
+                (title, text, json.dumps(highlights), str(row_id)),
             )
-            result = cursor.fetchone()
-            conn.commit()
-        return result is not None
+            return cursor.fetchone() is not None
+        return self._run(_work, conn=conn)
 
-    def delete_expert_mapping(self, row_id: UUID) -> bool:
-        with self.db_pool.acquire() as conn:
-            cursor = conn.cursor()
+    def delete_expert_mapping(
+        self, row_id: UUID, *, conn: Any = None,
+    ) -> bool:
+        def _work(c):
+            cursor = c.cursor()
             cursor.execute(
                 "DELETE FROM experts WHERE id = %s RETURNING id",
                 (str(row_id),),
             )
-            result = cursor.fetchone()
-            conn.commit()
-        return result is not None
+            return cursor.fetchone() is not None
+        return self._run(_work, conn=conn)
 
     def update_expert_status(self, expert_id: UUID, status: str) -> bool:
         with self.db_pool.acquire() as conn:
@@ -98,12 +137,11 @@ class ExpertMappingRepository:
             cursor = conn.cursor()
             cursor.execute(
                 """
-                SELECT m.id, m.circular_id, m.department_id, m.expert_name, m.highlight_text,
-                       m.highlights, m.created_at, m.updated_at, m.status, p.name as dept_name,
+                SELECT m.id, m.circular_id, m.expert_name, m.highlight_text,
+                       m.highlights, m.created_at, m.updated_at, m.status,
                        m.created_by_user_id, m.created_by_dep_id,
                        u.user_id as created_by_username
                 FROM experts m
-                LEFT JOIN properties p ON p.id = m.department_id
                 LEFT JOIN users u ON u.id = m.created_by_user_id
                 WHERE m.circular_id = %s
                 ORDER BY m.created_at
@@ -111,24 +149,64 @@ class ExpertMappingRepository:
                 (str(circular_id),),
             )
             rows = cursor.fetchall()
+            if not rows:
+                return []
+            expert_ids = [r[0] for r in rows]
+            cursor.execute(
+                """
+                SELECT edm.expert_id, edm.department_id, p.name
+                FROM expert_departments_mapping edm
+                LEFT JOIN properties p ON p.id = edm.department_id
+                WHERE edm.expert_id = ANY(%s::uuid[])
+                """,
+                (expert_ids,),
+            )
+            dept_rows = cursor.fetchall()
+
+        # Group depts by expert_id
+        dept_by_expert: dict[str, list[dict]] = {}
+        for expert_id, dept_id, dept_name in dept_rows:
+            dept_by_expert.setdefault(str(expert_id), []).append(
+                {"id": str(dept_id), "name": dept_name or ""}
+            )
+
         return [
             {
                 "id": str(r[0]),
                 "circular_id": str(r[1]),
-                "dept_id": str(r[2]),
-                "dept_name": r[9] or "",
-                "title": r[3],
-                "text": r[4],
-                "highlights": json.loads(r[5]) if isinstance(r[5], str) else (r[5] if isinstance(r[5], list) else []),
-                "status": r[8] or "open",
-                "created_at": r[6].isoformat() if r[6] else None,
-                "updated_at": r[7].isoformat() if r[7] else None,
-                "created_by_user_id": str(r[10]) if r[10] else None,
-                "created_by_dep_id": str(r[11]) if r[11] else None,
-                "created_by_username": r[12] if r[12] else None,
+                "dept_ids": [d["id"] for d in dept_by_expert.get(str(r[0]), [])],
+                "dept_names": [d["name"] for d in dept_by_expert.get(str(r[0]), [])],
+                "title": r[2],
+                "text": r[3],
+                "highlights": json.loads(r[4]) if isinstance(r[4], str) else (r[4] if isinstance(r[4], list) else []),
+                "status": r[7] or "open",
+                "created_at": r[5].isoformat() if r[5] else None,
+                "updated_at": r[6].isoformat() if r[6] else None,
+                "created_by_user_id": str(r[8]) if r[8] else None,
+                "created_by_dep_id": str(r[9]) if r[9] else None,
+                "created_by_username": r[10] if r[10] else None,
             }
             for r in rows
         ]
+
+    def get_existing_expert_ids(self, expert_ids: list) -> set:
+        """Return the subset of `expert_ids` that currently exist in the experts table.
+
+        Used by the service to pre-validate updates and return 404 before entering
+        the write transaction. One round-trip regardless of input size.
+        """
+        if not expert_ids:
+            return set()
+        ids = [str(eid) for eid in expert_ids]
+        with self.db_pool.acquire() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT id FROM experts WHERE id = ANY(%s::uuid[])",
+                (ids,),
+            )
+            # Normalize to UUID so the caller's set-difference works regardless
+            # of whether psycopg2 returns UUID columns as str or uuid.UUID.
+            return {UUID(row[0]) if isinstance(row[0], str) else row[0] for row in cursor.fetchall()}
 
     def get_experts_by_department(
         self,
@@ -143,22 +221,29 @@ class ExpertMappingRepository:
         conditions, params = [], []
         p = 1
         if department_id:
-            conditions.append(f"cdm.department_id = %s"); params.append(str(department_id)); p += 1
+            conditions.append("edm.department_id = %s"); params.append(str(department_id))
         if source:
-            conditions.append(f"c.source = %s"); params.append(source.upper()); p += 1
+            conditions.append("c.source = %s"); params.append(source.upper())
         if from_date:
-            conditions.append(f"c.issue_date >= %s"); params.append(from_date); p += 1
+            conditions.append("c.issue_date >= %s"); params.append(from_date)
         if to_date:
-            conditions.append(f"c.issue_date <= %s"); params.append(to_date); p += 1
+            conditions.append("c.issue_date <= %s"); params.append(to_date)
         if full_circular_no:
-            conditions.append(f"UPPER(c.full_reference) LIKE UPPER(%s)"); params.append(f"%{full_circular_no}%"); p += 1
+            conditions.append("UPPER(c.full_reference) LIKE UPPER(%s)")
+            params.append(f"%{full_circular_no}%")
 
         where = " AND ".join(conditions) if conditions else "1=1"
 
         with self.db_pool.acquire() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                f"SELECT COUNT(*) FROM experts e JOIN circulars c ON e.circular_id = c.id WHERE {where}",
+                f"""
+                SELECT COUNT(DISTINCT e.id)
+                FROM experts e
+                JOIN expert_departments_mapping edm ON edm.expert_id = e.id
+                JOIN circulars c ON c.id = e.circular_id
+                WHERE {where}
+                """,
                 params,
             )
             total_row = cursor.fetchone()
@@ -166,10 +251,11 @@ class ExpertMappingRepository:
 
             cursor.execute(
                 f"""
-                SELECT e.id, e.expert_name, e.highlight_text,
+                SELECT DISTINCT e.id, e.expert_name, e.highlight_text,
                        c.id AS circ_id, c.full_reference, c.source, c.issue_date, c.title
                 FROM experts e
-                JOIN circulars c ON e.circular_id = c.id
+                JOIN expert_departments_mapping edm ON edm.expert_id = e.id
+                JOIN circulars c ON c.id = e.circular_id
                 WHERE {where}
                 ORDER BY c.issue_date DESC
                 LIMIT %s OFFSET %s
@@ -194,3 +280,48 @@ class ExpertMappingRepository:
             for r in rows
         ]
         return experts, total
+    
+
+    # Expert depertment mapping functions
+
+    def save_expert_departments_mapping(
+        self, expert_id: UUID, dept_ids: list[UUID], *, conn: Any = None,
+    ) -> None:
+        """Insert (expert, department) pairs. Idempotent: ON CONFLICT DO NOTHING."""
+        if not dept_ids:
+            return
+
+        def _work(c):
+            cursor = c.cursor()
+            for dept_id in dept_ids:
+                cursor.execute(
+                    """
+                    INSERT INTO expert_departments_mapping (expert_id, department_id)
+                    VALUES (%s, %s)
+                    ON CONFLICT (expert_id, department_id) DO NOTHING
+                    """,
+                    (str(expert_id), str(dept_id)),
+                )
+
+        self._run(_work, conn=conn)
+
+    def delete_expert_departments_mapping(
+        self, expert_id: UUID, *, conn: Any = None,
+    ) -> None:
+        def _work(c):
+            cursor = c.cursor()
+            cursor.execute(
+                "DELETE FROM expert_departments_mapping WHERE expert_id = %s",
+                (str(expert_id),),
+            )
+
+        self._run(_work, conn=conn)
+
+    def get_expert_departments_mapping(self, expert_id: UUID) -> list[UUID]:
+        with self.db_pool.acquire() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT department_id FROM expert_departments_mapping WHERE expert_id = %s",
+                (str(expert_id),),
+            )
+            return [UUID(row[0]) for row in cursor.fetchall()]

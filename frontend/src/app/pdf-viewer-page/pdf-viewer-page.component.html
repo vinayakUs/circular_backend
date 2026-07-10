@@ -58,7 +58,7 @@
               <div class="task-dot" [class.active]="expert.highlights && expert.highlights.length" [class.inactive]="!expert.highlights || !expert.highlights.length"></div>
               <div class="task-content">
                 <div class="task-title">{{ expert.title }}</div>
-                <div class="task-meta">{{ expert.dept_name || 'Unassigned' }}</div>
+                <div class="task-meta">{{ getDeptNames(expert.dept_ids) || 'Unassigned' }}</div>
               </div>
               <button class="remove-task-btn" (click)="removeExpert(i); $event.stopPropagation()">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -109,16 +109,25 @@
           </div>
           <div class="expert-quote">"{{ selectedExpert.text }}"</div>
           <div class="dept-selector">
-            <button class="dept-btn" (click)="showDeptDropdown = !showDeptDropdown">
-              <span>{{ getDeptName(selectedExpert.dept_id) || 'Assign Department' }}</span>
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="6 9 12 15 18 9"></polyline>
-              </svg>
-            </button>
+            <div class="dept-chips">
+              @for (deptId of selectedExpert.dept_ids; track deptId) {
+                <span class="dept-chip">
+                  {{ getDeptName(deptId) }}
+                  <button type="button" class="chip-x" (click)="removeDepartment(experts.indexOf(selectedExpert), deptId)">×</button>
+                </span>
+              }
+              <button type="button" class="dept-btn" (click)="showDeptDropdown = !showDeptDropdown">
+                <span>{{ selectedExpert.dept_ids.length === 0 ? 'Assign Department' : 'Add Department' }}</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </button>
+            </div>
             @if (showDeptDropdown) {
               <div class="dept-dropdown">
                 @for (dept of departments; track dept.id) {
-                  <div class="dept-option" (click)="assignDepartment(experts.indexOf(selectedExpert), dept.id)">
+                  <div class="dept-option" [class.selected]="isDeptSelected(experts.indexOf(selectedExpert), dept.id)" (click)="toggleDepartment(experts.indexOf(selectedExpert), dept.id)">
+                    <span class="dept-check">{{ isDeptSelected(experts.indexOf(selectedExpert), dept.id) ? '✓' : '' }}</span>
                     {{ dept.name }}
                   </div>
                 }
