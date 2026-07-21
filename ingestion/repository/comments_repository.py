@@ -72,3 +72,29 @@ class CommentsRepository:
                 text=row[4],
                 created_at=row[5],
             )
+
+    def _insert_in_tx(
+        self, cursor, expert_id: UUID, user_id: str, username: str, text: str
+    ) -> CommentRecord:
+        """Insert a comment using the caller's cursor. Caller owns commit.
+
+        Used by CommentsService when the comment must commit atomically with
+        follow-up writes (e.g. mention fan-out).
+        """
+        cursor.execute(
+            """
+            INSERT INTO comments (expert_id, user_id, username, text)
+            VALUES (%s, %s, %s, %s)
+            RETURNING id, expert_id, user_id, username, text, created_at
+            """,
+            (str(expert_id), user_id, username, text),
+        )
+        r = cursor.fetchone()
+        return CommentRecord(
+            id=r[0],
+            expert_id=r[1],
+            user_id=r[2],
+            username=r[3],
+            text=r[4],
+            created_at=r[5],
+        )

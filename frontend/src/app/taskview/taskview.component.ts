@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ElementRef, ViewChild, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
@@ -14,6 +14,15 @@ interface Comment {
   text: string;
   created_at: string;
 }
+
+interface MentionSegment {
+  kind: 'text' | 'user' | 'department';
+  value: string;
+}
+
+// Mirrors the backend `notifications.mention_parser._MENTION_RE` so the
+// rendered pills always match what the server actually parsed.
+const COMMENT_MENTION_RE = /(?<![A-Za-z0-9_@])@((?:dep:)?)([A-Za-z0-9_.\-@]+)/g;
 
 @Component({
   selector: 'app-taskview',
@@ -45,6 +54,16 @@ export class TaskviewComponent implements OnInit {
   showEditDeptDropdown = false;
   isSavingDept = false;
 
+  // ── @mention picker ─────────────────────────────────────────
+  @ViewChild('commentBox') commentBox!: ElementRef<HTMLTextAreaElement>;
+  mentionOpen = false;
+  mentionUsers: { id: string; user_id: string }[] = [];
+  mentionDepartments: { id: string; name: string }[] = [];
+  mentionActive = 0;
+  mentionTriggerPos: number | null = null;       // char index of the '@' that opened the picker
+  mentionPos: { top: number; left: number; width: number } | null = null;  // fixed-positioned popup coords
+  private mentionDebounce?: ReturnType<typeof setTimeout>;
+
   private annotationsRestored = false;
   private isRestoring = false;
   private isClearingHighlights = false;
@@ -63,6 +82,166 @@ export class TaskviewComponent implements OnInit {
     private api: CircularsApiService,
     private pdfViewerService: NgxExtendedPdfViewerService
   ) {}
+
+  // ── @mention picker helpers ────────────────────────────────
+  flatMentionCount(): number {
+    return this.mentionUsers.length + this.mentionDepartments.length;
+  }
+
+  initials(s: string): string {
+    return (s.split('@')[0] || s).slice(0, 2).toUpperCase();
+  }
+
+  /** Split a comment into alternating plain-text and mention segments so the
+   *  template can render @users and @dep:Departments as highlighted pills. */
+  parseCommentSegments(text: string): MentionSegment[] {
+    if (!text) return [];
+    const out: MentionSegment[] = [];
+    COMMENT_MENTION_RE.lastIndex = 0;        // reset stateful regex (g flag)
+    let lastIndex = 0;
+    for (const m of text.matchAll(COMMENT_MENTION_RE)) {
+      if (m.index === undefined) break;
+      if (m.index > lastIndex) {
+        out.push({ kind: 'text', value: text.slice(lastIndex, m.index) });
+      }
+      const prefix = m[1] ?? '';
+      const ident = m[2] ?? '';
+      if (prefix === 'dep:') {
+        out.push({ kind: 'department', value: `@${prefix}${ident}` });
+      } else {
+        out.push({ kind: 'user', value: `@${ident}` });
+      }
+      lastIndex = m.index + m[0].length;
+    }
+    if (lastIndex < text.length) {
+      out.push({ kind: 'text', value: text.slice(lastIndex) });
+    }
+    return out;
+  }
+
+  /** Called on every keystroke in the comment textarea. Opens / closes / filters the picker. */
+  onCommentInput(): void {
+    const ta = this.commentBox?.nativeElement;
+    if (!ta) return;
+    const caret = ta.selectionStart ?? this.newComment.length;
+    const before = this.newComment.slice(0, caret);
+
+    // Match an '@' that starts a mention token: must be at text-start or after whitespace/punct,
+    // followed by optional 'dep:' and then non-space, non-@ chars up to the caret.
+    const m = before.match(/(?:^|[\s.,;!?()])@((?:dep:)?[^\s@]*)$/i);
+    if (!m) {
+      this.closeMention();
+      return;
+    }
+
+    this.mentionTriggerPos = caret - m[1].length - 1;     // position of the '@'
+    this.mentionOpen = true;
+    this.updatePopupPos();
+    this.scheduleMentionSearch(m[1]);
+  }
+
+  /** Recompute popup coords from the textarea's viewport bounding rect.
+   *  Flip rules:
+   *    • 1 result   → always above (compact, close to the user's eye line)
+   *    • many results → flip above only if it wouldn't fit below
+   *  The popup's actual height is clamped to its content (1 row ≈ 32px,
+   *  many rows up to POPUP_MAX_H), so for the single-row case we use the
+   *  content height when computing the flipped position. */
+  private updatePopupPos(): void {
+    const ta = this.commentBox?.nativeElement;
+    if (!ta) return;
+    const r = ta.getBoundingClientRect();
+    const POPUP_MAX_H = 260;                              // matches CSS .mention-popup max-height
+    const ROW_H       = 36;                               // approx single-row height incl. padding
+    const GAP         = 4;
+    const vh          = window.innerHeight;
+    const total       = this.flatMentionCount();
+
+    // Pick an estimated popup height so the "flipped" position lands cleanly.
+    const popupH = total === 1 ? ROW_H : Math.min(total * ROW_H, POPUP_MAX_H);
+
+    const spaceBelow = vh - r.bottom;
+    const placeAbove =
+      total === 1 ||                                      // 1 result: always above
+      (spaceBelow < popupH && r.top > spaceBelow);        // many: flip if no room below
+
+    this.mentionPos = {
+      top: placeAbove ? r.top - popupH - GAP : r.bottom + GAP,
+      left: r.left,
+      width: Math.min(r.width, 320),
+    };
+  }
+
+  private scheduleMentionSearch(q: string): void {
+    clearTimeout(this.mentionDebounce);
+    this.mentionDebounce = setTimeout(() => this.runMentionSearch(q), 120);
+  }
+
+  private runMentionSearch(q: string): void {
+    this.api.searchMentions(q, 8).subscribe({
+      next: (res) => {
+        this.mentionUsers = res.users ?? [];
+        this.mentionDepartments = res.departments ?? [];
+        const total = this.flatMentionCount();
+        this.mentionActive = total === 0 ? 0 : Math.min(this.mentionActive, total - 1);
+        this.updatePopupPos();       // re-evaluate (1-result → above rule now applies)
+      },
+      error: () => this.closeMention(),
+    });
+  }
+
+  closeMention(): void {
+    this.mentionOpen = false;
+    this.mentionTriggerPos = null;
+    this.mentionPos = null;
+  }
+
+  /** Recompute popup position when the user scrolls or resizes while popup is open. */
+  @HostListener('window:scroll')
+  @HostListener('window:resize')
+  onWindowScrollOrResize(): void {
+    if (this.mentionOpen) this.updatePopupPos();
+  }
+
+  /** Keyboard navigation while the picker is open. */
+  onCommentKey(ev: KeyboardEvent): void {
+    if (!this.mentionOpen) return;
+
+    const total = this.flatMentionCount();
+    if (ev.key === 'ArrowDown') {
+      ev.preventDefault();
+      if (total) this.mentionActive = (this.mentionActive + 1) % total;
+    } else if (ev.key === 'ArrowUp') {
+      ev.preventDefault();
+      if (total) this.mentionActive = (this.mentionActive - 1 + total) % total;
+    } else if (ev.key === 'Enter' || ev.key === 'Tab') {
+      if (!total) return;
+      ev.preventDefault();
+      if (this.mentionActive < this.mentionUsers.length) {
+        this.insertMention('user', this.mentionUsers[this.mentionActive]);
+      } else {
+        const i = this.mentionActive - this.mentionUsers.length;
+        this.insertMention('department', this.mentionDepartments[i]);
+      }
+    } else if (ev.key === 'Escape') {
+      ev.preventDefault();
+      this.closeMention();
+    }
+  }
+
+  /** Insert the chosen mention at the @ trigger position and close the picker. */
+  insertMention(kind: 'user' | 'department', item: { user_id?: string; name?: string }): void {
+    const ta = this.commentBox?.nativeElement;
+    if (!ta || this.mentionTriggerPos === null) return;
+    const token = kind === 'user' ? item.user_id! : `dep:${item.name!}`;
+    const caret = ta.selectionStart ?? this.newComment.length;
+    const before = this.newComment.slice(0, this.mentionTriggerPos);
+    const after  = this.newComment.slice(caret);
+    this.newComment = `${before}@${token} ${after}`;
+    const newCaret = before.length + 1 + token.length + 1;       // 1 for '@', 1 for trailing space
+    setTimeout(() => { ta.focus(); ta.setSelectionRange(newCaret, newCaret); });
+    this.closeMention();
+  }
 
   ngOnInit(): void {
     this.route.params.subscribe(params => {

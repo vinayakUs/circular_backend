@@ -10,14 +10,15 @@
 
       <form class="login-form" (ngSubmit)="onSubmit()">
         <div class="form-group">
-          <label for="email" class="form-label">Email address</label>
+          <label for="username" class="form-label">Username</label>
           <input
-            type="email"
-            id="email"
+            type="text"
+            id="username"
             class="form-input"
-            placeholder="you@company.com"
-            [(ngModel)]="email"
-            name="email"
+            placeholder="Enter your username"
+            [(ngModel)]="username"
+            name="username"
+            autocomplete="username"
             required
           />
         </div>

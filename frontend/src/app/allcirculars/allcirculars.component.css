@@ -378,6 +378,16 @@
   cursor: pointer;
 }
 
+.multi-select-option input[type="radio"] {
+  margin: 0;
+  accent-color: #5e6ad2;
+  cursor: pointer;
+}
+
+.multi-select-option.radio-option {
+  font-weight: 400;
+}
+
 .multi-select-empty {
   padding: 10px 8px;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;

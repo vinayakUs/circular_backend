@@ -9,6 +9,11 @@ import sys
 from functools import lru_cache
 from typing import Any
 
+try:
+    from instructor.core import InstructorRetryException
+except ImportError:  # pragma: no cover — fallback for older instructor installs
+    from instructor.exceptions import InstructorRetryException
+
 from langchain_classic.chains.summarize import load_summarize_chain
 from langchain_core.documents import Document
 from langchain_core.prompts import PromptTemplate
@@ -184,13 +189,33 @@ class DocumentSummarizerProcessor(BaseProcessor):
         try:
             summary = chain.invoke(docs)
             summary_text = summary.get("output_text", str(summary))
+        except InstructorRetryException:
+            # All LLM retries exhausted — propagate so BaseProcessor.run records
+            # FAILED in processing_tasks and the next pipeline run retries once
+            # the LLM service recovers. No summary is persisted in this case.
+            self.logger.error(
+                "metric=document_summarizer_llm_failure circular_id=%s — LLM retries exhausted",
+                record.id,
+            )
+            raise
         except Exception as e:
-            raise RuntimeError(f"LangChain summarization failed: {e}")
+            self.logger.error(
+                "metric=document_summarizer_unknown_error circular_id=%s error=%s",
+                record.id, e,
+            )
+            raise RuntimeError(f"LangChain summarization failed: {e}") from e
 
-        if not summary_text or not summary_text.strip():
-            raise RuntimeError("Summarization returned empty result.")
+        # Defense-in-depth: reject placeholder strings that the adapter or chain
+        # could produce from a None response (e.g. str(None) == "None").
+        stripped = summary_text.strip() if isinstance(summary_text, str) else ""
+        if not stripped or stripped.lower() in ("none", "null", "nil", "{}"):
+            self.logger.error(
+                "metric=document_summarizer_empty_summary circular_id=%s summary_text=%r",
+                record.id, summary_text,
+            )
+            raise RuntimeError(f"Summarization returned empty/invalid result: {summary_text!r}")
 
-        summary_text = summary_text.strip()
+        summary_text = stripped
         self.logger.info("Generated summary for circular_id=%s, length=%s", record.id, len(summary_text))
         self.logger.info("Summary text: %s", summary_text)
         # Idempotent: delete old summary and upload new one

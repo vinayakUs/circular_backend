@@ -1,6 +1,7 @@
 """LangChain adapter wrapping existing LLM providers (minimax/nvidia)."""
 
 import json
+import logging
 from typing import Any, Callable, Iterator, Literal
 
 from langchain_core.language_models import BaseChatModel
@@ -71,6 +72,7 @@ class LangChainLLMAdapter(BaseChatModel):
         **kwargs: Any,
     ) -> ChatResult:
         """Generate a chat completion from messages."""
+        logger = logging.getLogger(__name__)
         prompt = self._convert_messages_to_prompt(messages)
 
         response_text = self._client.create_completions_parallel(
@@ -79,6 +81,16 @@ class LangChainLLMAdapter(BaseChatModel):
             response_model=str,  # Return raw string
             max_workers=1,
         )[0]
+
+        if response_text is None:
+            # The LLM client returned None after exhausting retries (the underlying
+            # InstructorRetryException was swallowed inside create_completions_parallel).
+            # Surface it as a hard failure so callers can detect the LLM outage and
+            # avoid treating str(None) == "None" as a valid chat completion.
+            logger.error(
+                "metric=langchain_adapter_llm_failure — LLM returned no response after retries"
+            )
+            raise RuntimeError("LLM call returned no response after retries")
 
         if isinstance(response_text, str):
             ai_message = AIMessage(content=response_text)

@@ -46,3 +46,10 @@ run-indexer --record-id 123e4567-e89b-12d3-a456-426614174000
 
   
 nohup python -m ingestion.processor.runner --limit 50 --log-file /root circular_backend/logs/processor.log > /dev/null 2>&1 &
+
+
+  mkdir -p /root/circular_backend/logs
+
+  nohup python -m services.notification_worker \                                                                                                      
+    --log-file /root/circular_backend/logs/notification.log \
+    > /dev/null 2>&1 &

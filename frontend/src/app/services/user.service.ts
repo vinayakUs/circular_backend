@@ -7,6 +7,8 @@ export interface UserRecord {
   id: string;
   user_id: string;
   department_id: string;
+  email: string | null;
+  name: string | null;
   created_at: string;
   created_by: string;
   updated_at: string | null;
@@ -39,10 +41,18 @@ export class UserService {
     );
   }
 
-  addUserToDepartment(deptId: string, userId: string): Observable<UserRecord> {
+  addUserToDepartment(
+    deptId: string,
+    userId: string,
+    email?: string | null,
+    name?: string | null,
+  ): Observable<UserRecord> {
+    const body: Record<string, string> = { user_id: userId };
+    if (email && email.trim()) body['email'] = email.trim();
+    if (name && name.trim()) body['name'] = name.trim();
     return this.http.post<UserRecord>(
       `${this.baseUrl}/api/admin/departments/${deptId}/users`,
-      { user_id: userId }
+      body,
     );
   }
 

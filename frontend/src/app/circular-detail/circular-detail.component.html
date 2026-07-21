@@ -64,9 +64,9 @@
               <polyline points="15 3 21 3 21 9" />
               <line x1="10" y1="14" x2="21" y2="3" />
             </svg>
-            View Source
+            View Circular
           </button>
-          <button class="action-btn" (click)="openExpertModal()">
+          <button class="action-btn" *ngIf="isLoggedIn" (click)="openExpertModal()">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
               <circle cx="9" cy="7" r="4" />
@@ -75,7 +75,7 @@
             </svg>
             Add Task
           </button>
-          <button class="action-btn" routerLink="/taskview/{{circular?.id}}">
+          <button class="action-btn" *ngIf="isLoggedIn" routerLink="/taskview/{{circular?.id}}">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
               <polyline points="14 2 14 8 20 8" />
@@ -89,7 +89,7 @@
           </div>
           
 
-          <div class="experts-section">
+          <div class="experts-section" *ngIf="isLoggedIn">
             <div class="section-header">
               <h2>Tasks</h2>
             </div>
@@ -115,13 +115,24 @@
               <div class="expert-dept" *ngIf="expert.dept_names?.length || expert.dept_ids?.length">
                 <span class="dept-badge" *ngFor="let name of expert.dept_names">{{ name }}</span>
               </div>
-              <div class="expert-meta" *ngIf="expert.created_by_username">
-                <span class="meta-text">Created by {{ expert.created_by_username }}</span>
+              <div class="task-meta" *ngIf="expert.created_by_username">
+                Created by <strong class="task-creator">{{ expert.created_by_username }}</strong>
               </div>
             </div>
           </div>
 
-          <!-- AI Summary and Reference Graph sections commented out -->
+          <!-- Sign-in prompt shown to anonymous viewers in place of the task list -->
+          <div class="experts-section login-prompt" *ngIf="!isLoggedIn">
+            <div class="section-header">
+              <h2>Tasks</h2>
+            </div>
+            <div class="login-prompt-body">
+              <p>Sign in to view, create, and discuss tasks for this circular.</p>
+              <a routerLink="/login" class="login-prompt-btn">Sign in</a>
+            </div>
+          </div>
+
+          <!-- AI Summary section -->
           <div class="ai-summary-section">
             <div class="section-header">
               <h2>AI Summary</h2>
@@ -139,14 +150,110 @@
             </div>
           </div>
 
-          <!-- <div class="reference-graph-section">
+          <!-- Reference Graph section -->
+          <div class="reference-graph-section" *ngIf="!loading && circular">
             <div class="section-header">
               <h2>Reference Graph</h2>
+              <span class="graph-stats" *ngIf="referenceGraph?.stats">
+                {{ referenceGraph!.stats.total_nodes }} nodes ·
+                {{ referenceGraph!.stats.total_links }} edges
+                <span *ngIf="referenceGraph!.stats.unresolved_nodes > 0" class="unresolved-count">
+                  · {{ referenceGraph!.stats.unresolved_nodes }} unresolved
+                </span>
+              </span>
             </div>
-            <div class="graph-container" #graphContainer [innerHTML]="graphSvg"></div>
+            <div class="loading-state small" *ngIf="referenceGraphLoading">
+              <div class="loading-spinner small"></div>
+              <p>Loading reference graph...</p>
+            </div>
+
+            <div class="empty-state small" *ngIf="!referenceGraphLoading && referenceGraphError">
+              <p>Reference graph unavailable.</p>
+            </div>
+
+            <div class="empty-state small" *ngIf="!referenceGraphLoading && referenceGraph && graphNodes.length === 0">
+              <p>No outgoing or incoming references for this circular.</p>
+            </div>
+
+            <div class="graph-container" *ngIf="!referenceGraphLoading && referenceGraph && graphNodes.length > 0">
+              <ngx-graph
+                class="chart"
+                [view]="[800, 520]"
+                [nodes]="graphNodes"
+                [links]="graphLinks"
+                [layout]="layoutSettings"
+                [nodeWidth]="200"
+                [nodeHeight]="78"
+                [autoCenter]="true"
+                [autoZoom]="true"
+                [center$]="centerTrigger$">
+
+                <ng-template #nodeTemplate let-node>
+                  <!-- Wrap HTML in foreignObject so SVG can render it.
+                       ngx-graph's node.transform translates the node group to its
+                       top-left position; place foreignObject at (0,0) so the
+                       card's top-left aligns with the node position. -->
+                  <svg:foreignObject
+                    [attr.width]="200"
+                    [attr.height]="78"
+                    x="0" y="0">
+                    <div xmlns="http://www.w3.org/1999/xhtml"
+                         class="graph-card"
+                         [class.is-root]="node.data.is_root"
+                         [class.is-unresolved]="node.data.unresolved">
+                      <div class="graph-card__header"
+                           [style.background-color]="getHeaderColor(node.data.exchange)">
+                        {{ getExchangeLabel(node.data.exchange) }}
+                      </div>
+                      <div class="graph-card__body">
+                        <div class="graph-card__title" *ngIf="node.data.title">
+                          {{ node.data.title }}
+                        </div>
+                        <div class="graph-card__id">
+                          {{ node.data.date ? formatDate(node.data.date) : node.data.label }}
+                        </div>
+                      </div>
+                    </div>
+                  </svg:foreignObject>
+                </ng-template>
+
+                <ng-template #linkTemplate let-link>
+                  <svg:g class="link-group">
+                    <!-- The actual line: ngx-graph computes link.line as an SVG path d-string -->
+                    <svg:path
+                      class="link-line"
+                      [attr.d]="link.line"
+                      [style.stroke]="getEdgeColor(link.data?.rel_type)"
+                      [style.stroke-dasharray]="link.data?.unresolved ? '4,3' : null" />
+                    <!-- The label sits at the midpoint of the line via textTransform -->
+                    <svg:text
+                      class="link-label"
+                      [attr.text-anchor]="'middle'"
+                      [attr.transform]="link.textTransform || ''">
+                      {{ link.label }}
+                    </svg:text>
+                  </svg:g>
+                </ng-template>
+
+                <ng-template #clusterTemplate let-cluster>
+                  <svg:g class="node cluster">
+                    <svg:rect
+                      [attr.width]="cluster.width"
+                      [attr.height]="cluster.height"
+                      [attr.fill]="'rgba(94, 106, 210, 0.05)'"
+                      [attr.stroke]="'#5e6ad2'"
+                      stroke-dasharray="4"
+                      rx="6"
+                      ry="6" />
+                  </svg:g>
+                </ng-template>
+
+              </ngx-graph>
+            </div>
+
             <div class="graph-hint">Drag nodes · Scroll to zoom · Drag background to pan</div>
-          </div> -->
-         
+          </div>
+
         </div>
 
         <div class="content-sidebar">

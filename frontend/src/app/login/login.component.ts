@@ -19,7 +19,7 @@ export class LoginComponent {
   private loginService = inject(LoginService);
   private router = inject(Router);
 
-  email = '';
+  username = '';
   password = '';
   showPassword = false;
   isLoading = false;
@@ -29,10 +29,10 @@ export class LoginComponent {
   }
 
   onSubmit(): void {
-    if (!this.email || !this.password) return;
+    if (!this.username || !this.password) return;
     this.isLoading = true;
 
-    this.loginService.login({ username: this.email, password: this.password }).subscribe({
+    this.loginService.login({ username: this.username, password: this.password }).subscribe({
       next: (response) => {
         console.log('Login successful:', response);
         // Store token in cookie (session cookie, expires when browser closes)

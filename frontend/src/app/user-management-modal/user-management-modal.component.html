@@ -38,11 +38,23 @@
 
                 @if (selectedDepartment) {
                     <div class="add-form">
-                        <input type="text"
-                            [(ngModel)]="newUserId"
-                            placeholder="Enter user ID"
-                            class="input-field"
-                            (keyup.enter)="onAddUser()">
+                        <div class="add-form-grid">
+                            <input type="text"
+                                [(ngModel)]="newUserId"
+                                placeholder="User ID (LDAP uid)"
+                                class="input-field"
+                                (keyup.enter)="onAddUser()">
+                            <input type="email"
+                                [(ngModel)]="newUserEmail"
+                                placeholder="Email (optional)"
+                                class="input-field"
+                                (keyup.enter)="onAddUser()">
+                            <input type="text"
+                                [(ngModel)]="newUserName"
+                                placeholder="Display name (optional)"
+                                class="input-field"
+                                (keyup.enter)="onAddUser()">
+                        </div>
                         <button class="btn btn-add" (click)="onAddUser()">Add</button>
                     </div>
 
@@ -63,8 +75,19 @@
                             @for (user of users; track user.id) {
                                 <li class="user-row">
                                     <div class="user-details">
-                                        <span class="user-name">{{ user.user_id }}</span>
-                                        <span class="user-meta">Added by {{ user.created_by }} on {{ user.created_at | date:'short' }}</span>
+                                        <span class="user-name">
+                                            @if (user.name) {
+                                                {{ user.name }} <span class="user-id-subtle">({{ user.user_id }})</span>
+                                            } @else {
+                                                {{ user.user_id }}
+                                            }
+                                        </span>
+                                        <span class="user-meta">
+                                            @if (user.email) {
+                                                {{ user.email }} ·&nbsp;
+                                            }
+                                            Added by {{ user.created_by }} on {{ user.created_at | date:'short' }}
+                                        </span>
                                     </div>
                                     <button class="btn-remove" (click)="onRemoveUser(user.user_id)">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"

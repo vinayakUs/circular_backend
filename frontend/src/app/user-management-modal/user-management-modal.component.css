@@ -15,8 +15,12 @@
   background: #ffffff;
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 12px;
-  width: 680px;
-  max-width: 90%;
+  width: 760px;
+  max-width: 92%;
+  height: 620px;                 /* fixed height — modal no longer grows */
+  max-height: 92vh;              /* but capped on small viewports */
+  display: flex;
+  flex-direction: column;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
 }
 
@@ -69,11 +73,17 @@
 .split-body {
   display: flex;
   padding: 0;
-  min-height: 300px;
+  flex: 1;                       /* take remaining vertical space */
+  min-height: 0;                 /* allow children to scroll instead of pushing parent */
+  overflow: hidden;
 }
 
 .split-panel {
   padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;                 /* same reason as above */
+  overflow: hidden;
 }
 
 .left-panel {
@@ -103,8 +113,16 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  max-height: 240px;
+  flex: 1;                       /* fill remaining height in panel */
+  min-height: 0;                /* prevent flex children from forcing parent to grow */
   overflow-y: auto;
+
+  /* Hide the scrollbar visuals — keep scroll behavior. */
+  scrollbar-width: none;                                /* Firefox */
+  -ms-overflow-style: none;                             /* IE/old Edge */
+}
+.item-list::-webkit-scrollbar {
+  display: none;                                        /* Chromium/Safari */
 }
 
 .item-list li {
@@ -132,12 +150,26 @@
 
 .add-form {
   display: flex;
+  flex-direction: column;
   gap: 8px;
   margin-bottom: 12px;
 }
 
+.add-form-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
 .add-form .input-field {
-  flex: 1;
+  width: 100%;
+}
+
+.user-id-subtle {
+  color: #9ca3af;
+  font-weight: 400;
+  font-size: 12px;
+  margin-left: 4px;
 }
 
 .user-row {

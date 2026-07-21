@@ -27,3 +27,4 @@ copilot-instructions.md
 .agents
 docker/localstack-data/
 venv/*
+node_modules/

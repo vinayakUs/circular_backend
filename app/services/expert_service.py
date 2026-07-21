@@ -17,6 +17,7 @@ class ExpertService:
         self,
         department_id: UUID | None,
         source: str | None,
+        status: str | None,
         from_date: date | None,
         to_date: date | None,
         full_circular_no: str | None,
@@ -27,6 +28,7 @@ class ExpertService:
         experts, total = self.repository.get_experts_by_department(
             department_id=department_id,
             source=source,
+            status=status,
             from_date=from_date,
             to_date=to_date,
             full_circular_no=full_circular_no,

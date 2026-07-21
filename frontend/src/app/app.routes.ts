@@ -16,7 +16,7 @@ export const routes: Routes = [
   { path: 'changes', component: ChangesComponent },
   { path: 'circular/:id', component: CircularDetailComponent },
   { path: 'login', component: LoginComponent },
-  { path: 'experts-by-department', component: ExpertsByDepartmentComponent },
+  { path: 'experts-by-department', component: ExpertsByDepartmentComponent, canActivate: [authGuard] },
   { path: 'alerts', component: AlertsComponent },
   { path: 'keyword-search', component: KeywordSearchComponent },
   { path: 'allcirculars', component: AllCircularsComponent },

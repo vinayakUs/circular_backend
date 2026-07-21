@@ -11,6 +11,8 @@ class UserRecord:
     id: UUID
     user_id: str
     department_id: UUID
+    email: str | None
+    name: str | None
     created_at: datetime
     created_by: str
     updated_at: datetime | None
@@ -25,21 +27,35 @@ class UsersRepository:
         self.logger = __import__("logging").getLogger(__name__)
         self.db_pool = db_pool
 
-    def add_user(self, user_id: str, department_id: UUID, created_by: str) -> UserRecord | None:
-        """Add a user to a department. Returns None if user already exists."""
+    def add_user(
+        self,
+        user_id: str,
+        department_id: UUID,
+        created_by: str,
+        email: str | None = None,
+        name: str | None = None,
+    ) -> UserRecord | None:
+        """Add a user to a department. Returns None if user already exists.
+
+        ``email`` and ``name`` are optional — pass None to leave them blank.
+        Empty strings are normalised to None so the column stays NULL.
+        """
+        clean_email = (email or "").strip() or None
+        clean_name = (name or "").strip() or None
+
         with self.db_pool.acquire() as conn:
             cursor = conn.cursor()
-            # Check if user already exists
             cursor.execute("SELECT id FROM users WHERE user_id = %s", (user_id,))
             if cursor.fetchone():
                 return None
             cursor.execute(
                 """
-                INSERT INTO users (user_id, department_id, created_by)
-                VALUES (%s, %s, %s)
-                RETURNING id, user_id, department_id, created_at, created_by, updated_at, updated_by
+                INSERT INTO users (user_id, department_id, email, name, created_by)
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING id, user_id, department_id, email, name,
+                          created_at, created_by, updated_at, updated_by
                 """,
-                (user_id, str(department_id), created_by),
+                (user_id, str(department_id), clean_email, clean_name, created_by),
             )
             row = cursor.fetchone()
             conn.commit()
@@ -60,7 +76,7 @@ class UsersRepository:
             cursor = conn.cursor()
             cursor.execute(
                 """
-                SELECT id, user_id, department_id, created_at, created_by, updated_at, updated_by
+                SELECT id, user_id, department_id, email, name, created_at, created_by, updated_at, updated_by
                 FROM users WHERE user_id = %s
                 """,
                 (user_id,),
@@ -68,13 +84,26 @@ class UsersRepository:
             row = cursor.fetchone()
         return self._row_to_record(row)
 
+    def list_all(self) -> list[UserRecord]:
+        """Return every provisioned user. Used by the @mention search picker."""
+        with self.db_pool.acquire() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT id, user_id, department_id, email, name, created_at, created_by, updated_at, updated_by
+                FROM users ORDER BY user_id
+                """,
+            )
+            rows = cursor.fetchall()
+        return [r for row in rows if (r := self._row_to_record(row))]
+
     def get_users_by_department(self, department_id: UUID) -> list[UserRecord]:
         """List all users in a department."""
         with self.db_pool.acquire() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
-                SELECT id, user_id, department_id, created_at, created_by, updated_at, updated_by
+                SELECT id, user_id, department_id, email, name, created_at, created_by, updated_at, updated_by
                 FROM users WHERE department_id = %s ORDER BY created_at
                 """,
                 (str(department_id),),
@@ -88,7 +117,7 @@ class UsersRepository:
             cursor = conn.cursor()
             cursor.execute(
                 """
-                SELECT id, user_id, department_id, created_at, created_by, updated_at, updated_by
+                SELECT id, user_id, department_id, email, name, created_at, created_by, updated_at, updated_by
                 FROM users WHERE user_id = %s ORDER BY created_at
                 """,
                 (user_id,),
@@ -103,8 +132,10 @@ class UsersRepository:
             id=row[0],
             user_id=row[1],
             department_id=row[2],
-            created_at=row[3],
-            created_by=row[4],
-            updated_at=row[5],
-            updated_by=row[6],
+            email=row[3],
+            name=row[4],
+            created_at=row[5],
+            created_by=row[6],
+            updated_at=row[7],
+            updated_by=row[8],
         )

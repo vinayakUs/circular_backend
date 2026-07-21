@@ -15,5 +15,6 @@ export class CircularfilterstateService {
     signatory: [] as string[],
     circular_nos: [] as string[],
     selectedyear: null as number | null,
+    department: '' as string,
   };
 }

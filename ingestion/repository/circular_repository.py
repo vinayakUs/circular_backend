@@ -140,6 +140,27 @@ class CircularRepository:
             )
             return self._row_to_record(cursor.fetchone())
 
+    def get_records_by_ids(self, record_ids: list[UUID]) -> list[CircularRecord]:
+        """Batch fetch circulars by id. Empty input returns empty list."""
+        if not record_ids:
+            return []
+        with self.db_pool.acquire() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT id, source, circular_id, source_item_key, full_reference,
+                       department, title, issue_date, effective_date, url, pdf_url,
+                       content_hash, status, error_message, detected_at,
+                       created_at, updated_at, es_indexed_at, es_chunk_count,
+                       es_index_name, applicable_to_nse
+                FROM circulars
+                WHERE id = ANY(%s::uuid[])
+                """,
+                ([str(rid) for rid in record_ids],),
+            )
+            rows = cursor.fetchall()
+        return [r for row in rows if (r := self._row_to_record(row))]
+
     def get_record_by_circular_id(self, circular_id: str, source: str | None = None) -> CircularRecord | None:
         with self.db_pool.acquire() as conn:
             cursor = conn.cursor()
@@ -281,7 +302,8 @@ class CircularRepository:
         to_date: date | None = None,
         applicable_to_nse: bool | None = None,
         signatory: str | None = None,
-        circular_nos: list[str] | None = None
+        circular_nos: list[str] | None = None,
+        department: str | None = None,
     ) -> tuple[list[CircularRecord], int]:
         args: list = []
         where: list[str] = []
@@ -312,6 +334,10 @@ class CircularRepository:
         if circular_nos:
             where.append("c.id = ANY(%s::uuid[])")
             args.append(circular_nos)
+            idx += 1
+        if department:
+            where.append("c.department = %s")
+            args.append(department.strip())
             idx += 1
 
         where_sql = " AND ".join(where) if where else "1=1"
@@ -350,6 +376,32 @@ class CircularRepository:
             records = [self._row_to_record(row) for row in rows]
 
         return records, total
+
+    def list_distinct_departments(self, source: str | None = None) -> list[str]:
+        """Return sorted distinct non-empty department names, optionally scoped to one source.
+
+        Used by the /api/circulars/departments dropdown endpoint so the UI can
+        show only departments that actually exist on circulars (and, when
+        requested, only those within a given exchange).
+        """
+        args: list = []
+        where = ["department IS NOT NULL", "TRIM(department) <> ''"]
+        if source:
+            where.append("source = %s")
+            args.append(source.upper())
+        where_sql = " AND ".join(where)
+        with self.db_pool.acquire() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                f"""
+                SELECT DISTINCT TRIM(department) AS d
+                FROM circulars
+                WHERE {where_sql}
+                ORDER BY d
+                """,
+                args,
+            )
+            return [row[0] for row in cursor.fetchall()]
 
     def _get_signatories_map(self, conn: Any, circular_ids: list[UUID]) -> dict[UUID, list]:
         """Get signatories for multiple circulars using Postgres json_agg."""

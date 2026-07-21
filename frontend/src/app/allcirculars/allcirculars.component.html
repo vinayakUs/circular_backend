@@ -282,6 +282,50 @@
                         </div>
 
                         <div class="filter-group">
+                            <span class="filter-label">Department</span>
+                            <div class="multi-select">
+                                <button type="button" class="multi-select-trigger"
+                                    [class.has-value]="state.filters.department !== ''"
+                                    (click)="toggleDepartmentDropdown()"
+                                    [attr.aria-expanded]="showDepartmentDropdown">
+                                    <span *ngIf="state.filters.department === ''"
+                                        class="multi-select-placeholder">Select department</span>
+                                    <span *ngIf="state.filters.department !== ''" class="multi-select-value">{{
+                                        state.filters.department }}</span>
+                                    <svg class="multi-select-caret" viewBox="0 0 20 20" fill="currentColor"
+                                        aria-hidden="true">
+                                        <path fill-rule="evenodd"
+                                            d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.08 1.04l-4.25 4.39a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z"
+                                            clip-rule="evenodd" />
+                                    </svg>
+                                </button>
+
+                                <div class="multi-select-dropdown" *ngIf="showDepartmentDropdown"
+                                    (click)="$event.stopPropagation()">
+                                    <div class="multi-select-empty" *ngIf="departmentOptions.length === 0">
+                                        No departments available
+                                    </div>
+                                    <label class="multi-select-option radio-option"
+                                        [class.checked]="state.filters.department === ''"
+                                        *ngIf="departmentOptions.length > 0 && state.filters.department !== ''">
+                                        <input type="radio" name="department" value=""
+                                            [checked]="state.filters.department === ''"
+                                            (change)="onDepartmentClear()" />
+                                        <span>All departments</span>
+                                    </label>
+                                    <label class="multi-select-option radio-option"
+                                        *ngFor="let name of departmentOptions"
+                                        [class.checked]="state.filters.department === name">
+                                        <input type="radio" name="department" [value]="name"
+                                            [checked]="state.filters.department === name"
+                                            (change)="onDepartmentSelect(name)" />
+                                        <span>{{ name }}</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="filter-group">
                             <span class="filter-label">Applicable to NSE</span>
                             <div class="filter-tabs horizontal">
                                 <button class="filter-tab" [class.active]="state.filters.applicable_to_nse === null"

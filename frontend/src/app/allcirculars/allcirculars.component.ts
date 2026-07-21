@@ -33,9 +33,11 @@ export class AllCircularsComponent implements OnInit {
   isApiError = false;
   showSignatoryDropdown = false;
   showCircNoDropdown = false;
+  showDepartmentDropdown = false;
   circNoDropdownLoading = false;
   // circularNoSelected: string[] = [];
   signatoryOptions: string[] = [];
+  departmentOptions: string[] = [];
   exchanges = Object.values(ExchangeSource);
   isSearching = false;
   circulars: Circular[] = [];
@@ -87,6 +89,7 @@ export class AllCircularsComponent implements OnInit {
     this.availableYears = this.getAvailableYears();
     this.recentSearchesList = this.recentSearches.getRecent();
     this.loadSignatoryOptions();
+    this.loadDepartmentOptions(this.state.filters.source);
     this.loadCirculars();
 
     this.circNoSearchControl.valueChanges.pipe(
@@ -133,7 +136,8 @@ export class AllCircularsComponent implements OnInit {
       search: this.state.filters.search || undefined,
       applicable_to_nse: this.state.filters.applicable_to_nse,
       signatory: this.state.filters.signatory || undefined,
-      circular_nos: this.state.filters.circular_nos ? this.state.filters.circular_nos : undefined
+      circular_nos: this.state.filters.circular_nos ? this.state.filters.circular_nos : undefined,
+      department: this.state.filters.department || undefined
     }).subscribe({
       next: (data) => {
         this.circulars = data.data.circulars;
@@ -172,6 +176,10 @@ export class AllCircularsComponent implements OnInit {
       this.showCircNoDropdown = false;
     }
 
+    if (this.showDepartmentDropdown && !target.closest('.multi-select')) {
+      this.showDepartmentDropdown = false;
+    }
+
     if (this.showRecentSearches && !target.closest('.search-relative')) {
       this.showRecentSearches = false;
     }
@@ -189,9 +197,25 @@ export class AllCircularsComponent implements OnInit {
     });
   }
 
+  loadDepartmentOptions(source: ExchangeSource): void {
+    this.apiService.getCircularDepartments(source).subscribe({
+      next: (data) => {
+        this.departmentOptions = data.items.map(i => i.name);
+        // Drop a previously-selected department that is no longer valid for the new source.
+        if (this.state.filters.department && !this.departmentOptions.includes(this.state.filters.department)) {
+          this.state.filters.department = '';
+        }
+      },
+      error: () => {
+        this.departmentOptions = [];
+      }
+    });
+  }
+
   toggleSignatoryDropdown(): void {
     if (!this.showSignatoryDropdown) {
       this.showCircNoDropdown = false;
+      this.showDepartmentDropdown = false;
     }
     this.showSignatoryDropdown = !this.showSignatoryDropdown;
   }
@@ -199,8 +223,31 @@ export class AllCircularsComponent implements OnInit {
   openCircNoDropdown(): void {
     if (!this.showCircNoDropdown) {
       this.showSignatoryDropdown = false;
+      this.showDepartmentDropdown = false;
     }
     this.showCircNoDropdown = true;
+  }
+
+  toggleDepartmentDropdown(): void {
+    if (!this.showDepartmentDropdown) {
+      this.showSignatoryDropdown = false;
+      this.showCircNoDropdown = false;
+    }
+    this.showDepartmentDropdown = !this.showDepartmentDropdown;
+  }
+
+  closeDepartmentDropdown(): void {
+    this.showDepartmentDropdown = false;
+  }
+
+  onDepartmentSelect(name: string): void {
+    this.state.filters.department = name;
+    this.showDepartmentDropdown = false;
+  }
+
+  onDepartmentClear(): void {
+    this.state.filters.department = '';
+    this.showDepartmentDropdown = false;
   }
 
   closeSignatoryDropdown(): void {
@@ -228,6 +275,7 @@ export class AllCircularsComponent implements OnInit {
 
   onExchangeChange(value: ExchangeSource): void {
     this.state.filters.source = value;
+    this.loadDepartmentOptions(value);
     this.onApply();
   }
 
@@ -276,9 +324,11 @@ export class AllCircularsComponent implements OnInit {
     this.state.filters.search = '';
     this.state.filters.signatory = [];
     this.state.filters.applicable_to_nse = null;
+    this.state.filters.department = '';
     this.pagination.offset = 0;
     this.state.filters.circular_nos = [];   // <-- add this
     this.circNoSearchControl.reset()
+    this.loadDepartmentOptions(ExchangeSource.SEBI);
     this.loadCirculars();
   }
 

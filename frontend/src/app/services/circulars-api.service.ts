@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 
@@ -13,6 +13,50 @@ export interface Signatory {
   name: string;
   designation: string;
   extracted_at: string;
+}
+
+export interface ReferenceGraphNode {
+  id: string | null;
+  label: string;
+  title: string | null;
+  exchange: string | null;
+  department: string | null;
+  issue_date: string | null;
+  depth: number;
+  is_root: boolean;
+  unresolved: boolean;
+}
+
+export interface ReferenceGraphLink {
+  source: string;
+  target: string | null;
+  target_label?: string;
+  label: string;
+}
+
+export interface ReferenceGraphStats {
+  total_nodes: number;
+  total_links: number;
+  resolved_nodes: number;
+  unresolved_nodes: number;
+  max_depth: number;
+  cycles_truncated: number;
+}
+
+export interface ReferenceGraphRoot {
+  id: string;
+  circular_id: string;
+  title: string;
+  source: string;
+  department: string;
+  issue_date: string | null;
+}
+
+export interface ReferenceGraphResponse {
+  root: ReferenceGraphRoot;
+  nodes: ReferenceGraphNode[];
+  links: ReferenceGraphLink[];
+  stats: ReferenceGraphStats;
 }
 
 export interface Circular {
@@ -181,6 +225,7 @@ export class CircularsApiService {
     applicable_to_nse?: boolean | null;
     signatory?: string[];
           circular_nos?: string[];
+    department?: string;
   }): Observable<PaginatedCircularsResponse> {
     const queryParams = new URLSearchParams();
     if (params.source) queryParams.set('source', params.source);
@@ -198,6 +243,9 @@ export class CircularsApiService {
     };
     if(params.circular_nos){
       params.circular_nos.forEach(n=>queryParams.append('circular_no',n));
+    }
+    if (params.department) {
+      queryParams.set('department', params.department);
     }
 
     const url = `${this.baseUrl}/api/circulars?${queryParams.toString()}`;
@@ -259,9 +307,27 @@ export class CircularsApiService {
     );
   }
 
+  getCircularDepartments(source?: string): Observable<{ source: string | null; items: { name: string }[] }> {
+    const queryParams = new URLSearchParams();
+    if (source && source !== 'ALL') {
+      queryParams.set('source', source);
+    }
+    const qs = queryParams.toString();
+    const url = qs
+      ? `${this.baseUrl}/api/circulars/departments?${qs}`
+      : `${this.baseUrl}/api/circulars/departments`;
+    return this.http.get<{ source: string | null; items: { name: string }[] }>(url);
+  }
+
   getSummary(recordId: string): Observable<{ summary: string }> {
     return this.http.get<{ summary: string }>(
       `${this.baseUrl}/api/circulars/${recordId}/summary`
+    );
+  }
+
+  getReferenceGraph(recordId: string): Observable<ReferenceGraphResponse> {
+    return this.http.get<ReferenceGraphResponse>(
+      `${this.baseUrl}/api/circulars/${recordId}/reference-graph`
     );
   }
 
@@ -291,6 +357,16 @@ export class CircularsApiService {
     );
   }
 
+  searchMentions(q: string, limit = 8): Observable<{ users: { id: string; user_id: string }[]; departments: { id: string; name: string }[] }> {
+    const params = new HttpParams()
+      .set('q', q ?? '')
+      .set('limit', String(limit));
+    return this.http.get<{ users: { id: string; user_id: string }[]; departments: { id: string; name: string }[] }>(
+      `${this.baseUrl}/api/mentions/search`,
+      { params }
+    );
+  }
+
   updateExpertStatus(circularId: string, expertId: string, status: 'open' | 'closed'): Observable<{ success: boolean }> {
     return this.http.patch<{ success: boolean }>(
       `${this.baseUrl}/api/circulars/${circularId}/experts/${expertId}/status`,
@@ -313,6 +389,7 @@ export class CircularsApiService {
   getExpertsByDepartment(params: {
     department_id?: string;
     source?: string;
+    status?: 'open' | 'closed';
     from_date?: string;
     to_date?: string;
     full_circular_no?: string;
@@ -322,6 +399,7 @@ export class CircularsApiService {
     const queryParams = new URLSearchParams();
     if (params.department_id) queryParams.set('department_id', params.department_id);
     if (params.source) queryParams.set('source', params.source);
+    if (params.status) queryParams.set('status', params.status);
     if (params.from_date) queryParams.set('from_date', params.from_date);
     if (params.to_date) queryParams.set('to_date', params.to_date);
     if (params.full_circular_no) queryParams.set('full_circular_no', params.full_circular_no);
@@ -354,6 +432,10 @@ export interface ExpertWithCircular {
   id: string;
   expert_name: string;
   highlight_text: string;
+  status?: 'open' | 'closed';
+  created_at?: string;
+  updated_at?: string;
+  created_by?: string | null;
   circular: {
     id: string;
     full_reference: string;

@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
+from uuid import UUID
 
 from config import Config
 from db.postgres_client import get_postgres_client
@@ -18,6 +19,7 @@ from ingestion.repository.asset_repository import AssetRepository
 from ingestion.repository.circular_repository import CircularRecord, CircularRepository
 from ingestion.repository.circular_signatory_repository import CircularSignatoryRepository, Signatory
 from pydantic import BaseModel, Field
+from instructor.core import InstructorRetryException
 from storage.s3_client import S3StorageClient
 from utils.llm_providers import get_llm_provider
 
@@ -57,7 +59,7 @@ class DesignationExtractorProcessor(BaseProcessor):
 
         signatory_text = self._extract_signatory_block(record.source, full_text)
         if signatory_text:
-            result = self._extract_with_llm(signatory_text, record.source)
+            result = self._extract_with_llm(signatory_text, record.source, record.id)
             if result and result.signatories:
                 signatories = [
                     Signatory(
@@ -156,8 +158,15 @@ class DesignationExtractorProcessor(BaseProcessor):
             return "\n".join(signatory_lines)
         return None
 
-    def _extract_with_llm(self, signatory_text: str, source: str) -> Any | None:
-        """Use LLM to extract name and designation from the signatory block."""
+    def _extract_with_llm(self, signatory_text: str, source: str, circular_id: UUID) -> Any | None:
+        """Use LLM to extract name and designation from the signatory block.
+
+        Returns the parsed DesignationResponse on success, or None if the LLM
+        returned an empty signatories list (valid "no persons found" result).
+        Raises InstructorRetryException when the LLM call fails after all retries —
+        this propagates up to BaseProcessor.run which marks the task FAILED so the
+        next pipeline run retries once the LLM service recovers.
+        """
 
         class SignatoryEntry(BaseModel):
             name: str = Field(description="The full official name of the signatory")
@@ -182,16 +191,29 @@ Signatory Block:
 
 Return only the actual human signatories with their roles. Ignore organizations and entity names."""
 
-        try:
-            response = llm_client.create_completions_parallel(
-                prompts=[prompt],
-                model=model,
-                response_model=DesignationResponse,
-            )[0]
-            return response
-        except Exception as e:
-            self.logger.warning("LLM extraction failed: %s", e)
-            return None
+        response = llm_client.create_completions_parallel(
+            prompts=[prompt],
+            model=model,
+            response_model=DesignationResponse,
+        )[0]
+
+        if response is None:
+            # The LLM client swallowed the underlying InstructorRetryException
+            # after exhausting retries. Re-raise so the pipeline records a FAILED
+            # row in processing_tasks instead of silently marking COMPLETED with
+            # no signatories persisted.
+            self.logger.error(
+                "metric=designation_extractor_llm_failure "
+                "circular_id=%s source=%s — LLM returned no response after retries",
+                circular_id, source,
+            )
+            raise InstructorRetryException(
+                "LLM call returned no response after retries",
+                n_attempts=3,
+                total_usage=0,
+            )
+
+        return response
 
 
 def main():

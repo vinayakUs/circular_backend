@@ -212,6 +212,7 @@ class ExpertMappingRepository:
         self,
         department_id: UUID | None,
         source: str | None,
+        status: str | None,
         from_date: date | None,
         to_date: date | None,
         full_circular_no: str | None,
@@ -224,6 +225,8 @@ class ExpertMappingRepository:
             conditions.append("edm.department_id = %s"); params.append(str(department_id))
         if source:
             conditions.append("c.source = %s"); params.append(source.upper())
+        if status:
+            conditions.append("e.status = %s"); params.append(status.lower())
         if from_date:
             conditions.append("c.issue_date >= %s"); params.append(from_date)
         if to_date:
@@ -252,10 +255,13 @@ class ExpertMappingRepository:
             cursor.execute(
                 f"""
                 SELECT DISTINCT e.id, e.expert_name, e.highlight_text,
+                       e.status, e.created_at, e.updated_at,
+                       e.created_by_user_id, u.user_id AS created_by,
                        c.id AS circ_id, c.full_reference, c.source, c.issue_date, c.title
                 FROM experts e
                 JOIN expert_departments_mapping edm ON edm.expert_id = e.id
                 JOIN circulars c ON c.id = e.circular_id
+                LEFT JOIN users u ON u.id = e.created_by_user_id
                 WHERE {where}
                 ORDER BY c.issue_date DESC
                 LIMIT %s OFFSET %s
@@ -269,12 +275,16 @@ class ExpertMappingRepository:
                 "id": str(r[0]),
                 "expert_name": r[1],
                 "highlight_text": r[2],
+                "status": r[3],
+                "created_at": r[4].isoformat() if r[4] else None,
+                "updated_at": r[5].isoformat() if r[5] else None,
+                "created_by": r[7],                    # LDAP uid, may be NULL
                 "circular": {
-                    "id": str(r[3]),
-                    "full_reference": r[4],
-                    "source": r[5],
-                    "issue_date": r[6].isoformat() if r[6] else None,
-                    "title": r[7],
+                    "id": str(r[8]),
+                    "full_reference": r[9],
+                    "source": r[10],
+                    "issue_date": r[11].isoformat() if r[11] else None,
+                    "title": r[12],
                 },
             }
             for r in rows

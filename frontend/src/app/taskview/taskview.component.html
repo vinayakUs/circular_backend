@@ -113,7 +113,7 @@
             <div class="task-text">"{{ expert.text }}"</div>
             <div class="task-meta">
               <div class="task-meta-row">
-                <span class="task-meta-label">Status</span>
+                <span class="task-meta-label">Task Status</span>
                 @if (expert.status === 'closed') {
                   <span class="task-status closed">Closed</span>
                 } @else {
@@ -121,18 +121,18 @@
                 }
               </div>
               <div class="task-meta-row">
-                <span class="task-meta-label">Dep</span>
+                <span class="task-meta-label">Assigned Dep</span>
                 <span>{{ getDeptNames(expert.dept_ids) || 'Unassigned' }}</span>
               </div>
               @if (expert.created_at) {
                 <div class="task-meta-row">
-                  <span class="task-meta-label">Date</span>
+                  <span class="task-meta-label">Created Date</span>
                   <span class="task-date">{{ expert.created_at | date:'MMM d, yyyy' }}</span>
                 </div>
               }
               @if (expert.created_by_username) {
                 <div class="task-meta-row">
-                  <span class="task-meta-label">User</span>
+                  <span class="task-meta-label">Created By User</span>
                   <span class="task-creator">{{ expert.created_by_username }}</span>
                 </div>
               }
@@ -170,7 +170,7 @@
           <div class="expert-quote">"{{ selectedExpert.text }}"</div>
           <div class="task-meta">
             <div class="task-meta-row">
-              <span class="task-meta-label">Status</span>
+              <span class="task-meta-label">Task Status</span>
               @if (selectedExpert.status === 'closed') {
                 <span class="task-status closed">Closed</span>
               } @else {
@@ -178,18 +178,18 @@
               }
             </div>
             <div class="task-meta-row">
-              <span class="task-meta-label">Dep</span>
+              <span class="task-meta-label">Assigned Dep</span>
               <span>{{ getDeptNames(selectedExpert.dept_ids) || 'Unassigned' }}</span>
             </div>
             @if (selectedExpert.created_at) {
               <div class="task-meta-row">
-                <span class="task-meta-label">Date</span>
+                <span class="task-meta-label">Created Date </span>
                 <span class="task-date">{{ selectedExpert.created_at | date:'MMM d, yyyy' }}</span>
               </div>
             }
             @if (selectedExpert.created_by_username) {
               <div class="task-meta-row">
-                <span class="task-meta-label">User</span>
+                <span class="task-meta-label">Created By User</span>
                 <span class="task-creator">{{ selectedExpert.created_by_username }}</span>
               </div>
             }
@@ -269,19 +269,72 @@
                     <span class="comment-author">{{ comment.username }}</span>
                     <span class="comment-time">{{ comment.created_at | date:'MMM d, h:mm a' }}</span>
                   </div>
-                  <div class="comment-text">{{ comment.text }}</div>
+                  <div class="comment-text">
+                    @for (seg of parseCommentSegments(comment.text); track $index) {
+                      @switch (seg.kind) {
+                        @case ('user') {
+                          <span class="mention-pill mention-user">{{ seg.value }}</span>
+                        }
+                        @case ('department') {
+                          <span class="mention-pill mention-department">{{ seg.value }}</span>
+                        }
+                        @default {
+                          <span>{{ seg.value }}</span>
+                        }
+                      }
+                    }
+                  </div>
                 </div>
               }
             </div>
           }
-          <div class="comment-input">
-            <input
-              type="text"
-              [(ngModel)]="newComment"
-              placeholder="Add a comment..."
-              [disabled]="selectedExpert.status === 'closed'"
-              (keyup.enter)="addComment()">
-            <button (click)="addComment()" [disabled]="!newComment.trim() || selectedExpert.status === 'closed' || isSubmittingComment">Post</button>
+          <div class="comment-input-wrap">
+            <div class="comment-input">
+              <textarea
+                #commentBox
+                [(ngModel)]="newComment"
+                placeholder="Add a comment. Type @ to mention a person or department."
+                [disabled]="selectedExpert.status === 'closed'"
+                (input)="onCommentInput()"
+                (keydown)="onCommentKey($event)"
+                (keyup.enter)="!mentionOpen && addComment()"
+                rows="2"></textarea>
+              <button
+                (click)="addComment()"
+                [disabled]="!newComment.trim() || selectedExpert.status === 'closed' || isSubmittingComment || mentionOpen">
+                Post
+              </button>
+            </div>
+
+            @if (mentionOpen && mentionPos) {
+              <div class="mention-popup"
+                   [style.top.px]="mentionPos.top"
+                   [style.left.px]="mentionPos.left"
+                   [style.width.px]="mentionPos.width">
+                @for (u of mentionUsers; track u.id; let i = $index) {
+                  <div class="mention-row"
+                       [class.active]="mentionActive === i"
+                       (mousedown)="insertMention('user', u); $event.preventDefault()">
+                    <span class="mention-avatar">{{ initials(u.user_id) }}</span>
+                    <span class="mention-name">{{ u.user_id }}</span>
+                  </div>
+                }
+                @if (mentionUsers.length && mentionDepartments.length) {
+                  <div class="mention-sep"></div>
+                }
+                @for (d of mentionDepartments; track d.id; let j = $index) {
+                  <div class="mention-row"
+                       [class.active]="mentionActive === mentionUsers.length + j"
+                       (mousedown)="insertMention('department', d); $event.preventDefault()">
+                    <span class="mention-avatar dep">&#64;</span>
+                    <span class="mention-name">dep:{{ d.name }}</span>
+                  </div>
+                }
+                @if (!mentionUsers.length && !mentionDepartments.length) {
+                  <div class="mention-empty">No matches</div>
+                }
+              </div>
+            }
           </div>
           @if (selectedExpert.status === 'closed') {
             <div class="comments-closed-notice">Comments are disabled for closed tasks</div>

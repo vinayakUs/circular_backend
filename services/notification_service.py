@@ -11,6 +11,7 @@ from jinja2 import Template
 from config import Config
 from db.postgres_client import get_postgres_client
 from ingestion.repository.circular_repository import CircularRepository
+from ingestion.repository.mention_notifications_repository import MentionNotificationsRepository
 from services.notification_log_repository import NotificationLogRepository
 
 
@@ -24,6 +25,7 @@ class EmailService:
         self.from_email = Config.SMTP_FROM_EMAIL
         self.from_name = Config.SMTP_FROM_NAME
         self.log_repo = NotificationLogRepository()
+        self.mention_repo = MentionNotificationsRepository(db_pool=None)
         self.template_dir = Path(__file__).parent / "templates"
 
     def _render_template(self, template_name: str, variables: dict[str, Any]) -> str:
@@ -132,6 +134,32 @@ class EmailService:
         else:
             self.log_repo.mark_failed(log_id, error or "Unknown error")
 
+        return success, error
+
+    def send_mention_notification(self, row: dict) -> tuple[bool, str | None]:
+        """row comes from MentionNotificationsRepository.list_pending()."""
+        template_name = "mention_notification.html"
+        variables = {
+            "mentioned_by": row["mentioned_by"],
+            "target_label": row["target_label"],
+            "comment_text": row["text"],
+            "expert_name":  row["expert_name"],
+            "comment_url":  f"https://abc.com/expert/{row['expert_id']}#comment-{row['comment_id']}",
+        }
+        subject = f"You were mentioned in a comment by @{row['mentioned_by']}"
+        html = self._render_template(template_name, variables)
+
+        log_id = self.log_repo.create_log(
+            template_name, row["recipient_email"], subject, variables
+        )
+        success, error = self.send_email(row["recipient_email"], subject, html)
+
+        if success:
+            self.log_repo.mark_sent(log_id)
+            self.mention_repo.mark_sent(row["id"], log_id)
+        else:
+            self.log_repo.mark_failed(log_id, error or "Unknown error")
+            self.mention_repo.mark_failed(row["id"], error or "Unknown error")
         return success, error
 
     def get_pending_circulars(self) -> list[dict[str, Any]]:

@@ -23,6 +23,7 @@ export class ExpertsByDepartmentComponent implements OnInit {
 
   filters = {
     source: '' as '' | 'NSE' | 'SEBI',
+    status: '' as '' | 'open' | 'closed',
     from_date: '',
     to_date: '',
     full_circular_no: ''
@@ -53,6 +54,7 @@ export class ExpertsByDepartmentComponent implements OnInit {
     this.apiService.getExpertsByDepartment({
       department_id: this.selectedDepartmentId || undefined,
       source: this.filters.source || undefined,
+      status: this.filters.status || undefined,
       from_date: this.filters.from_date || undefined,
       to_date: this.filters.to_date || undefined,
       full_circular_no: this.filters.full_circular_no || undefined,
@@ -83,8 +85,14 @@ export class ExpertsByDepartmentComponent implements OnInit {
     this.loadExperts();
   }
 
+  setStatusFilter(status: '' | 'open' | 'closed'): void {
+    this.filters.status = status;
+    this.pagination.page = 1;
+    this.loadExperts();
+  }
+
   clearFilters(): void {
-    this.filters = { source: '', from_date: '', to_date: '', full_circular_no: '' };
+    this.filters = { source: '', status: '', from_date: '', to_date: '', full_circular_no: '' };
     this.pagination.page = 1;
     this.loadExperts();
   }
@@ -95,8 +103,11 @@ export class ExpertsByDepartmentComponent implements OnInit {
     this.loadExperts();
   }
 
-  navigateToCircular(circularId: string): void {
-    this.router.navigate(['/circular', circularId]);
+  navigateToTaskview(circularId: string, expertId: string): void {
+    this.router.navigate(
+      ['/taskview', circularId],
+      { queryParams: { expertId } }
+    );
   }
 
   get pageNumbers(): number[] {

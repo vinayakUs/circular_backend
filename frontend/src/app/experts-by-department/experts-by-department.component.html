@@ -19,6 +19,21 @@
         <option value="NSE">NSE</option>
         <option value="SEBI">SEBI</option>
       </select>
+
+      <div class="status-toggle" role="group" aria-label="Filter by status">
+        <button type="button"
+                class="status-toggle-btn"
+                [class.active]="filters.status === ''"
+                (click)="setStatusFilter('')">All</button>
+        <button type="button"
+                class="status-toggle-btn open"
+                [class.active]="filters.status === 'open'"
+                (click)="setStatusFilter('open')">Open</button>
+        <button type="button"
+                class="status-toggle-btn closed"
+                [class.active]="filters.status === 'closed'"
+                (click)="setStatusFilter('closed')">Closed</button>
+      </div>
       <input
         type="date"
         [(ngModel)]="filters.from_date"
@@ -53,13 +68,18 @@
       <div
         *ngFor="let expert of experts"
         class="expert-card"
-        (click)="navigateToCircular(expert.circular.id)"
+        (click)="navigateToTaskview(expert.circular.id, expert.id)"
       >
         <div class="expert-header">
           <span class="expert-name">{{ expert.expert_name }}</span>
-          <span class="exchange-badge" [class]="expert.circular.source.toLowerCase()">
-            {{ expert.circular.source }}
-          </span>
+          <div class="expert-badges">
+            <span class="status-badge" [class]="expert.status || 'open'">
+              {{ expert.status || 'open' }}
+            </span>
+            <span class="exchange-badge" [class]="expert.circular.source.toLowerCase()">
+              {{ expert.circular.source }}
+            </span>
+          </div>
         </div>
         <div class="circular-ref">{{ expert.circular.full_reference }}</div>
         <div class="circular-meta">
@@ -67,6 +87,11 @@
           <span class="circular-title">{{ expert.circular.title }}</span>
         </div>
         <div class="highlight-text">"{{ expert.highlight_text }}"</div>
+        <div class="task-meta" *ngIf="expert.created_at || expert.created_by">
+          <span *ngIf="expert.created_at">Created {{ expert.created_at | date:'dd-MMM-yyyy, h:mm a' }}</span>
+          <span class="task-meta-sep" *ngIf="expert.created_at && expert.created_by">·</span>
+          <span *ngIf="expert.created_by">by <strong>&#64;{{ expert.created_by }}</strong></span>
+        </div>
       </div>
     </div>
 

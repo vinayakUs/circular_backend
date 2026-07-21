@@ -18,6 +18,8 @@ export class UserManagementModalComponent implements OnInit {
   selectedDepartment: Department | null = null;
   users: UserRecord[] = [];
   newUserId = '';
+  newUserEmail = '';
+  newUserName = '';
   isLoading = false;
   isLoadingUsers = false;
   errorMessage = '';
@@ -78,16 +80,25 @@ export class UserManagementModalComponent implements OnInit {
     this.errorMessage = '';
     this.successMessage = '';
 
-    this.userService.addUserToDepartment(this.selectedDepartment.id, this.newUserId.trim()).subscribe({
+    this.userService.addUserToDepartment(
+      this.selectedDepartment.id,
+      this.newUserId.trim(),
+      this.newUserEmail,
+      this.newUserName,
+    ).subscribe({
       next: () => {
         this.successMessage = 'User added!';
         this.newUserId = '';
+        this.newUserEmail = '';
+        this.newUserName = '';
         this.loadDepartmentUsers();
       },
       error: (err) => {
         console.error('Failed to add user', err);
         if (err.status === 409) {
           this.errorMessage = 'User already exists';
+        } else if (err.status === 400 && err.error?.error?.includes('email')) {
+          this.errorMessage = 'Invalid email format';
         } else {
           this.errorMessage = 'Failed to add user. Please try again.';
         }
