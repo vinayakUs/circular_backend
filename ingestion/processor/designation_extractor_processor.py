@@ -217,6 +217,12 @@ Return only the actual human signatories with their roles. Ignore organizations 
 
 
 def main():
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
+    logger = logging.getLogger(__name__)
+
     parser = argparse.ArgumentParser(description="Extract signatory designation from a circular.")
     parser.add_argument("--circular_id", type=str, help="Process a specific circular by ID")
     parser.add_argument("--limit", type=int, default=100, help="Maximum number of pending circulars to process")
@@ -227,27 +233,27 @@ def main():
     processor = DesignationExtractorProcessor(pool)
 
     if args.circular_id:
-        logging.info("Extracting signatory for: %s", args.circular_id)
+        logger.info("Extracting signatory for: %s", args.circular_id)
         repo = CircularRepository(pool)
         record = repo.get_record_by_circular_id(args.circular_id)
         if not record:
-            logging.error("No circular found with ID: %s", args.circular_id)
+            logger.error("No circular found with ID: %s", args.circular_id)
             sys.exit(1)
         success = processor.run(record)
         if success:
-            logging.info("Processing complete for: %s", args.circular_id)
+            logger.info("Processing complete for: %s", args.circular_id)
         else:
-            logging.error("Failed to process circular: %s", args.circular_id)
+            logger.error("Failed to process circular: %s", args.circular_id)
             sys.exit(1)
     else:
         from ingestion.repository.processor_repository import ProcessorRepository
         processor_repo = ProcessorRepository(pool)
         pending = processor_repo.get_pending_circulars_for_processor(processor.name, limit=args.limit)
-        logging.info("Found %d pending circulars for '%s'", len(pending), processor.name)
+        logger.info("Found %d pending circulars for '%s'", len(pending), processor.name)
         for record in pending:
-            logging.info("Processing: %s", record.circular_id)
+            logger.info("Processing: %s", record.circular_id)
             processor.run(record)
-        logging.info("Completed %d circulars.", len(pending))
+        logger.info("Completed %d circulars.", len(pending))
 
 
 if __name__ == "__main__":

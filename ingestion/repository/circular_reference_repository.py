@@ -65,85 +65,112 @@ class CircularReferenceRepository:
     # ─────────────────────────────────────────────────────────────────────────
 
     # Hard cap on BFS depth as a safety net against runaway recursion in dense graphs.
-    _MAX_GRAPH_DEPTH = 50
+    # 5 = 5-hop neighbourhood (root + 4 outward). Tight enough to stay readable,
+    # loose enough to capture the meaningful dependency context.
+    _MAX_GRAPH_DEPTH = 5
 
     def get_neighborhood(
         self, root_id: UUID,
-    ) -> tuple[list[UUID], list[dict], int]:
-        """Walk the graph from `root_id` in BOTH directions (outgoing + incoming),
-        returning (visited_node_ids, unresolved_edges, max_depth).
+    ) -> tuple[list[UUID], list[dict], int, int]:
+        """Walk the graph from `root_id` to its CLOSED neighborhood
+        (outgoing + incoming edges, alternating until closure), returning
+        (visited_node_ids, unresolved_edges, max_depth, cycles_truncated).
 
-        Uses two recursive CTEs with cycle guards (`NOT IN (SELECT id FROM walk)`)
-        so cyclic reference chains don't loop forever. Each direction is bounded
-        by `_MAX_GRAPH_DEPTH` as an additional safety net.
+        Uses a single recursive CTE that fans out both directions in each
+        step, so the visited set is invariant under choice of root within
+        a connected component. The cycle guard is an inline `path` array
+        column (Postgres forbids subqueries against the recursive CTE
+        itself). Depth is bounded by `_MAX_GRAPH_DEPTH` as a safety net;
+        if that cap fires while edges remain, cycles_truncated > 0.
 
-        - visited_node_ids: every UUID reachable via resolved edges (FK non-null)
-          from `root_id` in either direction. The root itself is included.
+        - visited_node_ids: every UUID reachable via resolved edges (FK
+          non-null) from `root_id`. The root itself is included.
         - unresolved_edges: list of dicts with keys
           `source_circular_id`, `target_circular_number`, `relationship_type`
           for edges whose target FK is NULL (referenced circular not in our DB).
           `source_circular_id` is guaranteed to be in `visited_node_ids`.
-        - max_depth: the maximum depth observed across both directions.
+        - max_depth: the maximum depth observed across the closure.
+        - cycles_truncated: 1 if the depth cap truncated an in-progress
+          expansion (i.e. a real cycle was broken off), else 0.
         """
         visited_ids: set[UUID] = {root_id}
         unresolved_edges: list[dict] = []
         max_depth = 0
+        cycles_truncated = 0
 
         with self.db_pool.acquire() as conn:
             cursor = conn.cursor()
 
-            # ── Forward BFS (root → its targets → their targets → ...)
-            # Cycle guard uses an inline `path` array column (NOT a subquery
-            # against the recursive CTE itself, which Postgres forbids).
-            cursor.execute(
-                """
-                WITH RECURSIVE fwd AS (
-                    SELECT %s::uuid AS id,
-                           0 AS depth,
-                           ARRAY[%s]::uuid[] AS path
-                  UNION ALL
-                    SELECT cr.target_circular_id,
-                           fwd.depth + 1,
-                           fwd.path || cr.target_circular_id
-                    FROM   fwd
-                    JOIN   circular_references cr ON cr.source_circular_id = fwd.id
-                    WHERE  fwd.depth < %s
-                      AND  cr.target_circular_id IS NOT NULL
-                      AND  NOT (cr.target_circular_id = ANY(fwd.path))
-                )
-                SELECT id, MIN(depth) FROM fwd GROUP BY id
-                """,
-                (str(root_id), str(root_id), self._MAX_GRAPH_DEPTH),
-            )
-            for row_id, depth in cursor.fetchall():
-                visited_ids.add(row_id)
-                if depth > max_depth:
-                    max_depth = depth
+            # ── Iterative bidirectional closure
+            # Postgres recursive CTEs allow only ONE FROM-walk reference per
+            # recursive arm, so we can't fold forward + backward expansion
+            # into a single CTE. Instead we iterate in Python: each iteration
+            # runs two single-direction CTEs (forward + backward) seeded by
+            # the current frontier, unions the new nodes, and stops when
+            # the frontier is empty (closure reached) or `_MAX_GRAPH_DEPTH`
+            # is hit (cycle truncated).
+            frontier: set[UUID] = {root_id}
+            depth_cap_hit = False
+            for _ in range(self._MAX_GRAPH_DEPTH):
+                if not frontier:
+                    break
+                frontier_strs = [str(uid) for uid in frontier]
+                # psycopg2's set adapter doesn't exist — always pass
+                # already-visited as a list of strings for the ANY() guard.
+                visited_strs = [str(uid) for uid in visited_ids]
 
-            # ── Backward BFS (root → its sources → their sources → ...)
-            cursor.execute(
-                """
-                WITH RECURSIVE bwd AS (
-                    SELECT %s::uuid AS id,
-                           0 AS depth,
-                           ARRAY[%s]::uuid[] AS path
-                  UNION ALL
-                    SELECT cr.source_circular_id,
-                           bwd.depth + 1,
-                           bwd.path || cr.source_circular_id
-                    FROM   bwd
-                    JOIN   circular_references cr ON cr.target_circular_id = bwd.id
-                    WHERE  bwd.depth < %s
-                      AND  NOT (cr.source_circular_id = ANY(bwd.path))
+                # Forward: each frontier node's outgoing resolved targets
+                cursor.execute(
+                    """
+                    WITH RECURSIVE fwd AS (
+                        SELECT unnest(%s::uuid[]) AS id,
+                               0                 AS depth
+                      UNION ALL
+                        SELECT cr.target_circular_id, fwd.depth + 1
+                        FROM   fwd
+                        JOIN   circular_references cr ON cr.source_circular_id = fwd.id
+                        WHERE  fwd.depth = 0
+                          AND  cr.target_circular_id IS NOT NULL
+                          AND  NOT (cr.target_circular_id = ANY(%s::uuid[]))
+                    )
+                    SELECT DISTINCT id FROM fwd WHERE depth > 0
+                    """,
+                    (frontier_strs, visited_strs),
                 )
-                SELECT id, MIN(depth) FROM bwd GROUP BY id
-                """,
-                (str(root_id), str(root_id), self._MAX_GRAPH_DEPTH),
-            )
-            for row_id, depth in cursor.fetchall():
-                visited_ids.add(row_id)
-                if depth > max_depth:
-                    max_depth = depth
+                fwd_new = {row[0] for row in cursor.fetchall()}
+
+                # Backward: each frontier node's incoming sources
+                cursor.execute(
+                    """
+                    WITH RECURSIVE bwd AS (
+                        SELECT unnest(%s::uuid[]) AS id,
+                               0                 AS depth
+                      UNION ALL
+                        SELECT cr.source_circular_id, bwd.depth + 1
+                        FROM   bwd
+                        JOIN   circular_references cr ON cr.target_circular_id = bwd.id
+                        WHERE  bwd.depth = 0
+                          AND  NOT (cr.source_circular_id = ANY(%s::uuid[]))
+                    )
+                    SELECT DISTINCT id FROM bwd WHERE depth > 0
+                    """,
+                    (frontier_strs, visited_strs),
+                )
+                bwd_new = {row[0] for row in cursor.fetchall()}
+
+                new_nodes = (fwd_new | bwd_new) - visited_ids
+                if not new_nodes:
+                    break
+                visited_ids |= new_nodes
+                frontier = new_nodes
+                max_depth += 1
+            else:
+                # Loop exhausted without `break` — depth cap was reached
+                # while the frontier still had work, indicating a real cycle
+                # was broken off.
+                if frontier:
+                    depth_cap_hit = True
+            cycles_truncated = 1 if depth_cap_hit else 0
 
             # ── Unresolved edges (target FK is NULL) from any visited source
             if visited_ids:
@@ -164,7 +191,7 @@ class CircularReferenceRepository:
                         "relationship_type": rel_type,
                     })
 
-        return list(visited_ids), unresolved_edges, max_depth
+        return list(visited_ids), unresolved_edges, max_depth, cycles_truncated
 
     def get_edges_for_visited(
         self, visited_ids: list[UUID],

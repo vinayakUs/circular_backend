@@ -14,6 +14,7 @@ Returned shape (dict):
       "nodes":   [{id, label, title, exchange, department, issue_date, depth, is_root, unresolved?}]
       "links":   [{source, target, target_label?, label}]    # label = relationship_type
       "stats":   {total_nodes, total_links, resolved_nodes, unresolved_nodes, max_depth, cycles_truncated}
+                # cycles_truncated: 1 if depth cap broke a real cycle, else 0
     }
 
 Returns None when `root_id` does not exist.
@@ -46,8 +47,8 @@ class ReferenceGraphService:
         if root is None:
             return None
 
-        # 2. BFS in both directions (cycle-safe)
-        visited_ids, unresolved_edges, max_depth = \
+        # 2. BFS to closed neighborhood (cycle-safe, bidirectional closure)
+        visited_ids, unresolved_edges, max_depth, cycles_truncated = \
             self.reference_repo.get_neighborhood(root_id)
 
         # 3. Batch-fetch metadata for all visited resolved nodes
@@ -74,15 +75,31 @@ class ReferenceGraphService:
                 "unresolved": False,
             })
 
+        # Collapse unresolved stubs by `target_circular_number`. One missing
+        # circular is typically cited by many visited sources; emitting one
+        # node per edge row inflated `total_nodes` into the thousands while
+        # the client silently deduped by label at render time. We also cap
+        # at 100 stubs, ordered by citation count, so the long tail of
+        # one-off mentions doesn't drown out the meaningful ones.
+        stub_depths: dict[str, int] = {}
+        stub_counts: dict[str, int] = {}
         for stub in unresolved_edges:
+            label = stub["target_circular_number"]
+            depth = self._infer_stub_depth(stub["source_circular_id"], depth_map)
+            if label not in stub_depths or depth < stub_depths[label]:
+                stub_depths[label] = depth
+            stub_counts[label] = stub_counts.get(label, 0) + 1
+
+        ranked_stubs = sorted(stub_counts.items(), key=lambda kv: kv[1], reverse=True)[:100]
+        for label, _count in ranked_stubs:
             nodes.append({
                 "id": None,
-                "label": stub["target_circular_number"],
+                "label": label,
                 "title": None,
                 "exchange": None,
                 "department": None,
                 "issue_date": None,
-                "depth": self._infer_stub_depth(stub["source_circular_id"], depth_map),
+                "depth": stub_depths[label],
                 "is_root": False,
                 "unresolved": True,
             })
@@ -97,7 +114,11 @@ class ReferenceGraphService:
             }
             for e in resolved_edges
         ]
+        # Only emit unresolved links whose target stub survived the cap.
+        kept_stub_labels = {label for label, _ in ranked_stubs}
         for ue in unresolved_edges:
+            if ue["target_circular_number"] not in kept_stub_labels:
+                continue
             links.append({
                 "source": str(ue["source_circular_id"]),
                 "target": None,
@@ -122,9 +143,10 @@ class ReferenceGraphService:
                 "total_nodes": len(nodes),
                 "total_links": len(links),
                 "resolved_nodes": len(records),
-                "unresolved_nodes": len(unresolved_edges),
+                "unresolved_nodes": len(ranked_stubs),
+                "unresolved_edges_total": len(unresolved_edges),
                 "max_depth": observed_max_depth,
-                "cycles_truncated": 0,
+                "cycles_truncated": cycles_truncated,
             },
         }
 

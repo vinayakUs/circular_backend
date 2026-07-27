@@ -128,6 +128,11 @@ SUPPORTED_RELATIONSHIPS: set[str] = {
     "implements", "modifies", "rescinds", "enforces",
 }
 
+RELATIONSHIP_ALIASES: dict[str, str] = {
+    "consolidates": "references",
+    "partial_amendment": "amends",
+}
+
 _CONTROL_CHARS_RE = re.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]+')
 
 
@@ -147,6 +152,15 @@ def sanitize_text(s: Optional[str]) -> Optional[str]:
     s = _CONTROL_CHARS_RE.sub(' ', s)
     s = re.sub(r'\s+', ' ', s).strip()
     return s
+
+
+def normalize_relationship(value: Optional[str]) -> str:
+    """Map an extracted relationship to the persisted canonical vocabulary."""
+    relationship = (sanitize_text(value) or "references").lower()
+    relationship = RELATIONSHIP_ALIASES.get(relationship, relationship)
+    if relationship not in SUPPORTED_RELATIONSHIPS:
+        return "references"
+    return relationship
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -860,7 +874,7 @@ class ReferenceExtractor(BaseProcessor):
             canon = canonicalize_circular_id(c.matched_text) or c.matched_text.upper()
             merged[canon] = {
                 "circular_id":       c.matched_text,
-                "relationship_type": c.regex_relationship.lower(),
+                "relationship_type": normalize_relationship(c.regex_relationship),
                 "trigger_phrase":    sanitize_text(c.regex_trigger),
                 "source":            "regex",
             }
@@ -868,6 +882,7 @@ class ReferenceExtractor(BaseProcessor):
         # Layer 2: LLM results — upgrade generic refs and add LLM-only entries
         for r in llm_results:
             circ_no = r["circular_id"]
+            relationship = normalize_relationship(r.get("relationship_nature"))
             canon = canonicalize_circular_id(circ_no) or circ_no.upper()
 
             # Find any existing regex entry that fuzzy-matches
@@ -884,8 +899,8 @@ class ReferenceExtractor(BaseProcessor):
                 existing = merged[existing_key]
                 # Only upgrade if regex said "references" (default) and LLM is more specific
                 if (existing["relationship_type"] == "references"
-                        and r["relationship_nature"] != "references"):
-                    existing["relationship_type"] = r["relationship_nature"]
+                        and relationship != "references"):
+                    existing["relationship_type"] = relationship
                     existing["trigger_phrase"] = "(LLM classification — no trigger phrase)"
                     existing["source"] = "merged"
                 # Otherwise regex wins
@@ -893,7 +908,7 @@ class ReferenceExtractor(BaseProcessor):
                 # LLM found something regex didn't — surface it
                 merged[canon] = {
                     "circular_id":       circ_no,
-                    "relationship_type": r["relationship_nature"],
+                    "relationship_type": relationship,
                     "trigger_phrase":    "(LLM classification — no trigger phrase)",
                     "source":            "llm",
                 }
@@ -982,19 +997,12 @@ class ReferenceExtractor(BaseProcessor):
             for r in references
             if r.get("circular_id")
         ]
-        try:
-            count = self.reference_repo.replace_references(source_circular_id, payload)
-            self.logger.info(
-                "Persisted %d references for source_circular_id=%s",
-                count, source_circular_id,
-            )
-            return count
-        except Exception:
-            self.logger.exception(
-                "Failed to persist references for source_circular_id=%s",
-                source_circular_id,
-            )
-            return 0
+        count = self.reference_repo.replace_references(source_circular_id, payload)
+        self.logger.info(
+            "Persisted %d references for source_circular_id=%s",
+            count, source_circular_id,
+        )
+        return count
 
 
 # ─────────────────────────────────────────────────────────────────────────────

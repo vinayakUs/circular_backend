@@ -653,10 +653,23 @@ export class TaskviewComponent implements OnInit {
         console.log('Task saved');
         // Switch back to view mode after saving
         this.pdfViewerService.switchAnnotationEdtorMode(0);
-        // Only add to list after API success
+        // Reset the add-task UI now that the server has persisted.
         this.resetPendingState();
         this.isAddingTask = false;
-        this.experts.push(newExpert);
+        // The backend's save endpoint returns only { success: true } without
+        // the new task's server-assigned UUID, so we refetch the full list to
+        // hydrate each item with its real id (and created_at / creator, etc.)
+        // before pushing it into the view. Without this the new task appears
+        // in the list but can't be opened because selectExpertById() requires
+        // a real id.
+        this.api.getExperts(circularId).subscribe({
+          next: (response) => {
+            this.experts = response.experts ?? [];
+          },
+          error: (refetchErr) => {
+            console.warn('Failed to refresh tasks after save', refetchErr);
+          }
+        });
       },
       error: (err) => {
         console.error('Failed to save task', err);

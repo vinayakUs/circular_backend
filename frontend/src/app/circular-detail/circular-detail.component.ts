@@ -1,16 +1,15 @@
-import { Component, OnInit } from '@angular/core';
+import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
-import { ActivatedRoute, RouterLink, RouterModule } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink, RouterModule } from '@angular/router';
 import { NavbarComponent } from '../navbar/navbar.component';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { marked } from 'marked';
-import { Subject } from 'rxjs';
-import { NgxGraphModule, DagreLayout } from '@swimlane/ngx-graph';
-import type { Edge, Node } from '@swimlane/ngx-graph';
-import type { DagreSettings } from '@swimlane/ngx-graph';
+import type cytoscape from 'cytoscape';
 import { CircularsApiService, Circular, Signatory, Expert, ReferenceGraphResponse } from '../services/circulars-api.service';
 import { ExpertModalComponent } from '../expert-modal/expert-modal.component';
 import { LoginService } from '../services/login.service';
+
+let dagreRegistered = false;
 
 interface ActionItem {
   id: string;
@@ -27,11 +26,11 @@ interface ActionItem {
 @Component({
   selector: 'app-circular-detail',
   standalone: true,
-  imports: [CommonModule, NavbarComponent, DatePipe, ExpertModalComponent, RouterModule, RouterLink, NgxGraphModule],
+  imports: [CommonModule, NavbarComponent, DatePipe, ExpertModalComponent, RouterModule, RouterLink],
   templateUrl: './circular-detail.component.html',
   styleUrl: './circular-detail.component.css'
 })
-export class CircularDetailComponent implements OnInit {
+export class CircularDetailComponent implements OnInit, AfterViewInit, OnDestroy {
 
   circular: Circular | null = null;
   loading = true;
@@ -53,47 +52,52 @@ export class CircularDetailComponent implements OnInit {
   referenceGraphLoading = false;
   referenceGraphError = false;
 
-  // ngx-graph bindings (derived from `referenceGraph`).
-  graphNodes: Node[] = [];
-  graphLinks: Edge[] = [];
+  graphElements: cytoscape.ElementDefinition[] = [];
+  private cy: cytoscape.Core | null = null;
+  private graphResizeObserver: ResizeObserver | null = null;
+  private graphInitialization: Promise<void> | null = null;
+  private graphDestroyed = false;
 
-  // Subject to imperatively trigger ngx-graph's center() after data loads.
-  // autoCenter runs once on init (before data arrives) so we need to re-fire it.
-  centerTrigger$ = new Subject<void>();
+  @ViewChild('cyContainer') private cyContainer?: ElementRef<HTMLDivElement>;
 
-  // ngx-graph v12 requires [layout] to be a DagreLayout *instance* with a
-  // .run() method, NOT a plain config object. Settings are assigned to
-  // `.settings` after construction. v12 uses `orientation` (LR/RL/TB/BT)
-  // and padding fields (nodePadding/rankPadding/edgePadding).
-  layoutSettings = new DagreLayout();
+  private readonly handleGraphResize = () => {
+    if (!this.graphDestroyed) {
+      this.cy?.resize();
+    }
+  };
 
   constructor(
     private sanitizer: DomSanitizer,
     private route: ActivatedRoute,
     private api: CircularsApiService,
-    private auth: LoginService
+    private auth: LoginService,
+    private cdr: ChangeDetectorRef,
+    private zone: NgZone,
+    private router: Router
   ) {
     this.isLoggedIn = this.auth.isAuthenticated();
-
-    // Configure the Dagre layout: top-to-bottom hierarchy with breathing room.
-    // v12 uses `orientation` (LR/RL/TB/BT) instead of `rankDir`. Cast as any
-    // because the Orientation enum value type isn't trivially assignable here.
-    // NOTE: do NOT set `align` — dagre's balance() throws on Alignment.CENTER
-    // because it tries xss['c'][v] but xss only has ul/ur/dl/dr keys.
-    // Centering happens at the viewport level via ngx-graph's [autoCenter].
-    this.layoutSettings.settings = {
-      orientation: 'TB' as any,
-      marginX: 30,
-      marginY: 30,
-      nodePadding: 20,
-      edgePadding: 20,
-      rankPadding: 80,
-    };
   }
 
   ngOnInit() {
-    const id = this.route.snapshot.paramMap.get('id');
-    if (id) {
+    this.route.paramMap.subscribe((params) => {
+      const id = params.get('id');
+      if (!id) return;
+
+      // Reset state when navigating to a different circular so the UI
+      // doesn't briefly show stale data from the previous visit.
+      this.circular = null;
+      this.loading = true;
+      this.circularError = null;
+      this.referenceGraph = null;
+      this.referenceGraphError = false;
+      this.referenceGraphLoading = false;
+      this.graphElements = [];
+      this.summary = null;
+      this.experts = [];
+      this.signatories = [];
+      this.actionItems = [];
+      this.destroyGraph();
+
       this.api.getCircularRecord(id).subscribe({
         next: (data) => {
           this.circular = data;
@@ -109,9 +113,273 @@ export class CircularDetailComponent implements OnInit {
           this.circularError = err?.status === 0 ? 'connection' : 'not_found';
         }
       });
+    });
+  }
+
+  ngAfterViewInit(): void {
+    this.initializeGraph();
+  }
+
+  ngOnDestroy(): void {
+    this.graphDestroyed = true;
+    this.destroyGraph();
+  }
+
+  private initializeGraph(): void {
+    const container = this.cyContainer?.nativeElement;
+    if (
+      !container ||
+      this.cy ||
+      this.graphDestroyed ||
+      this.graphElements.length === 0 ||
+      this.graphInitialization
+    ) {
+      return;
+    }
+
+    this.graphInitialization = this.createGraph(container)
+      .catch((error: unknown) => {
+        console.warn('[reference-graph] failed to initialise Cytoscape', error);
+      })
+      .finally(() => {
+        this.graphInitialization = null;
+      });
+  }
+
+  private async createGraph(container: HTMLDivElement): Promise<void> {
+    const [{ default: cytoscapeLib }, { default: dagreLib }] = await Promise.all([
+      import('cytoscape'),
+      import('cytoscape-dagre'),
+    ]);
+
+    if (
+      this.graphDestroyed ||
+      this.cy ||
+      this.graphElements.length === 0 ||
+      this.cyContainer?.nativeElement !== container
+    ) {
+      return;
+    }
+
+    if (!dagreRegistered) {
+      cytoscapeLib.use(dagreLib);
+      dagreRegistered = true;
+    }
+
+    this.cy = cytoscapeLib({
+      container,
+      elements: [],
+      style: this.graphStyles,
+      layout: { name: 'preset' },
+      minZoom: 0.1,
+      maxZoom: 3,
+      wheelSensitivity: 1.25,
+      autounselectify: true,
+    });
+
+    this.cy.on('tap', 'node', (event) => {
+      const node = event.target;
+      const nodeId = node.id();
+      console.log('[reference-graph] node tap', { nodeId, classes: node.classes() });
+      if (typeof nodeId !== 'string' || nodeId.startsWith('stub:')) {
+        console.log('[reference-graph] unresolved stub, ignoring tap');
+        return;
+      }
+      const commands = ['/circular', nodeId];
+      console.log('[reference-graph] navigating to', commands.join('/'));
+      this.zone.run(() => {
+        this.router
+          .navigate(commands, { onSameUrlNavigation: 'reload' })
+          .then((success) => console.log('[reference-graph] navigation result', success))
+          .catch((error) => console.warn('[reference-graph] navigation error', error));
+      });
+    });
+
+    this.graphResizeObserver = typeof ResizeObserver === 'undefined'
+      ? null
+      : new ResizeObserver(() => this.handleGraphResize());
+    this.graphResizeObserver?.observe(container);
+    window.addEventListener('resize', this.handleGraphResize);
+
+    this.renderGraph();
+  }
+
+  private destroyGraph(): void {
+    this.graphResizeObserver?.disconnect();
+    this.graphResizeObserver = null;
+    window.removeEventListener('resize', this.handleGraphResize);
+
+    if (this.cy) {
+      this.cy.destroy();
+      this.cy = null;
     }
   }
 
+  private renderGraph(): void {
+    if (!this.cy || this.graphDestroyed) return;
+
+    this.zone.runOutsideAngular(() => {
+      const cy = this.cy;
+      if (!cy) return;
+
+      cy.batch(() => {
+        cy.elements().remove();
+        if (this.graphElements.length > 0) {
+          cy.add(this.graphElements);
+        }
+      });
+
+      if (this.graphElements.length === 0) return;
+
+      cy.layout({
+        name: 'dagre',
+        rankDir: 'TB',
+        nodeSep: 40,
+        edgeSep: 20,
+        rankSep: 80,
+        fit: true,
+        padding: 120,
+        animate: false,
+      } as cytoscape.LayoutOptions).run();
+      cy.resize();
+      cy.fit(cy.elements(), 120);
+      cy.zoom(0.75);
+      cy.center();
+    });
+  }
+
+  private readonly graphStyles: cytoscape.StylesheetJson = [
+    {
+      selector: 'core',
+      style: {
+        'background-color': 'transparent',
+        'background-opacity': 0,
+      },
+    },
+    {
+      selector: 'node',
+      style: {
+        shape: 'roundrectangle',
+        width: 220,
+        height: 112,
+        'background-color': '#ffffff',
+        'background-opacity': 1,
+        'background-image': (node: cytoscape.NodeSingular) => this.getNodeBackgroundImage(node.data('exchange'), !!node.data('is_root')),
+        'background-fit': 'none',
+        'background-width': (node: cytoscape.NodeSingular) => (node.data('is_root') ? 188 : 188),
+        'background-height': (node: cytoscape.NodeSingular) => (node.data('is_root') ? 42 : 20),
+        'background-position-x': 16,
+        'background-position-y': (node: cytoscape.NodeSingular) => (node.data('is_root') ? 6 : 8),
+        'background-repeat': 'no-repeat',
+        'background-clip': 'node',
+        'border-width': 1,
+        'border-color': (node: cytoscape.NodeSingular) => this.getHeaderColor(node.data('exchange')),
+        label: (node: cytoscape.NodeSingular) => this.getNodeLabel(node),
+        color: '#18181b',
+        'font-family': 'Inter, sans-serif',
+        'font-size': 11,
+        'font-weight': 500,
+        'text-wrap': 'wrap',
+        'text-max-width': '196px',
+        'text-valign': 'center',
+        'text-halign': 'center',
+        'text-justification': 'center',
+        'text-margin-y': (node: cytoscape.NodeSingular) => (node.data('is_root') ? 24 : 16),
+        'text-outline-color': '#ffffff',
+        'text-outline-width': 3,
+        'overlay-opacity': 0,
+      },
+    },
+    {
+      selector: 'node.is-root',
+      style: {
+        'border-color': '#5e6ad2',
+        'border-width': 2,
+        'z-index': 2,
+      },
+    },
+    {
+      selector: 'node.is-unresolved',
+      style: {
+        'border-style': 'dashed',
+        'background-color': '#fafafa',
+        color: '#71717a',
+      },
+    },
+    {
+      selector: 'edge',
+      style: {
+        width: 1.5,
+        'line-color': (edge: cytoscape.EdgeSingular) => this.getEdgeColor(edge.data('rel_type')),
+        'target-arrow-color': (edge: cytoscape.EdgeSingular) => this.getEdgeColor(edge.data('rel_type')),
+        'target-arrow-shape': 'triangle',
+        'curve-style': 'bezier',
+        label: (edge: cytoscape.EdgeSingular) => String(edge.data('label') ?? ''),
+        color: '#52525b',
+        'font-family': 'Inter, sans-serif',
+        'font-size': 10,
+        'font-weight': 600,
+        'text-rotation': 'autorotate',
+        'text-background-color': '#ffffff',
+        'text-background-opacity': 1,
+        'text-background-padding': '2px',
+        'text-outline-color': '#ffffff',
+        'text-outline-width': 2,
+      },
+    },
+    {
+      selector: 'edge.is-unresolved',
+      style: {
+        'line-style': 'dashed',
+      },
+    },
+  ];
+
+  private getNodeLabel(node: cytoscape.NodeSingular): string {
+    const title = this.truncateTitle(String(node.data('title') ?? '').trim());
+    const dateRaw = String(node.data('date') ?? '').trim();
+    const date = dateRaw ? this.formatDate(dateRaw) : '';
+    const label = String(node.data('label') ?? '').trim();
+
+    return [title, date, label].filter(Boolean).join('\n');
+  }
+
+  /**
+   * Cap a node title to ~2 lines of text at the node's wrap width
+   * (font-size 11, text-max-width 196px). Hides the rest with an ellipsis.
+   */
+  private truncateTitle(title: string, maxLength = 70): string {
+    if (title.length <= maxLength) return title;
+    return title.slice(0, maxLength - 1).trimEnd() + '…';
+  }
+
+  /**
+   * Inline SVG with a colored top band and the exchange name rendered in
+   * white uppercase text. Used as a per-node `background-image` so each
+   * node visually identifies its source without needing an HTML label.
+   */
+  private getNodeBackgroundImage(exchange: string | null | undefined, isRoot: boolean): string {
+    const color = this.getHeaderColor(exchange);
+    const text = this.getExchangeLabel(exchange).toUpperCase();
+    const pillY = isRoot ? 22 : 0;
+    const svgHeight = isRoot ? 42 : 20;
+    const badge = isRoot
+      ? `<text x="94" y="14" text-anchor="middle" fill="#5e6ad2" ` +
+        `font-family="Inter, -apple-system, sans-serif" font-size="9" font-weight="700" ` +
+        `letter-spacing="0.6">CURRENT</text>`
+      : '';
+    const pill =
+      `<rect x="0" y="${pillY}" width="188" height="20" rx="10" ry="10" fill="${color}"/>` +
+      `<text x="94" y="${pillY + 14}" text-anchor="middle" fill="#ffffff" ` +
+      `font-family="Inter, -apple-system, sans-serif" font-size="10" font-weight="700" ` +
+      `letter-spacing="0.6">${text}</text>`;
+    const svg =
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 188 ${svgHeight}" width="188" height="${svgHeight}">` +
+      badge +
+      pill +
+      `</svg>`;
+    return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+  }
   private fetchSignatories(circularId: string) {
     this.signatoriesLoading = true;
     this.api.getSignatories(circularId).subscribe({
@@ -159,6 +427,7 @@ export class CircularDetailComponent implements OnInit {
     this.referenceGraphError = false;
     this.api.getReferenceGraph(circularId).subscribe({
       next: (graph) => {
+        if (this.graphDestroyed) return;
         this.referenceGraph = graph;
         this.referenceGraphLoading = false;
         console.log('[reference-graph] loaded', {
@@ -169,57 +438,74 @@ export class CircularDetailComponent implements OnInit {
           max_depth: graph.stats.max_depth,
         });
         this.toGraphModel();
-
-        // Re-center after the layout finishes. autoCenter runs once on init
-        // (before data arrives) and never again — we re-trigger here at multiple
-        // delays to catch different lifecycle points where the transform settles.
-        [0, 50, 200, 500].forEach((delay) => {
-          setTimeout(() => this.centerTrigger$.next(), delay);
-        });
+        this.cdr.detectChanges();
+        if (this.graphElements.length === 0) {
+          this.destroyGraph();
+          return;
+        }
+        this.initializeGraph();
+        this.renderGraph();
       },
       error: (err) => {
+        if (this.graphDestroyed) return;
         this.referenceGraph = null;
-        this.graphNodes = [];
-        this.graphLinks = [];
+        this.graphElements = [];
         this.referenceGraphLoading = false;
         this.referenceGraphError = true;
+        this.destroyGraph();
+        this.cdr.detectChanges();
         console.warn('[reference-graph] failed to load', err?.status, err?.message);
       }
     });
   }
 
-  /** Convert API response into ngx-graph nodes/edges. */
-  private toGraphModel() {
+  /** Convert the API response into Cytoscape nodes and edges. */
+  private toGraphModel(): void {
     if (!this.referenceGraph) {
-      this.graphNodes = [];
-      this.graphLinks = [];
+      this.graphElements = [];
       return;
     }
+
     const stubId = (label: string) => `stub:${label}`;
+    const elements: cytoscape.ElementDefinition[] = this.referenceGraph.nodes.map((node) => {
+      const id = node.id ?? stubId(node.label);
+      const classes = [
+        node.is_root ? 'is-root' : '',
+        node.unresolved ? 'is-unresolved' : '',
+      ].filter(Boolean);
 
-    this.graphNodes = this.referenceGraph.nodes.map((n) => ({
-      id: n.id ?? stubId(n.label),
-      label: n.label,
-      // Dimension required by dagre's balance/layout phase — must be set
-      // explicitly or the layout throws "Cannot read properties of undefined".
-      dimension: { width: 200, height: 78 },
-      data: {
-        label: n.label,
-        title: n.title ?? '',
-        date: n.issue_date ?? '',
-        exchange: n.exchange ?? null,
-        is_root: n.is_root,
-        unresolved: n.unresolved,
-      },
-    }));
+      return {
+        group: 'nodes',
+        data: {
+          id,
+          label: node.label,
+          title: node.title ?? '',
+          date: node.issue_date ?? '',
+          exchange: node.exchange ?? null,
+          is_root: node.is_root,
+          unresolved: node.unresolved,
+        },
+        classes,
+      };
+    });
 
-    this.graphLinks = this.referenceGraph.links.map((l, i) => ({
-      id: `e:${i}`,
-      source: l.source,
-      target: l.target ?? stubId(l.target_label ?? 'unknown'),
-      label: l.label,
-      data: { rel_type: l.label, unresolved: l.target === null },
-    }));
+    this.referenceGraph.links.forEach((link, index) => {
+      const target = link.target ?? stubId(link.target_label ?? 'unknown');
+      elements.push({
+        group: 'edges',
+        data: {
+          id: `e:${index}`,
+          source: link.source,
+          target,
+          label: link.label,
+          rel_type: link.label,
+          unresolved: link.target === null,
+        },
+        classes: link.target === null ? ['is-unresolved'] : [],
+      });
+    });
+
+    this.graphElements = elements;
   }
 
   // Format an ISO date string ("2020-03-15") as "15 Mar 2020".
@@ -237,10 +523,10 @@ export class CircularDetailComponent implements OnInit {
   /** Header color per exchange — applied via inline style in the template. */
   getHeaderColor(exchange: string | null | undefined): string {
     switch ((exchange ?? '').toUpperCase()) {
-      case 'SEBI': return '#7c3aed';
-      case 'NSE':  return '#dc2626';
-      case 'NCL':  return '#0891b2';
-      case 'AFD':  return '#ea580c';
+      case 'SEBI': return '#a855f7';
+      case 'NSE':  return '#ef4444';
+      case 'NCL':  return '#ef4444';
+      case 'AFD':  return '#ef4444';
       default:     return '#71717a';
     }
   }

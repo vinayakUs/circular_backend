@@ -471,6 +471,33 @@
   gap: 20px;
 }
 
+.semantic-disclaimer {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  background: #fafaf9;
+  border: 1px solid #e7e5e4;
+  border-radius: 8px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: #57534e;
+}
+
+.semantic-disclaimer-icon {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  color: #78716c;
+}
+
+.semantic-disclaimer-text strong {
+  font-weight: 600;
+  color: #0a0a0a;
+}
+
 .semantic-answer {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 14px;

@@ -137,6 +137,18 @@
 
                 <!-- Semantic mode: answer + references -->
                 <div class="semantic-result" *ngIf="showSemanticAnswer">
+                    <div class="semantic-disclaimer" role="note" aria-label="AI-generated content notice">
+                        <svg class="semantic-disclaimer-icon" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75"
+                                d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                        </svg>
+                        <span class="semantic-disclaimer-text">
+                            <strong>AI-generated response.</strong>
+                            Verify the answer against the cited circulars before relying on it for compliance or legal use.
+                        </span>
+                    </div>
+
                     <div class="semantic-answer" [innerHTML]="safeMarkdown(semanticResult?.answer)"></div>
 
                     <div class="semantic-references" *ngIf="semanticResult?.references?.length">

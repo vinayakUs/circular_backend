@@ -66,7 +66,7 @@
             </svg>
             View Circular
           </button>
-          <button class="action-btn" *ngIf="isLoggedIn" (click)="openExpertModal()">
+          <!-- <button class="action-btn" *ngIf="isLoggedIn" (click)="openExpertModal()">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
               <circle cx="9" cy="7" r="4" />
@@ -74,7 +74,7 @@
               <path d="M16 3.13a4 4 0 0 1 0 7.75" />
             </svg>
             Add Task
-          </button>
+          </button> -->
           <button class="action-btn" *ngIf="isLoggedIn" routerLink="/taskview/{{circular?.id}}">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -171,87 +171,15 @@
               <p>Reference graph unavailable.</p>
             </div>
 
-            <div class="empty-state small" *ngIf="!referenceGraphLoading && referenceGraph && graphNodes.length === 0">
+            <div class="empty-state small" *ngIf="!referenceGraphLoading && referenceGraph && graphElements.length === 0">
               <p>No outgoing or incoming references for this circular.</p>
             </div>
 
-            <div class="graph-container" *ngIf="!referenceGraphLoading && referenceGraph && graphNodes.length > 0">
-              <ngx-graph
-                class="chart"
-                [view]="[800, 520]"
-                [nodes]="graphNodes"
-                [links]="graphLinks"
-                [layout]="layoutSettings"
-                [nodeWidth]="200"
-                [nodeHeight]="78"
-                [autoCenter]="true"
-                [autoZoom]="true"
-                [center$]="centerTrigger$">
-
-                <ng-template #nodeTemplate let-node>
-                  <!-- Wrap HTML in foreignObject so SVG can render it.
-                       ngx-graph's node.transform translates the node group to its
-                       top-left position; place foreignObject at (0,0) so the
-                       card's top-left aligns with the node position. -->
-                  <svg:foreignObject
-                    [attr.width]="200"
-                    [attr.height]="78"
-                    x="0" y="0">
-                    <div xmlns="http://www.w3.org/1999/xhtml"
-                         class="graph-card"
-                         [class.is-root]="node.data.is_root"
-                         [class.is-unresolved]="node.data.unresolved">
-                      <div class="graph-card__header"
-                           [style.background-color]="getHeaderColor(node.data.exchange)">
-                        {{ getExchangeLabel(node.data.exchange) }}
-                      </div>
-                      <div class="graph-card__body">
-                        <div class="graph-card__title" *ngIf="node.data.title">
-                          {{ node.data.title }}
-                        </div>
-                        <div class="graph-card__id">
-                          {{ node.data.date ? formatDate(node.data.date) : node.data.label }}
-                        </div>
-                      </div>
-                    </div>
-                  </svg:foreignObject>
-                </ng-template>
-
-                <ng-template #linkTemplate let-link>
-                  <svg:g class="link-group">
-                    <!-- The actual line: ngx-graph computes link.line as an SVG path d-string -->
-                    <svg:path
-                      class="link-line"
-                      [attr.d]="link.line"
-                      [style.stroke]="getEdgeColor(link.data?.rel_type)"
-                      [style.stroke-dasharray]="link.data?.unresolved ? '4,3' : null" />
-                    <!-- The label sits at the midpoint of the line via textTransform -->
-                    <svg:text
-                      class="link-label"
-                      [attr.text-anchor]="'middle'"
-                      [attr.transform]="link.textTransform || ''">
-                      {{ link.label }}
-                    </svg:text>
-                  </svg:g>
-                </ng-template>
-
-                <ng-template #clusterTemplate let-cluster>
-                  <svg:g class="node cluster">
-                    <svg:rect
-                      [attr.width]="cluster.width"
-                      [attr.height]="cluster.height"
-                      [attr.fill]="'rgba(94, 106, 210, 0.05)'"
-                      [attr.stroke]="'#5e6ad2'"
-                      stroke-dasharray="4"
-                      rx="6"
-                      ry="6" />
-                  </svg:g>
-                </ng-template>
-
-              </ngx-graph>
+            <div class="graph-container" *ngIf="!referenceGraphLoading && referenceGraph && graphElements.length > 0">
+              <div #cyContainer class="cy-chart" role="application" aria-label="Circular reference graph"></div>
             </div>
 
-            <div class="graph-hint">Drag nodes · Scroll to zoom · Drag background to pan</div>
+            <div class="graph-hint" *ngIf="!referenceGraphLoading && referenceGraph && graphElements.length > 0">Drag nodes · Scroll to zoom · Drag background to pan</div>
           </div>
 
         </div>
@@ -267,10 +195,10 @@
               <span class="detail-label">Date</span>
               <span class="detail-value">{{ (circular?.issue_date | date:'dd MMM yyyy') }}</span>
             </div>
-            <div class="detail-row">
+            <!-- <div class="detail-row">
               <span class="detail-label">Category</span>
               <span class="detail-value">{{ circular?.source }}</span>
-            </div>
+            </div> -->
             <div class="detail-row">
               <span class="detail-label">Department</span>
               <span class="detail-value">{{ circular?.department }}</span>

@@ -34,6 +34,13 @@ CREATE INDEX IF NOT EXISTS idx_properties_type ON properties(type);
 CREATE INDEX IF NOT EXISTS idx_properties_type_name ON properties(type, name) WHERE archived = FALSE;
 CREATE INDEX IF NOT EXISTS idx_properties_metadata_gin ON properties USING gin (metadata jsonb_path_ops);
 
+INSERT INTO properties (id, name, type)
+VALUES (
+    '5283a54e-327a-477f-946d-72841e2fa442',
+    'Exchange Compliance',
+    'department'
+);
+
 -- scraper_checkpoints
 CREATE TABLE IF NOT EXISTS scraper_checkpoints (
     source VARCHAR(20) PRIMARY KEY,
@@ -144,8 +151,8 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE INDEX IF NOT EXISTS idx_users_department ON users(department_id);
 
 -- Idempotent migration for existing databases (no-op on fresh installs).
-ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255);
-ALTER TABLE users ADD COLUMN IF NOT EXISTS name VARCHAR(255);
+-- ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255);
+-- ALTER TABLE users ADD COLUMN IF NOT EXISTS name VARCHAR(255);
 
 -- experts (current schema)
 CREATE TABLE IF NOT EXISTS experts (
