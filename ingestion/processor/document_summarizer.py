@@ -147,28 +147,43 @@ class DocumentSummarizerProcessor(BaseProcessor):
         # the locally-cached BGE embedding tokenizer so LangChain's internal
         # token counting (used by map_reduce's collapse pre-check) never tries
         # to download GPT-2 from HuggingFace at runtime.
+        max_output_tokens = Config.SUMMARIZER_MAX_OUTPUT_TOKENS
+        if max_output_tokens < 1:
+            raise ValueError(
+                "SUMMARIZER_MAX_OUTPUT_TOKENS must be at least 1"
+            )
+
         llm_adapter = LangChainLLMAdapter(
             provider_name=Config.LLM_PROVIDER,
             model_name=Config.SUMMARIZATION_MODEL,
             custom_get_token_ids=_bge_token_ids,
+            max_tokens=max_output_tokens,
         )
 
         # Use map_reduce for large documents, stuff for small ones
         if len(text) > MAX_CHUNK_CHARS:
+            collapse_max_retries = Config.SUMMARIZER_COLLAPSE_MAX_RETRIES
+            if collapse_max_retries < 1:
+                raise ValueError(
+                    "SUMMARIZER_COLLAPSE_MAX_RETRIES must be at least 1"
+                )
+
             # Split into chunks for map_reduce
             chunks = [text[i : i + MAX_CHUNK_CHARS] for i in range(0, len(text), MAX_CHUNK_CHARS)]
             self.logger.info(
-                "Using map_reduce for large document: circular_id=%s total_chars=%d max_chunk_chars=%d num_chunks=%d",
+                "Using map_reduce for large document: circular_id=%s total_chars=%d max_chunk_chars=%d num_chunks=%d collapse_max_retries=%d",
                 record.circular_id,
                 len(text),
                 MAX_CHUNK_CHARS,
                 len(chunks),
+                collapse_max_retries,
             )
             chain = load_summarize_chain(
                 llm=llm_adapter,
                 chain_type="map_reduce",
                 map_prompt=MAP_PROMPT,
                 combine_prompt=REDUCE_PROMPT,
+                collapse_max_retries=collapse_max_retries,
                 verbose=False,
             )
             docs = [Document(page_content=chunk) for chunk in chunks]

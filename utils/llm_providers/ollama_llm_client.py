@@ -43,6 +43,7 @@ class OllamaLLMClient(BaseLLMClient):
         response_model: type[BaseModel],
         max_workers: int = 8,
         max_retries: int = 3,
+        max_tokens: int | None = None,
     ) -> list[Any]:
         logger = logging.getLogger(__name__)
         logger.info("Starting parallel LLM calls: count=%d max_workers=%d", len(prompts), max_workers)
@@ -52,10 +53,15 @@ class OllamaLLMClient(BaseLLMClient):
             logger.info("LLM call starting: idx=%d attempt=0", idx)
             for attempt in range(max_retries):
                 try:
+                    create_kwargs: dict[str, Any] = {
+                        "model": model,
+                        "response_model": response_model,
+                        "messages": [{"role": "user", "content": prompt}],
+                    }
+                    if max_tokens is not None:
+                        create_kwargs["max_tokens"] = max_tokens
                     response = self.get_client().chat.completions.create(
-                        model=model,
-                        response_model=response_model,
-                        messages=[{"role": "user", "content": prompt}],
+                        **create_kwargs,
                     )
                     logger.info("LLM call completed: idx=%d attempt=%d", idx, attempt)
                     return idx, response

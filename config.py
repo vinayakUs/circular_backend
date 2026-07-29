@@ -51,6 +51,12 @@ class Config:
     SEBI_DETAIL_RETRY_BACKOFF_SECONDS = float(
         os.getenv("SEBI_DETAIL_RETRY_BACKOFF_SECONDS", "2")
     )
+    SUMMARIZER_COLLAPSE_MAX_RETRIES = int(
+        os.getenv("SUMMARIZER_COLLAPSE_MAX_RETRIES", "3")
+    )
+    SUMMARIZER_MAX_OUTPUT_TOKENS = int(
+        os.getenv("SUMMARIZER_MAX_OUTPUT_TOKENS", "500")
+    )
     SCRAPER_DEFAULT_LOOKBACK_DAYS = int(
         os.getenv("SCRAPER_DEFAULT_LOOKBACK_DAYS", "4") # default to 1 day if no data in db fetching historical data
     ) 

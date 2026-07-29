@@ -8,6 +8,7 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
 from langchain_core.messages import AIMessage
+from pydantic import PrivateAttr
 
 from config import Config
 from utils.llm_providers import get_llm_provider
@@ -21,12 +22,14 @@ class LangChainLLMAdapter(BaseChatModel):
     """
 
     model_name: str = None  # type: ignore[assignment]
+    _max_tokens: int | None = PrivateAttr(default=None)
 
     def __init__(
         self,
         provider_name: str = None,
         model_name: str = None,
         custom_get_token_ids: Callable[[str], list[int]] | None = None,
+        max_tokens: int | None = None,
         **kwargs,
     ):
         # Caller must supply a `custom_get_token_ids` callable so LangChain
@@ -45,6 +48,7 @@ class LangChainLLMAdapter(BaseChatModel):
         super().__init__(**kwargs)
         self._provider_name = provider_name or Config.LLM_PROVIDER
         self._model_name = model_name or Config.RAG_MODEL
+        self._max_tokens = max_tokens
         self._client = get_llm_provider(self._provider_name)
 
     @property
@@ -79,6 +83,7 @@ class LangChainLLMAdapter(BaseChatModel):
             prompts=[prompt],
             model=self._model_name,
             response_model=str,  # Return raw string
+            max_tokens=self._max_tokens,
             max_workers=1,
         )[0]
 

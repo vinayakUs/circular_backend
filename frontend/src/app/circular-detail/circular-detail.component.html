@@ -175,7 +175,9 @@
               <p>No outgoing or incoming references for this circular.</p>
             </div>
 
-            <div class="graph-container" *ngIf="!referenceGraphLoading && referenceGraph && graphElements.length > 0">
+            <div class="graph-container" *ngIf="!referenceGraphLoading && referenceGraph && graphElements.length > 0"
+                 [style.minHeight.px]="graphContainerMinHeight"
+                 [style.height.px]="graphContainerHeight">
               <div #cyContainer class="cy-chart" role="application" aria-label="Circular reference graph"></div>
             </div>
 

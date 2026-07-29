@@ -9,8 +9,6 @@ import { CircularsApiService, Circular, Signatory, Expert, ReferenceGraphRespons
 import { ExpertModalComponent } from '../expert-modal/expert-modal.component';
 import { LoginService } from '../services/login.service';
 
-let dagreRegistered = false;
-
 interface ActionItem {
   id: string;
   action_item: string;
@@ -53,7 +51,25 @@ export class CircularDetailComponent implements OnInit, AfterViewInit, OnDestroy
   referenceGraphError = false;
 
   graphElements: cytoscape.ElementDefinition[] = [];
+  graphDepthRows = 0;
   private cy: cytoscape.Core | null = null;
+
+  /** Per-row vertical budget: node height (112) + row gap (80) = 192px.
+   *  +40px top/bottom padding keeps the rows visually centred. */
+  private readonly ROW_HEIGHT_PX = 192;
+  private readonly CONTAINER_VERTICAL_PADDING = 80;
+  private readonly BASE_CONTAINER_HEIGHT = 560;
+
+  /** Container height grows with the number of depth rows so a 3-level
+   *  graph isn't crammed into the same vertical space as a 1-level one. */
+  get graphContainerHeight(): number {
+    const rows = Math.max(1, this.graphDepthRows);
+    return Math.max(this.BASE_CONTAINER_HEIGHT, rows * this.ROW_HEIGHT_PX + this.CONTAINER_VERTICAL_PADDING);
+  }
+
+  get graphContainerMinHeight(): number {
+    return this.graphContainerHeight;
+  }
   private graphResizeObserver: ResizeObserver | null = null;
   private graphInitialization: Promise<void> | null = null;
   private graphDestroyed = false;
@@ -92,6 +108,7 @@ export class CircularDetailComponent implements OnInit, AfterViewInit, OnDestroy
       this.referenceGraphError = false;
       this.referenceGraphLoading = false;
       this.graphElements = [];
+      this.graphDepthRows = 0;
       this.summary = null;
       this.experts = [];
       this.signatories = [];
@@ -147,10 +164,7 @@ export class CircularDetailComponent implements OnInit, AfterViewInit, OnDestroy
   }
 
   private async createGraph(container: HTMLDivElement): Promise<void> {
-    const [{ default: cytoscapeLib }, { default: dagreLib }] = await Promise.all([
-      import('cytoscape'),
-      import('cytoscape-dagre'),
-    ]);
+    const { default: cytoscapeLib } = await import('cytoscape');
 
     if (
       this.graphDestroyed ||
@@ -159,11 +173,6 @@ export class CircularDetailComponent implements OnInit, AfterViewInit, OnDestroy
       this.cyContainer?.nativeElement !== container
     ) {
       return;
-    }
-
-    if (!dagreRegistered) {
-      cytoscapeLib.use(dagreLib);
-      dagreRegistered = true;
     }
 
     this.cy = cytoscapeLib({
@@ -231,19 +240,18 @@ export class CircularDetailComponent implements OnInit, AfterViewInit, OnDestroy
 
       if (this.graphElements.length === 0) return;
 
+      // The 'preset' layout honours the per-node `position` we computed in
+      // toGraphModel() — that's how we get strict depth rows instead of a
+      // heuristic tree. We then fit + centre + zoom for the initial view.
       cy.layout({
-        name: 'dagre',
-        rankDir: 'TB',
-        nodeSep: 40,
-        edgeSep: 20,
-        rankSep: 80,
+        name: 'preset',
         fit: true,
-        padding: 120,
+        padding: 80,
         animate: false,
       } as cytoscape.LayoutOptions).run();
       cy.resize();
-      cy.fit(cy.elements(), 120);
-      cy.zoom(0.75);
+      cy.fit(cy.elements(), 80);
+      cy.zoom(0.8);
       cy.center();
     });
   }
@@ -459,7 +467,11 @@ export class CircularDetailComponent implements OnInit, AfterViewInit, OnDestroy
     });
   }
 
-  /** Convert the API response into Cytoscape nodes and edges. */
+  /** Convert the API response into Cytoscape nodes and edges.
+   *  Nodes are positioned strictly by the API-provided `depth` field —
+   *  all depth-0 nodes share a row, all depth-1 nodes share the next, etc.
+   *  This produces a clean horizontal hierarchy instead of relying on
+   *  a layout engine to infer rank from edge direction. */
   private toGraphModel(): void {
     if (!this.referenceGraph) {
       this.graphElements = [];
@@ -467,7 +479,51 @@ export class CircularDetailComponent implements OnInit, AfterViewInit, OnDestroy
     }
 
     const stubId = (label: string) => `stub:${label}`;
-    const elements: cytoscape.ElementDefinition[] = this.referenceGraph.nodes.map((node) => {
+
+    // Group node indices by depth so we can layout each row independently.
+    // Unknown depths get bucketed into the deepest known row so stubs always
+    // sit on a real depth line rather than floating at depth 0.
+    const maxKnownDepth = this.referenceGraph.nodes.reduce(
+      (acc, n) => Math.max(acc, typeof n.depth === 'number' ? n.depth : 0),
+      0,
+    );
+    const rowIndices = new Map<number, number[]>();
+    this.referenceGraph.nodes.forEach((node, index) => {
+      const d = typeof node.depth === 'number' ? node.depth : maxKnownDepth;
+      const bucket = rowIndices.get(d) ?? [];
+      bucket.push(index);
+      rowIndices.set(d, bucket);
+    });
+
+    // Geometry constants — kept in sync with the node CSS (width 220, height 112).
+    const NODE_WIDTH = 220;
+    const NODE_HEIGHT = 112;
+    const GAP_X = 60;
+    const GAP_Y = 80;
+    const ROW_PADDING_X = 80;
+
+    // Compute the widest row in nodes so every row can share a common width
+    // and stay centered on the same vertical axis.
+    const widestRowSize = Math.max(1, ...Array.from(rowIndices.values()).map((row) => row.length));
+    const rowPixelWidth = widestRowSize * NODE_WIDTH + (widestRowSize - 1) * GAP_X;
+    const rowLeftEdge = -rowPixelWidth / 2 + NODE_WIDTH / 2;
+
+    const positions = new Map<number, { x: number; y: number }>();
+    const sortedDepths = Array.from(rowIndices.keys()).sort((a, b) => a - b);
+    sortedDepths.forEach((depth) => {
+      const row = rowIndices.get(depth) ?? [];
+      const rowWidth = row.length * NODE_WIDTH + (row.length - 1) * GAP_X;
+      const rowStart = -rowWidth / 2 + NODE_WIDTH / 2;
+      row.forEach((nodeIndex, slotInRow) => {
+        const x = row.length === widestRowSize
+          ? rowLeftEdge + slotInRow * (NODE_WIDTH + GAP_X)
+          : rowStart + slotInRow * (NODE_WIDTH + GAP_X);
+        const y = depth * (NODE_HEIGHT + GAP_Y);
+        positions.set(nodeIndex, { x, y });
+      });
+    });
+
+    const elements: cytoscape.ElementDefinition[] = this.referenceGraph.nodes.map((node, index) => {
       const id = node.id ?? stubId(node.label);
       const classes = [
         node.is_root ? 'is-root' : '',
@@ -485,6 +541,7 @@ export class CircularDetailComponent implements OnInit, AfterViewInit, OnDestroy
           is_root: node.is_root,
           unresolved: node.unresolved,
         },
+        position: positions.get(index) ?? { x: 0, y: 0 },
         classes,
       };
     });
@@ -505,6 +562,8 @@ export class CircularDetailComponent implements OnInit, AfterViewInit, OnDestroy
       });
     });
 
+    // Stash the row count so the container can grow vertically for deep graphs.
+    this.graphDepthRows = sortedDepths.length;
     this.graphElements = elements;
   }
 
