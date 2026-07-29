@@ -17,6 +17,8 @@ class UserRecord:
     created_by: str
     updated_at: datetime | None
     updated_by: str | None
+    is_deleted: bool
+    deleted_at: datetime | None
 
 
 class UsersRepository:
@@ -53,7 +55,8 @@ class UsersRepository:
                 INSERT INTO users (user_id, department_id, email, name, created_by)
                 VALUES (%s, %s, %s, %s, %s)
                 RETURNING id, user_id, department_id, email, name,
-                          created_at, created_by, updated_at, updated_by
+                          created_at, created_by, updated_at, updated_by,
+                          is_deleted, deleted_at
                 """,
                 (user_id, str(department_id), clean_email, clean_name, created_by),
             )
@@ -61,50 +64,80 @@ class UsersRepository:
             conn.commit()
         return self._row_to_record(row)
 
-    def remove_user(self, user_id: str) -> bool:
-        """Remove a user by user_id. Returns True if deleted."""
+    def soft_delete_user(self, user_id: str, deleted_by: str) -> bool:
+        """Mark a user as deleted. Returns True if a row was affected."""
         with self.db_pool.acquire() as conn:
             cursor = conn.cursor()
-            cursor.execute("DELETE FROM users WHERE user_id = %s RETURNING id", (user_id,))
+            cursor.execute(
+                """
+                UPDATE users
+                   SET is_deleted = TRUE,
+                       deleted_at = NOW(),
+                       updated_by = %s,
+                       updated_at = NOW()
+                 WHERE user_id = %s
+                   AND is_deleted = FALSE
+                RETURNING id
+                """,
+                (deleted_by, user_id),
+            )
             result = cursor.fetchone()
             conn.commit()
         return result is not None
 
     def get_user(self, user_id: str) -> UserRecord | None:
-        """Get a user by user_id."""
+        """Get an active (non-deleted) user by user_id."""
         with self.db_pool.acquire() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
-                SELECT id, user_id, department_id, email, name, created_at, created_by, updated_at, updated_by
-                FROM users WHERE user_id = %s
+                SELECT id, user_id, department_id, email, name,
+                       created_at, created_by, updated_at, updated_by,
+                       is_deleted, deleted_at
+                FROM users
+                WHERE user_id = %s
+                  AND is_deleted = FALSE
                 """,
                 (user_id,),
             )
             row = cursor.fetchone()
         return self._row_to_record(row)
 
-    def list_all(self) -> list[UserRecord]:
-        """Return every provisioned user. Used by the @mention search picker."""
+    def list_all(self, include_deleted: bool = False) -> list[UserRecord]:
+        """Return every user, optionally including soft-deleted rows.
+
+        Default behavior (include_deleted=False) hides soft-deleted rows so the
+        @mention search picker never suggests them.
+        """
+        filter_clause = "" if include_deleted else "WHERE is_deleted = FALSE"
         with self.db_pool.acquire() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                """
-                SELECT id, user_id, department_id, email, name, created_at, created_by, updated_at, updated_by
-                FROM users ORDER BY user_id
+                f"""
+                SELECT id, user_id, department_id, email, name,
+                       created_at, created_by, updated_at, updated_by,
+                       is_deleted, deleted_at
+                FROM users
+                {filter_clause}
+                ORDER BY user_id
                 """,
             )
             rows = cursor.fetchall()
         return [r for row in rows if (r := self._row_to_record(row))]
 
     def get_users_by_department(self, department_id: UUID) -> list[UserRecord]:
-        """List all users in a department."""
+        """List all active (non-deleted) users in a department."""
         with self.db_pool.acquire() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
-                SELECT id, user_id, department_id, email, name, created_at, created_by, updated_at, updated_by
-                FROM users WHERE department_id = %s ORDER BY created_at
+                SELECT id, user_id, department_id, email, name,
+                       created_at, created_by, updated_at, updated_by,
+                       is_deleted, deleted_at
+                FROM users
+                WHERE department_id = %s
+                  AND is_deleted = FALSE
+                ORDER BY created_at
                 """,
                 (str(department_id),),
             )
@@ -112,13 +145,18 @@ class UsersRepository:
         return [r for row in rows if (r := self._row_to_record(row))]
 
     def get_departments_by_user(self, user_id: str) -> list[UserRecord]:
-        """List all department assignments for a user."""
+        """List all active (non-deleted) department assignments for a user."""
         with self.db_pool.acquire() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
-                SELECT id, user_id, department_id, email, name, created_at, created_by, updated_at, updated_by
-                FROM users WHERE user_id = %s ORDER BY created_at
+                SELECT id, user_id, department_id, email, name,
+                       created_at, created_by, updated_at, updated_by,
+                       is_deleted, deleted_at
+                FROM users
+                WHERE user_id = %s
+                  AND is_deleted = FALSE
+                ORDER BY created_at
                 """,
                 (user_id,),
             )
@@ -138,4 +176,6 @@ class UsersRepository:
             created_by=row[6],
             updated_at=row[7],
             updated_by=row[8],
+            is_deleted=row[9],
+            deleted_at=row[10],
         )

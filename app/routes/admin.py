@@ -92,7 +92,7 @@ def register_routes(app) -> None:
         """Remove a user from a department."""
         db_client = get_postgres_client()
         repository = UsersRepository(db_pool=db_client.get_pool())
-        deleted = repository.remove_user(user_id)
+        deleted = repository.soft_delete_user(user_id, deleted_by=g.current_user)
         if not deleted:
             return {"error": "User not found"}, 404
         return {"success": True}

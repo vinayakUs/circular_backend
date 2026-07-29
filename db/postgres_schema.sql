@@ -146,13 +146,18 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_by VARCHAR(255) NOT NULL,        -- LDAP uid of admin who added
     updated_at TIMESTAMPTZ,
-    updated_by VARCHAR(255)
+    updated_by VARCHAR(255),
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    deleted_at TIMESTAMPTZ
 );
 CREATE INDEX IF NOT EXISTS idx_users_department ON users(department_id);
+CREATE INDEX IF NOT EXISTS idx_users_is_deleted ON users(is_deleted) WHERE is_deleted = FALSE;
 
 -- Idempotent migration for existing databases (no-op on fresh installs).
 -- ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255);
 -- ALTER TABLE users ADD COLUMN IF NOT EXISTS name VARCHAR(255);
+-- ALTER TABLE users ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT FALSE;
+-- ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 
 -- experts (current schema)
 CREATE TABLE IF NOT EXISTS experts (
