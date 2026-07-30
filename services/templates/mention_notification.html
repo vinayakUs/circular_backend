@@ -2,7 +2,7 @@
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
     <h2 style="color: #2c3e50;">You were mentioned</h2>
     <p>
-        <strong>@{{ mentioned_by }}</strong> mentioned {{ target_label }}
+        <strong>@{{ mentioned_by_user_id }}</strong>{% if mentioned_by_name %} ({{ mentioned_by_name }}){% endif %} mentioned {{ target_label }}
         in a comment on the <em>{{ expert_name }}</em> expert task.
     </p>
     <table style="border-collapse: collapse; width: 100%; max-width: 600px;">

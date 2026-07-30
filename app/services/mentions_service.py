@@ -20,7 +20,7 @@ class MentionsService:
         status: str | None = None,
         unread_only: bool = False,
     ) -> dict[str, Any]:
-        where = ["mn.recipient_user_id = %s"]
+        where = ["mn.recipient_user_id = %s", "mn.status != 'SKIPPED'"]
         params: list[Any] = [user_id]
 
         if status:
@@ -42,7 +42,7 @@ class MentionsService:
             cur.execute(
                 """
                 SELECT COUNT(*) FROM mention_notifications
-                WHERE recipient_user_id = %s AND read_at IS NULL
+                WHERE recipient_user_id = %s AND read_at IS NULL AND status != 'SKIPPED'
                 """,
                 (user_id,),
             )
@@ -51,12 +51,16 @@ class MentionsService:
             cur.execute(
                 f"""
                 SELECT mn.id, mn.status, mn.read_at, mn.created_at, mn.sent_at,
-                       cm.mentioned_by, cm.target_label, cm.target_type,
+                       cm.mentioned_by_user_db_id,
+                       u.user_id AS mentioned_by_user_id,
+                       u.name    AS mentioned_by_name,
+                       cm.target_label, cm.target_type,
                        cm.expert_id, cm.comment_id, c.text, e.expert_name
                 FROM mention_notifications mn
                 JOIN comment_mentions cm ON cm.id  = mn.mention_id
                 JOIN comments c          ON c.id   = cm.comment_id
                 JOIN experts e           ON e.id   = cm.expert_id
+                JOIN users u             ON u.id   = cm.mentioned_by_user_db_id
                 WHERE {where_sql}
                 ORDER BY mn.created_at DESC
                 LIMIT %s OFFSET %s
@@ -70,16 +74,17 @@ class MentionsService:
                     "read_at": r[2].isoformat() if r[2] else None,
                     "created_at": r[3].isoformat() if r[3] else None,
                     "sent_at": r[4].isoformat() if r[4] else None,
-                    "mentioned_by": r[5],
-                    "target_label": r[6],
-                    "target_type": r[7],
-                    "expert_id": str(r[8]),
-                    "comment_id": str(r[9]),
+                    "mentioned_by_user_id": r[6],
+                    "mentioned_by_name": r[7],
+                    "target_label": r[8],
+                    "target_type": r[9],
+                    "expert_id": str(r[10]),
+                    "comment_id": str(r[11]),
                     "comment_snippet": (
-                        (r[10][:160] + "…") if r[10] and len(r[10]) > 160 else r[10]
+                        (r[12][:160] + "…") if r[12] and len(r[12]) > 160 else r[12]
                     ),
-                    "expert_name": r[11],
-                    "comment_url": f"/circulars/{r[8]}/experts/{r[8]}#comment-{r[9]}",
+                    "expert_name": r[13],
+                    "comment_url": f"/circulars/{r[10]}/experts/{r[10]}#comment-{r[11]}",
                 }
                 for r in cur.fetchall()
             ]
@@ -97,7 +102,7 @@ class MentionsService:
             cur.execute(
                 """
                 SELECT COUNT(*) FROM mention_notifications
-                WHERE recipient_user_id = %s AND read_at IS NULL
+                WHERE recipient_user_id = %s AND read_at IS NULL AND status != 'SKIPPED'
                 """,
                 (user_id,),
             )

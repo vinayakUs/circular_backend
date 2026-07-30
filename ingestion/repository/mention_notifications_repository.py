@@ -50,7 +50,7 @@ class MentionNotificationsRepository:
         cursor,
         comment_id: UUID,
         expert_id: UUID,
-        mentioned_by: str,
+        mentioned_by_user_db_id: UUID,
         resolved: list[ResolvedMention],
     ) -> list[QueuedMention]:
         """Run inside the caller's transaction (caller owns commit)."""
@@ -59,12 +59,12 @@ class MentionNotificationsRepository:
             cursor.execute(
                 """
                 INSERT INTO comment_mentions
-                    (comment_id, expert_id, mentioned_by, target_type, target_id, target_label)
+                    (comment_id, expert_id, mentioned_by_user_db_id, target_type, target_id, target_label)
                 VALUES (%s, %s, %s, %s, %s, %s)
                 ON CONFLICT (comment_id, target_type, target_id) DO NOTHING
                 RETURNING id
                 """,
-                (str(comment_id), str(expert_id), mentioned_by,
+                (str(comment_id), str(expert_id), str(mentioned_by_user_db_id),
                  rm.target_type, rm.target_id, rm.target_label),
             )
             row = cursor.fetchone()
@@ -74,11 +74,11 @@ class MentionNotificationsRepository:
 
             # dedupe recipients by user_id (in case same user appears twice)
             seen: set[str] = set()
-            for user_id, email in rm.recipients:
+            for user_id, recipient_user_db_id, email in rm.recipients:
                 if user_id in seen:
                     continue
                 seen.add(user_id)
-                if user_id == mentioned_by:
+                if recipient_user_db_id == mentioned_by_user_db_id:
                     status = "SKIPPED"
                     err = "self-mention"
                 else:
@@ -110,12 +110,16 @@ class MentionNotificationsRepository:
             cur.execute(
                 """
                 SELECT mn.id, mn.recipient_user_id, mn.recipient_email, mn.mention_id,
-                       cm.comment_id, cm.expert_id, cm.mentioned_by, cm.target_label,
-                       cm.target_type, c.text, c.created_at, e.expert_name
+                       cm.comment_id, cm.expert_id, cm.mentioned_by_user_db_id,
+                       cm.target_label, cm.target_type,
+                       u.user_id AS mentioned_by_user_id,
+                       u.name    AS mentioned_by_name,
+                       c.text, c.created_at, e.expert_name
                 FROM mention_notifications mn
                 JOIN comment_mentions cm ON cm.id = mn.mention_id
                 JOIN comments c          ON c.id  = cm.comment_id
                 JOIN experts e           ON e.id  = cm.expert_id
+                JOIN users u             ON u.id  = cm.mentioned_by_user_db_id
                 WHERE mn.status = 'PENDING'
                 ORDER BY mn.created_at
                 LIMIT %s

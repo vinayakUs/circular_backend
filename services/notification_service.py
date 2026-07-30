@@ -138,15 +138,17 @@ class EmailService:
 
     def send_mention_notification(self, row: dict) -> tuple[bool, str | None]:
         """row comes from MentionNotificationsRepository.list_pending()."""
+        print(row)
         template_name = "mention_notification.html"
         variables = {
-            "mentioned_by": row["mentioned_by"],
+            "mentioned_by_user_id": row["mentioned_by_user_id"],
+            "mentioned_by_name": row.get("mentioned_by_name"),
             "target_label": row["target_label"],
             "comment_text": row["text"],
             "expert_name":  row["expert_name"],
             "comment_url":  f"https://abc.com/expert/{row['expert_id']}#comment-{row['comment_id']}",
         }
-        subject = f"You were mentioned in a comment by @{row['mentioned_by']}"
+        subject = f"You were mentioned in a comment by @{row['mentioned_by_user_id']}"
         html = self._render_template(template_name, variables)
 
         log_id = self.log_repo.create_log(

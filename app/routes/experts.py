@@ -82,7 +82,7 @@ def register_routes(app) -> None:
             return {"error": "text is required"}, 400
 
         service = CommentsService()
-        comment = service.create_comment(expert_id, g.user_db_id, g.current_user, text)
+        comment = service.create_comment(expert_id, g.user_db_id, text)
         return {"comment": comment}, 201
 
     # ── "Experts by department" filter for the home screen ────────

@@ -15,10 +15,10 @@ from ingestion.repository.properties_repository import PropertiesRepository
 
 @dataclass(slots=True)
 class ResolvedMention:
-    target_type: str                        # 'user' | 'department'
-    target_id: str                          # users.user_id OR properties.id
-    target_label: str                       # display string for the email
-    recipients: list[tuple[str, str]]       # [(user_id, email), ...] — empty = skip
+    target_type: str                                  # 'user' | 'department'
+    target_id: str                                    # users.user_id OR properties.id
+    target_label: str                                 # display string for the email
+    recipients: list[tuple[str, UUID, str]]           # [(user_id, user_db_id, email), ...] — empty = skip
 
 
 class MentionResolver:
@@ -34,10 +34,10 @@ class MentionResolver:
             if target_type == "user":
                 user = self.users_repo.get_user(target_id)
                 if not user:
-                    recipients: list[tuple[str, str]] = []
+                    recipients: list[tuple[str, UUID, str]] = []
                 else:
                     email = self._resolve_email(user)
-                    recipients = [(user.user_id, email)] if email else []
+                    recipients = [(user.user_id, user.id, email)] if email else []
                 out.append(ResolvedMention("user", target_id, f"@{target_id}", recipients))
 
             elif target_type == "department":
@@ -50,8 +50,8 @@ class MentionResolver:
                     out.append(ResolvedMention("department", target_id, f"@dep:{target_id}", []))
                     continue
                 users = self.users_repo.get_users_by_department(dept.id)
-                recipients = [(u.user_id, self._resolve_email(u)) for u in users]
-                recipients = [r for r in recipients if r[1]]  # drop users without resolvable email
+                recipients = [(u.user_id, u.id, self._resolve_email(u)) for u in users]
+                recipients = [r for r in recipients if r[2]]  # drop users without resolvable email
                 out.append(ResolvedMention("department", str(dept.id), f"@dep:{dept.name}", recipients))
         return out
 

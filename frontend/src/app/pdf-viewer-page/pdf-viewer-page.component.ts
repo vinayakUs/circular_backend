@@ -9,8 +9,10 @@ import { environment } from 'src/environments/environment';
 
 interface Comment {
   id: string;
-  user_id: string;
-  username: string;
+  user_db_id: string;
+  author_user_id: string;
+  author_name: string | null;
+  author_email: string | null;
   text: string;
   created_at: string;
 }

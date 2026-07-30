@@ -178,14 +178,14 @@ CREATE INDEX IF NOT EXISTS idx_experts_status ON experts(status);
 
 -- comments
 CREATE TABLE IF NOT EXISTS comments (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    expert_id UUID NOT NULL REFERENCES experts(id) ON DELETE CASCADE,
-    user_id VARCHAR(255) NOT NULL,
-    username VARCHAR(255) NOT NULL,
-    text TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    expert_id   UUID NOT NULL REFERENCES experts(id) ON DELETE CASCADE,
+    user_db_id  UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    text        TEXT NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS idx_comments_expert_id ON comments(expert_id);
+CREATE INDEX IF NOT EXISTS idx_comments_expert_id  ON comments(expert_id);
+CREATE INDEX IF NOT EXISTS idx_comments_user_db_id ON comments(user_db_id);
 
 -- summaries
 CREATE TABLE IF NOT EXISTS summaries (
@@ -249,14 +249,14 @@ CREATE INDEX IF NOT EXISTS idx_expert_departments_mapping_department
 
 -- comment_mentions: one row per @mention parsed from a comment
 CREATE TABLE IF NOT EXISTS comment_mentions (
-    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    comment_id    UUID NOT NULL REFERENCES comments(id) ON DELETE CASCADE,
-    expert_id     UUID NOT NULL REFERENCES experts(id)  ON DELETE CASCADE,
-    mentioned_by  VARCHAR(255) NOT NULL,
-    target_type   VARCHAR(16)  NOT NULL,
-    target_id     VARCHAR(255) NOT NULL,
-    target_label  VARCHAR(255) NOT NULL,
-    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    comment_id              UUID NOT NULL REFERENCES comments(id) ON DELETE CASCADE,
+    expert_id               UUID NOT NULL REFERENCES experts(id)  ON DELETE CASCADE,
+    mentioned_by_user_db_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    target_type             VARCHAR(16)  NOT NULL,
+    target_id               VARCHAR(255) NOT NULL,
+    target_label            VARCHAR(255) NOT NULL,
+    created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT chk_mention_target_type CHECK (target_type IN ('user','department')),
     UNIQUE (comment_id, target_type, target_id)
 );

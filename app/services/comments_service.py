@@ -28,8 +28,10 @@ class CommentsService:
             {
                 "id": str(c.id),
                 "expert_id": str(c.expert_id),
-                "user_id": c.user_id,
-                "username": c.username,
+                "user_db_id": str(c.user_db_id),
+                "author_user_id": c.author_user_id,
+                "author_name": c.author_name,
+                "author_email": c.author_email,
                 "text": c.text,
                 "created_at": c.created_at.isoformat(),
             }
@@ -37,7 +39,7 @@ class CommentsService:
         ]
 
     def create_comment(
-        self, expert_id: UUID, user_id: str, username: str, text: str
+        self, expert_id: UUID, user_db_id: UUID, text: str
     ) -> dict:
         """Insert comment + fan out @mentions in a single transaction.
 
@@ -46,13 +48,13 @@ class CommentsService:
         """
         with self.repository.db_pool.acquire() as conn:
             cur = conn.cursor()
-            comment = self.repository._insert_in_tx(cur, expert_id, user_id, username, text)
+            comment = self.repository._insert_in_tx(cur, expert_id, user_db_id, text)
             try:
                 parsed = parse_mentions(text)
                 if parsed:
                     resolved = self.resolver.resolve(parsed)
                     self.mention_repo.persist(
-                        cur, comment.id, expert_id, username, resolved
+                        cur, comment.id, expert_id, comment.user_db_id, resolved
                     )
             except Exception:
                 logger.exception(
@@ -64,8 +66,10 @@ class CommentsService:
         return {
             "id": str(comment.id),
             "expert_id": str(comment.expert_id),
-            "user_id": comment.user_id,
-            "username": comment.username,
+            "user_db_id": str(comment.user_db_id),
+            "author_user_id": comment.author_user_id,
+            "author_name": comment.author_name,
+            "author_email": comment.author_email,
             "text": comment.text,
             "created_at": comment.created_at.isoformat(),
         }
