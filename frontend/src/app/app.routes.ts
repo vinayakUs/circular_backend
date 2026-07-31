@@ -10,12 +10,14 @@ import { KeywordSearchComponent } from './keyword-search/keyword-search.componen
 import { PdfViewerPageComponent } from './pdf-viewer-page/pdf-viewer-page.component';
 import { TaskviewComponent } from './taskview/taskview.component';
 import { authGuard } from './auth.guard';
+import { TestpdfviewerComponent } from './testpdfviewer/testpdfviewer.component';
 
 export const routes: Routes = [
   { path: '', component: HomeComponent },
   { path: 'changes', component: ChangesComponent },
   { path: 'circular/:id', component: CircularDetailComponent },
   { path: 'login', component: LoginComponent },
+  { path: 'testpdfviewer' , component: TestpdfviewerComponent},
   { path: 'experts-by-department', component: ExpertsByDepartmentComponent, canActivate: [authGuard] },
   { path: 'alerts', component: AlertsComponent },
   { path: 'keyword-search', component: KeywordSearchComponent },

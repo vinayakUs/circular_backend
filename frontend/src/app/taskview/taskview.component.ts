@@ -1,4 +1,4 @@
-import { Component, OnInit, ElementRef, ViewChild, HostListener } from '@angular/core';
+import { Component, OnInit, ElementRef, ViewChild, HostListener, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
@@ -66,6 +66,11 @@ export class TaskviewComponent implements OnInit {
   mentionPos: { top: number; left: number; width: number } | null = null;  // fixed-positioned popup coords
   private mentionDebounce?: ReturnType<typeof setTimeout>;
 
+  // TEMP: hardcoded ID for testing — replace with a real UUID, then remove before merging.
+  private readonly DEFAULT_EXPERT_ID = '8c398f65-b9e8-4664-b86e-13ea773456c0';
+  private pendingAutoSelectId: string | null = null;
+  private pdfPageRendered = false;
+
   private annotationsRestored = false;
   private isRestoring = false;
   private isClearingHighlights = false;
@@ -82,8 +87,26 @@ export class TaskviewComponent implements OnInit {
   constructor(
     private route: ActivatedRoute,
     private api: CircularsApiService,
-    private pdfViewerService: NgxExtendedPdfViewerService
-  ) {}
+    private pdfViewerService: NgxExtendedPdfViewerService,
+    private cdr: ChangeDetectorRef
+  ) {
+    // Suppress a known PDF.js race condition: when addEditorAnnotation adds a
+    // highlight, the annotation gets focus, which auto-switches the editor
+    // mode and tries to re-enable ALL editor layers on every page. For pages
+    // that haven't been rendered yet, the layer's `div` is null and the
+    // update throws "Cannot read properties of null (reading 'append')".
+    // The annotation is still added correctly — only the uncaught rejection
+    // log noise needs silencing.
+    window.addEventListener('unhandledrejection', (event) => {
+      const msg = event.reason?.message ?? '';
+      if (
+        msg.includes("Cannot read properties of null (reading 'append')") ||
+        msg.includes("Cannot read properties of undefined (reading 'div')")
+      ) {
+        event.preventDefault();
+      }
+    });
+  }
 
   // ── @mention picker helpers ────────────────────────────────
   flatMentionCount(): number {
@@ -290,6 +313,10 @@ export class TaskviewComponent implements OnInit {
         // }
       }
     });
+
+    // TEMP: queue the hardcoded ID so the auto-select runs once the PDF page
+    // is rendered (see onEvent and tryAutoSelect).
+    this.pendingAutoSelectId = this.DEFAULT_EXPERT_ID;
   }
 
   loadExperts(circularId: string): void {
@@ -297,11 +324,31 @@ export class TaskviewComponent implements OnInit {
       next: (res) => {
         this.experts = res.experts;
         console.log('Experts:', this.experts);
+
+        // TEMP: try auto-select now (PDF page may already be rendered).
+        this.tryAutoSelect();
       },
       error: (err) => {
         console.error('Failed to load experts', err);
       }
     });
+  }
+
+  /** TEMP: consume the queued DEFAULT_EXPERT_ID once BOTH the experts list
+   *  is loaded AND the first PDF page has been rendered. Either side can
+   *  trigger this — the helper is a no-op unless both prerequisites are met. */
+  private tryAutoSelect(): void {
+    console.log('[auto-select] tryAutoSelect called', {
+      pendingId: this.pendingAutoSelectId,
+      pdfPageRendered: this.pdfPageRendered,
+      expertsCount: this.experts.length,
+    });
+    if (this.pendingAutoSelectId && this.pdfPageRendered && this.experts.length > 0) {
+      const id = this.pendingAutoSelectId;
+      this.pendingAutoSelectId = null;
+      console.log('[auto-select] calling selectExpertById with', id);
+      this.selectExpertById(id);
+    }
   }
 
   loadDepartments(): void {
@@ -316,10 +363,16 @@ export class TaskviewComponent implements OnInit {
   }
 
   selectExpert(expert: Expert): void {
+    console.log('[auto-select] selectExpert called for', expert.id, expert.title);
     this.selectedExpert = expert;
     this.comments = [];
     this.showHighlightForExpert(expert);
     this.loadComments(expert.id!);
+    console.log('[auto-select] selectedExpert is now', this.selectedExpert?.id);
+    // The PDF viewer dispatches 'annotationLayerRendered' outside Angular's zone,
+    // so any state mutation we make in response (like setting selectedExpert)
+    // won't trigger change detection on its own. Force it.
+    this.cdr.detectChanges();
   }
 
   /**
@@ -331,12 +384,17 @@ export class TaskviewComponent implements OnInit {
    * 4. Load the expert's comments
    */
   selectExpertById(expertId: string | undefined): void {
-    if (!expertId) return;
+    console.log('[auto-select] selectExpertById called with', expertId);
+    if (!expertId) {
+      console.warn('[auto-select] expertId is empty');
+      return;
+    }
     const expert = this.experts.find(e => e.id === expertId);
     if (expert) {
+      console.log('[auto-select] found expert', expert.id);
       this.selectExpert(expert);
     } else {
-      console.warn(`Expert with ID ${expertId} not found`);
+      console.warn(`Expert with ID ${expertId} not found among ${this.experts.length} experts`);
     }
   }
 
@@ -348,6 +406,8 @@ export class TaskviewComponent implements OnInit {
     // Force view mode and keep it there
     this.forceViewMode();
     this.showAllHighlights();
+    // Force Angular to re-render the right panel so the task list reappears.
+    this.cdr.detectChanges();
   }
 
   private forceViewMode(): void {
@@ -384,15 +444,20 @@ export class TaskviewComponent implements OnInit {
   }
 
   loadComments(expertId: string): void {
+    console.log('[comments] loadComments called for', expertId);
     this.isLoadingComments = true;
     this.api.getComments(this.circularId, expertId).subscribe({
       next: (res) => {
-        this.comments = res.comments;
+        console.log('[comments] response received', res);
+        this.comments = res?.comments ?? [];
         this.isLoadingComments = false;
+        this.cdr.detectChanges();
+        console.log('[comments] state set — isLoadingComments =', this.isLoadingComments, 'comments.length =', this.comments.length);
       },
       error: (err) => {
-        console.error('Failed to load comments', err);
+        console.error('[comments] failed to load', err);
         this.isLoadingComments = false;
+        this.cdr.detectChanges();
       }
     });
   }
@@ -492,12 +557,15 @@ export class TaskviewComponent implements OnInit {
   }
 
   async onEvent(type: string, event: any): Promise<void> {
-    if (type === 'annotationLayerRendered' && !this.annotationsRestored && !this.isRestoring) {
-      if (event.pageNumber === 1) {
+    if (type === 'annotationLayerRendered' && event.pageNumber === 1) {
+      if (!this.annotationsRestored && !this.isRestoring) {
         await this.restoreHighlights();
         // Ensure view mode after restore
         this.forceViewMode();
       }
+      // TEMP: mark the page as rendered and try the queued auto-select.
+      this.pdfPageRendered = true;
+      this.tryAutoSelect();
     }
   }
 
@@ -557,9 +625,15 @@ export class TaskviewComponent implements OnInit {
 
     const page = (expert.highlights[0].pageIndex ?? 0) + 1;
     console.log('Scrolling to page:', page, 'highlight:', expert.highlights[0]);
-    // Scroll to the page with a small delay
+    // Scroll to the page with a small delay. Guard against the page div not
+    // being mounted yet (PDFViewer.scrollPagePosIntoView reads `div` off the
+    // page record and throws if the page hasn't been rendered).
     setTimeout(() => {
-      this.pdfViewerService.scrollPageIntoView(page, { top: 100 });
+      try {
+        this.pdfViewerService.scrollPageIntoView(page, { top: 100 });
+      } catch (e) {
+        console.warn('scrollPageIntoView failed (page not rendered yet):', e);
+      }
       this.forceViewMode();
     }, 200);
     this.annotationsRestored = true;

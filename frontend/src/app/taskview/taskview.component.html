@@ -40,6 +40,7 @@
   </div>
 
   <div class="tasks-section">
+    @if (!selectedExpert || isAddingTask) {
     <div class="list-header">
       <h2>Tasks</h2>
       @if (!isAddingTask) {
@@ -52,6 +53,7 @@
         </button>
       }
     </div>
+    }
 
     @if (isAddingTask) {
       <div class="add-task-hint">
@@ -64,6 +66,7 @@
       <div class="empty-state">No tasks</div>
     }
 
+    @if (!selectedExpert || isAddingTask) {
     <div class="tasks-list">
       @if (pendingHighlight && isAddingTask) {
         <div class="task-item pending-task">
@@ -147,6 +150,7 @@
         </div>
       }
     </div>
+    }
 
     @if (selectedExpert && !isAddingTask) {
       <div class="detail-view">
