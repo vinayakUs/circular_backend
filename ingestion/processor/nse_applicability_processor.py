@@ -18,7 +18,7 @@ from ingestion.processor.base import BaseProcessor
 from ingestion.repository.asset_repository import AssetRepository
 from ingestion.repository.circular_repository import CircularRecord, CircularRepository
 from pydantic import BaseModel, Field
-from storage.s3_client import S3StorageClient
+from storage.s3_client import get_s3_client
 from utils.llm_providers import get_llm_provider
 
 
@@ -104,7 +104,7 @@ class NSEApplicabilityProcessor(BaseProcessor):
         target = Path(path)
 
         if str(path).startswith("s3://"):
-            s3_client = S3StorageClient()
+            s3_client = get_s3_client()
             pdf_bytes = s3_client.download_bytes(str(path))
             with TemporaryDirectory() as tmp_dir:
                 tmp_path = Path(tmp_dir) / "doc.pdf"

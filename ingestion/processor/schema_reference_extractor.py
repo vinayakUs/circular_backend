@@ -110,7 +110,7 @@ from ingestion.repository.circular_reference_repository import (
     CircularReference,
     CircularReferenceRepository,
 )
-from storage.s3_client import S3StorageClient
+from storage.s3_client import get_s3_client
 from utils.llm_providers import get_llm_provider
 
 
@@ -1333,7 +1333,7 @@ class SchemaReferenceExtractor(BaseProcessor):
         page_count = 0
 
         if str(pdf_path).startswith("s3://"):
-            s3_client = S3StorageClient()
+            s3_client = get_s3_client()
             pdf_bytes = s3_client.download_bytes(str(pdf_path))
             tmp_dir_ctx = TemporaryDirectory()
             tmp_dir = tmp_dir_ctx.__enter__()

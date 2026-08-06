@@ -12,7 +12,7 @@ from ingestion.indexer.embedding_provider import EmbeddingProvider, NoOpEmbeddin
 from ingestion.indexer.es_client import ElasticsearchClient
 from ingestion.indexer.pdf_extractor import PDFPlumberExtractor
 from ingestion.repository import AssetRepository, CircularAssetRecord, CircularRecord, CircularRepository
-from storage.s3_client import S3StorageClient
+from storage.s3_client import get_s3_client
 
 
 class ElasticsearchIndexer:
@@ -37,7 +37,7 @@ class ElasticsearchIndexer:
         self.pdf_chunker = pdf_chunker or NSEPdfChunkingStrategy()
         self.embedding_provider = embedding_provider or NoOpEmbeddingProvider()
         self.batch_size = batch_size
-        self.s3_client = s3_client or (S3StorageClient() if Config.AWS_S3_BUCKET else None)
+        self.s3_client = s3_client or (get_s3_client() if Config.AWS_S3_BUCKET else None)
 
     def run_once(self) -> tuple[int, int]:
         pending_records = self.circular_repository.list_pending_es_records(

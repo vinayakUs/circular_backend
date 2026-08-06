@@ -16,7 +16,7 @@ from utils.llm_providers import get_llm_provider
 import pymupdf
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from storage.s3_client import S3StorageClient
+from storage.s3_client import get_s3_client
 
 
 class PDFTextExtractorPyMuPDF:
@@ -31,7 +31,7 @@ class PDFTextExtractorPyMuPDF:
             raise FileNotFoundError(f"PDF file not found: {path}")
 
         if str(path).startswith("s3://"):
-            s3_client = S3StorageClient()
+            s3_client = get_s3_client()
             pdf_bytes = s3_client.download_bytes(str(path))
             with TemporaryDirectory() as tmp_dir:
                 tmp_path = Path(tmp_dir) / "doc.pdf"

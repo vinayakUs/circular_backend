@@ -47,37 +47,43 @@
   width: 100%;
 }
 
+/* Flex row: the input flexes, the mode toggle and submit take their natural
+   width. Avoids the input's text sliding under the absolutely-positioned
+   controls, and survives changes to the mode labels. */
 .search-field-wrapper {
-  position: relative;
-}
-
-.search-field {
-  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
   background: #ffffff;
   border: 1px solid rgba(0, 0, 0, 0.12);
   border-radius: 8px;
-  padding: 8px 40px 8px 16px;
+  padding: 0 8px 0 16px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.search-field-wrapper:focus-within {
+  border-color: #5e6ad2;
+  box-shadow: 0 0 0 1px #5e6ad2;
+}
+
+.search-field {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  padding: 8px 0;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 14px;
   color: #0a0a0a;
   outline: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .search-field::placeholder {
   color: #9e9e9e;
 }
 
-.search-field:focus {
-  border-color: #5e6ad2;
-  box-shadow: 0 0 0 1px #5e6ad2;
-}
-
 .search-submit {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
+  flex-shrink: 0;
   background: transparent;
   border: none;
   padding: 4px;
@@ -101,10 +107,7 @@
 
 /* Inline mode toggle (Keyword / Semantic) — plain text, accent on active */
 .mode-toggle {
-  position: absolute;
-  right: 40px;
-  top: 50%;
-  transform: translateY(-50%);
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   gap: 12px;
@@ -615,4 +618,157 @@
   .semantic-result {
     padding: 20px 18px;
   }
+}
+
+/* ── Recent searches dropdown ─────────────────────────────────
+   Moved here from allcirculars, where it hung off a search bar that
+   only ever redirected to this page. */
+.recent-searches-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  padding: 4px;
+  text-align: left;
+  animation: recent-searches-fade-in 0.12s ease-out;
+}
+
+@keyframes recent-searches-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.recent-searches-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px 4px;
+}
+
+.recent-searches-title {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  color: #9e9e9e;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.recent-searches-clear {
+  background: transparent;
+  border: none;
+  padding: 2px 6px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: #5e5e5e;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: color 0.12s ease, background 0.12s ease;
+}
+
+.recent-searches-clear:hover {
+  color: #0a0a0a;
+  background: #f5f5f5;
+}
+
+.recent-searches-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.recent-searches-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 13px;
+  color: #0a0a0a;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.recent-searches-item:hover {
+  background: #f5f5f5;
+}
+
+.recent-searches-icon {
+  width: 14px;
+  height: 14px;
+  color: #9e9e9e;
+  flex-shrink: 0;
+}
+
+.recent-searches-text {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.recent-searches-remove {
+  background: transparent;
+  border: none;
+  padding: 4px;
+  border-radius: 4px;
+  color: #c4c4c4;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.12s ease, color 0.12s ease, background 0.12s ease;
+  flex-shrink: 0;
+}
+
+.recent-searches-remove svg {
+  width: 12px;
+  height: 12px;
+}
+
+.recent-searches-item:hover .recent-searches-remove {
+  opacity: 1;
+}
+
+.recent-searches-remove:hover {
+  color: #0a0a0a;
+  background: #ececec;
+}
+
+.recent-searches-mode {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #8a8985;
+  background: #f5f5f5;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 4px;
+  padding: 2px 6px;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.recent-searches-mode.semantic {
+  color: #5e6ad2;
+  background: rgba(94, 106, 210, 0.08);
+  border-color: rgba(94, 106, 210, 0.18);
 }

@@ -1,4 +1,5 @@
 import logging
+import threading
 from typing import Optional
 
 import boto3
@@ -37,7 +38,8 @@ class S3StorageClient:
         client_kwargs: dict = {
             "service_name": "s3",
             "config": BotocoreConfig(
-                retries={"max_attempts": 3, "mode": "standard"}
+                retries={"max_attempts": 3, "mode": "standard"},
+                max_pool_connections=10,
             ),
         }
 
@@ -108,3 +110,23 @@ class S3StorageClient:
             Params={"Bucket": bucket, "Key": key},
             ExpiresIn=expires_in,
         )
+
+
+import threading
+_s3_client_instance: S3StorageClient | None = None
+_s3_client_lock = threading.Lock()
+
+
+def get_s3_client() -> S3StorageClient:
+    """Process-wide S3 client singleton. Lazy initialization with thread safety."""
+    global _s3_client_instance
+    # Fast path: lock-free read after init.
+    client = _s3_client_instance
+    if client is not None:
+        return client
+    # Slow path: serialize the first build.
+    with _s3_client_lock:
+        if _s3_client_instance is None:
+            _s3_client_instance = S3StorageClient()
+        return _s3_client_instance
+

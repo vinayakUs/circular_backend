@@ -68,7 +68,7 @@
       <div
         *ngFor="let expert of experts"
         class="expert-card"
-        (click)="navigateToTaskview(expert.circular.id, expert.id)"
+        (click)="openExpertInViewer(expert.circular.id, expert.id)"
       >
         <div class="expert-header">
           <span class="expert-name">{{ expert.expert_name }}</span>

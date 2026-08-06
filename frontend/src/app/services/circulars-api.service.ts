@@ -331,10 +331,40 @@ export class CircularsApiService {
     );
   }
 
-  saveExperts(circularId: string, experts: Expert[], originalIds: string[]): Observable<{ success: boolean }> {
-    return this.http.post<{ success: boolean }>(
+  saveExperts(_circularId: string, _experts: Expert[], _originalIds: string[]): Observable<{ success: boolean }> {
+    // DEPRECATED: snapshot endpoint removed. Use createExpert / updateExpert /
+    // setExpertDepartments instead. Kept as a stub so dependent code still
+    // type-checks during migration; remove once all callers are migrated.
+    throw new Error('saveExperts is deprecated; use createExpert / updateExpert / setExpertDepartments');
+  }
+
+  createExpert(circularId: string, expert: {
+    title: string;
+    text: string;
+    dept_ids: string[];
+    highlights: any[];
+  }): Observable<{ expert: Expert & { id: string } }> {
+    return this.http.post<{ expert: Expert & { id: string } }>(
       `${this.baseUrl}/api/circulars/${circularId}/experts`,
-      { experts, original_ids: originalIds }
+      expert
+    );
+  }
+
+  updateExpert(circularId: string, expertId: string, expert: {
+    title: string;
+    text: string;
+    highlights: any[];
+  }): Observable<{ success: boolean }> {
+    return this.http.put<{ success: boolean }>(
+      `${this.baseUrl}/api/circulars/${circularId}/experts/${expertId}`,
+      expert
+    );
+  }
+
+  setExpertDepartments(circularId: string, expertId: string, deptIds: string[]): Observable<{ success: boolean }> {
+    return this.http.put<{ success: boolean }>(
+      `${this.baseUrl}/api/circulars/${circularId}/experts/${expertId}/departments`,
+      { dept_ids: deptIds }
     );
   }
 

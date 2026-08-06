@@ -6,7 +6,9 @@ individual route files stay self-contained.
 """
 from __future__ import annotations
 
-from typing import Any
+import json
+from datetime import date
+from typing import Any, Optional
 
 
 def serialize_circular_record(record: Any) -> dict[str, Any]:
@@ -37,3 +39,38 @@ def serialize_circular_asset(asset: Any) -> dict[str, Any]:
         "created_at": asset.created_at.isoformat(),
         "updated_at": asset.updated_at.isoformat(),
     }
+
+
+def _parse_iso_date(
+    raw: Optional[str], field_name: str
+) -> Optional[date] | tuple[dict, int]:
+    """Parse a YYYY-MM-DD string into a date, or return a (body, 400) tuple.
+
+    Returns ``None`` when ``raw`` is None/empty. Returns the
+    ``({"error": ...}, 400)`` tuple when ``raw`` is non-empty but
+    malformed, so the caller can ``return`` it directly.
+    """
+    if not raw:
+        return None
+    try:
+        return date.fromisoformat(raw)
+    except ValueError:
+        return {"error": f"{field_name} must be YYYY-MM-DD"}, 400
+
+
+def _parse_highlights(value: Any) -> list[dict]:
+    """Normalize a ``highlights`` payload to a list of dicts.
+
+    Accepts either:
+    - A JSON string (decoded via ``json.loads``).
+    - An already-parsed list (returned as-is, or ``[]`` if the list is empty/None).
+
+    Returns an empty list when ``value`` is None or missing. Other malformed
+    inputs (e.g. a non-list, non-string) bubble up as a ``json.JSONDecodeError``
+    or ``TypeError`` — the caller should catch at the request boundary.
+    """
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return json.loads(value)
+    return value

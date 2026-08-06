@@ -30,30 +30,34 @@ class CircularReferenceRepository:
 
         Returns the count written. Safe to call repeatedly for the same source —
         UNIQUE INDEX uq_circular_references_edge prevents duplicates within a batch.
+
+        DELETE + INSERT loop runs inside an explicit conn.transaction() block —
+        if any INSERT fails, the entire operation (including the DELETE)
+        rolls back (M9 defense-in-depth fix).
         """
         with self.db_pool.acquire() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                "DELETE FROM circular_references WHERE source_circular_id = %s",
-                (str(source_circular_id),),
-            )
-            for ref in references:
+            with conn.transaction():
+                cursor = conn.cursor()
                 cursor.execute(
-                    """
-                    INSERT INTO circular_references (
-                        source_circular_id, target_circular_id,
-                        target_circular_number, relationship_type
-                    )
-                    VALUES (%s, %s, %s, %s)
-                    """,
-                    (
-                        str(source_circular_id),
-                        str(ref.target_circular_id) if ref.target_circular_id else None,
-                        ref.target_circular_number,
-                        ref.relationship_type,
-                    ),
+                    "DELETE FROM circular_references WHERE source_circular_id = %s",
+                    (str(source_circular_id),),
                 )
-            conn.commit()
+                for ref in references:
+                    cursor.execute(
+                        """
+                        INSERT INTO circular_references (
+                            source_circular_id, target_circular_id,
+                            target_circular_number, relationship_type
+                        )
+                        VALUES (%s, %s, %s, %s)
+                        """,
+                        (
+                            str(source_circular_id),
+                            str(ref.target_circular_id) if ref.target_circular_id else None,
+                            ref.target_circular_number,
+                            ref.relationship_type,
+                        ),
+                    )
         self.logger.info(
             "Replaced references source_circular_id=%s count=%s",
             source_circular_id, len(references),

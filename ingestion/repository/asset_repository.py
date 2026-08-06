@@ -39,28 +39,34 @@ class AssetRepository:
         self.db_pool = db_pool
 
     def replace_assets(self, circular_id: UUID, assets: list[CircularAsset]) -> list[CircularAssetRecord]:
+        """Replace all assets for a circular.
+
+        DELETE + INSERT loop runs inside an explicit conn.transaction() block —
+        if any INSERT fails, the entire operation (including the DELETE)
+        rolls back (M9 defense-in-depth fix).
+        """
         with self.db_pool.acquire() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                "DELETE FROM circular_assets WHERE circular_id = %s",
-                (str(circular_id),),
-            )
-            for asset in assets:
+            with conn.transaction():
+                cursor = conn.cursor()
                 cursor.execute(
-                    """
-                    INSERT INTO circular_assets (
-                        circular_id, asset_role, file_path, content_hash,
-                        mime_type, archive_member_path, file_size_bytes
-                    )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    """,
-                    (
-                        str(circular_id), asset.asset_role, asset.file_path,
-                        asset.content_hash, asset.mime_type,
-                        asset.archive_member_path, asset.file_size_bytes,
-                    ),
+                    "DELETE FROM circular_assets WHERE circular_id = %s",
+                    (str(circular_id),),
                 )
-            conn.commit()
+                for asset in assets:
+                    cursor.execute(
+                        """
+                        INSERT INTO circular_assets (
+                            circular_id, asset_role, file_path, content_hash,
+                            mime_type, archive_member_path, file_size_bytes
+                        )
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        """,
+                        (
+                            str(circular_id), asset.asset_role, asset.file_path,
+                            asset.content_hash, asset.mime_type,
+                            asset.archive_member_path, asset.file_size_bytes,
+                        ),
+                    )
         self.logger.info("Replaced circular assets circular_id=%s asset_count=%s", circular_id, len(assets))
         return self.list_assets(circular_id)
 

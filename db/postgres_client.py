@@ -72,12 +72,18 @@ class PostgresClient:
                 if cls._instance is None:
                     cls._instance = super().__new__(cls)
                     cls._instance._pool = None
+                    # Separate lock so pool init doesn't serialize __new__ callers.
+                    cls._instance._pool_init_lock = Lock()
         return cls._instance
 
     def get_pool(self) -> Any:
-        if self._pool is None:
-            self._pool = self._create_pool()
-        return _PoolContext(self._pool)
+        cached = self._pool
+        if cached is not None:
+            return _PoolContext(cached)
+        with self._pool_init_lock:
+            if self._pool is None:
+                self._pool = self._create_pool()
+            return _PoolContext(self._pool)
 
     def close(self) -> None:
         if self._pool is not None:

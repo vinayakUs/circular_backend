@@ -75,7 +75,8 @@
             </svg>
             Add Task
           </button> -->
-          <button class="action-btn" *ngIf="isLoggedIn" routerLink="/taskview/{{circular?.id}}">
+          <button class="action-btn" *ngIf="isLoggedIn" routerLink="/testpdfviewer"
+            [queryParams]="{ id: circular?.id }">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
               <polyline points="14 2 14 8 20 8" />
@@ -104,8 +105,8 @@
             </div>
 
             <div class="expert-card" *ngFor="let expert of experts"
-            [routerLink]="['/taskview' , circular?.id]"
-            [queryParams]="{ expertId: expert.id }"
+            [routerLink]="['/testpdfviewer']"
+            [queryParams]="{ id: circular?.id, expertId: expert.id }"
             style="cursor: pointer;"
             >
               <div class="expert-header">

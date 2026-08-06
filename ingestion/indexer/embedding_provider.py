@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
-
+from threading import RLock
 
 class EmbeddingProvider:
     """Produces embeddings for chunk and query text."""
@@ -41,12 +41,21 @@ class SentenceTransformerEmbeddingProvider(EmbeddingProvider):
         self.device = device
         self._model: Any | None = None
         self._dimensions: int | None = None
-
+        # RLock because `dimensions` calls `_load_model()` under the same lock.
+        self._init_lock = RLock()
+        
     @property
     def dimensions(self) -> int | None:
-        if self._dimensions is None:
-            self._dimensions = int(self._load_model().get_embedding_dimension())
-        return self._dimensions
+        cached = self._dimensions
+        if cached is not None:
+            return cached
+
+        with self._init_lock:
+            if self._dimensions is None:
+                self._dimensions = int(self._load_model().get_embedding_dimension())
+            dimensions = self._dimensions
+        assert dimensions is not None
+        return dimensions
 
     def embed_texts(self, texts: list[str]) -> list[list[float] | None]:
         if not texts:
@@ -67,19 +76,34 @@ class SentenceTransformerEmbeddingProvider(EmbeddingProvider):
         return self.embed_texts([text])[0]
 
     def _load_model(self) -> Any:
-        if self._model is None:
-            try:
-                from sentence_transformers import SentenceTransformer  # type: ignore[import]
-            except ImportError as exc:
+
+        cached = self._model
+        if cached is not None:
+            return cached
+        with self._init_lock:
+            if self._model is None:
+                self._model = self._construct_model()
+            model = self._model
+        assert model is not None
+        return model
+
+
+    def _construct_model(self) -> Any:
+        """Bare constructor body — runs under the lock. Split off from
+          _load_model so the lock is held only for the (slow) constructor,
+          not for the (fast, thread-safe) encode() calls that follow."""
+
+        try:
+            from sentence_transformers import SentenceTransformer  # type: ignore[import]
+        except ImportError as exc:
                 raise RuntimeError(
                     "sentence-transformers is not installed. Install dependencies before using semantic embeddings."
                 ) from exc
+        model_kwargs: dict[str, Any] = {}
 
-            model_kwargs: dict[str, Any] = {}
-            if self.device:
-                model_kwargs["device"] = self.device
-            self._model = SentenceTransformer(self.model_name, **model_kwargs)
-        return self._model
+        if self.device:
+            model_kwargs["device"] = self.device
+        return SentenceTransformer(self.model_name, **model_kwargs)
 
 
 def build_embedding_provider(

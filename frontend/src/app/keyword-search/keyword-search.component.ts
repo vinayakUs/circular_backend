@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, HostListener, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -7,10 +7,10 @@ import { marked } from 'marked';
 
 import { NavbarComponent } from '../navbar/navbar.component';
 import { CircularsApiService, SearchResult, SemanticSearchResponse } from '../services/circulars-api.service';
+import { RecentSearchesService, RecentSearch, SearchMode } from '../services/recent-searches.service';
 
 type ExchangeTab = 'ALL' | 'NSE' | 'SEBI';
 type SortOption = 'score' | 'date';
-type SearchMode = 'keyword' | 'semantic';
 
 interface SortTab {
   value: SortOption;
@@ -34,6 +34,7 @@ export class KeywordSearchComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private sanitizer = inject(DomSanitizer);
+  private recentSearches = inject(RecentSearchesService);
 
   query = '';
   mode: SearchMode = 'keyword';
@@ -61,7 +62,14 @@ export class KeywordSearchComponent implements OnInit {
 
   private searchToken = 0;
 
+  // ── Recent searches dropdown ────────────────────────────────
+  showRecentSearches = false;
+  recentSearchesList: RecentSearch[] = [];
+  private recentSearchBlurTimeout: ReturnType<typeof setTimeout> | null = null;
+
   ngOnInit(): void {
+    this.recentSearchesList = this.recentSearches.getRecent();
+
     this.route.queryParamMap.subscribe(params => {
       const q = (params.get('q') ?? '').toString();
       const modeParam = (params.get('mode') ?? '').toString();
@@ -70,9 +78,75 @@ export class KeywordSearchComponent implements OnInit {
         this.mode = modeParam;
       }
       if (q) {
+        // A query arriving via the URL counts as a search worth remembering —
+        // this is how links from elsewhere in the app land here. Recorded
+        // against the mode the link asked for, not the previous one.
+        this.recentSearchesList = this.recentSearches.addRecent(q, this.mode);
         this.runSearch();
       }
     });
+  }
+
+  /** Close the dropdown on any click outside the search field. */
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    if (!this.showRecentSearches) return;
+    const target = event.target as HTMLElement | null;
+    if (target && !target.closest('.search-relative')) {
+      this.showRecentSearches = false;
+    }
+  }
+
+  onSearchFocus(): void {
+    this.clearBlurTimeout();
+    this.recentSearchesList = this.recentSearches.getRecent();
+    this.showRecentSearches = this.recentSearchesList.length > 0;
+  }
+
+  onSearchBlur(): void {
+    // Deferred so a mousedown on a dropdown row wins the race against blur.
+    this.recentSearchBlurTimeout = setTimeout(() => {
+      this.showRecentSearches = false;
+      this.recentSearchBlurTimeout = null;
+    }, 150);
+  }
+
+  /** Replay a recent search in the mode it was originally run with. */
+  applyRecentSearch(recent: RecentSearch): void {
+    this.clearBlurTimeout();
+    this.query = recent.q;
+    this.mode = recent.mode;
+    this.showRecentSearches = false;
+    this.onSubmit();
+  }
+
+  removeRecentSearch(event: MouseEvent, recent: RecentSearch): void {
+    // Stop the row's own mousedown from also running the search.
+    event.preventDefault();
+    event.stopPropagation();
+    this.recentSearchesList = this.recentSearches.removeRecent(recent.q, recent.mode);
+    if (this.recentSearchesList.length === 0) {
+      this.showRecentSearches = false;
+    }
+  }
+
+  modeLabel(mode: SearchMode): string {
+    return mode === 'semantic' ? 'Semantic' : 'Keyword';
+  }
+
+  clearRecentSearches(event: MouseEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.recentSearches.clearRecent();
+    this.recentSearchesList = [];
+    this.showRecentSearches = false;
+  }
+
+  private clearBlurTimeout(): void {
+    if (this.recentSearchBlurTimeout) {
+      clearTimeout(this.recentSearchBlurTimeout);
+      this.recentSearchBlurTimeout = null;
+    }
   }
 
   onQueryChange(value: string): void {
@@ -80,6 +154,11 @@ export class KeywordSearchComponent implements OnInit {
   }
 
   onSubmit(): void {
+    const q = this.query.trim();
+    if (q) {
+      this.recentSearchesList = this.recentSearches.addRecent(q, this.mode);
+    }
+    this.showRecentSearches = false;
     this.runSearch();
   }
 

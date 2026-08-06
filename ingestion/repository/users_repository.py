@@ -41,19 +41,26 @@ class UsersRepository:
 
         ``email`` and ``name`` are optional — pass None to leave them blank.
         Empty strings are normalised to None so the column stays NULL.
+
+        Uses ON CONFLICT (user_id) DO NOTHING to be race-free under
+        concurrent admin writes (H6 from the concurrency audit). Without
+        this, two concurrent requests for the same user_id would both
+        pass the SELECT and the second INSERT would raise UniqueViolation
+        → 500 to the client instead of the documented "user exists" return.
         """
         clean_email = (email or "").strip() or None
         clean_name = (name or "").strip() or None
 
         with self.db_pool.acquire() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT id FROM users WHERE user_id = %s", (user_id,))
-            if cursor.fetchone():
-                return None
+            # The schema has UNIQUE on user_id (see postgres_schema.sql).
+            # ON CONFLICT against that constraint atomically inserts-or-skips
+            # with no TOCTOU window between the existence check and the insert.
             cursor.execute(
                 """
                 INSERT INTO users (user_id, department_id, email, name, created_by)
                 VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (user_id) DO NOTHING
                 RETURNING id, user_id, department_id, email, name,
                           created_at, created_by, updated_at, updated_by,
                           is_deleted, deleted_at
@@ -86,7 +93,7 @@ class UsersRepository:
         return result is not None
 
     def get_user(self, user_id: str) -> UserRecord | None:
-        """Get an active (non-deleted) user by user_id."""
+        """Get an active (non-deleted) user by user_id (LDAP uid string)."""
         with self.db_pool.acquire() as conn:
             cursor = conn.cursor()
             cursor.execute(
@@ -99,6 +106,32 @@ class UsersRepository:
                   AND is_deleted = FALSE
                 """,
                 (user_id,),
+            )
+            row = cursor.fetchone()
+        return self._row_to_record(row)
+
+    def get_by_uuid(self, user_id: UUID) -> UserRecord | None:
+        """Get an active (non-deleted) user by their UUID primary key.
+
+        Mirrors `get_user` (which looks up by LDAP `user_id` string), but
+        uses the UUID `id` column. Use this in service-layer checks where
+        you already have the UUID (e.g. from `g.user_db_id` in a route).
+
+        Returns None if the user does not exist OR has is_deleted = TRUE.
+        To include soft-deleted rows, use `list_all(include_deleted=True)`.
+        """
+        with self.db_pool.acquire() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT id, user_id, department_id, email, name,
+                       created_at, created_by, updated_at, updated_by,
+                       is_deleted, deleted_at
+                FROM users
+                WHERE id = %s
+                  AND is_deleted = FALSE
+                """,
+                (str(user_id),),
             )
             row = cursor.fetchone()
         return self._row_to_record(row)

@@ -5,7 +5,7 @@ from tempfile import TemporaryDirectory
 from typing import NamedTuple
 
 from config import Config
-from storage.s3_client import S3StorageClient
+from storage.s3_client import get_s3_client
 
 
 class PDFTextExtractor:
@@ -28,7 +28,7 @@ class PDFTextExtractor:
             ) from exc
 
         if str(path).startswith("s3://"):
-            s3_client = S3StorageClient()
+            s3_client = get_s3_client()
             pdf_bytes = s3_client.download_bytes(str(path))
             if not pdf_bytes.startswith(b"%PDF"):
                 raise ValueError(
@@ -84,7 +84,7 @@ class PDFPlumberExtractor:
             ) from exc
 
         if str(path).startswith("s3://"):
-            s3_client = S3StorageClient()
+            s3_client = get_s3_client()
             pdf_bytes = s3_client.download_bytes(str(path))
             if not pdf_bytes.startswith(b"%PDF"):
                 raise ValueError(

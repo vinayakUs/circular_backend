@@ -21,7 +21,7 @@ from ingestion.repository.checkpoint_repository import CheckpointRepository
 from ingestion.scrapper.base import DEFAULT_USER_AGENT, IScraper, ScrapeDetectionResult
 from ingestion.scrapper.dto import Circular
 from ingestion.scrapper.registry import ScraperRegistry
-from storage.s3_client import S3StorageClient
+from storage.s3_client import get_s3_client
 from utils.s3_utils import build_safe_filename
 import importlib
 importlib.import_module("ingestion.scrapper.sources.nse")
@@ -63,7 +63,7 @@ class ScraperOrchestrator:
         )
         self.from_date = from_date
         self.to_date = to_date or date.today()
-        self.s3_client = s3_client or (S3StorageClient() if Config.AWS_S3_BUCKET else None)
+        self.s3_client = s3_client or (get_s3_client() if Config.AWS_S3_BUCKET else None)
 
     def run(self) -> None:
         today = date.today()

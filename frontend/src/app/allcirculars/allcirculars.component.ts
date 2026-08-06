@@ -4,7 +4,6 @@ import { FormControl, FormsModule } from '@angular/forms';
 import { NavbarComponent } from "../navbar/navbar.component";
 import { CircularsApiService, Circular, SemanticSearchResponse, SearchResult, SearchResponse, CircularDbLookupItem } from '../services/circulars-api.service';
 import { CircularfilterstateService } from '../services/circularfilterstate.service';
-import { RecentSearchesService } from '../services/recent-searches.service';
 import { Router, RouterModule } from '@angular/router';
 import { debounceTime, distinctUntilChanged, EMPTY, finalize, switchMap, tap } from 'rxjs';
 import { ReactiveFormsModule } from '@angular/forms';
@@ -26,7 +25,6 @@ export class AllCircularsComponent implements OnInit {
 
   private apiService = inject(CircularsApiService);
   state = inject(CircularfilterstateService);
-  private recentSearches = inject(RecentSearchesService);
   private router = inject(Router);
 
   loading = true;
@@ -44,10 +42,6 @@ export class AllCircularsComponent implements OnInit {
   circularNoOptions: CircularDbLookupItem[] = [];
   total = 0;
 
-  // Recent searches for the top search field
-  showRecentSearches = false;
-  recentSearchesList: string[] = [];
-  private recentSearchBlurTimeout: ReturnType<typeof setTimeout> | null = null;
 
 
   circNoSearchControl = new FormControl('');
@@ -87,7 +81,6 @@ export class AllCircularsComponent implements OnInit {
   ngOnInit(): void {
     console.log('Initial filters:', this.state.filters);
     this.availableYears = this.getAvailableYears();
-    this.recentSearchesList = this.recentSearches.getRecent();
     this.loadSignatoryOptions();
     this.loadDepartmentOptions(this.state.filters.source);
     this.loadCirculars();
@@ -133,7 +126,6 @@ export class AllCircularsComponent implements OnInit {
       offset: this.pagination.offset,
       from_date: this.state.filters.from_date || undefined,
       to_date: this.state.filters.to_date || undefined,
-      search: this.state.filters.search || undefined,
       applicable_to_nse: this.state.filters.applicable_to_nse,
       signatory: this.state.filters.signatory || undefined,
       circular_nos: this.state.filters.circular_nos ? this.state.filters.circular_nos : undefined,
@@ -178,10 +170,6 @@ export class AllCircularsComponent implements OnInit {
 
     if (this.showDepartmentDropdown && !target.closest('.multi-select')) {
       this.showDepartmentDropdown = false;
-    }
-
-    if (this.showRecentSearches && !target.closest('.search-relative')) {
-      this.showRecentSearches = false;
     }
   }
 
@@ -321,7 +309,6 @@ export class AllCircularsComponent implements OnInit {
     this.state.filters.source = ExchangeSource.SEBI;
     this.state.filters.from_date = '';
     this.state.filters.to_date = '';
-    this.state.filters.search = '';
     this.state.filters.signatory = [];
     this.state.filters.applicable_to_nse = null;
     this.state.filters.department = '';
@@ -330,95 +317,6 @@ export class AllCircularsComponent implements OnInit {
     this.circNoSearchControl.reset()
     this.loadDepartmentOptions(ExchangeSource.SEBI);
     this.loadCirculars();
-  }
-
-  onSearch() {
-    console.log('Search initiated with query:', this.state.filters.search);
-
-    const query = (this.state.filters.search || '').trim();
-    if (!query) return;
-
-    this.recentSearchesList = this.recentSearches.addRecent(query);
-    this.showRecentSearches = false;
-    this.router.navigate(['/keyword-search'], { queryParams: { q: query, mode: 'keyword' } });
-  }
-
-  searchInMode(mode: 'keyword' | 'semantic'): void {
-    const query = (this.state.filters.search || '').trim();
-    if (!query) return;
-
-    if (this.recentSearchBlurTimeout) {
-      clearTimeout(this.recentSearchBlurTimeout);
-      this.recentSearchBlurTimeout = null;
-    }
-    this.recentSearchesList = this.recentSearches.addRecent(query);
-    this.showRecentSearches = false;
-    this.router.navigate(['/keyword-search'], { queryParams: { q: query, mode } });
-  }
-
-  get hasQueryInput(): boolean {
-    return (this.state.filters.search || '').toString().trim().length > 0;
-  }
-
-  onSearchFocus(): void {
-    if (this.recentSearchBlurTimeout) {
-      clearTimeout(this.recentSearchBlurTimeout);
-      this.recentSearchBlurTimeout = null;
-    }
-    this.refreshRecentSearches();
-    if (this.hasQueryInput) {
-      // While the user has typed text, surface the mode-suggestion chips.
-      this.showRecentSearches = true;
-      return;
-    }
-    this.showRecentSearches = this.recentSearchesList.length > 0;
-  }
-
-  onSearchBlur(): void {
-    // Delay so click handlers on dropdown items can fire first.
-    this.recentSearchBlurTimeout = setTimeout(() => {
-      this.showRecentSearches = false;
-      this.recentSearchBlurTimeout = null;
-    }, 150);
-  }
-
-  onSearchInput(): void {
-    // While the user is typing, swap from "recent searches" to the
-    // "search using keyword / semantic" suggestions.
-    if (this.hasQueryInput) {
-      this.showRecentSearches = true;
-    } else {
-      this.showRecentSearches = this.recentSearchesList.length > 0;
-    }
-  }
-
-  applyRecentSearch(query: string): void {
-    if (this.recentSearchBlurTimeout) {
-      clearTimeout(this.recentSearchBlurTimeout);
-      this.recentSearchBlurTimeout = null;
-    }
-    this.state.filters.search = query;
-    this.showRecentSearches = false;
-    this.onSearch();
-  }
-
-  removeRecentSearch(event: MouseEvent, query: string): void {
-    event.stopPropagation();
-    this.recentSearchesList = this.recentSearches.removeRecent(query);
-    if (this.recentSearchesList.length === 0) {
-      this.showRecentSearches = false;
-    }
-  }
-
-  clearRecentSearches(event: MouseEvent): void {
-    event.stopPropagation();
-    this.recentSearches.clearRecent();
-    this.recentSearchesList = [];
-    this.showRecentSearches = false;
-  }
-
-  private refreshRecentSearches(): void {
-    this.recentSearchesList = this.recentSearches.getRecent();
   }
 
   isCircularNoSelected(id: string): boolean {

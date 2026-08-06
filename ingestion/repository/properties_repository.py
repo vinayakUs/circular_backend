@@ -28,26 +28,30 @@ class PropertiesRepository:
         self.db_pool = db_pool
 
     def create(self, name: str, type: str, metadata: dict | None = None) -> PropertyRecord | None:
+        """Atomically create a new property.
+
+        Returns the new PropertyRecord on success, or None if a row with
+        this (name, type) already exists. Uses ON CONFLICT to be race-free
+        under concurrent admin writes (C7 from the concurrency audit).
+        """
         metadata = metadata or {}
         with self.db_pool.acquire() as conn:
             cursor = conn.cursor()
+            # ON CONFLICT against the partial unique index
+            # uq_properties_name_type_active. If a conflict, DO NOTHING and
+            # return no row → caller sees None and knows the property exists.
             cursor.execute(
-                "SELECT id FROM properties WHERE name = %s AND type = %s AND archived = false",
-                (name, type),
-            )
-            if cursor.fetchone():
-                return None
-            cursor.execute(
-                "INSERT INTO properties (name, type, metadata) VALUES (%s, %s, %s)",
+                """
+                INSERT INTO properties (name, type, metadata)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (name, type) WHERE archived = FALSE
+                DO NOTHING
+                RETURNING id, name, type, archived, archived_at, metadata, created_at, updated_at
+                """,
                 (name, type, json.dumps(metadata)),
             )
-            conn.commit()
-            cursor.execute(
-                "SELECT id, name, type, archived, archived_at, metadata, created_at, updated_at "
-                "FROM properties WHERE name = %s AND type = %s",
-                (name, type),
-            )
             row = cursor.fetchone()
+            conn.commit()
         return self._row_to_record(row)
 
     def get_by_id(self, id: UUID) -> PropertyRecord | None:

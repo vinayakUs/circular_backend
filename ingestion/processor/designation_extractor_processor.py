@@ -1,6 +1,6 @@
 '''
   python -m ingestion.processor.designation_extractor_processor --circular_id "SEBI/HO/CFD/..."
-  python -m ingestion.processor.designation_extractor_processor --circular_id "NSE/CIR/..."
+  python -m ingestion.processor.designation_extractor_processor --circular_id "COM74324"
 '''
 import argparse
 import logging
@@ -20,7 +20,7 @@ from ingestion.repository.circular_repository import CircularRecord, CircularRep
 from ingestion.repository.circular_signatory_repository import CircularSignatoryRepository, Signatory
 from pydantic import BaseModel, Field
 from instructor.core import InstructorRetryException
-from storage.s3_client import S3StorageClient
+from storage.s3_client import get_s3_client
 from utils.llm_providers import get_llm_provider
 
 
@@ -100,7 +100,7 @@ class DesignationExtractorProcessor(BaseProcessor):
         target = Path(path)
 
         if str(path).startswith("s3://"):
-            s3_client = S3StorageClient()
+            s3_client = get_s3_client()
             pdf_bytes = s3_client.download_bytes(str(path))
             if not pdf_bytes.startswith(b"%PDF"):
                 raise ValueError(

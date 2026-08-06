@@ -5,7 +5,7 @@ from datetime import date
 from typing import Any
 from uuid import UUID
 
-from storage.s3_client import S3StorageClient
+from storage.s3_client import get_s3_client
 from utils.s3_utils import build_safe_filename
 
 
@@ -17,7 +17,7 @@ class SummaryRepository:
             raise ValueError("SummaryRepository requires db_pool")
         self.logger = logging.getLogger(__name__)
         self.db_pool = db_pool
-        self.s3_client = S3StorageClient()
+        self.s3_client = get_s3_client()
 
     def _build_summary_key(
         self, source: str, source_item_key: str, issue_date: date, summary_filename: str = "summary.md"
@@ -49,18 +49,23 @@ class SummaryRepository:
             len(content_bytes),
         )
 
-        # Delete existing summary record if present (idempotent)
+        # Delete existing summary record if present (idempotent).
+        # DELETE + INSERT runs inside conn.transaction() so a mid-loop failure
+        # rolls back both the DELETE and any partial INSERT (M9 fix).
         with self.db_pool.acquire() as conn:
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM summaries WHERE circular_id = %s", (str(circular_id),))
-            cursor.execute(
-                """
-                INSERT INTO summaries (circular_id, summary_key)
-                VALUES (%s, %s)
-                """,
-                (str(circular_id), summary_key),
-            )
-            conn.commit()
+            with conn.transaction():
+                cursor = conn.cursor()
+                cursor.execute(
+                    "DELETE FROM summaries WHERE circular_id = %s",
+                    (str(circular_id),),
+                )
+                cursor.execute(
+                    """
+                    INSERT INTO summaries (circular_id, summary_key)
+                    VALUES (%s, %s)
+                    """,
+                    (str(circular_id), summary_key),
+                )
 
         return summary_key
 

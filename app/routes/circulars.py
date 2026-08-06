@@ -112,8 +112,8 @@ def register_routes(app, *, rag_generator) -> None:
         file_path = asset.file_path
 
         if file_path.startswith("s3://"):
-            from storage.s3_client import S3StorageClient
-            s3 = S3StorageClient()
+            from storage.s3_client import get_s3_client
+            s3 = get_s3_client()
             try:
                 file_content = s3.download_bytes(file_path)
             except Exception:
@@ -211,10 +211,13 @@ def register_routes(app, *, rag_generator) -> None:
 
         try:
             results = get_es_client().search_bm25_v2(query, source=raw_source or None, sort=sort)
-            logger.info(
-                "BM25v2 first result (pretty):\n%s",
-                json.dumps(results[0], indent=2, ensure_ascii=False, default=str),
-            )
+            if results:
+                logger.info(
+                    "BM25v2 first result (pretty):\n%s",
+                    json.dumps(results[0], indent=2, ensure_ascii=False, default=str),
+                )
+            else:
+                logger.info("BM25v2 returned 0 hits: query=%r", query)
         except ConnectionTimeout:
             logger.warning("BM25v2 search timeout: query=%r", query)
             return {"error": "Search service is temporarily unavailable.",

@@ -27,14 +27,19 @@ class OllamaLLMClient(BaseLLMClient):
         return cls._instance
 
     def get_client(self) -> instructor.Instructor:
-        if self._client is None:
-            openai_client = OpenAI(
-                base_url=Config.OLLAMA_BASE_URL,
-                api_key=Config.OLLAMA_API_KEY or "ollama",
-            )
-            self._client = instructor.from_openai(openai_client, mode=instructor.Mode.JSON)
+        # NOTE: reuses cls._instance_lock (the same lock that guards __new__).
+        cached = self._client
+        if cached is not None:
+            return cached
+        with self._instance_lock:
+            if self._client is None:
+                openai_client = OpenAI(
+                    base_url=Config.OLLAMA_BASE_URL,
+                    api_key=Config.OLLAMA_API_KEY or "ollama",
+                )
+                self._client = instructor.from_openai(openai_client, mode=instructor.Mode.JSON)
 
-        return self._client
+            return self._client
 
     def create_completions_parallel(
         self,

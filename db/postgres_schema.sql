@@ -32,6 +32,12 @@ CREATE TABLE IF NOT EXISTS properties (
 );
 CREATE INDEX IF NOT EXISTS idx_properties_type ON properties(type);
 CREATE INDEX IF NOT EXISTS idx_properties_type_name ON properties(type, name) WHERE archived = FALSE;
+-- C7: prevent duplicate active (name, type) pairs under concurrent admin writes.
+-- Partial index: archived rows can keep their (name, type) for historical
+-- reference, but only ONE active row per (name, type) is allowed.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_properties_name_type_active
+ON properties (name, type)
+WHERE archived = FALSE;
 CREATE INDEX IF NOT EXISTS idx_properties_metadata_gin ON properties USING gin (metadata jsonb_path_ops);
 
 INSERT INTO properties (id, name, type)

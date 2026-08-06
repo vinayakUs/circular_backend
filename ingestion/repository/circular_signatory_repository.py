@@ -31,24 +31,30 @@ class CircularSignatoryRepository:
         self.db_pool = db_pool
 
     def upsert_signatories(self, circular_id: UUID, signatories: list[Signatory]) -> list[CircularSignatoryRecord]:
-        """Replace all signatories for a circular with the given list."""
+        """Replace all signatories for a circular with the given list.
+
+        DELETE + INSERT runs inside an explicit conn.transaction() block —
+        if any INSERT fails, the entire operation (including the DELETE)
+        rolls back so the circular never ends up half-stripped of its
+        prior signatories (M9 defense-in-depth fix).
+        """
         with self.db_pool.acquire() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                "DELETE FROM circular_signatories WHERE circular_id = %s",
-                (str(circular_id),),
-            )
-            for sig in signatories:
+            with conn.transaction():
+                cursor = conn.cursor()
                 cursor.execute(
-                    """
-                    INSERT INTO circular_signatories (
-                        circular_id, signatory_name, signatory_designation
-                    )
-                    VALUES (%s, %s, %s)
-                    """,
-                    (str(circular_id), sig.name, sig.designation),
+                    "DELETE FROM circular_signatories WHERE circular_id = %s",
+                    (str(circular_id),),
                 )
-            conn.commit()
+                for sig in signatories:
+                    cursor.execute(
+                        """
+                        INSERT INTO circular_signatories (
+                            circular_id, signatory_name, signatory_designation
+                        )
+                        VALUES (%s, %s, %s)
+                        """,
+                        (str(circular_id), sig.name, sig.designation),
+                    )
         self.logger.info(
             "Upserted %d signatories for circular_id=%s",
             len(signatories),

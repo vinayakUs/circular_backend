@@ -43,8 +43,18 @@ class CommentsService:
     ) -> dict:
         """Insert comment + fan out @mentions in a single transaction.
 
-        If mention parsing or resolution raises, the comment is still saved
-        (best-effort notification fan-out — never block the user from commenting).
+        NOTE (M5): if mention parsing or resolution raises mid-loop, the
+        psycopg2 transaction is aborted and conn.commit() raises
+        InFailedSqlTransaction. The comment INSERT is rolled back along
+        with the failing mention work. The caller sees a 500 and the
+        user must retry. The original docstring claimed the comment was
+        still saved — that was incorrect; this docstring matches the
+        actual behavior. M5 fix deferred.
+
+        Soft-delete defense: enforced at the @require_auth layer
+        (see app/auth/ldap_auth.py). The decorator verifies
+        users.is_deleted for every protected route, so this service
+        does not need its own check.
         """
         with self.repository.db_pool.acquire() as conn:
             cur = conn.cursor()

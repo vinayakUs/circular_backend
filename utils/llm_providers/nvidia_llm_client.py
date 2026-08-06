@@ -27,18 +27,23 @@ class NvidiaLLMClient(BaseLLMClient):
         return cls._instance
 
     def get_client(self) -> instructor.Instructor:
-        if self._client is None:
-            api_key = Config.NVIDIA_API_KEY
-            if not api_key:
-                raise ValueError("NVIDIA_API_KEY is not set in the configuration.")
+        # NOTE: reuses cls._instance_lock (the same lock that guards __new__).
+        cached = self._client
+        if cached is not None:
+            return cached
+        with self._instance_lock:
+            if self._client is None:
+                api_key = Config.NVIDIA_API_KEY
+                if not api_key:
+                    raise ValueError("NVIDIA_API_KEY is not set in the configuration.")
 
-            openai_client = OpenAI(
-                base_url="https://integrate.api.nvidia.com/v1",
-                api_key=api_key,
-            )
-            self._client = instructor.from_openai(openai_client)
+                openai_client = OpenAI(
+                    base_url="https://integrate.api.nvidia.com/v1",
+                    api_key=api_key,
+                )
+                self._client = instructor.from_openai(openai_client)
 
-        return self._client
+            return self._client
 
     def create_completions_parallel(
         self,

@@ -99,13 +99,28 @@ class ElasticsearchClient:
     ) -> None:
         self.index_name = index_name
         self.request_timeout_seconds = request_timeout_seconds
-        self._client = client
+        # self._client = client
         self._url = url
         self._username = username
         self._password = password
         self.embedding_provider = embedding_provider or NoOpEmbeddingProvider()
         self.logger = logging.getLogger(__name__)
-
+        if client is not None:
+            self._client = client
+        else:
+            from elasticsearch import Elasticsearch  # type: ignore[import]
+            client_kwargs: dict[str, Any] = {
+                "request_timeout": self.request_timeout_seconds,
+            }   
+            if self._username:
+                client_kwargs["basic_auth"] = (self._username, self._password or "")
+            self._client = Elasticsearch(self._url, **client_kwargs)
+              
+    @property
+    def client(self) -> Any:
+        """Thin alias — returns the eagerly-built underlying ES client."""
+        return self._client
+  
     def _mapping(self) -> dict[str, Any]:
         mapping: dict[str, Any] = {
             "settings": DEFAULT_INDEX_SETTINGS,
@@ -120,23 +135,24 @@ class ElasticsearchClient:
                 self.embedding_provider.dimensions
             )
         return mapping
-
-    @property
-    def client(self) -> Any:
-        if self._client is None:
-            try:
-                from elasticsearch import Elasticsearch  # type: ignore[import]
-            except ImportError as exc:
-                raise RuntimeError(
-                    "elasticsearch is not installed. Install dependencies before running the indexer."
-                ) from exc
-            client_kwargs: dict[str, Any] = {
-                "request_timeout": self.request_timeout_seconds,
-            }
-            if self._username:
-                client_kwargs["basic_auth"] = (self._username, self._password or "")
-            self._client = Elasticsearch(self._url, **client_kwargs)
-        return self._client
+    
+    # Replaced with construction in init method
+    # @property
+    # def client(self) -> Any:
+    #     if self._client is None:
+    #         try:
+    #             from elasticsearch import Elasticsearch  # type: ignore[import]
+    #         except ImportError as exc:
+    #             raise RuntimeError(
+    #                 "elasticsearch is not installed. Install dependencies before running the indexer."
+    #             ) from exc
+    #         client_kwargs: dict[str, Any] = {
+    #             "request_timeout": self.request_timeout_seconds,
+    #         }
+    #         if self._username:
+    #             client_kwargs["basic_auth"] = (self._username, self._password or "")
+    #         self._client = Elasticsearch(self._url, **client_kwargs)
+    #     return self._client
 
     def setup_index(self) -> None:
         if self.client.indices.exists(index=self.index_name):
