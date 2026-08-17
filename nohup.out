@@ -1,2 +1,0 @@
-usage: runner.py [-h] [--limit LIMIT] [--log-file LOG_FILE]
-runner.py: error: argument --log-file: expected one argument
