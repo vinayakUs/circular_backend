@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import requests
 
-from ingestion.scrapper.sources.sebi import SEBIScraper
+from ingestion.scrapper.sources.sebi_master import SEBIMasterCircularScraper
 
 
 SAMPLE_PAYLOAD = {
@@ -13,31 +13,38 @@ SAMPLE_PAYLOAD = {
     "count": 2,
     "records": [
         {
-            "date": "May 29, 2026",
-            "title": "Ease of doing investments - Modified Norms for Nomination",
-            "circular_id": "101703",
-            "html_url": "https://www.sebi.gov.in/legal/circulars/may-2026/ease-of-doing-investments_101703.html",
-            "download_url": "https://www.sebi.gov.in/sebi_data/attachdocs/jun-2026/1780397706130.pdf",
-            "type": "Circular",
-            "department": "Office of Investor Assistance and Education",
+            "date": "May 15, 2026",
+            "title": "Master Circular on Surveillance of Securities Market",
+            "circular_id": "101473",
+            "html_url": "https://www.sebi.gov.in/legal/master-circulars/may-2026/master-circular-on-surveillance-of-securities-market_101473.html",
+            "download_url": "https://www.sebi.gov.in/sebi_data/attachdocs/may-2026/1778851789798.pdf",
+            "type": "Master Circular",
+            "department": "Integrated Surveillance Department",
         },
         {
-            "date": "May 19, 2026",
-            "title": "Revision of Monthly Cumulative Report (MCR) Format",
-            "circular_id": "101522",
-            "html_url": "https://www.sebi.gov.in/legal/circulars/may-2026/revision-of-monthly-cumulative-report-mcr-format_101522.html",
-            "download_url": "https://www.sebi.gov.in/sebi_data/attachdocs/may-2026/1779193408747.pdf",
-            "type": "Circular",
-            "department": "Investment Management Department",
+            "date": "Apr 10, 2026",
+            "title": "Master Circular on Issue and Listing of Non-Convertible Securities",
+            "circular_id": "101250",
+            "html_url": "https://www.sebi.gov.in/legal/master-circulars/apr-2026/master-circular-on-issue-and-listing-of-non-convertible-securities_101250.html",
+            "download_url": "https://www.sebi.gov.in/sebi_data/attachdocs/apr-2026/1776123456789.pdf",
+            "type": "Master Circular",
+            "department": "Department of Debt and Hybrid Securities",
         },
     ],
 }
 
 
-class SEBIScraperMappingTestCase(unittest.TestCase):
+class SEBIMasterScraperMappingTestCase(unittest.TestCase):
     def setUp(self) -> None:
-        self.scraper = SEBIScraper()
+        self.scraper = SEBIMasterCircularScraper()
         self.scraper.base_url = "http://localhost:8001"
+
+    def test_source_name_and_endpoint(self) -> None:
+        self.assertEqual(self.scraper.source_name, "SEBI_MASTER")
+        self.assertEqual(
+            self.scraper.ENDPOINT,
+            "/api/enforcement_crawler/sebi/master-circular",
+        )
 
     def test_parse_response_maps_records_to_circular(self) -> None:
         circulars = self.scraper.parse_response(SAMPLE_PAYLOAD)
@@ -45,30 +52,33 @@ class SEBIScraperMappingTestCase(unittest.TestCase):
         self.assertEqual(len(circulars), 2)
 
         first = circulars[0]
-        self.assertEqual(first.source, "SEBI")
-        self.assertEqual(first.circular_id, "101703")
-        self.assertEqual(first.full_reference, "101703")
-        self.assertEqual(first.department, "Office of Investor Assistance and Education")
+        self.assertEqual(first.source, "SEBI_MASTER")
+        self.assertEqual(first.circular_id, "101473")
+        self.assertEqual(first.full_reference, "101473")
+        self.assertEqual(first.department, "Integrated Surveillance Department")
         self.assertEqual(
             first.title,
-            "Ease of doing investments - Modified Norms for Nomination",
+            "Master Circular on Surveillance of Securities Market",
         )
-        self.assertEqual(first.issue_date, date(2026, 5, 29))
+        self.assertEqual(first.issue_date, date(2026, 5, 15))
         self.assertFalse(first.applicable_to_nse)
         self.assertEqual(
             first.url,
-            "https://www.sebi.gov.in/legal/circulars/may-2026/ease-of-doing-investments_101703.html",
+            "https://www.sebi.gov.in/legal/master-circulars/may-2026/master-circular-on-surveillance-of-securities-market_101473.html",
         )
         self.assertEqual(
             first.pdf_url,
-            "https://www.sebi.gov.in/sebi_data/attachdocs/jun-2026/1780397706130.pdf",
+            "https://www.sebi.gov.in/sebi_data/attachdocs/may-2026/1778851789798.pdf",
         )
         self.assertEqual(first.source_item_key, first.url)
 
         second = circulars[1]
-        self.assertEqual(second.circular_id, "101522")
-        self.assertEqual(second.department, "Investment Management Department")
-        self.assertEqual(second.issue_date, date(2026, 5, 19))
+        self.assertEqual(second.circular_id, "101250")
+        self.assertEqual(
+            second.department,
+            "Department of Debt and Hybrid Securities",
+        )
+        self.assertEqual(second.issue_date, date(2026, 4, 10))
 
     def test_parse_response_handles_empty_records(self) -> None:
         self.assertEqual(self.scraper.parse_response({}), [])
@@ -78,22 +88,22 @@ class SEBIScraperMappingTestCase(unittest.TestCase):
         payload = {
             "records": [
                 {
-                    "date": "May 29, 2026",
-                    "title": "Real circular",
-                    "circular_id": "101703",
-                    "html_url": "https://www.sebi.gov.in/legal/circulars/may-2026/x_101703.html",
+                    "date": "May 15, 2026",
+                    "title": "Real",
+                    "circular_id": "101473",
+                    "html_url": "https://www.sebi.gov.in/legal/master-circulars/may-2026/x_101473.html",
                     "download_url": "https://www.sebi.gov.in/sebi_data/attachdocs/may-2026/x.pdf",
-                    "type": "Circular",
-                    "department": "OIAE",
+                    "type": "Master Circular",
+                    "department": "ISD",
                 },
                 {
-                    "date": "May 30, 2026",
+                    "date": "May 16, 2026",
                     "title": "HTML only",
-                    "circular_id": "101704",
-                    "html_url": "https://www.sebi.gov.in/legal/circulars/may-2026/x_101704.html",
+                    "circular_id": "101474",
+                    "html_url": "https://www.sebi.gov.in/legal/master-circulars/may-2026/x_101474.html",
                     "download_url": "https://www.sebi.gov.in/notice/x.html",
-                    "type": "Circular",
-                    "department": "OIAE",
+                    "type": "Master Circular",
+                    "department": "ISD",
                 },
             ]
         }
@@ -101,37 +111,37 @@ class SEBIScraperMappingTestCase(unittest.TestCase):
         circulars = self.scraper.parse_response(payload)
 
         self.assertEqual(len(circulars), 1)
-        self.assertEqual(circulars[0].circular_id, "101703")
+        self.assertEqual(circulars[0].circular_id, "101473")
 
     def test_parse_response_skips_missing_circular_id_or_html_url(self) -> None:
         payload = {
             "records": [
                 {
-                    "date": "May 29, 2026",
+                    "date": "May 15, 2026",
                     "title": "Missing id",
                     "circular_id": "",
-                    "html_url": "https://www.sebi.gov.in/legal/circulars/may-2026/x.html",
+                    "html_url": "https://www.sebi.gov.in/legal/master-circulars/may-2026/x.html",
                     "download_url": "https://www.sebi.gov.in/sebi_data/attachdocs/may-2026/x.pdf",
-                    "type": "Circular",
-                    "department": "OIAE",
+                    "type": "Master Circular",
+                    "department": "ISD",
                 },
                 {
-                    "date": "May 29, 2026",
+                    "date": "May 15, 2026",
                     "title": "Missing html url",
-                    "circular_id": "101703",
+                    "circular_id": "101473",
                     "html_url": "",
                     "download_url": "https://www.sebi.gov.in/sebi_data/attachdocs/may-2026/x.pdf",
-                    "type": "Circular",
-                    "department": "OIAE",
+                    "type": "Master Circular",
+                    "department": "ISD",
                 },
                 {
-                    "date": "May 29, 2026",
+                    "date": "May 15, 2026",
                     "title": "Real",
-                    "circular_id": "101703",
-                    "html_url": "https://www.sebi.gov.in/legal/circulars/may-2026/x_101703.html",
+                    "circular_id": "101473",
+                    "html_url": "https://www.sebi.gov.in/legal/master-circulars/may-2026/x_101473.html",
                     "download_url": "https://www.sebi.gov.in/sebi_data/attachdocs/may-2026/x.pdf",
-                    "type": "Circular",
-                    "department": "OIAE",
+                    "type": "Master Circular",
+                    "department": "ISD",
                 },
             ]
         }
@@ -139,19 +149,19 @@ class SEBIScraperMappingTestCase(unittest.TestCase):
         circulars = self.scraper.parse_response(payload)
 
         self.assertEqual(len(circulars), 1)
-        self.assertEqual(circulars[0].circular_id, "101703")
+        self.assertEqual(circulars[0].circular_id, "101473")
 
     def test_parse_circular_id_collapses_whitespace(self) -> None:
-        self.assertEqual(self.scraper.parse_circular_id("  101703  "), "101703")
-        self.assertEqual(self.scraper.parse_circular_id("101 703"), "101 703")
+        self.assertEqual(self.scraper.parse_circular_id("  101473  "), "101473")
+        self.assertEqual(self.scraper.parse_circular_id("101 473"), "101 473")
 
 
-class SEBIScraperFetchTestCase(unittest.TestCase):
+class SEBIMasterScraperFetchTestCase(unittest.TestCase):
     def setUp(self) -> None:
-        self.scraper = SEBIScraper()
+        self.scraper = SEBIMasterCircularScraper()
         self.scraper.base_url = "http://localhost:8001"
 
-    @patch.object(SEBIScraper, "_fetch_with_retry")
+    @patch.object(SEBIMasterCircularScraper, "_fetch_with_retry")
     def test_fetch_circulars_posts_dd_mm_yyyy_payload(self, fetch_with_retry) -> None:
         fetch_with_retry.return_value = json.dumps({"records": []})
 
@@ -161,45 +171,45 @@ class SEBIScraperFetchTestCase(unittest.TestCase):
         self.assertEqual(call_kwargs["method"], "POST")
         self.assertEqual(
             call_kwargs["url"],
-            "http://localhost:8001/api/enforcement_crawler/sebi/circular",
+            "http://localhost:8001/api/enforcement_crawler/sebi/master-circular",
         )
         self.assertEqual(call_kwargs["headers"]["Content-Type"], "application/json")
 
         body = json.loads(call_kwargs["data"])
         self.assertEqual(body, {"from_date": "01-05-2026", "to_date": "30-05-2026"})
 
-    @patch.object(SEBIScraper, "_fetch_with_retry")
+    @patch.object(SEBIMasterCircularScraper, "_fetch_with_retry")
     def test_fetch_circulars_parses_json_response(self, fetch_with_retry) -> None:
         fetch_with_retry.return_value = json.dumps(SAMPLE_PAYLOAD)
 
         payload = self.scraper._fetch_circulars(date(2026, 5, 1), date(2026, 5, 30))
 
         self.assertEqual(payload["count"], 2)
-        self.assertEqual(payload["records"][0]["circular_id"], "101703")
+        self.assertEqual(payload["records"][0]["circular_id"], "101473")
 
 
-class SEBIScraperErrorPropagationTestCase(unittest.TestCase):
+class SEBIMasterScraperErrorPropagationTestCase(unittest.TestCase):
     def setUp(self) -> None:
-        self.scraper = SEBIScraper()
+        self.scraper = SEBIMasterCircularScraper()
         self.scraper.base_url = "http://localhost:8001"
         self.scraper.backoff_seconds = 0
         self.scraper.max_retries = 2
 
-    @patch.object(SEBIScraper, "_fetch_with_retry")
+    @patch.object(SEBIMasterCircularScraper, "_fetch_with_retry")
     def test_propagates_connection_error(self, fetch_with_retry) -> None:
         fetch_with_retry.side_effect = requests.exceptions.ConnectionError("refused")
 
         with self.assertRaises(requests.exceptions.ConnectionError):
             self.scraper._fetch_circulars(date(2026, 5, 1), date(2026, 5, 30))
 
-    @patch.object(SEBIScraper, "_fetch_with_retry")
+    @patch.object(SEBIMasterCircularScraper, "_fetch_with_retry")
     def test_propagates_http_error(self, fetch_with_retry) -> None:
         fetch_with_retry.side_effect = requests.exceptions.HTTPError("503 Service Unavailable")
 
         with self.assertRaises(requests.exceptions.HTTPError):
             self.scraper._fetch_circulars(date(2026, 5, 1), date(2026, 5, 30))
 
-    @patch.object(SEBIScraper, "_fetch_with_retry")
+    @patch.object(SEBIMasterCircularScraper, "_fetch_with_retry")
     def test_propagates_invalid_json(self, fetch_with_retry) -> None:
         fetch_with_retry.return_value = "<html>500</html>"
 
@@ -207,7 +217,7 @@ class SEBIScraperErrorPropagationTestCase(unittest.TestCase):
             self.scraper._fetch_circulars(date(2026, 5, 1), date(2026, 5, 30))
 
     def test_detect_new_surfaces_api_failure(self) -> None:
-        scraper = SEBIScraper()
+        scraper = SEBIMasterCircularScraper()
         scraper.base_url = "http://localhost:8001"
         scraper.backoff_seconds = 0
         scraper.max_retries = 2
