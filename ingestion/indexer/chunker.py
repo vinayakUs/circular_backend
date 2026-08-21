@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import re
 from abc import ABC, abstractmethod
-
+from typing import List
 from ingestion.indexer.dto import TextChunk
 from ingestion.indexer.pdf_extractor import Block
 

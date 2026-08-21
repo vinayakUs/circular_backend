@@ -34,6 +34,7 @@ from config import Config
 from db.postgres_client import get_postgres_client
 from ingestion.indexer import ElasticsearchClient, ElasticsearchIndexer, FixedSizeChunker
 from ingestion.indexer.chunker import NSEPdfChunkingStrategy
+from ingestion.indexer.master_chunker import MasterCircularChunkingStrategy
 from ingestion.indexer.embedding_provider import build_embedding_provider
 from ingestion.logging_utils import configure_logging
 from ingestion.repository import CheckpointRepository, CircularRepository
@@ -102,6 +103,11 @@ def main() -> int:
         model_name=Config.ES_EMBEDDING_MODEL_NAME,
         query_instruction=Config.ES_QUERY_EMBEDDING_INSTRUCTION,
     )
+    master_chunker_embedding_provider = build_embedding_provider(
+        Config.ES_MASTER_SPLITTER_PROVIDER,
+        enabled=Config.ES_ENABLE_VECTORS,
+        model_name=Config.ES_MASTER_SPLITTER_MODEL,
+    )
     es_client = ElasticsearchClient(
         url=Config.ELASTICSEARCH_URL,
         index_name=Config.ELASTICSEARCH_INDEX_NAME,
@@ -117,6 +123,7 @@ def main() -> int:
             chunk_size=Config.ES_CHUNK_SIZE,
             overlap=Config.ES_CHUNK_OVERLAP,
         ),
+        master_chunker_embedding_provider=master_chunker_embedding_provider,
         embedding_provider=embedding_provider,
         batch_size=args.batch_size,
     )

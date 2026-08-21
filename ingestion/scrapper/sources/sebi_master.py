@@ -14,9 +14,12 @@ from ingestion.scrapper.registry import ScraperRegistry
 
 
 @ScraperRegistry.register
-class SEBIScraper(IScraper):
-    source_name = "SEBI"
-    ENDPOINT = "/api/enforcement_crawler/sebi/circular"
+class SEBIMasterCircularScraper(IScraper):
+    source_name = "SEBI_MASTER"
+    ENDPOINT = "/api/enforcement_crawler/sebi/master-circular"
+    # Signal to the orchestrator: after downloading the PDF, extract the real
+    # circular reference from page 1 and overwrite the API short ID.
+    enrich_reference_from_pdf = True
     SUPPORTED_EXTENSIONS = (".pdf", ".zip")
     default_headers = {
         "User-Agent": DEFAULT_USER_AGENT,
@@ -27,22 +30,22 @@ class SEBIScraper(IScraper):
     def __init__(self) -> None:
         super().__init__()
         self.base_url = Config.ENFORCEMENT_CRAWLER_BASE_URL
-        self.max_retries = max(1, int(os.getenv("SEBI_MAX_RETRIES", "3")))
+        self.max_retries = max(1, int(os.getenv("SEBI_MASTER_MAX_RETRIES", "3")))
         self.backoff_seconds = max(
-            0.0, float(os.getenv("SEBI_RETRY_BACKOFF_SECONDS", "2.0"))
+            0.0, float(os.getenv("SEBI_MASTER_RETRY_BACKOFF_SECONDS", "2.0"))
         )
-        self.timeout_seconds = float(os.getenv("SEBI_TIMEOUT_SECONDS", "30"))
+        self.timeout_seconds = float(os.getenv("SEBI_MASTER_TIMEOUT_SECONDS", "30"))
 
     def detect_new(self, from_date: date, to_date: date) -> ScrapeDetectionResult:
         self.logger.info(
-            "Fetching SEBI circulars via crawler API from_date=%s to_date=%s",
+            "Fetching SEBI master-circulars via crawler API from_date=%s to_date=%s",
             from_date,
             to_date,
         )
         payload = self._fetch_circulars(from_date, to_date)
         circulars = self.parse_response(payload)
         self.logger.info(
-            "Parsed SEBI circulars from_date=%s to_date=%s count=%s",
+            "Parsed SEBI master-circulars from_date=%s to_date=%s count=%s",
             from_date,
             to_date,
             len(circulars),
@@ -50,7 +53,7 @@ class SEBIScraper(IScraper):
         return ScrapeDetectionResult(circulars=circulars)
 
     def get_pdf_download_url(self, circular_id: str) -> str:
-        return f"{self.base_url}/legal/circulars/{circular_id}.pdf"
+        return f"{self.base_url}/legal/master-circulars/{circular_id}.pdf"
 
     def parse_circular_id(self, raw_id: str) -> str:
         return re.sub(r"\s+", " ", raw_id.strip())
@@ -77,8 +80,7 @@ class SEBIScraper(IScraper):
             title = str(item.get("title", "")).strip()
             issue_date = self._parse_issue_date(item.get("date", ""))
 
-            # html_url is the canonical detail page and is unique per record —
-            # preserve the previous SEBI dedup key shape.
+            # html_url is the canonical detail page and is unique per record.
             source_item_key = html_url
 
             circulars.append(
@@ -97,7 +99,7 @@ class SEBIScraper(IScraper):
             )
 
         self.logger.info(
-            "SEBI payload processed total_records=%s supported_circulars=%s skipped_unsupported=%s skipped_missing_field=%s",
+            "SEBI master payload processed total_records=%s supported_circulars=%s skipped_unsupported=%s skipped_missing_field=%s",
             len(records),
             len(circulars),
             skipped_unsupported_count,

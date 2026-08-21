@@ -11,6 +11,7 @@ from ingestion.indexer.embedding_provider import (
 from ingestion.indexer.es_client import ElasticsearchClient
 from ingestion.indexer.indexer import ElasticsearchIndexer
 from ingestion.indexer.es_provider import get_es_client
+from ingestion.indexer.master_chunker import MasterCircularChunkingStrategy
 from ingestion.indexer.pdf_extractor import PDFTextExtractor
 
 __all__ = [
@@ -19,6 +20,7 @@ __all__ = [
     "EmbeddingProvider",
     "FixedSizeChunker",
     "IndexDocument",
+    "MasterCircularChunkingStrategy",
     "NoOpEmbeddingProvider",
     "PDFTextExtractor",
     "SearchHit",

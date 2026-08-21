@@ -54,6 +54,7 @@ class IScraper(ABC):
                     verify=False,
                     **kwargs,
                 )
+                response.raise_for_status()
                 return response.text
             except Exception as exc:
                 last_error = exc

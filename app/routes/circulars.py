@@ -336,7 +336,7 @@ def register_routes(app, *, rag_generator) -> None:
         normalized_source = raw_source.upper() if raw_source else None
         if normalized_source == "ALL":
             normalized_source = None
-        elif normalized_source and normalized_source not in {"NSE", "SEBI"}:
+        elif normalized_source and normalized_source not in {"NSE", "SEBI","SEBI_MASTER"}:
             return {"error": "source must be 'NSE', 'SEBI', or 'ALL'."}, 400
 
         raw_signatory = [s for s in request.args.getlist("signatory") if s.strip()]

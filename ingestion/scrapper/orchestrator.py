@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 from datetime import date, timedelta
 import hashlib
 import logging
@@ -20,12 +21,14 @@ from ingestion.repository.asset_repository import AssetRepository
 from ingestion.repository.checkpoint_repository import CheckpointRepository
 from ingestion.scrapper.base import DEFAULT_USER_AGENT, IScraper, ScrapeDetectionResult
 from ingestion.scrapper.dto import Circular
+from ingestion.scrapper.pdf_reference_extractor import extract_master_circular_reference
 from ingestion.scrapper.registry import ScraperRegistry
 from storage.s3_client import get_s3_client
 from utils.s3_utils import build_safe_filename
 import importlib
 importlib.import_module("ingestion.scrapper.sources.nse")
 importlib.import_module("ingestion.scrapper.sources.sebi")
+importlib.import_module("ingestion.scrapper.sources.sebi_master")
 
 
 class ScraperOrchestrator:
@@ -76,13 +79,43 @@ class ScraperOrchestrator:
             self.to_date,
         )
         started_at = time.perf_counter()
+        successful_sources: list[str] = []
+        failed_sources: list[tuple[str, str]] = []
         for source in enabled_scrapers:
-            self._scrape_source(source, today)
+            source_name = source.source_name
+            try:
+                self._scrape_source(source, today)
+                successful_sources.append(source_name)
+            except Exception as exc:
+                # Isolate per-source failures so one scraper being down doesn't
+                # block the rest of the run. Runner exits non-zero only if
+                # EVERY enabled source failed.
+                failed_sources.append((source_name, str(exc)))
+                self.logger.exception(
+                    "Source scrape failed source=%s error=%s — continuing with remaining sources",
+                    source_name,
+                    exc,
+                )
+
+        if failed_sources:
+            self.logger.warning(
+                "Ingestion run completed with source failures failed_sources=%s successful_sources=%s",
+                failed_sources,
+                successful_sources,
+            )
         self.logger.info(
-            "Completed ingestion run enabled_sources=%s duration_seconds=%.2f",
+            "Completed ingestion run enabled_sources=%s successful_sources=%s failed_sources=%s duration_seconds=%.2f",
             [source.source_name for source in enabled_scrapers],
+            successful_sources,
+            failed_sources,
             time.perf_counter() - started_at,
         )
+        # Raise only when ALL sources failed, so the runner can still exit 0
+        # on partial success and surface a hard failure when nothing worked.
+        if enabled_scrapers and not successful_sources:
+            raise RuntimeError(
+                f"All enabled sources failed: {[name for name, _ in failed_sources]}"
+            )
 
     def _scrape_source(self, source: IScraper, today: date) -> None:
         if self.from_date is not None:
@@ -153,6 +186,14 @@ class ScraperOrchestrator:
                     circular.pdf_url, circular
                 )
                 self.asset_repository.replace_assets(record_id, assets)
+
+                # Optional PDF reference enrichment (e.g. SEBI_MASTER extracts the
+                # real circular reference from page 1 and overwrites the API ID).
+                if getattr(source, "enrich_reference_from_pdf", False):
+                    circular = self._enrich_from_pdf(
+                        source, circular, record_id, pdf_url_for_retry=circular.pdf_url
+                    )
+
                 self.circular_repository.update_status(record_id, "FETCHED")
                 fetched_count += 1
                 self.logger.info(
@@ -255,6 +296,54 @@ class ScraperOrchestrator:
         if current is None or candidate < current:
             return candidate
         return current
+
+    def _enrich_from_pdf(
+        self,
+        source: IScraper,
+        circular: Circular,
+        record_id: Any,
+        pdf_url_for_retry: str,
+    ) -> Circular:
+        """Download the PDF once more, extract the real circular reference
+        from page 1, and overwrite circular_id/full_reference. Raises on
+        failure so the caller marks the record FAILED."""
+        try:
+            pdf_bytes = self._fetch_pdf_bytes(pdf_url_for_retry, circular)
+        except Exception as exc:
+            raise RuntimeError(
+                f"PDF re-fetch for reference extraction failed: {exc}"
+            ) from exc
+
+        extracted = extract_master_circular_reference(pdf_bytes)
+        if not extracted:
+            raise ValueError(
+                f"Could not extract master circular reference from page 1 "
+                f"of {circular.pdf_url}"
+            )
+
+        if extracted == circular.circular_id:
+            self.logger.info(
+                "Extracted reference matches existing circular_id source=%s record_id=%s circular_id=%s",
+                source.source_name,
+                record_id,
+                extracted,
+            )
+            return circular
+
+        enriched = dataclasses.replace(
+            circular,
+            circular_id=extracted,
+            full_reference=extracted,
+        )
+        self.circular_repository.upsert_circular(enriched)
+        self.logger.info(
+            "Enriched circular with extracted reference source=%s record_id=%s from=%s to=%s",
+            source.source_name,
+            record_id,
+            circular.circular_id,
+            extracted,
+        )
+        return enriched
 
     def _get_enabled_scrapers(self) -> list[IScraper]:
         if not self.enabled_sources:
@@ -419,28 +508,55 @@ class ScraperOrchestrator:
         return re.sub(r"[^A-Z0-9]+", "", value.upper())
 
     def _fetch_pdf_bytes(self, pdf_url: str, circular: Circular) -> bytes:
-        if pdf_url:
-            response = requests.get(
-                pdf_url,
-                headers={"User-Agent": DEFAULT_USER_AGENT, "Referer": circular.url or pdf_url},
-                timeout=30,
-                allow_redirects=True,
-                proxies=get_requests_proxies(pdf_url),
-                verify=False,
+        if not pdf_url:
+            placeholder = (
+                f"PDF download pending for {circular.circular_id}\n"
+                f"Source URL: {circular.url}\n"
             )
-            content = response.content
+            return placeholder.encode("utf-8")
 
-            # Validate it's actually PDF or ZIP, not an HTML error page
-            if not content.startswith(b"%PDF") and not content.startswith(b"PK\x03\x04"):
-                raise ValueError(
-                    f"NSE returned invalid content for {pdf_url}: "
-                    f"Content-Type={response.headers.get('Content-Type')!r}, "
-                    f"first 50 bytes={content[:50]!r}"
+        # Retry on mid-stream disconnects (ChunkedEncodingError / IncompleteRead
+        # are common with SEBI's CDN — connection drops part-way through a
+        # large PDF). Same backoff pattern as IScraper._fetch_with_retry.
+        max_retries = 3
+        backoff_seconds = 1.0
+        last_error: Exception | None = None
+        for attempt in range(1, max_retries + 1):
+            try:
+                response = requests.get(
+                    pdf_url,
+                    headers={"User-Agent": DEFAULT_USER_AGENT, "Referer": circular.url or pdf_url},
+                    timeout=30,
+                    allow_redirects=True,
+                    proxies=get_requests_proxies(pdf_url),
+                    verify=False,
                 )
-            return content
+                response.raise_for_status()
+                content = response.content
 
-        placeholder = (
-            f"PDF download pending for {circular.circular_id}\n"
-            f"Source URL: {circular.url}\n"
+                # Validate it's actually PDF or ZIP, not an HTML error page
+                if not content.startswith(b"%PDF") and not content.startswith(b"PK\x03\x04"):
+                    raise ValueError(
+                        f"NSE returned invalid content for {pdf_url}: "
+                        f"Content-Type={response.headers.get('Content-Type')!r}, "
+                        f"first 50 bytes={content[:50]!r}"
+                    )
+                return content
+            except (
+                requests.exceptions.ChunkedEncodingError,
+                requests.exceptions.ConnectionError,
+                requests.exceptions.Timeout,
+            ) as exc:
+                last_error = exc
+                if attempt >= max_retries:
+                    break
+                sleep_seconds = backoff_seconds * attempt
+                self.logger.warning(
+                    "PDF download interrupted, retrying attempt=%d/%d backoff=%.2fs url=%s error=%s",
+                    attempt, max_retries, sleep_seconds, pdf_url, exc,
+                )
+                if sleep_seconds > 0:
+                    time.sleep(sleep_seconds)
+        raise RuntimeError(
+            f"PDF download failed after {max_retries} attempts: {last_error}"
         )
-        return placeholder.encode("utf-8")

@@ -60,11 +60,11 @@ CREATE TABLE IF NOT EXISTS scraper_checkpoints (
 -- circulars
 CREATE TABLE IF NOT EXISTS circulars (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    circular_id VARCHAR(50) NOT NULL,
+    circular_id VARCHAR(200) NOT NULL,
     source VARCHAR(20) NOT NULL,
     source_item_key TEXT,
     full_reference TEXT NOT NULL,
-    department VARCHAR(50),
+    department VARCHAR(200),
     title TEXT NOT NULL,
     issue_date DATE NOT NULL,
     effective_date DATE,

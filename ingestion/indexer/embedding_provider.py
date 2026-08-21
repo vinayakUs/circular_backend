@@ -12,6 +12,15 @@ class EmbeddingProvider:
     def embed_query(self, query: str) -> list[float] | None:
         return self.embed_texts([query])[0]
 
+    def embed_for_similarity(self, texts: list[str]) -> Any | None:
+        """Encode texts as a torch.Tensor for tensor math (cosine sim, etc.).
+
+        Returns None if this provider doesn't support tensor output
+        (e.g. NoOpEmbeddingProvider). Default: None.
+        """
+        del texts  # unused in default impl; subclasses override
+        return None
+
     @property
     def dimensions(self) -> int | None:
         return None
@@ -74,6 +83,16 @@ class SentenceTransformerEmbeddingProvider(EmbeddingProvider):
         if self.query_instruction:
             text = f"{self.query_instruction}{query}"
         return self.embed_texts([text])[0]
+
+    def embed_for_similarity(self, texts: list[str]) -> Any | None:
+        """Encode texts as a torch.Tensor for tensor math.
+
+        Subclass override — defaults to None on the base class so callers
+        can detect a no-op provider and fall back.
+        """
+        if not texts:
+            return None
+        return self._load_model().encode(texts, convert_to_tensor=True)
 
     def _load_model(self) -> Any:
 

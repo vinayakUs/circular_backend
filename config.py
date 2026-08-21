@@ -63,6 +63,9 @@ class Config:
     SCRAPER_ENABLED_SOURCES = _parse_scraper_sources(
         os.getenv("SCRAPER_ENABLED_SOURCES")
     )
+    ENFORCEMENT_CRAWLER_BASE_URL = os.getenv(
+        "ENFORCEMENT_CRAWLER_BASE_URL", "http://localhost:8001"
+    ).rstrip("/")
     ELASTICSEARCH_URL = os.getenv(
         "ELASTICSEARCH_URL", "http://localhost:9200"
     )
@@ -88,6 +91,17 @@ class Config:
         "ES_QUERY_EMBEDDING_INSTRUCTION",
         "Represent this sentence for searching relevant passages: ",
     )
+    # Master-circular splitter's own embedding model. Used inside
+    # semantic_sub_chunking for adjacent-sentence cosine similarity
+    # (topic-shift detection), NOT for ES chunk or query embeddings.
+    # Defaults to a small, fast model. Set to the same value as
+    # ES_EMBEDDING_MODEL_NAME if you want to share one model load.
+    ES_MASTER_SPLITTER_PROVIDER = os.getenv(
+        "ES_MASTER_SPLITTER_PROVIDER", "sentence-transformers"
+    ).strip().lower()
+    ES_MASTER_SPLITTER_MODEL = os.getenv(
+        "ES_MASTER_SPLITTER_MODEL", "all-MiniLM-L6-v2"
+    ).strip()
     ES_SEARCH_DEFAULT_STRATEGY = os.getenv(
         "ES_SEARCH_DEFAULT_STRATEGY", "hybrid"
     ).strip().lower()
