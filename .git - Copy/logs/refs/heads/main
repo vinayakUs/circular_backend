@@ -1,5 +1,0 @@
-0000000000000000000000000000000000000000 4469cfa6c6c642434c0e7569857290ae4056e3c7 Super User <root@DESKTOP-KT1ENDR.localdomain> 1775805163 +0530	clone: from https://github.com/vinayakUs/circular_backend.git
-4469cfa6c6c642434c0e7569857290ae4056e3c7 6e21023c60eeaacf2e9a6d858bac6512f045067b vinayakUs <vinayak200054321@gmail.com> 1775837160 +0530	commit: added filter backend and frontend
-6e21023c60eeaacf2e9a6d858bac6512f045067b 20e25660c6f79354124d950288b454e17919d6ff vinayakUs <vinayak200054321@gmail.com> 1776231744 +0530	pull: Fast-forward
-20e25660c6f79354124d950288b454e17919d6ff 00c4df714bf83843cf66fd47e7e80e0e09c7ad27 vinayakUs <vinayak200054321@gmail.com> 1776257581 +0530	commit: scrapper ui working
-00c4df714bf83843cf66fd47e7e80e0e09c7ad27 59a481100863bbcf1698f2f4dbc7638f0e66515f vinayakUs <vinayak200054321@gmail.com> 1776258856 +0530	commit: replace uri in circular with actual file link
