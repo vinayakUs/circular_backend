@@ -1,0 +1,45 @@
+Sub: Modification and deletion of certain provisions of Exchange Circular Ref. No. NSE/COMP/50957 dated January 07, 2022 — illustrative list of activities under third party product distribution
+
+Reference No: NSE/INSP/74836
+Date: June 23, 2026
+Department: INSPECTION
+
+In partial modification of Exchange Circular Ref No. NSE/COMP/50957 dated January 07, 2022, regarding the illustrative list of activities under third party product distribution, the following changes are made with effect from June 23, 2026:
+
+1. Point No. 1 and 2 of illustrative list of activities issued vide Exchange Circular Ref No. NSE/COMP/50957 dated January 07, 2022 are modified as below:
+
+   Point 1 (modified): Issuing Corporate Guarantees towards credit facilities availed by any entity, including group companies.
+
+   Point 2 (modified): Deposit pledged with the bank for the purpose of availing credit facilities by group companies.
+
+2. Point No. 3 to 12 of illustrative list of activities as prescribed in Exchange Circular Ref No. NSE/COMP/50957 dated January 07, 2022, stand deleted.
+
+3. Members may refer to Annexure-A of this circular for FAQs on the current framework.
+
+Annexure-A
+
+Question No.1: Whether members can offer third-party products to their clients.
+
+Answer: Members can offer third-party products to their clients only if such products are regulated by an appropriate financial sector regulator. Members are advised to ensure due diligence before onboarding any third-party product.
+
+Question No.2: Whether prior approval from the Exchange is required for offering a new third-party product.
+
+Answer: Members are required to intimate the Exchange before launching any new third-party product. The Exchange reserves the right to seek additional information or raise objections.
+
+Question No.3: Whether digital gold products can be distributed.
+
+Answer: Members may distribute digital gold products only if the underlying product is regulated by an appropriate financial sector regulator. Members must comply with all applicable KYC and disclosure requirements.
+
+Question No.4: Whether members can enter into revenue sharing arrangements with third-party product providers.
+
+Answer: Members may enter into revenue sharing arrangements subject to the limits and conditions specified by SEBI from time to time.
+
+Question No.5: Whether members can act as a sponsor or trustee for any collective investment scheme.
+
+Answer: No. Members cannot act as a sponsor or trustee for any collective investment scheme without obtaining separate registration from SEBI.
+
+Question No.6: Whether members can offer unregulated third-party products.
+
+Answer: No. Members cannot offer third-party products that are not regulated by an appropriate financial sector regulator. Refer Exchange Circular NSE/INSP/68566 dated December 12, 2024 for the current framework.
+
+For any clarification, kindly contact the Inspection Department.

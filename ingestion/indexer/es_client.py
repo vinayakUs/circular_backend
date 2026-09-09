@@ -343,6 +343,7 @@ class ElasticsearchClient:
         source: str | None = None,
         sort: str = "score",
         size: int = 40,
+        match_mode: str = "keyword",
     ) -> list[SearchHit]:
         """Pure BM25 search with operator=or, server-side collapse on circular_db_id.
 
@@ -367,25 +368,47 @@ class ElasticsearchClient:
         if sort not in ("score", "date"):
             raise ValueError(f"sort must be 'score' or 'date', got {sort!r}")
 
+        if match_mode not in ("keyword", "title", "phrase"):
+            raise ValueError(
+                f"match_mode must be 'keyword', 'title', or 'phrase', got {match_mode!r}"
+            )
+
+
         filters: list[dict[str, Any]] = []
         if source:
             filters.append({"terms": {"source": [source.upper()]}})
 
-        es_query: dict[str, Any] = {
-            "bool": {
-                "must": [
-                    {
-                        "match": {
-                            "chunk_text": {
-                                "query": query,
-                                "operator": "or",
-                            }
-                        }
-                    }
-                ],
-                "filter": filters,
+        # es_query: dict[str, Any] = {
+        #     "bool": {
+        #         "must": [
+        #             {
+        #                 "match": {
+        #                     "chunk_text": {
+        #                         "query": query,
+        #                         "operator": "or",
+        #                     }
+        #                 }
+        #             }
+        #         ],
+        #         "filter": filters,
+        #     }
+        # }
+
+        if match_mode == "title":
+            es_query = self._build_v2_title_query(query, filters)
+            highlight_fields: dict[str, Any] = {
+                "title": {"number_of_fragments": 0}
             }
-        }
+        elif match_mode == "phrase":
+            es_query = self._build_v2_phrase_query(query, filters)
+            highlight_fields = {
+                "chunk_text": {"number_of_fragments": 1, "fragment_size": 400}
+            }
+        else:
+            es_query = self._build_v2_keyword_query(query,filters)
+            highlight_fields = {
+                "chunk_text": {"number_of_fragments": 1, "fragment_size": 400}
+            }
 
         sort_clause: list[dict[str, Any]]
         if sort == "date":
@@ -394,19 +417,20 @@ class ElasticsearchClient:
                 {"_score": {"order": "desc"}},
             ]
         else:
-            sort_clause = [{"_score": {"order": "desc"}}]
+            sort_clause = [
+                {"_score": {"order": "desc"}},
+                {"issue_date": {"order": "desc"}},
+            ]
 
         highlight_clause: dict[str, Any] = {
             "pre_tags": ["<mark>"],
             "post_tags": ["</mark>"],
-            "fields": {
-                "chunk_text": {"number_of_fragments": 1, "fragment_size": 400}
-            },
+            "fields": highlight_fields
         }
 
         self.logger.info(
-            "Executing BM25v2 search: query=%r, source=%s, sort=%s, size=%d",
-            query, source or "ALL", sort, size,
+            "Executing BM25v2 search: query=%r, source=%s, sort=%s, match_mode=%s, size=%d",
+            query, source or "ALL", sort, match_mode, size,
         )
         response = self.client.search(
             index=self.index_name,
@@ -423,6 +447,84 @@ class ElasticsearchClient:
         )
 
         return self._parse_hits(response)
+
+    def _build_v2_keyword_query(
+            self, query: str, filters: list[dict[str, Any]]
+        ) -> dict[str, Any]:
+            """Loose OR match over chunk body text — the original bm25v2 behaviour."""
+            return {
+                "bool": {
+                    "must": [
+                        {
+                            "match": {
+                                "chunk_text": {
+                                    "query": query,
+                                    "operator": "or",
+                                }
+                            }
+                        }
+                    ],
+                "filter": filters,
+            }
+        }
+
+    def _build_v2_phrase_query(
+        self, query: str, filters: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        """Contiguous phrase match (slop=0) on chunk_text.
+
+        Returns only docs where the query terms appear adjacent and in order —
+        no word gaps, no reordering. Most precise of the three match modes
+        (keyword = OR, phrase = strict adjacency, title = title-scoped).
+        """
+        return {
+            "bool": {
+                "must": [
+                    {
+                        "match_phrase": {
+                            "chunk_text": {
+                                "query": query,
+                                "slop": 0,
+                            }
+                        }
+                    }
+                ],
+                "filter": filters,
+            }
+        }
+
+    def _build_v2_title_query(
+        self, query: str, filters: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        """Title lookup: typo-tolerant OR match, with exact-phrase titles boosted.
+
+        ``minimum_should_match`` of ``"2<70%"`` requires every term for queries of
+        two terms or fewer, and 70% beyond that. Without it a four-word query
+        matching only the word "listing" still qualifies, dragging in unrelated
+        circulars. ``fuzziness`` is valid only on the ``match`` clause —
+        ``match_phrase`` rejects it — so the boost clause stays literal.
+        """
+        return {
+            "bool": {
+                "must": [
+                    {
+                        "match": {
+                            "title": {
+                                "query": query,
+                                "operator": "or",
+                                "minimum_should_match": "2<70%",
+                                "fuzziness": "AUTO",
+                            }
+                        }
+                    }
+                ],
+                "should": [
+                    {"match_phrase": {"title": {"query": query, "boost": 5}}}
+                ],
+                "filter": filters,
+            }
+        }
+
 
     def _build_filters(self, metadata: dict[str, Any]) -> list[dict[str, Any]]:
         filters: list[dict[str, Any]] = []

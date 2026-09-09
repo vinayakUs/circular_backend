@@ -1,0 +1,17 @@
+dn: ou=users,dc=company,dc=com
+objectClass: organizationalUnit
+ou: users
+
+dn: uid=testuser,ou=users,dc=company,dc=com
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: testuser
+cn: Test User
+sn: User
+uidNumber: 1000
+gidNumber: 1000
+homeDirectory: /home/testuser
+loginShell: /bin/bash
+userPassword: password123
+mail: testuser@company.com

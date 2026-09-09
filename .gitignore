@@ -2,6 +2,7 @@
 __pycache__/
 .pytest_cache/
 .env
+.idea/
 *.py[cod]
 *.egg-info/
 .coverage
@@ -29,4 +30,4 @@ docker/localstack-data/
 venv/
 .venv/
 node_modules/
-.idea/
+.idea/localstack-persist/

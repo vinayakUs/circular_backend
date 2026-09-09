@@ -49,6 +49,7 @@ class OllamaLLMClient(BaseLLMClient):
         max_workers: int = 8,
         max_retries: int = 3,
         max_tokens: int | None = None,
+        temperature: float  = 0,
     ) -> list[Any]:
         logger = logging.getLogger(__name__)
         logger.info("Starting parallel LLM calls: count=%d max_workers=%d", len(prompts), max_workers)
@@ -62,6 +63,7 @@ class OllamaLLMClient(BaseLLMClient):
                         "model": model,
                         "response_model": response_model,
                         "messages": [{"role": "user", "content": prompt}],
+                        "temperature": temperature,
                     }
                     if max_tokens is not None:
                         create_kwargs["max_tokens"] = max_tokens

@@ -16,7 +16,13 @@
 }
 
 .page-title {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
   font-size: 24px;
   font-weight: 700;
   letter-spacing: -0.02em;
@@ -25,7 +31,13 @@
 }
 
 .page-subtitle {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
   font-size: 14px;
   font-weight: 400;
   color: #737373;
@@ -57,11 +69,19 @@
   border: 1px solid rgba(0, 0, 0, 0.12);
   border-radius: 8px;
   padding: 8px 40px 8px 16px;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
   font-size: 14px;
   color: #0a0a0a;
   outline: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .search-field::placeholder {
@@ -132,7 +152,13 @@
 
 .filter-label {
   display: block;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
   font-size: 12px;
   font-weight: 500;
   color: #9e9e9e;
@@ -145,13 +171,18 @@
 /* Horizontal control — distinct button styling */
 .filter-tabs.horizontal {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
 .filter-tabs.horizontal .filter-tab {
-  flex: 1;
+  /* Pills size to their label content (no shrink/grow) so a long name like
+     "Sebi Master" never gets clipped. With flex-wrap on the container, pills
+     flow onto as many rows as they need. */
+  flex: 0 0 auto;
   text-align: center;
-  padding: 6px 8px;
+  /* white-space: nowrap; */
+  padding: 6px 10px;
   font-size: 13px;
   font-weight: 500;
   color: #5e5e5e;
@@ -160,7 +191,13 @@
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.15s ease;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
 }
 
 .filter-tabs.horizontal .filter-tab:hover:not(.active) {
@@ -183,7 +220,13 @@
 
 .filter-tab {
   padding: 8px 12px;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
   font-size: 14px;
   font-weight: 500;
   color: #5e5e5e;
@@ -216,7 +259,13 @@
 
 .date-label {
   display: block;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
   font-size: 12px;
   font-weight: 500;
   color: #5e5e5e;
@@ -227,7 +276,13 @@
 .date-field {
   width: 100%;
   padding: 5px 10px;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
   font-size: 13px;
   color: #0a0a0a;
   background: #fafafa;
@@ -246,7 +301,13 @@
 .apply-btn.full-width {
   width: 100%;
   padding: 10px 12px;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
   font-size: 14px;
   font-weight: 500;
   border-radius: 6px;
@@ -291,12 +352,20 @@
   background: #fafafa;
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 6px;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
   font-size: 13px;
   color: #0a0a0a;
   cursor: pointer;
   text-align: left;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .multi-select-trigger:hover {
@@ -357,7 +426,13 @@
   gap: 8px;
   padding: 6px 8px;
   border-radius: 4px;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
   font-size: 13px;
   color: #0a0a0a;
   cursor: pointer;
@@ -390,7 +465,13 @@
 
 .multi-select-empty {
   padding: 10px 8px;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
   font-size: 13px;
   color: #9e9e9e;
   text-align: center;
@@ -417,7 +498,13 @@
 .results-empty {
   text-align: center;
   color: #9e9e9e;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
   font-size: 14px;
 }
 
@@ -450,27 +537,26 @@
   }
 }
 
-
-
-
-
 .circulars-list {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    transition: opacity 0.18s ease;
-  }
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: opacity 0.18s ease;
+}
 
-  .circulars-list.is-loading {
-    opacity: 0.55;
-  }
+.circulars-list .inactive-card {
+  background-color: #f5f5f4 !important;
+}
 
-  .circulars-list.is-loading .paginator-arrow,
-  .circulars-list.is-loading .paginator-jump-input {
-    pointer-events: none;
-  }
+.circulars-list.is-loading {
+  opacity: 0.55;
+}
 
-  
+.circulars-list.is-loading .paginator-arrow,
+.circulars-list.is-loading .paginator-jump-input {
+  pointer-events: none;
+}
+
 .circulars-list .circular-item {
   background: #ffffff;
   border: 1px solid rgba(0, 0, 0, 0.08);
@@ -492,27 +578,6 @@
   background: #fafafa;
 }
 
-.exchange-badge {
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  min-width: 52px;
-  text-align: center;
-  flex-shrink: 0;
-}
-
-.exchange-badge.sebi {
-  background: rgba(168, 85, 247, 0.1);
-  color: #a855f7;
-}
-
-.exchange-badge.nse {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
-}
-
 .circular-content {
   display: flex;
   flex-direction: column;
@@ -531,21 +596,70 @@
   width: 100%;
 }
 
+.circular-meta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.circular-header .active {
+  /* font-size: 1211px; */
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+  font-size: 12px;
+  color: #16a34a;
+}
+
+.circular-header .inactive {
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+  font-size: 12px;
+  color: #dc2626;
+}
+
 .circular-id {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
   font-size: 13px;
   font-weight: 500;
   color: #0a0a0a;
 }
 
 .circular-time {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
   font-size: 12px;
   color: #9e9e9e;
 }
 
 .circular-title {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
   font-size: 14px;
   font-weight: 400;
   color: #0a0a0a;
@@ -553,7 +667,13 @@
 }
 
 .tag {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
   font-size: 11px;
   font-weight: 500;
   color: #5e5e5e;
@@ -572,10 +692,12 @@
   background: rgba(168, 85, 247, 0.1);
   color: #a855f7;
 }
+
 .tag.tag-signatory {
   background: rgba(16, 185, 129, 0.1);
   color: #10b981;
 }
+
 .tag.tag-dept {
   background: rgba(59, 130, 246, 0.1);
   color: #3b82f6;
@@ -610,7 +732,11 @@
   border-radius: 8px;
   color: #5e5e5e;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    transform 0.1s ease;
 }
 
 .paginator-arrow svg {
@@ -645,7 +771,13 @@
   gap: 6px;
   min-width: 78px;
   justify-content: center;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
   font-variant-numeric: tabular-nums;
 }
 
@@ -679,7 +811,13 @@
 }
 
 .paginator-jump-label {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
   font-size: 11px;
   font-weight: 500;
   color: #9e9e9e;
@@ -690,7 +828,13 @@
 .paginator-jump-input {
   width: 64px;
   padding: 6px 8px;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
   font-size: 13px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
@@ -700,7 +844,10 @@
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 6px;
   outline: none;
-  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease;
   -moz-appearance: textfield;
   appearance: textfield;
 }
@@ -742,9 +889,7 @@
   }
 }
 
-
 /* circular filter  */
-
 
 /* Input */
 .search-input {
@@ -759,16 +904,24 @@
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 6px;
 
-  font-family: "Inter", -apple-system, BlinkMacSystemFont,
-    "Segoe UI", Roboto, sans-serif;
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
   font-size: 13px;
   color: #0a0a0a;
 
   outline: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 
   box-sizing: border-box;
 }
+
 .search-input:focus {
   border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
@@ -799,6 +952,7 @@
     opacity: 0;
     transform: translateY(-2px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -813,7 +967,13 @@
 }
 
 .recent-searches-title {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
   font-size: 11px;
   font-weight: 500;
   color: #9e9e9e;
@@ -825,13 +985,21 @@
   background: transparent;
   border: none;
   padding: 2px 6px;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
   font-size: 12px;
   font-weight: 500;
   color: #5e5e5e;
   cursor: pointer;
   border-radius: 4px;
-  transition: color 0.12s ease, background 0.12s ease;
+  transition:
+    color 0.12s ease,
+    background 0.12s ease;
 }
 
 .recent-searches-clear:hover {
@@ -853,7 +1021,13 @@
   gap: 10px;
   padding: 8px 10px;
   border-radius: 6px;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
   font-size: 13px;
   color: #0a0a0a;
   cursor: pointer;
@@ -890,7 +1064,10 @@
   align-items: center;
   justify-content: center;
   opacity: 0;
-  transition: opacity 0.12s ease, color 0.12s ease, background 0.12s ease;
+  transition:
+    opacity 0.12s ease,
+    color 0.12s ease,
+    background 0.12s ease;
   flex-shrink: 0;
 }
 
@@ -920,13 +1097,25 @@
 }
 
 .search-suggestion-label {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
   font-size: 12px;
   color: #9e9e9e;
 }
 
 .search-suggestion-mode {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
   font-size: 13px;
   font-weight: 500;
   color: #5e6ad2;
@@ -963,13 +1152,13 @@
 
 .topfilter-section {
   max-width: 1200px;
-    margin: 0 auto;
-    padding: 0px 24px 0px;
-    padding-top: 0px !important;
-    text-align: left;
+  margin: 0 auto;
+  padding: 0px 24px 0px;
+  padding-top: 0px !important;
+  text-align: left;
 }
 
-.filter-year-section{
+.filter-year-section {
   display: flex;
   align-items: flex-end;
 }

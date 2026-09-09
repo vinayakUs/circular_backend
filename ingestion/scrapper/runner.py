@@ -7,6 +7,7 @@ import logging
 from config import Config
 from db.postgres_client import get_postgres_client
 from ingestion.logging_utils import configure_logging
+from ingestion.indexer.es_provider import get_es_client
 from ingestion.scrapper.orchestrator import ScraperOrchestrator
 from storage.s3_client import S3StorageClient
 
@@ -75,6 +76,7 @@ def main() -> int:
     orchestrator = ScraperOrchestrator(
         db_pool=db_pool,
         s3_client=s3_client,
+        es_client=get_es_client(),
         default_lookback_days=Config.SCRAPER_DEFAULT_LOOKBACK_DAYS,
         enabled_sources=selected_sources,
         from_date=from_date,

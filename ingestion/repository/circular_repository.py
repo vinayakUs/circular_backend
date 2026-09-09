@@ -31,6 +31,7 @@ class CircularRecord:
     es_chunk_count: int | None = None
     es_index_name: str | None = None
     applicable_to_nse: bool = False
+    is_active: bool = True
     signatory: str | None = None
 
 
@@ -55,6 +56,7 @@ class CircularRepository:
         pdf_url = getattr(circular, 'pdf_url', '') or ''
         content_hash = getattr(circular, 'content_hash', None)
         applicable_to_nse = getattr(circular, 'applicable_to_nse', False)
+        is_active = getattr(circular,'is_active', True)
         detected_at = getattr(circular, 'detected_at', None) or datetime.now(timezone.utc)
 
         with self.db_pool.acquire() as conn:
@@ -72,14 +74,36 @@ class CircularRepository:
                 cursor.execute(
                     """
                     UPDATE circulars
-                    SET circular_id = %s, source_item_key = %s, full_reference = %s, department = %s, title = %s,
-                        issue_date = %s, url = %s, pdf_url = %s,
-                        content_hash = %s, status = %s, detected_at = %s, updated_at = NOW()
+                    SET circular_id = %s, 
+                        source_item_key = %s, 
+                        full_reference = %s, 
+                        department = %s, 
+                        title = %s,
+                        issue_date = %s, 
+                        url = %s, 
+                        pdf_url = %s,
+                        content_hash = %s, 
+                        status = %s, 
+                        detected_at = %s, 
+                        is_active = %s,
+                        updated_at = NOW()
                     WHERE id = %s
                     """,
-                    (circular_id_upper, source_item_key, full_reference, department, title, issue_date,
-                     url, pdf_url, content_hash, "DISCOVERED", detected_at,
-                     existing[0]),
+                    (
+                        circular_id_upper, 
+                        source_item_key, 
+                        full_reference, 
+                        department, 
+                        title, 
+                        issue_date,
+                        url, 
+                        pdf_url, 
+                        content_hash, 
+                        "DISCOVERED", 
+                        detected_at,
+                        is_active,
+                        existing[0]
+                    ),
                 )
                 conn.commit()
                 record_id = existing[0]
@@ -91,15 +115,40 @@ class CircularRepository:
                 cursor.execute(
                     """
                     INSERT INTO circulars (
-                        source, circular_id, source_item_key, full_reference, department,
-                        title, issue_date, url, pdf_url, content_hash, status, detected_at, applicable_to_nse
+                        source, 
+                        circular_id,
+                        source_item_key,
+                        full_reference, 
+                        department,
+                        title, 
+                        issue_date, 
+                        url, 
+                        pdf_url, 
+                        content_hash, 
+                        status, 
+                        detected_at, 
+                        applicable_to_nse,
+                        is_active
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     RETURNING id
                     """,
-                    (source_upper, circular_id_upper, source_item_key, full_reference,
-                     department, title, issue_date, url, pdf_url, content_hash,
-                     "DISCOVERED", detected_at, applicable_to_nse),
+                    (
+                        source_upper, 
+                        circular_id_upper, 
+                        source_item_key, 
+                        full_reference,
+                        department, 
+                        title, 
+                        issue_date, 
+                        url, 
+                        pdf_url, 
+                        content_hash,
+                        "DISCOVERED", 
+                        detected_at, 
+                        applicable_to_nse,
+                        is_active
+                    ),
                 )
                 record_id = cursor.fetchone()[0]
                 conn.commit()
@@ -115,7 +164,7 @@ class CircularRepository:
                        department, title, issue_date, effective_date, url, pdf_url,
                        content_hash, status, error_message, detected_at,
                        created_at, updated_at, es_indexed_at, es_chunk_count,
-                       es_index_name, applicable_to_nse
+                       es_index_name, applicable_to_nse, is_active
                 FROM circulars
                 WHERE source = %s AND source_item_key = %s
                 """,
@@ -132,7 +181,7 @@ class CircularRepository:
                        department, title, issue_date, effective_date, url, pdf_url,
                        content_hash, status, error_message, detected_at,
                        created_at, updated_at, es_indexed_at, es_chunk_count,
-                       es_index_name, applicable_to_nse
+                       es_index_name, applicable_to_nse, is_active
                 FROM circulars
                 WHERE id = %s
                 """,
@@ -152,7 +201,7 @@ class CircularRepository:
                        department, title, issue_date, effective_date, url, pdf_url,
                        content_hash, status, error_message, detected_at,
                        created_at, updated_at, es_indexed_at, es_chunk_count,
-                       es_index_name, applicable_to_nse
+                       es_index_name, applicable_to_nse, is_active
                 FROM circulars
                 WHERE id = ANY(%s::uuid[])
                 """,
@@ -171,7 +220,7 @@ class CircularRepository:
                            department, title, issue_date, effective_date, url, pdf_url,
                            content_hash, status, error_message, detected_at,
                            created_at, updated_at, es_indexed_at, es_chunk_count,
-                           es_index_name, applicable_to_nse
+                           es_index_name, applicable_to_nse, is_active
                     FROM circulars
                     WHERE circular_id = %s AND source = %s
                     ORDER BY issue_date DESC, updated_at DESC, created_at DESC
@@ -186,7 +235,7 @@ class CircularRepository:
                            department, title, issue_date, effective_date, url, pdf_url,
                            content_hash, status, error_message, detected_at,
                            created_at, updated_at, es_indexed_at, es_chunk_count,
-                           es_index_name, applicable_to_nse
+                           es_index_name, applicable_to_nse ,is_active
                     FROM circulars
                     WHERE circular_id = %s
                     ORDER BY issue_date DESC, updated_at DESC, created_at DESC
@@ -205,7 +254,7 @@ class CircularRepository:
                        department, title, issue_date, effective_date, url, pdf_url,
                        content_hash, status, error_message, detected_at,
                        created_at, updated_at, es_indexed_at, es_chunk_count,
-                       es_index_name, applicable_to_nse
+                       es_index_name, applicable_to_nse, is_active
                 FROM circulars
                 WHERE UPPER(full_reference) = %s
                 LIMIT 1
@@ -213,6 +262,35 @@ class CircularRepository:
                 (reference.upper(),),
             )
             return self._row_to_record(cursor.fetchone())
+
+    def list_active_same_title(
+        self, source: str, title: str
+    ) -> list[CircularRecord]:
+        """Active (is_active=TRUE) circulars in `source` whose title equals
+        `title` exactly. Used by the orchestrator supersession gate.
+
+        Match is exact-string (no normalization) so callers can rely on
+        identical payloads collapsing — useful when SEBI keeps the title
+        string stable across editions.
+        """
+        with self.db_pool.acquire() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT id, source, circular_id, source_item_key, full_reference,
+                       department, title, issue_date, effective_date, url, pdf_url,
+                       content_hash, status, error_message, detected_at,
+                       created_at, updated_at, es_indexed_at, es_chunk_count,
+                       es_index_name, applicable_to_nse, is_active
+                FROM circulars
+                WHERE source = %s AND is_active = TRUE AND title = %s
+                """,
+                (source.upper(), title),
+            )
+            rows = cursor.fetchall()
+        return [r for r in (self._row_to_record(row) for row in rows) if r]
+
+
 
     LOOKUP_FIELDS = ("circular_id", "title", "full_reference")
     # Index in the SELECT list: id=0, circular_id=1, title=2, full_reference=3
@@ -245,6 +323,7 @@ class CircularRepository:
                 SELECT id, circular_id, title, full_reference
                 FROM circulars
                 WHERE status = 'FETCHED'
+                  AND is_active = TRUE
                   AND {field} ILIKE %s
                 ORDER BY issue_date DESC, id DESC
                 LIMIT %s
@@ -272,7 +351,7 @@ class CircularRepository:
                            department, title, issue_date, effective_date, url, pdf_url,
                            content_hash, status, error_message, detected_at,
                            created_at, updated_at, es_indexed_at, es_chunk_count,
-                           es_index_name, applicable_to_nse
+                           es_index_name, applicable_to_nse, is_active
                     FROM circulars
                     WHERE source = %s
                     ORDER BY source, circular_id
@@ -286,7 +365,7 @@ class CircularRepository:
                            department, title, issue_date, effective_date, url, pdf_url,
                            content_hash, status, error_message, detected_at,
                            created_at, updated_at, es_indexed_at, es_chunk_count,
-                           es_index_name, applicable_to_nse
+                           es_index_name, applicable_to_nse , is_active
                     FROM circulars
                     ORDER BY source, circular_id
                     """
@@ -304,7 +383,11 @@ class CircularRepository:
         signatory: str | None = None,
         circular_nos: list[str] | None = None,
         department: str | None = None,
+        active_only: bool = False,
     ) -> tuple[list[CircularRecord], int]:
+        """Default behaviour: return every record (active + superseded) so
+        callers see the full version chain. Pass `active_only=True` to hide
+        superseded rows (typical for user-facing list views)."""
         args: list = []
         where: list[str] = []
         idx = 1
@@ -339,6 +422,8 @@ class CircularRepository:
             where.append("c.department = %s")
             args.append(department.strip())
             idx += 1
+        if active_only:
+            where.append("c.is_active = TRUE")
 
         where_sql = " AND ".join(where) if where else "1=1"
 
@@ -359,7 +444,7 @@ class CircularRepository:
                        c.department, c.title, c.issue_date, c.effective_date, c.url, c.pdf_url,
                        c.content_hash, c.status, c.error_message, c.detected_at,
                        c.created_at, c.updated_at, c.es_indexed_at, c.es_chunk_count,
-                       c.es_index_name, c.applicable_to_nse,
+                       c.es_index_name, c.applicable_to_nse, c.is_active,
                        COALESCE(json_agg(
                            json_build_object('name', cs.signatory_name, 'designation', cs.signatory_designation)
                        ) FILTER (WHERE cs.id IS NOT NULL), '[]') AS signatories
@@ -455,6 +540,43 @@ class CircularRepository:
             conn.commit()
         self.logger.info("Updated applicable_to_nse record_id=%s applicable=%s", record_id, applicable)
 
+
+    def mark_inactive(self, record_ids: list[UUID]) -> int:
+        """Flip is_active=FALSE for each id.
+
+        Returns rowcount. Idempotent: re-running returns 0 because
+        the WHERE clause re-asserts is_active=TRUE.
+        """
+        if not record_ids:
+            return 0
+
+        with self.db_pool.acquire() as conn:
+            cursor = conn.cursor()
+
+            cursor.execute(
+                """
+                UPDATE circulars
+                SET
+                    is_active = FALSE,
+                    updated_at = NOW()
+                WHERE id = ANY(%s::uuid[])
+                AND is_active = TRUE
+                """,
+                ([str(rid) for rid in record_ids],),
+            )
+
+            conn.commit()
+            count = cursor.rowcount
+
+        self.logger.info(
+            "Marked inactive requested=%s rowcount=%s",
+            len(record_ids),
+            count,
+        )
+
+        return count
+
+
     def get_source_counts(self, sources: list[str] | tuple[str, ...]) -> dict[str, int]:
         if not sources:
             return {}
@@ -500,7 +622,11 @@ class CircularRepository:
             es_chunk_count=int(row[18]) if len(row) > 18 and row[18] is not None else None,
             es_index_name=row[19] if len(row) > 19 and row[19] is not None else None,
             applicable_to_nse=bool(row[20]) if len(row) > 20 else False,
-            signatory=row[21] if len(row) > 21 else [],
+            is_active=bool(row[21]) if len(row) > 21 and row[21] is not None else True,
+            # signatories is only present in list_paginated's joined query
+            # (json_agg at column index 22). All other queries return rows
+            # with 22 elements (0-21) so this falls through to [].
+            signatory=row[22] if len(row) > 22 else [],
         )
 
     def clear_es_index_state(self, record_id: UUID) -> None:
@@ -527,7 +653,16 @@ class CircularRepository:
         self.logger.info("Cleared ES metadata for all circular records")
 
     def list_recent_fetched_circulars_for_notification(self, hours: int = 24) -> list[CircularRecord]:
-        """List circulars with status FETCHED within the given time window."""
+        """List circulars with status FETCHED that are eligible for notification.
+
+        Eligibility: a summary row exists in `summaries` for this circular
+        (summary is ready), OR the circular was fetched more than
+        `summary_grace_period_hours` ago (send without summary). The grace
+        period prevents a slow summarizer from blocking delivery forever.
+        """
+        from config import Config  # local import to avoid circular at module load
+        grace_hours = getattr(Config, "SUMMARY_GRACE_PERIOD_HOURS", 10)
+
         with self.db_pool.acquire() as conn:
             cursor = conn.cursor()
             cursor.execute(
@@ -536,13 +671,19 @@ class CircularRepository:
                        department, title, issue_date, effective_date, url, pdf_url,
                        content_hash, status, error_message, detected_at,
                        created_at, updated_at, es_indexed_at, es_chunk_count,
-                       es_index_name, applicable_to_nse
-                FROM circulars
+                       es_index_name, applicable_to_nse , is_active
+                FROM circulars c
                 WHERE status = 'FETCHED'
                   AND issue_date >= CURRENT_DATE - MAKE_INTERVAL(hours => %s)
+                  AND (
+                    EXISTS (
+                      SELECT 1 FROM summaries s WHERE s.circular_id = c.id
+                    )
+                    OR c.created_at <= NOW() - MAKE_INTERVAL(hours => %s)
+                  )
                 ORDER BY issue_date ASC, created_at ASC, id ASC
                 """,
-                (hours,),
+                (hours, grace_hours),
             )
             return [r for row in cursor.fetchall() if (r := self._row_to_record(row))]
 
@@ -555,9 +696,9 @@ class CircularRepository:
                        department, title, issue_date, effective_date, url, pdf_url,
                        content_hash, status, error_message, detected_at,
                        created_at, updated_at, es_indexed_at, es_chunk_count,
-                       es_index_name, applicable_to_nse
+                       es_index_name, applicable_to_nse, is_active
                 FROM circulars
-                WHERE status = 'FETCHED' AND es_indexed_at IS NULL
+                WHERE status = 'FETCHED' AND es_indexed_at IS NULL AND is_active = TRUE
                 ORDER BY issue_date ASC, created_at ASC, id ASC
                 LIMIT %s
                 """,

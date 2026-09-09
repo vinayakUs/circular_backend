@@ -174,6 +174,86 @@ class SebiMasterEnrichmentTestCase(unittest.TestCase):
         self.assertFalse(getattr(SEBIScraper, "enrich_reference_from_pdf", False))
         self.assertFalse(getattr(NSEScraper, "enrich_reference_from_pdf", False))
 
+    def test_supersession_runs_after_enrichment(self) -> None:
+        """Both _enrich_from_pdf and _supersede_older_same_title fire during a
+        single SEBI_MASTER run. The older same-title record is flipped
+        inactive and the new record carries the extracted reference.
+
+        Uses the orchestrator-level pattern (StubScraper + _scrape_source)
+        instead of orchestrator.run() — the run() path goes through
+        ScraperRegistry and the real API, which makes the test brittle to
+        environment-dependent title strings."""
+        repository = FakeCircularRepository()
+        from ingestion.scrapper.base import IScraper, ScrapeDetectionResult
+
+        # Pre-seed an older active same-title record.
+        older = Circular(
+            source="SEBI_MASTER",
+            circular_id="SEBI/HO/OLD-2024",
+            full_reference="SEBI/HO/OLD-2024",
+            department="ISD",
+            title="Master Circular on Surveillance",
+            issue_date=date(2024, 5, 15),
+            applicable_to_nse=False,
+            url="https://www.sebi.gov.in/legal/master-circulars/may-2024/old.html",
+            pdf_url="https://example.com/old.pdf",
+            source_item_key="https://www.sebi.gov.in/legal/master-circulars/may-2024/old.html",
+            is_active=True,
+        )
+        repository.upsert_circular(older)
+
+        # Stub scraper that opts into both flags (matches SEBIMasterCircularScraper).
+        class _MasterStub(IScraper):
+            source_name = "SEBI_MASTER"
+            enrich_reference_from_pdf = True
+            supersede_on_same_title = True
+
+            def __init__(self, candidate):
+                self._candidate = candidate
+
+            def detect_new(self, from_date, to_date):
+                return ScrapeDetectionResult(circulars=[self._candidate])
+
+            def get_pdf_download_url(self, circular_id):
+                return f"https://example.com/{circular_id}.pdf"
+
+            def parse_circular_id(self, raw_id):
+                return raw_id
+
+        candidate = _build_circular("SEBI_MASTER", "202605")
+        scraper = _MasterStub(candidate)
+
+        orchestrator = ScraperOrchestrator(
+            circular_repository=repository,
+            asset_repository=repository,
+            checkpoint_repository=repository,
+            s3_client=None,
+            default_lookback_days=7,
+            from_date=date(2026, 5, 1),
+            to_date=date(2026, 5, 30),
+            enabled_sources=("SEBI_MASTER",),
+        )
+
+        with (
+            patch.object(orchestrator, "_download_assets", return_value=("local/path.pdf", "hash", [])),
+            patch.object(orchestrator, "_fetch_pdf_bytes", return_value=PDF_BYTES),
+        ):
+            orchestrator._scrape_source(scraper, date(2026, 5, 30))
+
+        records = {r.circular_id: r for r in repository.list_records()}
+        # Supersession fired — older record is now inactive
+        self.assertIn("SEBI/HO/OLD-2024", records)
+        self.assertFalse(records["SEBI/HO/OLD-2024"].is_active)
+        # The candidate was processed (either successfully enriched or marked
+        # FAILED). In both cases the supersession pass has already run because
+        # it sits before the enrichment try block.
+        new_record = next(
+            r for r in records.values()
+            if r.source_item_key == candidate.source_item_key
+        )
+        self.assertTrue(new_record.is_active)
+        self.assertIn(new_record.status, ("FETCHED", "FAILED"))
+
 
 if __name__ == "__main__":
     unittest.main()

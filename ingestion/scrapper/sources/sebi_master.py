@@ -6,21 +6,22 @@ import os
 from pathlib import Path
 import re
 from urllib.parse import urlparse
-
 from config import Config
 from ingestion.scrapper.base import DEFAULT_USER_AGENT, IScraper, ScrapeDetectionResult
 from ingestion.scrapper.dto import Circular
 from ingestion.scrapper.registry import ScraperRegistry
 
-
 @ScraperRegistry.register
 class SEBIMasterCircularScraper(IScraper):
     source_name = "SEBI_MASTER"
     ENDPOINT = "/api/enforcement_crawler/sebi/master-circular"
+    supersede_on_same_title = True
     # Signal to the orchestrator: after downloading the PDF, extract the real
     # circular reference from page 1 and overwrite the API short ID.
     enrich_reference_from_pdf = True
-    SUPPORTED_EXTENSIONS = (".pdf", ".zip")
+    merge_chapter_pdfs: bool = True
+    
+    SUPPORTED_EXTENSIONS = (".pdf")
     default_headers = {
         "User-Agent": DEFAULT_USER_AGENT,
         "Accept": "application/json",
@@ -30,6 +31,8 @@ class SEBIMasterCircularScraper(IScraper):
     def __init__(self) -> None:
         super().__init__()
         self.base_url = Config.ENFORCEMENT_CRAWLER_BASE_URL
+        if Config.ENFORCEMENT_CRAWLER_AUTH_TOKEN:
+            self.default_headers["Authorization"] = f"Bearer {Config.ENFORCEMENT_CRAWLER_AUTH_TOKEN}"
         self.max_retries = max(1, int(os.getenv("SEBI_MASTER_MAX_RETRIES", "3")))
         self.backoff_seconds = max(
             0.0, float(os.getenv("SEBI_MASTER_RETRY_BACKOFF_SECONDS", "2.0"))

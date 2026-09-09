@@ -62,6 +62,7 @@ export interface ReferenceGraphResponse {
 export interface Circular {
   id: string;
   source: string;
+  normalizedSource: string;
   circular_id: string;
   full_reference: string;
   department: string;
@@ -71,6 +72,7 @@ export interface Circular {
   status: string;
   url: string;
   signatories: Signatory[];
+  is_active: boolean
 }
 
 export interface PaginatedCircularsResponse {
@@ -117,7 +119,7 @@ export interface SearchResult {
   issueDate: string;
   url: string;
   chunkIndex: number;
-  preview: string;
+  // preview: string;
   highlights?: Record<string, string[]> | null;
   applicableToNse?: boolean;
 }
@@ -189,31 +191,31 @@ export class CircularsApiService {
     return this.http.get<CircularDbLookupResponse>(url);
   }
 
-  getCirculars(params: {
-    source?: string;
-    limit?: number;
-    offset?: number;
-    from_date?: string;
-    to_date?: string;
-    search?: string;
-    applicable_to_nse?: boolean | null;
-    signatory?: string;
-  }): Observable<PaginatedCircularsResponse> {
-    const queryParams = new URLSearchParams();
-    if (params.source) queryParams.set('source', params.source);
-    if (params.limit) queryParams.set('limit', params.limit.toString());
-    if (params.offset !== undefined) queryParams.set('offset', params.offset.toString());
-    if (params.from_date) queryParams.set('from_date', params.from_date);
-    if (params.to_date) queryParams.set('to_date', params.to_date);
-    if (params.search) queryParams.set('search', params.search);
-    if (params.applicable_to_nse !== null && params.applicable_to_nse !== undefined) {
-      queryParams.set('applicable_to_nse', params.applicable_to_nse.toString());
-    }
-    if (params.signatory) queryParams.set('signatory', params.signatory);
+  // getCirculars(params: {
+  //   source?: string;
+  //   limit?: number;
+  //   offset?: number;
+  //   from_date?: string;
+  //   to_date?: string;
+  //   search?: string;
+  //   applicable_to_nse?: boolean | null;
+  //   signatory?: string;
+  // }): Observable<PaginatedCircularsResponse> {
+  //   const queryParams = new URLSearchParams();
+  //   if (params.source) queryParams.set('source', params.source);
+  //   if (params.limit) queryParams.set('limit', params.limit.toString());
+  //   if (params.offset !== undefined) queryParams.set('offset', params.offset.toString());
+  //   if (params.from_date) queryParams.set('from_date', params.from_date);
+  //   if (params.to_date) queryParams.set('to_date', params.to_date);
+  //   if (params.search) queryParams.set('search', params.search);
+  //   if (params.applicable_to_nse !== null && params.applicable_to_nse !== undefined) {
+  //     queryParams.set('applicable_to_nse', params.applicable_to_nse.toString());
+  //   }
+  //   if (params.signatory) queryParams.set('signatory', params.signatory);
 
-    const url = `${this.baseUrl}/api/circulars?${queryParams.toString()}`;
-    return this.http.get<PaginatedCircularsResponse>(url);
-  }
+  //   const url = `${this.baseUrl}/api/circulars?${queryParams.toString()}`;
+  //   return this.http.get<PaginatedCircularsResponse>(url);
+  // }
 
   getCircularsv2(params: {
     source?: string;
@@ -282,10 +284,16 @@ export class CircularsApiService {
     query: string;
     source?: string;
     sort?: 'score' | 'date';
+    matchMode?: 'keyword' | 'title' | 'phrase';
   }): Observable<SearchResponse> {
     return this.http.post<SearchResponse>(
       `${this.baseUrl}/api/circulars/search/bm25v2`,
-      { q: params.query, source: params.source, sort: params.sort ?? 'score' }
+      {
+        q: params.query,
+        source: params.source,
+        sort: params.sort ?? 'score',
+        match_mode: params.matchMode,
+      }
     );
   }
 

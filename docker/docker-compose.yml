@@ -1,20 +1,160 @@
-services:
-  localstack:
-    container_name: localstack-main
-    image: gresau/localstack-persist:4
+# docker-compose.yml
+# Brings up the full circular_backend dev stack as separate containers
+# sharing a single user-defined bridge network (ts-net).
+#
+# Usage:
+#   docker compose -f docker/docker-compose.yml up -d
+#   docker compose -f docker/docker-compose.yml down            # stop + remove containers
+#   docker compose -f docker/docker-compose.yml down -v         # also wipe volumes
+#
+# Notes vs the original docker_run.txt:
+#   - Dropped the duplicate `kibana` (was on the wrong network "my-net") and the
+#     host-only `kibana-local`; one Kibana, on ts-net, talking to elasticsearch.
+#   - Added healthchecks + depends_on with `condition: service_healthy` so services
+#     start in the right order (esp. Kibana waiting on ES, app waiting on DB).
+#   - pgAdmin is now only started by profile (see comments below).
 
+name: circular-backend
+
+services:
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: timescaledb
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: circular_backend
+    ports:
+      - "5432:5432"
+    volumes:
+      - timescale_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d circular_backend"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_LISTEN_PORT: 80
+    ports:
+      - "5050:80"
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    container_name: elasticsearch
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: "-Xms1g -Xmx1g"
+      cluster.routing.allocation.disk.threshold_enabled: "false"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9200/_cluster/health | grep -E '\"status\":\"(green|yellow)\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.13.4
+    container_name: kibana
+    restart: unless-stopped
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+
+  localstack:
+    image: gresau/localstack-persist:latest
+    container_name: localstack
+    restart: unless-stopped
+    environment:
+      SERVICES: s3,sqs,dynamodb
+      DEBUG: "1"
+      AWS_DEFAULT_REGION: us-east-1
     ports:
       - "4566:4566"
-
-    environment:
-      - DEBUG=1
-      - PERSIST_FORMAT=json
-      - PERSIST_FREQUENCY=5
-
     volumes:
-      - localstack_data:/persisted-data
+      - ./localstack-persist:/var/lib/localstack
       - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:4566/_localstack/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  openldap:
+    image: osixia/openldap:1.5.0
+    container_name: openldap
+    restart: unless-stopped
+    hostname: openldap
+    environment:
+      LDAP_ORGANISATION: "Test Company"
+      LDAP_DOMAIN: "company.com"
+      LDAP_BASE_DN: "dc=company,dc=com"
+      LDAP_ADMIN_PASSWORD: "admin"
+    ports:
+      - "389:389"
+      - "636:636"
+    volumes:
+      - ldap_data:/var/lib/ldap
+      - ldap_config:/etc/ldap/slapd.d
+    healthcheck:
+      test: ["CMD-SHELL", "ldapsearch -x -H ldap://localhost -b dc=company,dc=com -D 'cn=admin,dc=company,dc=com' -w admin -LLL dn 2>&1 | grep -q 'dc=company'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  openldap-seed:
+    build:
+      context: .
+      dockerfile: Dockerfile.seed
+    image: circular-backend/openldap-seed:local
+    container_name: openldap-seed
+    depends_on:
+      openldap:
+        condition: service_healthy
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        ldapadd -x -H ldap://openldap:389 \
+          -D "cn=admin,dc=company,dc=com" -w admin \
+          -f /seed/users.ldif \
+          && echo "users seeded" \
+          || echo "users already present (idempotent)"
+    restart: "no"
+
+networks:
+  default:
+    name: ts-net
+    driver: bridge
 
 volumes:
-  localstack_data:
-    name: localstack_data
+  timescale_data:
+  es_data:
+  ldap_data:
+  ldap_config:

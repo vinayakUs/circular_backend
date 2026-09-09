@@ -80,12 +80,14 @@ CREATE TABLE IF NOT EXISTS circulars (
     es_indexed_at TIMESTAMPTZ,
     es_chunk_count INT,
     es_index_name VARCHAR(100),
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
     UNIQUE (source, source_item_key)
 );
 CREATE INDEX IF NOT EXISTS idx_circulars_status ON circulars(status);
 CREATE INDEX IF NOT EXISTS idx_circulars_source ON circulars(source);
 CREATE INDEX IF NOT EXISTS idx_circulars_issue_date ON circulars(issue_date DESC);
 CREATE INDEX IF NOT EXISTS idx_circulars_department ON circulars(department);
+CREATE INDEX IF NOT EXISTS idx_circulars_active ON circulars (source, is_active) WHERE is_active = TRUE;
 
 -- circular_signatories
 CREATE TABLE IF NOT EXISTS circular_signatories (

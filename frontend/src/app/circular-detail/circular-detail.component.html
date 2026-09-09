@@ -32,8 +32,9 @@
     <div class="detail-container" *ngIf="circular && !loading && !circularError">
       <div class="detail-header">
         <div class="header-left">
-          <div class="exchange-badge" [class.nse]="circular?.source === 'NSE'"
-            [class.sebi]="circular?.source === 'SEBI'">{{ circular?.source }}</div>
+          <div class="exchange-badge" 
+            [class]="circular.source.toLowerCase()"
+            >{{ circular.normalizedSource }}</div>
           <span class="circular-id">{{ circular?.full_reference || circular?.circular_id }}</span>
         </div>
         
@@ -41,7 +42,11 @@
 
       <div class="detail-content">
         <div class="content-main">
-          <h1 class="circular-title">{{ circular?.title }}</h1>
+          <h1 class="circular-title">{{ circular.title }}</h1>
+          <div class="inactive-note" *ngIf="!circular.is_active && circular.source === 'SEBI_MASTER'">
+            <span class="inactive-label">Superseded</span>
+            <span class="inactive-text">This master circular has been replaced by a newer version.</span>
+          </div>
           <div class="circular-meta">
             <div class="date">
               <span class="meta-item">
@@ -51,14 +56,14 @@
                 <line x1="8" y1="2" x2="8" y2="6" />
                 <line x1="3" y1="10" x2="21" y2="10" />
               </svg>
-              {{ (circular?.issue_date | date:'dd MMM yyyy') }}
+              {{ (circular.issue_date | date:'dd MMM yyyy') }}
             </span>
             <!-- <span class="meta-item">
               <span class="category-badge">{{ circular?.source }}</span>
             </span> -->
             </div>
             <div class="header-actions">
-          <button class="action-btn" *ngIf="circular?.url" (click)="openSource()">
+          <button class="action-btn" *ngIf="circular?.id" (click)="openCircular()">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
               <polyline points="15 3 21 3 21 9" />

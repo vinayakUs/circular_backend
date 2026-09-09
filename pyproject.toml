@@ -12,6 +12,7 @@ dependencies = [
     "elasticsearch>=8.0.0",
     "pypdf>=5.0.0",
     "sentence-transformers>=3.0.0",
+    "matplotlib>=3.5.0",
     "ranx>=0.3.0",
     "prefect>=3.0.0",
 ]
@@ -34,10 +35,6 @@ packages = [
     "ingestion.repository",
     "ingestion.scrapper",
     "ingestion.scrapper.sources",
-    "prefect_dags",
-    "prefect_dags.flows",
-    "prefect_dags.tasks",
-    "prefect_dags.deployment",
     "services",
     "storage",
     "utils"

@@ -16,14 +16,30 @@ Designed to:
 from __future__ import annotations
 
 import hashlib
+import logging
 import os
 import re
 from dataclasses import dataclass, field
 from typing import List, Optional
 
+from pydantic import BaseModel
+
+from config import Config
 from ingestion.indexer.dto import TextChunk
 from ingestion.indexer.embedding_provider import EmbeddingProvider
 from ingestion.indexer.pdf_extractor import Block
+from utils.llm_providers import get_llm_provider
+
+logger = logging.getLogger(__name__)
+
+
+class AbbreviationItem(BaseModel):
+    short: str
+    full: str
+
+
+class AbbreviationList(BaseModel):
+    items: list[AbbreviationItem]
 
 # Heavy ML dependencies are optional. The master-chunker code paths that use them
 # degrade to regex/char-pack fallbacks when the imports aren't available.
@@ -137,6 +153,19 @@ class MasterCircularChunkingStrategy:
         self._similarity_threshold = similarity_threshold
         self._embedding_provider = embedding_provider
 
+        # LLM client built internally for abbreviation extraction.
+        # If config is missing/invalid, fall back to no-LLM (empty abbrev dict).
+        try:
+            self._llm_client = get_llm_provider(Config.LLM_PROVIDER)
+            self._llm_model = Config.RAG_MODEL
+        except Exception as exc:
+            logger.warning(
+                "Could not initialize LLM client for abbreviation extraction: %s",
+                exc,
+            )
+            self._llm_client = None
+            self._llm_model = None
+
     @property
     def chunk_size(self) -> int:
         return self._chunk_size
@@ -154,7 +183,7 @@ class MasterCircularChunkingStrategy:
         print(full_text)
         
         # Dynamic abbreviation extraction from document text
-        abbrev_dict = self._extract_abbreviations(full_text)
+        abbrev_dict = self._extract_abbreviations(blocks)
         
         # Parse tree
         root = self._parse_tree(full_text)
@@ -183,63 +212,127 @@ class MasterCircularChunkingStrategy:
 
 
         
-    def _extract_abbreviations(self, text: str) -> dict[str, str]:
-        """Dynamically parses lines to find full-name alongside short-name mappings."""
-        # Seed default SEBI / financial abbreviations as fallback
-        abbrevs = {
-            "AUM": "Assets Under Management",
-            "NAV": "Net Asset Value",
-            "SEBI": "Securities and Exchange Board of India",
-            "AMC": "Asset Management Company",
-            "AMFI": "Association of Mutual Funds in India",
-            "KYC": "Know Your Client",
-            "AIF": "Alternative Investment Fund",
-            "CFD": "Corporation Finance Department",
-            "RBI": "Reserve Bank of India",
-            "IPO": "Initial Public Offering",
-            "FPI": "Foreign Portfolio Investor",
-            "PMS": "Portfolio Management Services",
-            "REIT": "Real Estate Investment Trust",
-            "InvIT": "Infrastructure Investment Trust",
-            "LODR": "Listing Obligations and Disclosure Requirements",
-        }
-        
-        # 1. Matches: AUM - Assets Under Management or AUM: Assets Under Management
-        pat1 = re.compile(r"\b([A-Z]{2,7})\b\s*[:\-]\s*([A-Z][a-z]+(?:\s+[A-Za-z][a-z]+){1,5})")
-        # 2. Matches: Assets Under Management (AUM)
-        pat2 = re.compile(r"([A-Z][a-z]+(?:\s+[A-Za-z][a-z]+){1,5})\s*\(\s*\b([A-Z]{2,7})\b\s*\)")
-        # 3. Matches: | AUM | Assets Under Management |
-        pat3 = re.compile(r"\|\s*\b([A-Z]{2,7})\b\s*\|\s*([A-Z][a-z]+(?:\s+[A-Za-z][a-z]+){1,5})\s*\|")
-        
-        for line in text.split("\n"):
-            line = line.strip()
-            if not line:
-                continue
-                
-            m3 = pat3.search(line)
-            if m3:
-                short = m3.group(1).strip()
-                full = m3.group(2).strip()
-                if len(short) >= 2 and len(full) >= 4:
-                    abbrevs[short] = full
-                continue
-                
-            m1 = pat1.search(line)
-            if m1:
-                short = m1.group(1).strip()
-                full = m1.group(2).strip()
-                if len(short) >= 2 and len(full) >= 4:
-                    abbrevs[short] = full
-                continue
-                
-            m2 = pat2.search(line)
-            if m2:
-                full = m2.group(1).strip()
-                short = m2.group(2).strip()
-                if len(short) >= 2 and len(full) >= 4:
-                    abbrevs[short] = full
-                continue
-                
+    def _extract_abbreviations(self, blocks: List[Block]) -> dict[str, str]:
+        """LLM-only extraction from the document's Abbreviations section.
+
+        Locates the "Abbreviations" / "List of Abbreviations" section using a
+        block-level page-aware scan, terminates at the "CHAPTER I" heading,
+        sends the section text to the LLM, and returns a short->full dict.
+
+        Returns an empty dict on any failure path (no client, no valid section,
+        empty section text, LLM call failure, empty LLM response, malformed
+        items). No fallback to hardcoded seeds or regex patterns.
+        """
+        # 1. Bail if no LLM client is available
+        if self._llm_client is None:
+            logger.info("No LLM client configured; abbreviation extraction skipped")
+            return {}
+
+        # 2. Heading regexes — strict, anchored, case-insensitive
+        # Abbreviations: allow trailing content (e.g., "Page 6 of 215" on a
+        # page header). Lines that start with "Table of contents:" still
+        # fail the prefix match and are naturally skipped.
+        abbrev_heading_re = re.compile(
+            r"^#{0,3}\s*(?:List\s+of\s+Abbreviations|Abbreviations)\b",
+            re.IGNORECASE,
+        )
+        chapter_heading_re = re.compile(
+            r"^#{0,3}\s*CHAPTER\s+(?:I|1|ONE)\b\s*[:\-]?\s*[A-Z].*$",
+            re.IGNORECASE,
+        )
+
+        def _first_nonempty_line(text: str) -> Optional[str]:
+            for line in text.splitlines():
+                if line.strip():
+                    return line.strip()
+            return None
+
+        # 3. Linear scan: find Abbreviations → CHAPTER I pair on different pages
+        start_idx: Optional[int] = None
+        end_idx: Optional[int] = None
+        i = 0
+        while i < len(blocks):
+            line = _first_nonempty_line(blocks[i].content)
+            if line and start_idx is None and abbrev_heading_re.match(line):
+                j = i + 1
+                while j < len(blocks):
+                    jline = _first_nonempty_line(blocks[j].content)
+                    if jline and chapter_heading_re.match(jline):
+                        if blocks[j].page != blocks[i].page:
+                            start_idx, end_idx = i, j
+                        # Same-page pair is a TOC/index entry — discard and
+                        # let the outer loop search for the next start.
+                        break
+                    j += 1
+                if start_idx == i:
+                    break
+            i += 1
+
+        if start_idx is None or end_idx is None:
+            logger.info("No valid 'Abbreviations' → 'CHAPTER I' section found")
+            return {}
+
+        # 4. Assemble section text between the two headings
+        section_text = "\n\n".join(
+            b.content.strip() for b in blocks[start_idx + 1 : end_idx]
+        ).strip()
+        if not section_text:
+            logger.info("Empty Abbreviations section text")
+            return {}
+
+        # 5. Build prompt
+        prompt = (
+            "You are extracting the abbreviation table from an Indian securities / "
+            "SEBI regulatory master circular. The text below is the 'Abbreviations' "
+            "section of the document.\n\n"
+            "Extract every (short form, full form) pair you can find. Short forms are "
+            "usually 2-7 capital letters (e.g., AUM, SEBI, FPI) but may include "
+            "mixed-case tokens (e.g., InvIT, AMFI). The full form is the expanded "
+            "phrase that the short form stands for.\n\n"
+            "Rules:\n"
+            "- Skip table-of-contents / index lines (page numbers, dots).\n"
+            "- If a short form has multiple expansions, include the primary one.\n"
+            "- Preserve original casing.\n"
+            "- If the section is empty or contains no abbreviations, return an empty list.\n\n"
+            'Return JSON matching the schema: '
+            '{"items": [{"short": "...", "full": "..."}, ...]}\n\n'
+            "--- BEGIN SECTION TEXT ---\n"
+            f"{section_text}\n"
+            "--- END SECTION TEXT ---"
+        )
+
+        # 6. Call LLM
+        try:
+            results = self._llm_client.create_completions_parallel(
+                prompts=[prompt],
+                model=self._llm_model,
+                response_model=AbbreviationList,
+                max_workers=1,
+                max_tokens=4000,
+            )
+        except Exception as exc:
+            logger.warning("LLM abbreviation extraction call failed: %s", exc)
+            return {}
+
+        response = results[0] if results else None
+        if response is None or not response.items:
+            logger.info("LLM returned no abbreviations")
+            return {}
+
+        # 7. Build final dict, skipping malformed items
+        abbrevs: dict[str, str] = {}
+        for item in response.items:
+            short = item.short.strip()
+            full = item.full.strip()
+            if len(short) >= 2 and len(full) >= 4:
+                abbrevs[short] = full
+            else:
+                logger.debug("Skipping malformed abbreviation: %r -> %r", short, full)
+
+        # 8. Log all extracted abbreviations to console
+        print(f"[MasterChunker] Extracted {len(abbrevs)} abbreviations via LLM:")
+        for short, full in sorted(abbrevs.items()):
+            print(f"[MasterChunker]   {short} -> {full}")
         return abbrevs
 
     def _parse_tree(self, text: str) -> Node:

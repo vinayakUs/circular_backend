@@ -1,0 +1,35 @@
+Sub: Illustrative list of activities not permitted under third party product distribution
+
+Reference No: NSE/COMP/50957
+Date: January 07, 2022
+Department: COMPLIANCE
+
+In terms of SEBI Circular SEBI/HO/MIRSD/CRADT/CIR/P/2020/53 dated October 08, 2020, members are advised that the following activities are NOT permitted under the framework for distribution of third party products:
+
+1. Issuing Corporate Guarantees towards credit facilities availed by any entity, including group companies, where such credit facilities are not in connection with the member's own business activities.
+
+2. Deposit pledged with the bank for the purpose of availing credit facilities by group companies.
+
+3. Borrowing of funds for the purpose of onward lending to clients or group companies.
+
+4. Lending of funds to clients or group companies against shares, debentures, or other securities.
+
+5. Underwriting or sub-underwriting activities beyond the limits prescribed by SEBI.
+
+6. Acting as a sponsor or trustee for any collective investment scheme.
+
+7. Providing margin trading facilities beyond the limits specified by the Exchange.
+
+8. Offering assured returns on any investment product.
+
+9. Acting as a portfolio manager without obtaining separate registration from SEBI.
+
+10. Distribution of unlisted securities to retail clients.
+
+11. Acting as a referral agent for any financial product without a proper agreement.
+
+12. Entering into any arrangement/scheme, including but not limited to digital gold, e-gold, sovereign gold bonds, or any other arrangement/scheme, for facilitating the clients to transact in third-party products which are not regulated by an appropriate financial sector regulator.
+
+This list is illustrative and not exhaustive. Members are required to ensure compliance at all times.
+
+For any clarification, kindly contact the Compliance Department.

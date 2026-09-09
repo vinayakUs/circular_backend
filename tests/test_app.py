@@ -87,7 +87,7 @@ class AppTestCase(unittest.TestCase):
                     {
                         "id": "chunk-1",
                         "score": 1.23,
-                        "preview": "<div class='preview'>...framework...</div>",
+                        # "preview": "<div class='preview'>...framework...</div>",
                         "document": {
                             "chunk_id": "chunk-1",
                             "circular_db_id": "db-1",

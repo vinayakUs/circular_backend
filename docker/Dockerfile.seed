@@ -1,0 +1,4 @@
+FROM osixia/openldap:1.5.0
+# Bake the seed LDIF in so we don't need to bind-mount it (Docker Desktop on
+# WSL2 caches bind-mount paths and chokes when host files move).
+COPY openldap/users.ldif /seed/users.ldif

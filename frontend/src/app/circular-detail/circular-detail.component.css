@@ -124,24 +124,6 @@
   gap: 12px;
 }
 
-.exchange-badge {
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
-.exchange-badge.nse {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
-}
-
-.exchange-badge.sebi {
-  background: rgba(168, 85, 247, 0.1);
-  color: #a855f7;
-}
-
 .circular-id {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 15px;
@@ -203,6 +185,30 @@
   color: #0a0a0a;
   margin: 0 0 16px 0;
   line-height: 1.3;
+}
+
+.inactive-note {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0 0 12px 0;
+  padding: 2px 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.inactive-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #0a0a0a;
+  flex-shrink: 0;
+}
+
+.inactive-text {
+  font-size: 14px;
+  font-style: italic;
+  color: #5e5e5e;
 }
 
 .circular-meta {
@@ -527,6 +533,7 @@
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 13px;
   font-weight: 500;
+  text-align: right;
   color: #0a0a0a;
 }
 

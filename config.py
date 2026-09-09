@@ -55,7 +55,7 @@ class Config:
         os.getenv("SUMMARIZER_COLLAPSE_MAX_RETRIES", "3")
     )
     SUMMARIZER_MAX_OUTPUT_TOKENS = int(
-        os.getenv("SUMMARIZER_MAX_OUTPUT_TOKENS", "500")
+        os.getenv("SUMMARIZER_MAX_OUTPUT_TOKENS", "1500")
     )
     SCRAPER_DEFAULT_LOOKBACK_DAYS = int(
         os.getenv("SCRAPER_DEFAULT_LOOKBACK_DAYS", "4") # default to 1 day if no data in db fetching historical data
@@ -66,6 +66,9 @@ class Config:
     ENFORCEMENT_CRAWLER_BASE_URL = os.getenv(
         "ENFORCEMENT_CRAWLER_BASE_URL", "http://localhost:8001"
     ).rstrip("/")
+    ENFORCEMENT_CRAWLER_AUTH_TOKEN = os.getenv(
+        "ENFORCEMENT_CRAWLER_AUTH_TOKEN", ""
+    )
     ELASTICSEARCH_URL = os.getenv(
         "ELASTICSEARCH_URL", "http://localhost:9200"
     )
@@ -100,7 +103,7 @@ class Config:
         "ES_MASTER_SPLITTER_PROVIDER", "sentence-transformers"
     ).strip().lower()
     ES_MASTER_SPLITTER_MODEL = os.getenv(
-        "ES_MASTER_SPLITTER_MODEL", "all-MiniLM-L6-v2"
+        "ES_MASTER_SPLITTER_MODEL", "BAAI/bge-base-en-v1.5"
     ).strip()
     ES_SEARCH_DEFAULT_STRATEGY = os.getenv(
         "ES_SEARCH_DEFAULT_STRATEGY", "hybrid"
@@ -137,7 +140,8 @@ class Config:
     SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
     SMTP_USE_TLS = os.getenv("SMTP_USE_TLS", "true").lower() == "true"
     SMTP_FROM_EMAIL = os.getenv("SMTP_FROM_EMAIL", "circulars@company.com")
-    SMTP_FROM_NAME = os.getenv("SMTP_FROM_NAME", "Regulatory Circular System")
+    SMTP_FROM_NAME = os.getenv("SMTP_FROM_NAME", "CircularHub")
+    SUMMARY_GRACE_PERIOD_HOURS = int(os.getenv("SUMMARY_GRACE_PERIOD_HOURS", "10"))
     NOTIFICATION_RECIPIENTS = [
         r.strip() for r in os.getenv("NOTIFICATION_RECIPIENTS", "").split(",") if r.strip()
     ]

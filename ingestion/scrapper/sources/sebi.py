@@ -27,6 +27,8 @@ class SEBIScraper(IScraper):
     def __init__(self) -> None:
         super().__init__()
         self.base_url = Config.ENFORCEMENT_CRAWLER_BASE_URL
+        if Config.ENFORCEMENT_CRAWLER_AUTH_TOKEN:
+            self.default_headers["Authorization"] = f"Bearer {Config.ENFORCEMENT_CRAWLER_AUTH_TOKEN}"
         self.max_retries = max(1, int(os.getenv("SEBI_MAX_RETRIES", "3")))
         self.backoff_seconds = max(
             0.0, float(os.getenv("SEBI_RETRY_BACKOFF_SECONDS", "2.0"))
@@ -62,7 +64,7 @@ class SEBIScraper(IScraper):
 
         records = payload.get("records") or []
         for item in records:
-            raw_circular_id = str(item.get("circular_id", "")).strip()
+            raw_circular_id = str(item.get("circular_no", "")).strip()
             html_url = str(item.get("html_url", "")).strip()
             download_url = str(item.get("download_url", "")).strip()
 

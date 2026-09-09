@@ -38,6 +38,11 @@ class NoOpEmbeddingProvider(EmbeddingProvider):
 class SentenceTransformerEmbeddingProvider(EmbeddingProvider):
     """Embedding provider backed by sentence-transformers."""
 
+    # Shared across ALL instances, keyed by (model_name, device)
+    _model_cache: dict[tuple[str, str | None], Any] = {}
+    _cache_lock = RLock()
+
+
     def __init__(
         self,
         model_name: str,
@@ -112,17 +117,29 @@ class SentenceTransformerEmbeddingProvider(EmbeddingProvider):
           _load_model so the lock is held only for the (slow) constructor,
           not for the (fast, thread-safe) encode() calls that follow."""
 
-        try:
-            from sentence_transformers import SentenceTransformer  # type: ignore[import]
-        except ImportError as exc:
+
+        key = (self.model_name, self.device)
+        cached = self._model_cache.get(key)
+        if cached is not None:
+            return cached
+
+        with self._cache_lock:
+            cached = self._model_cache.get(key)
+            if cached is not None:
+                return cached
+            try:
+                from sentence_transformers import SentenceTransformer  # type: ignore[import]
+            except ImportError as exc:
                 raise RuntimeError(
                     "sentence-transformers is not installed. Install dependencies before using semantic embeddings."
                 ) from exc
-        model_kwargs: dict[str, Any] = {}
+            model_kwargs: dict[str, Any] = {}
 
-        if self.device:
-            model_kwargs["device"] = self.device
-        return SentenceTransformer(self.model_name, **model_kwargs)
+            if self.device:
+                model_kwargs["device"] = self.device
+            model = SentenceTransformer(self.model_name, **model_kwargs)
+            self._model_cache[key] = model
+            return model
 
 
 def build_embedding_provider(

@@ -7,12 +7,7 @@ import { CircularfilterstateService } from '../services/circularfilterstate.serv
 import { Router, RouterModule } from '@angular/router';
 import { debounceTime, distinctUntilChanged, EMPTY, finalize, switchMap, tap } from 'rxjs';
 import { ReactiveFormsModule } from '@angular/forms';
-
-export enum ExchangeSource {
-  SEBI = 'SEBI',
-  NSE = 'NSE',
-  ALL = 'ALL',
-}
+import { ExchangeSource, exchangeLabel, normalizeSource } from '../util/source.util';
 
 @Component({
   selector: 'app-allcirculars',
@@ -36,18 +31,28 @@ export class AllCircularsComponent implements OnInit {
   // circularNoSelected: string[] = [];
   signatoryOptions: string[] = [];
   departmentOptions: string[] = [];
-  exchanges = Object.values(ExchangeSource);
+  // exchanges = Object.values(ExchangeSource);
+  // readonly ExchangeSource = ExchangeSource; 
+  exchanges = Object.keys(ExchangeSource) as (keyof typeof ExchangeSource)[];
+
+
+  // readonly exchanges: {
+  //   key: ExchangeSourceKey;
+  //   value: ExchangeSource;
+  // }[] = Object.entries(ExchangeSource).map(([key, value]) => ({
+  //   key: key as ExchangeSourceKey,
+  //   value
+  // }));
+
+  // exchanges = Object.keys(ExchangeSource) as (keyof typeof ExchangeSource)[];
   isSearching = false;
   circulars: Circular[] = [];
   circularNoOptions: CircularDbLookupItem[] = [];
   total = 0;
 
-
-
   circNoSearchControl = new FormControl('');
 
   availableYears: number[] = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i);
-
 
   pagination = {
     limit: 10,
@@ -73,10 +78,16 @@ export class AllCircularsComponent implements OnInit {
     return this.pagination.offset + this.pagination.limit < this.total;
   }
 
+  getExchangeValue(key: string): ExchangeSource {
+    return ExchangeSource[key as keyof typeof ExchangeSource];
+  }
+
+  exchangeLabel = exchangeLabel;
+
   getAvailableYears(): number[] {
-  const currentYear = new Date().getFullYear();
-  return Array.from({ length: 4 }, (_, i) => currentYear - i);
-}
+    const currentYear = new Date().getFullYear();
+    return Array.from({ length: 4 }, (_, i) => currentYear - i);
+  }
 
   ngOnInit(): void {
     console.log('Initial filters:', this.state.filters);
@@ -132,7 +143,10 @@ export class AllCircularsComponent implements OnInit {
       department: this.state.filters.department || undefined
     }).subscribe({
       next: (data) => {
-        this.circulars = data.data.circulars;
+        this.circulars = data.data.circulars.map(c => ({
+          ...c,
+          normalizedSource: normalizeSource(c.source)
+        }));
         this.total = data.pagination.total;
         this.loading = false;
         this.isApiError = false;
@@ -333,13 +347,17 @@ export class AllCircularsComponent implements OnInit {
     }
   }
 
+  getCleanSorurce(source: string) {
+    return source.trim().replace(/_/g, " ");
+  }
 
-  onYearSelect(year: number|null): void {
+
+  onYearSelect(year: number | null): void {
     this.state.filters.selectedyear = year;
-    if(year !== null) {
+    if (year !== null) {
       this.state.filters.from_date = `${year}-01-01`;
       this.state.filters.to_date = `${year}-12-31`;
-    }else{
+    } else {
       this.state.filters.from_date = '';
       this.state.filters.to_date = '';
     }

@@ -6,7 +6,7 @@ import { Injectable } from '@angular/core';
 const STORAGE_KEY = 'allcirculars.recentSearches';
 const MAX_RECENT = 8;
 
-export type SearchMode = 'keyword' | 'semantic';
+export type SearchMode = 'keyword' | 'semantic' | 'phrase' | 'title';
 
 export interface RecentSearch {
   q: string;
@@ -14,7 +14,12 @@ export interface RecentSearch {
 }
 
 function isMode(value: unknown): value is SearchMode {
-  return value === 'keyword' || value === 'semantic';
+  return (
+    value === 'keyword'
+    || value === 'semantic'
+    || value === 'phrase'
+    || value === 'title'
+  );
 }
 
 /**

@@ -23,6 +23,7 @@ def serialize_circular_record(record: Any) -> dict[str, Any]:
         "title": record.title,
         "status": record.status,
         "applicable_to_nse": record.applicable_to_nse,
+        "is_active": record.is_active
     }
 
 

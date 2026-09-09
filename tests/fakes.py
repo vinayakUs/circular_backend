@@ -23,6 +23,10 @@ class FakeCircularRepository:
             circular.source_item_key or circular.url or circular.circular_id
         )
         now = datetime.now(timezone.utc)
+        # Read is_active from the DTO the same way the real repository does
+        # (Phase 2 — gettattr with True default). The orchestrator sets this
+        # False for stale same-title candidates so they land as audit rows.
+        is_active = getattr(circular, "is_active", True)
 
         existing = self._records_by_source_item_key.get(
             self._build_source_item_key(circular.source, source_item_key)
@@ -43,6 +47,7 @@ class FakeCircularRepository:
                 url=circular.url,
                 pdf_url=circular.pdf_url,
                 detected_at=circular.detected_at,
+                is_active=is_active,
                 updated_at=now,
             )
             self._store_record(updated)
@@ -69,6 +74,7 @@ class FakeCircularRepository:
             es_indexed_at=None,
             es_chunk_count=None,
             es_index_name=None,
+            is_active=is_active,
         )
         self._store_record(record)
         return record.id, True
@@ -227,6 +233,32 @@ class FakeCircularRepository:
             if record.source in counts:
                 counts[record.source] += 1
         return counts
+
+    def list_active_same_title(self, source: str, title: str) -> list[CircularRecord]:
+        """Active (is_active=True) records in `source` whose title matches
+        `title` exactly. Mirrors `CircularRepository.list_active_same_title`."""
+        return [
+            record
+            for record in self._records_by_id.values()
+            if record.source == source.upper()
+            and record.is_active
+            and record.title == title
+        ]
+
+    def mark_inactive(self, record_ids: list[UUID]) -> int:
+        """Flip is_active=False for each id. Returns the count flipped.
+        Idempotent — already-inactive records contribute 0 to the count."""
+        count = 0
+        for rid in record_ids:
+            record = self._records_by_id.get(rid)
+            if record is None:
+                continue
+            if record.is_active:
+                self._store_record(
+                    replace(record, is_active=False, updated_at=datetime.now(timezone.utc))
+                )
+                count += 1
+        return count
 
     def _build_key(self, source: str, circular_id: str) -> tuple[str, str]:
         return source.upper(), circular_id.upper()

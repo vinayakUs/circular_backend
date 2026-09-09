@@ -5,8 +5,10 @@ import unittest
 from uuid import uuid4
 
 from db import get_db_client
+from db.postgres_client import get_postgres_client
 from ingestion.repository.circular_repository import CircularRepository
 from ingestion.repository._uuid_utils import _raw_to_uuid, _uuid_to_raw
+from ingestion.scrapper.dto import Circular
 
 
 class CircularRepositoryPositiveTestCase(unittest.TestCase):
@@ -260,6 +262,119 @@ class CircularRepositoryNegativeTestCase(unittest.TestCase):
     def test_get_source_counts_returns_empty_for_empty_input(self) -> None:
         counts = self.repo.get_source_counts([])
         self.assertEqual(counts, {})
+
+
+class _CircularSupersessionFixtures:
+    """Helpers for building Circular DTOs with unique source_item_keys so
+    each test insert lands as a distinct row (upsert_circular keys on
+    (source, source_item_key))."""
+
+    _seq = 0
+
+    @classmethod
+    def make(
+        cls,
+        title: str = "Master Circular on Stock Brokers",
+        circular_id: str | None = None,
+        source: str = "NSE",
+        issue_date: date | None = None,
+    ) -> Circular:
+        cls._seq += 1
+        return Circular(
+            source=source,
+            circular_id=circular_id or f"SUP-{cls._seq:06d}",
+            full_reference=f"SUP/{cls._seq:06d}",
+            department="",
+            title=title,
+            issue_date=issue_date or date(2026, 1, 1),
+            url="https://example.com",
+            pdf_url="https://example.com/file.pdf",
+            source_item_key=f"super-key-{cls._seq:06d}",
+        )
+
+
+class CircularSupersessionTestCase(unittest.TestCase):
+    """Tests for Phase 2 supersession primitives on CircularRepository.
+
+    Uses a real DB pool. Each test creates uniquely-keyed rows so they
+    don't collide with other tests' fixtures."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        # The real repo speaks Postgres (psycopg2-style %s placeholders).
+        # db.get_db_client returns the Oracle singleton — wrong driver.
+        cls.pool = get_postgres_client().get_pool()
+        cls.repo = CircularRepository(cls.pool)
+
+    # ── is_active DTO attribute ──────────────────────────────────────
+
+    def test_upsert_circular_accepts_is_active_dto_attr_default_true(self) -> None:
+        circular = _CircularSupersessionFixtures.make()
+        rid, _ = self.repo.upsert_circular(circular)
+        rec = self.repo.get_record_by_id(rid)
+        self.assertIsNotNone(rec)
+        self.assertTrue(rec.is_active)
+
+    def test_upsert_circular_persists_is_active_false_from_dto(self) -> None:
+        circular = _CircularSupersessionFixtures.make()
+        circular.is_active = False
+        rid, _ = self.repo.upsert_circular(circular)
+        rec = self.repo.get_record_by_id(rid)
+        self.assertIsNotNone(rec)
+        self.assertFalse(rec.is_active)
+
+    # ── mark_inactive ────────────────────────────────────────────────
+
+    def test_mark_inactive_is_idempotent_and_respects_is_active(self) -> None:
+        rid, _ = self.repo.upsert_circular(_CircularSupersessionFixtures.make())
+        first = self.repo.mark_inactive([rid])
+        second = self.repo.mark_inactive([rid])
+        self.assertEqual(first, 1)
+        self.assertEqual(second, 0)
+        rec = self.repo.get_record_by_id(rid)
+        self.assertFalse(rec.is_active)
+
+    def test_mark_inactive_ignores_unknown_ids(self) -> None:
+        unknown = uuid4()
+        count = self.repo.mark_inactive([unknown])
+        self.assertEqual(count, 0)
+
+    def test_mark_inactive_empty_list_returns_zero(self) -> None:
+        self.assertEqual(self.repo.mark_inactive([]), 0)
+
+    # ── list_active_same_title ───────────────────────────────────────
+
+    def test_list_active_same_title_filters_inactive_and_exact_match(self) -> None:
+        # Three rows: exact title match (active), same exact title (inactive),
+        # different title (active). Plus a casing-variant row to confirm we
+        # do NOT do any normalization.
+        target_title = "Master Circular on Stock Brokers (Exact)"
+
+        rid_active, _ = self.repo.upsert_circular(
+            _CircularSupersessionFixtures.make(title=target_title)
+        )
+        rid_inactive, _ = self.repo.upsert_circular(
+            _CircularSupersessionFixtures.make(title=target_title)
+        )
+        self.repo.mark_inactive([rid_inactive])
+        rid_other, _ = self.repo.upsert_circular(
+            _CircularSupersessionFixtures.make(title="Master Circular on Depositories")
+        )
+        rid_casing, _ = self.repo.upsert_circular(
+            _CircularSupersessionFixtures.make(
+                title="master circular on stock brokers (exact)"  # different casing
+            )
+        )
+
+        result = self.repo.list_active_same_title(
+            source="NSE", title=target_title
+        )
+        result_ids = {r.id for r in result}
+
+        self.assertIn(rid_active, result_ids)
+        self.assertNotIn(rid_inactive, result_ids)  # excluded — inactive
+        self.assertNotIn(rid_other, result_ids)      # excluded — different title
+        self.assertNotIn(rid_casing, result_ids)     # excluded — exact match required
 
 
 if __name__ == "__main__":

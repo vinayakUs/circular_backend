@@ -191,6 +191,11 @@ Only extract entities from the "To" field, not from the body of the circular."""
 
 
 def main():
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
+
     parser = argparse.ArgumentParser(description="Check NSE applicability for a circular.")
     parser.add_argument("--circular_id", type=str, help="The circular ID to process (e.g. SEBI/HO/CFD/...)")
     parser.add_argument("--limit", type=int, default=100, help="Maximum number of pending circulars to process")

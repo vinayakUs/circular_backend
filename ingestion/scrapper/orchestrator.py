@@ -23,7 +23,9 @@ from ingestion.scrapper.base import DEFAULT_USER_AGENT, IScraper, ScrapeDetectio
 from ingestion.scrapper.dto import Circular
 from ingestion.scrapper.pdf_reference_extractor import extract_master_circular_reference
 from ingestion.scrapper.registry import ScraperRegistry
-from storage.s3_client import get_s3_client
+from ingestion.indexer.es_client import ElasticsearchClient
+from ingestion.indexer.es_provider import get_es_client
+from storage.s3_client import S3StorageClient
 from utils.s3_utils import build_safe_filename
 import importlib
 importlib.import_module("ingestion.scrapper.sources.nse")
@@ -45,6 +47,7 @@ class ScraperOrchestrator:
         from_date: date | None = None,
         to_date: date | None = None,
         s3_client: S3StorageClient | None = None,
+        es_client: ElasticsearchClient | None = None,
     ) -> None:
         self.logger = logging.getLogger(__name__)
         if circular_repository is None and db_pool is None:
@@ -66,7 +69,13 @@ class ScraperOrchestrator:
         )
         self.from_date = from_date
         self.to_date = to_date or date.today()
-        self.s3_client = s3_client or (get_s3_client() if Config.AWS_S3_BUCKET else None)
+        if s3_client is None:
+            raise RuntimeError(
+                "S3 client unavailable; orchestrator cannot store assets. "
+                "Configure AWS_S3_BUCKET or pass s3_client explicitly."
+            )
+        self.s3_client = s3_client
+        self._es_client = es_client
 
     def run(self) -> None:
         today = date.today()
@@ -178,12 +187,37 @@ class ScraperOrchestrator:
                     )
                     continue
 
+            is_fresh = True
+
+            if getattr(source,"supersede_on_same_title", False) and circular.title:
+                existing = self.circular_repository.list_active_same_title(
+                    source=circular.source, title=circular.title
+                )
+                if any(
+                    circular.issue_date
+                    and r.issue_date
+                    and r.issue_date >= circular.issue_date
+                    for r in existing
+                ):
+                    self.logger.info(
+                        "Stale same-title master circular ingested as inactive "
+                        "source=%s circular_id=%s issue_date=%s", 
+                        source.source_name, circular.circular_id, circular.issue_date,
+                    )
+                    circular.is_active = False
+                    is_fresh = False
+
+
+            if is_fresh:
+                self._supersede_older_same_title(source,circular)
+
+
             record_id, _created = self.circular_repository.upsert_circular(circular)
 
             try:
                 self.circular_repository.update_status(record_id, "DISCOVERED")
                 file_path, content_hash, assets = self._download_assets(
-                    circular.pdf_url, circular
+                    circular.pdf_url, circular, source
                 )
                 self.asset_repository.replace_assets(record_id, assets)
 
@@ -297,6 +331,68 @@ class ScraperOrchestrator:
             return candidate
         return current
 
+
+
+    def _supersede_older_same_title(
+        self,
+        source: IScraper,
+        circular: Circular,
+    ) -> int:
+        """If the source opts into same-title supersession, find active same-title
+        records older than `circular.issue_date` and flip them to is_active=FALSE.
+        Returns count flipped.
+
+        No-op when the scraper doesn't opt in, when title is empty, when no
+        older same-title active records exist, or when the candidate has no
+        issue_date.
+        """
+        if not getattr(source, "supersede_on_same_title", False):
+            return 0
+
+        if not circular.title or not circular.issue_date:
+            return 0
+
+        existing = self.circular_repository.list_active_same_title(
+            source=circular.source,
+            title=circular.title,
+        )
+
+        older_ids = [
+            r.id
+            for r in existing
+            if r.issue_date and r.issue_date < circular.issue_date
+        ]
+
+        if not older_ids:
+            return 0
+
+        # Delete ES chunks BEFORE flipping is_active in DB. If ES delete fails,
+        # the exception propagates → the caller marks this ingest FAILED and
+        # the next run retries, leaving the DB and ES in their current state.
+        # Doing ES first also keeps the indexer filter (is_active=TRUE) from
+        # re-indexing a record whose chunks we couldn't clean up.
+        if self._es_client is None:
+            raise RuntimeError(
+                "ES client unavailable; cannot complete supersession cleanup. "
+                "Next orchestrator run will retry."
+            )
+        for record_id in older_ids:
+            self._es_client.delete_documents_for_record(str(record_id))
+
+        count = self.circular_repository.mark_inactive(older_ids)
+
+        self.logger.info(
+            "Superseded older same-title circulars source=%s new_circular_id=%s "
+            "new_issue_date=%s superseded_count=%s",
+            source.source_name,
+            circular.circular_id,
+            circular.issue_date,
+            count,
+        )
+
+        return count
+
+
     def _enrich_from_pdf(
         self,
         source: IScraper,
@@ -352,7 +448,7 @@ class ScraperOrchestrator:
         return [ScraperRegistry.get(source_name) for source_name in self.enabled_sources]
 
     def _download_assets(
-        self, pdf_url: str, circular: Circular
+        self, pdf_url: str, circular: Circular, source: IScraper
     ) -> tuple[str, str, list[CircularAsset]]:
         prefix = (
             f"{circular.source.upper()}/"
@@ -361,8 +457,7 @@ class ScraperOrchestrator:
             f"{hashlib.md5(circular.source_item_key.encode()).hexdigest()[:12]}"
         )
 
-        if self.s3_client:
-            self.s3_client.delete_prefix(prefix)
+        self.s3_client.delete_prefix(prefix)
 
         self.logger.debug(
             "Downloading file source=%s circular_id=%s pdf_url=%s prefix=%s",
@@ -395,6 +490,17 @@ class ScraperOrchestrator:
                 *extracted_assets,
             ]
             return f"s3://{Config.AWS_S3_BUCKET}/{original_key}", content_hash, assets
+
+
+        if download_type== "pdf" and getattr(source, "merge_chapter_pdfs" ,False):
+            from ingestion.scrapper.sebi_master_merge import merge_sebi_master_chapters
+            content = merge_sebi_master_chapters(
+                main_pdf_bytes=content,
+                main_pdf_url=pdf_url,
+                chapter_fetcher=lambda url: self._fetch_pdf_bytes(url, circular),
+            )
+            content_hash = hashlib.sha256(content).hexdigest()
+
 
         original_key = f"{prefix}/original/source.pdf"
         self.s3_client.upload_bytes(original_key, content)

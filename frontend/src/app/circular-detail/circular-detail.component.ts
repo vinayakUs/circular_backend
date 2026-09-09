@@ -8,6 +8,7 @@ import type cytoscape from 'cytoscape';
 import { CircularsApiService, Circular, Signatory, Expert, ReferenceGraphResponse } from '../services/circulars-api.service';
 import { ExpertModalComponent } from '../expert-modal/expert-modal.component';
 import { LoginService } from '../services/login.service';
+import { normalizeSource } from '../util/source.util';
 
 interface ActionItem {
   id: string;
@@ -118,6 +119,7 @@ export class CircularDetailComponent implements OnInit, AfterViewInit, OnDestroy
       this.api.getCircularRecord(id).subscribe({
         next: (data) => {
           this.circular = data;
+          this.circular.normalizedSource = normalizeSource(this.circular.source);
           this.loading = false;
           this.fetchActionItems(id);
           this.fetchSummary(id);
@@ -631,10 +633,12 @@ export class CircularDetailComponent implements OnInit, AfterViewInit, OnDestroy
     });
   }
 
-  openSource() {
-    if (this.circular?.url) {
-      window.open(this.circular.url, '_blank');
-    }
+  openCircular() {
+    if (!this.circular?.id) return;
+
+    const url = `/api/circulars/${this.circular.id}/content`;
+    console.log('[view-circular] opening', url);
+    window.open(url, '_blank');
   }
 
   openExpertModal() {

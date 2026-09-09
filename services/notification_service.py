@@ -1,17 +1,21 @@
 from __future__ import annotations
 
+import logging
 import smtplib
+from datetime import datetime, timezone
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from pathlib import Path
 from typing import Any
 
+import markdown as md
 from jinja2 import Template
 
 from config import Config
 from db.postgres_client import get_postgres_client
 from ingestion.repository.circular_repository import CircularRepository
 from ingestion.repository.mention_notifications_repository import MentionNotificationsRepository
+from ingestion.repository.summary_repository import SummaryRepository
 from services.notification_log_repository import NotificationLogRepository
 
 
@@ -33,6 +37,25 @@ class EmailService:
         template_path = self.template_dir / template_name
         template = Template(template_path.read_text(encoding="utf-8"))
         return template.render(**variables)
+
+    def _build_subject(self, source: str | None, full_reference: str) -> str:
+        """Build the email subject line from the circular's source and reference.
+
+        - SEBI        → 'SEBI Circular: <ref>'
+        - SEBI_MASTER → 'Sebi Master Circular: <ref>'   (distinct from regular SEBI)
+        - NSE         → 'NSE Circular: <ref>'
+        - anything else → 'CircularHub Circular: <ref>'
+        """
+        normalized = (source or "").upper()
+        if normalized == "SEBI":
+            prefix = "SEBI Circular"
+        elif normalized == "SEBI_MASTER":
+            prefix = "Sebi Master Circular"
+        elif normalized == "NSE":
+            prefix = "NSE Circular"
+        else:
+            prefix = "Circular"
+        return f"{prefix}: {full_reference}"
 
     def _send_bcc_email(self, recipients: list[str], subject: str, html_body: str) -> tuple[bool, str | None]:
         """Send email with all recipients in BCC."""
@@ -76,14 +99,20 @@ class EmailService:
         """Send circular notification email with logging."""
         template_name = "circular_notification.html"
         variables = {
-            "circular_id": circular_data.get("circular_id", ""),
+            "full_reference": circular_data.get("circular_id", ""),
             "title": circular_data.get("title", ""),
             "department": circular_data.get("department", ""),
             "issue_date": str(circular_data.get("issue_date", "")),
             "source": circular_data.get("source", ""),
             "url": circular_data.get("url", ""),
+            "applicable_to_nse": bool(circular_data.get("applicable_to_nse", False)),
+            "summary_html": circular_data.get("summary_html"),
+            "summary_pending": bool(circular_data.get("summary_pending", False)),
         }
-        subject = f"Regulatory Circular: {circular_data.get('circular_id', '')}"
+        subject = self._build_subject(
+            circular_data.get("source"),
+            circular_data.get("circular_id", ""),
+        )
 
         # Create log entry before sending
         log_id = self.log_repo.create_log(template_name, to_email, subject, variables)
@@ -110,15 +139,21 @@ class EmailService:
 
         template_name = "circular_notification.html"
         variables = {
-            "circular_id": circular_data.get("circular_id", ""),
+            "full_reference": circular_data.get("circular_id", ""),
             "circular_uuid": circular_uuid,
             "title": circular_data.get("title", ""),
             "department": circular_data.get("department", ""),
             "issue_date": str(circular_data.get("issue_date", "")),
             "source": circular_data.get("source", ""),
             "url": circular_data.get("url", ""),
+            "applicable_to_nse": bool(circular_data.get("applicable_to_nse", False)),
+            "summary_html": circular_data.get("summary_html"),
+            "summary_pending": bool(circular_data.get("summary_pending", False)),
         }
-        subject = f"Regulatory Circular: {circular_data.get('circular_id', '')}"
+        subject = self._build_subject(
+            circular_data.get("source"),
+            circular_data.get("circular_id", ""),
+        )
         html = self._render_template(template_name, variables)
 
         # Create log entry before sending
@@ -165,14 +200,23 @@ class EmailService:
         return success, error
 
     def get_pending_circulars(self) -> list[dict[str, Any]]:
-        """Get circulars with status FETCHED (within 24h) that haven't been notified yet."""
-        import logging
+        """Get circulars with status FETCHED (within 24h) that haven't been notified yet.
+
+        Each result dict also carries two summary fields:
+        - ``summary_html``: rendered HTML string of the AI summary, or None
+        - ``summary_pending``: True when the circular is being sent without a
+          summary (either because the 10h grace period expired or the S3
+          download failed / returned empty text). Drives the email template's
+          "AI summary pending" fallback message.
+        """
         logger = logging.getLogger(__name__)
 
         db_pool = get_postgres_client().get_pool()
         circular_repo = CircularRepository(db_pool)
+        summary_repo = SummaryRepository(db_pool)
 
-        # Get recently fetched circulars (last 24h)
+        # Get recently fetched circulars (last 24h), already filtered by
+        # summary readiness / 10h grace at the SQL level.
         fetched = circular_repo.list_recent_fetched_circulars_for_notification(hours=24)
         logger.info(f"[NOTIFICATION DEBUG] Fetched circulars: {len(fetched)}")
         for f in fetched:
@@ -185,6 +229,8 @@ class EmailService:
         notified = self.log_repo.get_notified_circular_ids(circular_ids)
         logger.info(f"[NOTIFICATION DEBUG] Already notified UUIDs: {notified}")
 
+        grace_hours = Config.SUMMARY_GRACE_PERIOD_HOURS
+
         result = []
         for record in fetched:
             record_id_str = str(record.id)
@@ -193,6 +239,34 @@ class EmailService:
                 logger.info(f"[NOTIFICATION DEBUG]   SKIP (already notified): {record.full_reference}")
                 continue
             logger.info(f"[NOTIFICATION DEBUG]   INCLUDE: {record.full_reference}")
+
+            # Was the 10h grace period the reason this circular is eligible?
+            age_hours = (datetime.now(timezone.utc) - record.created_at).total_seconds() / 3600.0
+            grace_expired = age_hours >= grace_hours
+
+            # Try to fetch the summary. Treat missing / empty / failed downloads
+            # as "pending" so the template can show the fallback message.
+            summary_html: str | None = None
+            summary_pending = grace_expired  # already true if 10h expired
+            try:
+                summary_text = summary_repo.get_summary_text(record.id)
+            except Exception:
+                logger.exception(
+                    "Failed to download summary for circular_id=%s", record.id
+                )
+                summary_text = None
+
+            if summary_text and summary_text.strip():
+                summary_html = md.markdown(
+                    summary_text,
+                    extensions=["extra", "sane_lists"],
+                )
+                summary_pending = False
+            elif not summary_pending:
+                # Summary row exists (SQL eligibility passed via EXISTS) but the
+                # S3 download returned nothing useful — still treat as pending.
+                summary_pending = True
+
             result.append({
                 "id": record.id,
                 "circular_id": record.full_reference,
@@ -203,6 +277,9 @@ class EmailService:
                 "source": record.source,
                 "url": f"https://abc.com/circular/{record.id}",
                 "pdf_url": record.pdf_url,
+                "applicable_to_nse": record.applicable_to_nse,
+                "summary_html": summary_html,
+                "summary_pending": summary_pending,
             })
         logger.info(f"[NOTIFICATION DEBUG] Final pending list: {len(result)} circulars")
         return result
@@ -232,8 +309,11 @@ class EmailService:
                 "issue_date": circular["issue_date"],
                 "source": circular["source"],
                 "url": circular["url"],
+                "applicable_to_nse": circular.get("applicable_to_nse", False),
+                "summary_html": circular.get("summary_html"),
+                "summary_pending": bool(circular.get("summary_pending", False)),
             }
-            subject = f"Regulatory Circular: {circular['circular_id']}"
+            subject = self._build_subject(circular["source"], circular["circular_id"])
             html = self._render_template(template_name, variables)
 
             # Create single log entry for all recipients (BCC)

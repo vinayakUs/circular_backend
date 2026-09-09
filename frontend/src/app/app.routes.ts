@@ -24,6 +24,5 @@ export const routes: Routes = [
   { path: 'allcirculars', component: AllCircularsComponent },
   { path: 'pdf-viewer/:id', component: PdfViewerPageComponent },
   { path: 'taskview/:id', component: TaskviewComponent, canActivate: [authGuard] },
-
   { path: '**', redirectTo: '' }
 ];

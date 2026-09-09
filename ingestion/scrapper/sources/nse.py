@@ -27,6 +27,8 @@ class NSEScraper(IScraper):
     def __init__(self) -> None:
         super().__init__()
         self.base_url = Config.ENFORCEMENT_CRAWLER_BASE_URL
+        if Config.ENFORCEMENT_CRAWLER_AUTH_TOKEN:
+            self.default_headers["Authorization"] = f"Bearer {Config.ENFORCEMENT_CRAWLER_AUTH_TOKEN}"
         self.max_retries = max(1, int(os.getenv("NSE_MAX_RETRIES", "3")))
         self.backoff_seconds = max(0.0, float(os.getenv("NSE_RETRY_BACKOFF_SECONDS", "2.0")))
         self.timeout_seconds = float(os.getenv("NSE_TIMEOUT_SECONDS", "30"))

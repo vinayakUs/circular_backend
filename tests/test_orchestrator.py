@@ -12,17 +12,22 @@ from tests.fakes import FakeCircularRepository
 
 class StubScraper(IScraper):
     source_name = "TEST"
+    # Default off; tests opt in per-instance by passing supersede_on_same_title=True.
+    supersede_on_same_title = False
 
     def __init__(
         self,
         circulars: list[Circular],
         failed_circulars: list[Circular] | None = None,
         has_incomplete_items: bool = False,
+        supersede_on_same_title: bool = False,
     ) -> None:
         self.circulars = circulars
         self.failed_circulars = failed_circulars or []
         self.has_incomplete_items = has_incomplete_items
         self.detect_calls: list[tuple[date, date]] = []
+        # Per-instance opt-in (class default is False; tests flip it).
+        self.supersede_on_same_title = supersede_on_same_title
 
     def detect_new(self, from_date: date, to_date: date) -> ScrapeDetectionResult:
         self.detect_calls.append((from_date, to_date))
@@ -37,6 +42,27 @@ class StubScraper(IScraper):
 
     def parse_circular_id(self, raw_id: str) -> str:
         return raw_id
+
+
+class _NoopESClient:
+    """No-op ES client for tests that don't exercise ES deletion.
+
+    Provides just enough surface for `delete_documents_for_record` so the
+    orchestrator's supersession path completes without raising.
+    """
+
+    def delete_documents_for_record(self, circular_db_id: str) -> None:
+        return None
+
+
+class _NoopS3Client:
+    """No-op S3 client for tests that don't exercise S3 uploads."""
+
+    def delete_prefix(self, prefix: str) -> None:
+        return None
+
+    def upload_bytes(self, key: str, content: bytes) -> None:
+        return None
 
 
 class OrchestratorTestCase(unittest.TestCase):
@@ -263,6 +289,197 @@ class OrchestratorTestCase(unittest.TestCase):
 
         self.assertEqual(len(enabled_scraper.detect_calls), 1)
         self.assertEqual(len(disabled_scraper.detect_calls), 0)
+
+    # ─────────────────────────────────────────────────────────────────────
+    # Phase 3: same-title supersession gate
+    # ─────────────────────────────────────────────────────────────────────
+
+    def _seed_same_title(
+        self,
+        repository: FakeCircularRepository,
+        circular_id: str,
+        issue_date: date,
+        is_active: bool = True,
+    ) -> None:
+        """Pre-seed a record with the same title as the test candidate so the
+        supersession gate has something to compare against."""
+        seeded = Circular(
+            source="TEST",
+            circular_id=circular_id,
+            full_reference=f"TEST/{circular_id}",
+            department="OPS",
+            title="Test Circular",
+            issue_date=issue_date,
+            url=f"https://example.com/{circular_id}",
+            pdf_url=f"https://example.com/{circular_id}.pdf",
+            source_item_key=f"TEST::{circular_id}",
+            is_active=is_active,
+        )
+        repository.upsert_circular(seeded)
+
+    def _run_orchestrator_with_no_io(
+        self,
+        scraper: StubScraper,
+        repository: FakeCircularRepository,
+    ) -> None:
+        """Run `_scrape_source` with network/PDF I/O stubbed so the test
+        doesn't touch S3 or HTTP."""
+        # The orchestrator requires both asset_repository and
+        # checkpoint_repository; pass the same FakeCircularRepository for all
+        # three roles — it implements the needed subset (update_status,
+        # replace_assets, get_checkpoint, set_checkpoint).
+        orchestrator = ScraperOrchestrator(
+            circular_repository=repository,
+            asset_repository=repository,
+            checkpoint_repository=repository,
+            s3_client=_NoopS3Client(),
+            es_client=_NoopESClient(),
+        )
+        orchestrator._fetch_pdf_bytes = lambda pdf_url, circular: b"pdf-bytes"  # type: ignore[method-assign]
+        orchestrator._download_assets = lambda pdf_url, circular, source: ("local/path.pdf", "hash", [])  # type: ignore[method-assign]
+        orchestrator._scrape_source(scraper, date(2026, 4, 6))
+
+    def test_supersession_fresh_candidate_flips_older_inactive(self) -> None:
+        """A fresh (newer issue_date) candidate ingests as active and the
+        older active same-title record is flipped to is_active=False."""
+        repository = FakeCircularRepository()
+        self._seed_same_title(repository, "OLDER-001", date(2024, 1, 1))
+
+        fresh = self.build_circular()  # issue_date=2026-04-06
+        fresh.source_item_key = "TEST::FRESH-001"
+        scraper = StubScraper([fresh], supersede_on_same_title=True)
+
+        self._run_orchestrator_with_no_io(scraper, repository)
+
+        records = {r.circular_id: r for r in repository.list_records()}
+        self.assertIn("OLDER-001", records)
+        self.assertIn("FRESH-001", {r.source_item_key.replace("TEST::", "") for r in records.values()})
+        # Older record is now inactive
+        self.assertFalse(records["OLDER-001"].is_active)
+        # New record is active
+        fresh_record = next(
+            r for r in records.values() if r.source_item_key == "TEST::FRESH-001"
+        )
+        self.assertTrue(fresh_record.is_active)
+        self.assertEqual(fresh_record.status, "FETCHED")
+
+    def test_supersession_stale_candidate_ingested_inactive(self) -> None:
+        """A stale (older issue_date) candidate lands in DB as inactive and
+        does NOT disturb the existing newer active same-title record."""
+        repository = FakeCircularRepository()
+        self._seed_same_title(repository, "NEWER-001", date(2026, 8, 31))
+
+        stale = self.build_circular()  # issue_date=2026-04-06 (older than 2026-08-31)
+        stale.source_item_key = "TEST::STALE-001"
+        scraper = StubScraper([stale], supersede_on_same_title=True)
+
+        self._run_orchestrator_with_no_io(scraper, repository)
+
+        records = {r.circular_id: r for r in repository.list_records()}
+        # The newer record is untouched (still active)
+        self.assertTrue(records["NEWER-001"].is_active)
+        # The stale candidate was inserted but is_active=False
+        stale_record = next(
+            r for r in records.values() if r.source_item_key == "TEST::STALE-001"
+        )
+        self.assertFalse(stale_record.is_active)
+        # list_active_same_title should now return only NEWER-001
+        active_same = repository.list_active_same_title(
+            source="TEST", title="Test Circular"
+        )
+        active_ids = {r.id for r in active_same}
+        self.assertIn(records["NEWER-001"].id, active_ids)
+        self.assertNotIn(stale_record.id, active_ids)
+
+    def test_supersession_no_opt_in_is_noop(self) -> None:
+        """When the scraper does not opt in, no calls to
+        list_active_same_title / mark_inactive happen — older records
+        remain active."""
+        repository = FakeCircularRepository()
+        self._seed_same_title(repository, "OLDER-002", date(2024, 1, 1))
+
+        fresh = self.build_circular()
+        fresh.source_item_key = "TEST::FRESH-002"
+        # supersede_on_same_title=False (the class default)
+        scraper = StubScraper([fresh])
+
+        self._run_orchestrator_with_no_io(scraper, repository)
+
+        records = {r.circular_id: r for r in repository.list_records()}
+        # Older record was NOT flipped
+        self.assertTrue(records["OLDER-002"].is_active)
+        # New record is active (default behavior unchanged)
+        fresh_record = next(
+            r for r in records.values() if r.source_item_key == "TEST::FRESH-002"
+        )
+        self.assertTrue(fresh_record.is_active)
+
+    def test_supersession_empty_title_is_noop(self) -> None:
+        """When the candidate's title is empty, the gate short-circuits and
+        no supersession logic runs."""
+        repository = FakeCircularRepository()
+        self._seed_same_title(repository, "OLDER-003", date(2024, 1, 1))
+
+        candidate = self.build_circular()
+        candidate.source_item_key = "TEST::EMPTY-TITLE"
+        candidate.title = ""  # empty
+        scraper = StubScraper([candidate], supersede_on_same_title=True)
+
+        self._run_orchestrator_with_no_io(scraper, repository)
+
+        # Older record untouched (gate short-circuited before querying)
+        records = {r.circular_id: r for r in repository.list_records()}
+        self.assertTrue(records["OLDER-003"].is_active)
+
+    # ─────────────────────────────────────────────────────────────────────
+    # ES cleanup on supersession
+    # ─────────────────────────────────────────────────────────────────────
+
+    def test_supersession_es_delete_failure_propagates_and_skips_db_update(self) -> None:
+        """If delete_documents_for_record raises, the exception propagates and
+        mark_inactive is never called — DB and ES stay in their pre-supersession
+        state, and the next orchestrator run retries."""
+        repository = FakeCircularRepository()
+        self._seed_same_title(repository, "OLDER-ES", date(2024, 1, 1))
+
+        class FailingESClient:
+            def __init__(self):
+                self.calls: list[str] = []
+
+            def delete_documents_for_record(self, circular_db_id: str) -> None:
+                self.calls.append(circular_db_id)
+                raise ConnectionError(f"ES unreachable for {circular_db_id}")
+
+        es_client = FailingESClient()
+        mark_inactive_calls: list[list] = []
+        original_mark_inactive = repository.mark_inactive
+        repository.mark_inactive = lambda ids: mark_inactive_calls.append(ids) or original_mark_inactive(ids)
+
+        fresh = self.build_circular()
+        fresh.source_item_key = "TEST::FRESH-ES"
+        scraper = StubScraper([fresh], supersede_on_same_title=True)
+
+        orchestrator = ScraperOrchestrator(
+            circular_repository=repository,
+            asset_repository=repository,
+            checkpoint_repository=repository,
+            s3_client=_NoopS3Client(),
+            es_client=es_client,  # type: ignore[arg-type]
+        )
+        orchestrator._fetch_pdf_bytes = lambda pdf_url, circular: b"pdf-bytes"  # type: ignore[method-assign]
+        orchestrator._download_assets = lambda pdf_url, circular, source: ("local/path.pdf", "hash", [])  # type: ignore[method-assign]
+
+        with self.assertRaises(ConnectionError) as ctx:
+            orchestrator._scrape_source(scraper, date(2026, 4, 6))
+        self.assertIn("ES unreachable", str(ctx.exception))
+
+        # ES was attempted for the older record
+        self.assertEqual(len(es_client.calls), 1)
+        # mark_inactive was NEVER called — DB is untouched
+        self.assertEqual(mark_inactive_calls, [])
+        # Older record still active in DB
+        records = {r.circular_id: r for r in repository.list_records()}
+        self.assertTrue(records["OLDER-ES"].is_active)
 
 
 if __name__ == "__main__":

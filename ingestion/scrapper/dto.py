@@ -14,6 +14,7 @@ class Circular:
     title: str
     issue_date: date
     applicable_to_nse: bool = False
+    is_active: bool = True
     url: str = ""
     pdf_url: str = ""
     source_item_key: str = ""
@@ -29,6 +30,7 @@ class Circular:
             "title": self.title,
             "issue_date": self.issue_date,
             "applicable_to_nse": self.applicable_to_nse,
+            "is_active": self.is_active,
             "url": self.url,
             "pdf_url": self.pdf_url,
             "source_item_key": self.source_item_key,

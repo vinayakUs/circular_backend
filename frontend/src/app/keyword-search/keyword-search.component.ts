@@ -8,9 +8,10 @@ import { marked } from 'marked';
 import { NavbarComponent } from '../navbar/navbar.component';
 import { CircularsApiService, SearchResult, SemanticSearchResponse } from '../services/circulars-api.service';
 import { RecentSearchesService, RecentSearch, SearchMode } from '../services/recent-searches.service';
+import { ExchangeSource, exchangeLabel } from '../util/source.util';
 
-type ExchangeTab = 'ALL' | 'NSE' | 'SEBI';
 type SortOption = 'score' | 'date';
+type ModeOption = 'keyword' | 'semantic' | 'phrase' | 'title';
 
 interface SortTab {
   value: SortOption;
@@ -18,7 +19,7 @@ interface SortTab {
 }
 
 interface ModeTab {
-  value: SearchMode;
+  value: ModeOption;
   label: string;
 }
 
@@ -37,8 +38,8 @@ export class KeywordSearchComponent implements OnInit {
   private recentSearches = inject(RecentSearchesService);
 
   query = '';
-  mode: SearchMode = 'keyword';
-  source: ExchangeTab = 'ALL';
+  mode: ModeOption = 'keyword';
+  source: ExchangeSource = ExchangeSource.ALL;
   sort: SortOption = 'score';
   results: SearchResult[] = [];
   loading = false;
@@ -50,14 +51,16 @@ export class KeywordSearchComponent implements OnInit {
   semanticLoading = false;
   semanticError = false;
 
-  readonly exchanges: ExchangeTab[] = ['ALL', 'NSE', 'SEBI'];
+  readonly exchanges = Object.keys(ExchangeSource) as (keyof typeof ExchangeSource)[];
   readonly sortOptions: SortTab[] = [
     { value: 'score', label: 'Most Relevant' },
     { value: 'date', label: 'Newest First' },
   ];
   readonly modes: ModeTab[] = [
-    { value: 'keyword', label: 'Keyword' },
-    { value: 'semantic', label: 'Semantic' },
+    { value: 'keyword', label: 'Keyword Search' },
+    { value: 'semantic', label: 'Semantic Search' },
+    { value: 'phrase', label: 'Phrase Search' },
+    { value: 'title', label: 'Title Search' },
   ];
 
   private searchToken = 0;
@@ -67,6 +70,9 @@ export class KeywordSearchComponent implements OnInit {
   recentSearchesList: RecentSearch[] = [];
   private recentSearchBlurTimeout: ReturnType<typeof setTimeout> | null = null;
 
+  // ── Mode menu (replaces native <select>) ────────────────────
+  showModeMenu = false;
+
   ngOnInit(): void {
     this.recentSearchesList = this.recentSearches.getRecent();
 
@@ -74,7 +80,12 @@ export class KeywordSearchComponent implements OnInit {
       const q = (params.get('q') ?? '').toString();
       const modeParam = (params.get('mode') ?? '').toString();
       this.query = q;
-      if (modeParam === 'semantic' || modeParam === 'keyword') {
+      if (
+        modeParam === 'semantic'
+        || modeParam === 'keyword'
+        || modeParam === 'phrase'
+        || modeParam === 'title'
+      ) {
         this.mode = modeParam;
       }
       if (q) {
@@ -90,11 +101,42 @@ export class KeywordSearchComponent implements OnInit {
   /** Close the dropdown on any click outside the search field. */
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent): void {
-    if (!this.showRecentSearches) return;
     const target = event.target as HTMLElement | null;
-    if (target && !target.closest('.search-relative')) {
+    if (!target) return;
+    if (this.showRecentSearches && !target.closest('.search-relative')) {
       this.showRecentSearches = false;
     }
+    if (this.showModeMenu && !target.closest('.mode-select-wrapper')) {
+      this.showModeMenu = false;
+    }
+  }
+
+  /** Escape closes whichever menu is open. */
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.showModeMenu) this.showModeMenu = false;
+    if (this.showRecentSearches) {
+      this.showRecentSearches = false;
+      this.clearBlurTimeout();
+    }
+  }
+
+  toggleModeMenu(): void {
+    this.showModeMenu = !this.showModeMenu;
+  }
+
+  closeModeMenu(): void {
+    this.showModeMenu = false;
+  }
+
+  onModeOptionClick(value: ModeOption): void {
+    this.showModeMenu = false;
+    this.onModeChange(value);
+  }
+
+  /** Label shown on the mode trigger button — current selection. */
+  currentModeLabel(): string {
+    return this.modes.find(m => m.value === this.mode)?.label ?? '';
   }
 
   onSearchFocus(): void {
@@ -131,7 +173,8 @@ export class KeywordSearchComponent implements OnInit {
   }
 
   modeLabel(mode: SearchMode): string {
-    return mode === 'semantic' ? 'Semantic' : 'Keyword';
+    const tab = this.modes.find(m => m.value === mode);
+    return tab?.label ?? 'Keyword';
   }
 
   clearRecentSearches(event: MouseEvent): void {
@@ -162,10 +205,14 @@ export class KeywordSearchComponent implements OnInit {
     this.runSearch();
   }
 
-  onSourceChange(value: ExchangeTab): void {
+  onSourceChange(value: ExchangeSource): void {
     if (this.source === value) return;
     this.source = value;
     this.runSearch();
+  }
+
+  getExchangeValue(key: keyof typeof ExchangeSource): ExchangeSource {
+    return ExchangeSource[key];
   }
 
   onSortChange(value: SortOption): void {
@@ -174,7 +221,7 @@ export class KeywordSearchComponent implements OnInit {
     this.runSearch();
   }
 
-  onModeChange(value: SearchMode): void {
+  onModeChange(value: ModeOption): void {
     if (this.mode === value) return;
     this.mode = value;
     // Only flip UI state; the user has to hit Search to run with the new mode.
@@ -186,9 +233,7 @@ export class KeywordSearchComponent implements OnInit {
     this.router.navigate(['/circular', result.id]);
   }
 
-  exchangeLabel(value: ExchangeTab): string {
-    return value === 'ALL' ? 'All' : value;
-  }
+  exchangeLabel = exchangeLabel;
 
   badgeClass(source: string): string {
     return (source || '').toLowerCase();
@@ -212,6 +257,17 @@ export class KeywordSearchComponent implements OnInit {
     return this.safePreview(undefined);
   }
 
+  safeTitle(title: string, highlights: Record<string, string[]> | null | undefined): SafeHtml {
+    // Title-mode searches request highlights on the `title` field with
+    // number_of_fragments=0, so the whole title comes back wrapped in
+    // <mark>...</mark>. Use it when present, fall back to the raw title.
+    const highlighted = highlights?.['title']?.[0];
+    if (highlighted) {
+      return this.sanitizer.bypassSecurityTrustHtml(highlighted);
+    }
+    return this.sanitizer.bypassSecurityTrustHtml(title ?? '');
+  }
+
   safeMarkdown(text: string | null | undefined): SafeHtml {
     if (!text) return '';
     const html = marked.parse(text, { async: false }) as string;
@@ -219,7 +275,8 @@ export class KeywordSearchComponent implements OnInit {
   }
 
   get isKeywordMode(): boolean {
-    return this.mode === 'keyword';
+    // Keyword / Exact / Phrase all hit the bm25v2 endpoint today.
+    return this.mode !== 'semantic';
   }
 
   get isSemanticMode(): boolean {
@@ -304,6 +361,12 @@ export class KeywordSearchComponent implements OnInit {
       query: this.query.trim(),
       source: this.source === 'ALL' ? undefined : this.source,
       sort: this.sort,
+      // `title` and `phrase` are wired through to the backend's match_mode;
+      // `keyword` is the default (sent as undefined).
+      matchMode:
+        this.mode === 'title' ? 'title'
+        : this.mode === 'phrase' ? 'phrase'
+        : undefined,
     }).subscribe({
       next: (response) => {
         if (token !== this.searchToken) return;

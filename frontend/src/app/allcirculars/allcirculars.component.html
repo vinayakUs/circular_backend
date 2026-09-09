@@ -1,310 +1,453 @@
 <div class="all-circulars-page">
-    <app-navbar></app-navbar>
+  <app-navbar></app-navbar>
 
-    <main class="main-content">
-        <section class="header-section">
-            <h1 class="page-title">Circulars</h1>
-            <p class="page-subtitle">Browse circulars from NSE and SEBI</p>
+  <main class="main-content">
+    <section class="header-section">
+      <h1 class="page-title">Circulars</h1>
+      <p class="page-subtitle">Browse circulars from NSE and SEBI</p>
 
+      <section class="topfilter-section">
+        <div class="content-grid">
+          <aside class="filters-sidebar"></aside>
 
+          <div class="results-panel">
+            <div class="filter-year-section">
+              <span class="filter-label">From:</span>
+              <div class="horizontal">
+                <button
+                  *ngFor="let y of availableYears"
+                  type="button"
+                  class="filter-tab"
+                  [class.active]="state.filters.selectedyear === y"
+                  (click)="onYearSelect(y)"
+                >
+                  {{ y }}
+                </button>
+                <button
+                  *ngIf="state.filters.selectedyear !== null"
+                  type="button"
+                  class="filter-tab clear-year"
+                  (click)="onYearSelect(null)"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
+      <section class="circulars-section">
+        <div class="content-grid">
+          <aside class="filters-sidebar">
+            <div class="filter-group">
+              <span class="filter-label">Regulator</span>
+              <div class="filter-tabs horizontal">
+                <button
+                  *ngFor="let key of exchanges"
+                  type="button"
+                  class="filter-tab"
+                  [class.active]="
+                    state.filters.source === getExchangeValue(key)
+                  "
+                  (click)="onExchangeChange(getExchangeValue(key))"
+                >
+                  {{ exchangeLabel(key) }}
+                </button>
+              </div>
+            </div>
 
+            <div class="filter-group">
+              <span class="filter-label">Date Range</span>
+              <div class="date-input">
+                <label class="date-label">From</label>
+                <input
+                  type="date"
+                  class="date-field"
+                  [(ngModel)]="state.filters.from_date"
+                />
+              </div>
+              <div class="date-input">
+                <label class="date-label">To</label>
+                <input
+                  type="date"
+                  class="date-field"
+                  [(ngModel)]="state.filters.to_date"
+                />
+              </div>
+            </div>
 
+            <div class="filter-group">
+              <span class="filter-label">Circular No</span>
+              <div class="multi-select">
+                <input
+                  type="text"
+                  [formControl]="circNoSearchControl"
+                  class="search-input"
+                  placeholder="Search circular no..."
+                  (focus)="openCircNoDropdown()"
+                />
 
-
-
-
-
-            <section class="topfilter-section">
-                <div class="content-grid">
-
-                    <aside class="filters-sidebar">
-                    </aside>
-
-                    <div class="results-panel">
-
-                        <div class="filter-year-section">
-                            <span class="filter-label">From:</span>
-                            <div class="horizontal">
-                                <button *ngFor="let y of availableYears" type="button" class="filter-tab"
-                                    [class.active]="state.filters.selectedyear === y" (click)="onYearSelect(y)">
-                                    {{ y }}
-                                </button>
-                                <button *ngIf="state.filters.selectedyear !== null" type="button"
-                                    class="filter-tab clear-year" (click)="onYearSelect(null)">Clear</button>
-                            </div>
-                        </div>
-
-
-                    </div>
-
+                <div *ngIf="circNoDropdownLoading" class="multi-select-empty">
+                  Loading...
                 </div>
 
-
-            </section>
-
-
-
-
-
-
-
-
-            <section class="circulars-section">
-                <div class="content-grid">
-
-                    <aside class="filters-sidebar">
-                        <div class="filter-group">
-                            <span class="filter-label">Regulator</span>
-                            <div class="filter-tabs horizontal">
-                                <button *ngFor="let value of exchanges" type="button" class="filter-tab"
-                                    [class.active]="state.filters.source === value" (click)="onExchangeChange(value)">
-                                    {{ value === 'ALL' ? 'All' : value }}
-                                </button>
-                            </div>
-                        </div>
-
-                        <div class="filter-group">
-                            <span class="filter-label">Date Range</span>
-                            <div class="date-input">
-                                <label class="date-label">From</label>
-                                <input type="date" class="date-field" [(ngModel)]="state.filters.from_date" />
-                            </div>
-                            <div class="date-input">
-                                <label class="date-label">To</label>
-                                <input type="date" class="date-field" [(ngModel)]="state.filters.to_date" />
-                            </div>
-                        </div>
-
-
-
-
-
-
-                        <div class="filter-group">
-                            <span class="filter-label">Circular No</span>
-                            <div class="multi-select">
-
-                                <input type="text" [formControl]="circNoSearchControl" class="search-input"
-                                    placeholder="Search circular no..." (focus)="openCircNoDropdown()">
-
-                                <div *ngIf="circNoDropdownLoading" class="multi-select-empty">Loading...</div>
-
-                                <div class="multi-select-dropdown" *ngIf="showCircNoDropdown"
-                                    (click)="$event.stopPropagation()">
-                                    <div class="multi-select-empty"
-                                        *ngIf="!circNoDropdownLoading && circularNoOptions.length === 0">
-                                        No results
-                                    </div>
-
-                                    <label class="multi-select-option" [class.checked]="isCircularNoSelected(opt.id)"
-                                        *ngFor="let opt of circularNoOptions">
-
-                                        <input type="checkbox"
-                                            (change)="toggleCircularNo(opt.id,$any($event.target).checked)"
-                                            [checked]="isCircularNoSelected(opt.id)" />
-
-                                        <span>{{ opt.matchedValue }}</span>
-
-                                    </label>
-
-
-                                </div>
-
-
-                            </div>
-
-                        </div>
-
-
-
-
-                        <div class="filter-group">
-                            <span class="filter-label">Signatory</span>
-                            <div class="multi-select">
-                                <button type="button" class="multi-select-trigger"
-                                    [class.has-value]="state.filters.signatory.length > 0"
-                                    (click)="toggleSignatoryDropdown()" [attr.aria-expanded]="showSignatoryDropdown">
-                                    <span *ngIf="state.filters.signatory.length <= 0"
-                                        class="multi-select-placeholder">Select signatories</span>
-                                    <span *ngIf="state.filters.signatory.length > 0" class="multi-select-value">{{
-                                        state.filters.signatory.join(', ') }}</span>
-                                    <svg class="multi-select-caret" viewBox="0 0 20 20" fill="currentColor"
-                                        aria-hidden="true">
-                                        <path fill-rule="evenodd"
-                                            d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.08 1.04l-4.25 4.39a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z"
-                                            clip-rule="evenodd" />
-                                    </svg>
-                                </button>
-
-                                <div class="multi-select-dropdown" *ngIf="showSignatoryDropdown"
-                                    (click)="$event.stopPropagation()">
-                                    <div class="multi-select-empty" *ngIf="signatoryOptions.length === 0">
-                                        No signatories available
-                                    </div>
-                                    <label class="multi-select-option" *ngFor="let name of signatoryOptions"
-                                        [class.checked]="isSignatorySelected(name)">
-                                        <input type="checkbox" [checked]="isSignatorySelected(name)"
-                                            (change)="toggleSignatory(name, $any($event.target).checked)" />
-                                        <span>{{ name }}</span>
-                                    </label>
-                                </div>
-                            </div>
-
-                        </div>
-
-                        <div class="filter-group">
-                            <span class="filter-label">Department</span>
-                            <div class="multi-select">
-                                <button type="button" class="multi-select-trigger"
-                                    [class.has-value]="state.filters.department !== ''"
-                                    (click)="toggleDepartmentDropdown()"
-                                    [attr.aria-expanded]="showDepartmentDropdown">
-                                    <span *ngIf="state.filters.department === ''"
-                                        class="multi-select-placeholder">Select department</span>
-                                    <span *ngIf="state.filters.department !== ''" class="multi-select-value">{{
-                                        state.filters.department }}</span>
-                                    <svg class="multi-select-caret" viewBox="0 0 20 20" fill="currentColor"
-                                        aria-hidden="true">
-                                        <path fill-rule="evenodd"
-                                            d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.08 1.04l-4.25 4.39a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z"
-                                            clip-rule="evenodd" />
-                                    </svg>
-                                </button>
-
-                                <div class="multi-select-dropdown" *ngIf="showDepartmentDropdown"
-                                    (click)="$event.stopPropagation()">
-                                    <div class="multi-select-empty" *ngIf="departmentOptions.length === 0">
-                                        No departments available
-                                    </div>
-                                    <label class="multi-select-option radio-option"
-                                        [class.checked]="state.filters.department === ''"
-                                        *ngIf="departmentOptions.length > 0 && state.filters.department !== ''">
-                                        <input type="radio" name="department" value=""
-                                            [checked]="state.filters.department === ''"
-                                            (change)="onDepartmentClear()" />
-                                        <span>All departments</span>
-                                    </label>
-                                    <label class="multi-select-option radio-option"
-                                        *ngFor="let name of departmentOptions"
-                                        [class.checked]="state.filters.department === name">
-                                        <input type="radio" name="department" [value]="name"
-                                            [checked]="state.filters.department === name"
-                                            (change)="onDepartmentSelect(name)" />
-                                        <span>{{ name }}</span>
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="filter-group">
-                            <span class="filter-label">Applicable to NSE</span>
-                            <div class="filter-tabs horizontal">
-                                <button class="filter-tab" [class.active]="state.filters.applicable_to_nse === null"
-                                    (click)="onApplicableToNseChange(null)">All</button>
-                                <button class="filter-tab" [class.active]="state.filters.applicable_to_nse === true"
-                                    (click)="onApplicableToNseChange(true)">Yes</button>
-                                <button class="filter-tab" [class.active]="state.filters.applicable_to_nse === false"
-                                    (click)="onApplicableToNseChange(false)">No</button>
-                            </div>
-                        </div>
-
-
-
-                        <button class="clear-btn full-width" (click)="clearFilters()">Clear filters</button>
-                        <button class="apply-btn full-width" (click)="onApply()">Apply Filters</button>
-
-                    </aside>
-
-
-
-
-                    <div class="results-panel">
-                        <div class="filter-label">All Circulars</div>
-                        <div class="results-empty" *ngIf="!loading && circulars.length === 0">
-                            <p class="results-empty-title">No circulars to show yet</p>
-                            <p class="results-empty-hint">Use the filters and search, then click Apply Filters.</p>
-                        </div>
-
-                        <div class="circulars-list" *ngIf="circulars.length > 0" [class.is-loading]="loading">
-
-                            <ng-container *ngFor="let circ of circulars; let i=index">
-                                <a class="circular-item" [routerLink]="['/circular', circ.id]" target="_blank">
-                                    <div class="exchange-badge" [class]="circ.source.toLowerCase()">{{ circ.source }}
-                                    </div>
-                                    <div class="circular-content">
-
-                                        <div class="circular-header">
-                                            <span class="circular-id">{{ circ.full_reference }}</span>
-                                            <span class="circular-time">{{ circ.issue_date | date:'dd-MMM-yyyy'}}</span>
-                                        </div>
-                                        <span class="circular-title">{{ circ.title }}</span>
-
-                                        <div class="circular-tags">
-                                            <span class="tag tag-nse" *ngIf="circ.applicable_to_nse === true">Applicable
-                                                to NSE</span>
-                                            <span class="tag tag-sebi-only" *ngIf="circ.applicable_to_nse === false">Not
-                                                Applicable to NSE</span>
-                                            <span class="tag tag-dept" *ngIf="circ.department">{{ circ.department
-                                                }}</span>
-                                            <span class="tag tag-signatory" *ngFor="let sig of circ.signatories">{{
-                                                sig.name }}</span>
-
-                                        </div>
-
-
-                                    </div>
-
-
-                                </a>
-
-                            </ng-container>
-
-                            <nav class="paginator" aria-label="Pagination">
-                                <div class="paginator-group">
-                                    <button type="button" class="paginator-arrow" [disabled]="!canGoPrev || loading"
-                                        (click)="onPrevPage()" aria-label="Previous page">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                            <path d="M15 18l-6-6 6-6" />
-                                        </svg>
-                                    </button>
-
-                                    <div class="paginator-counter" aria-live="polite">
-                                        <span class="paginator-current">{{ currentPage }}</span>
-                                        <span class="paginator-divider">of</span>
-                                        <span class="paginator-total">{{ totalPages }}</span>
-                                    </div>
-
-                                    <button type="button" class="paginator-arrow" [disabled]="!canGoNext || loading"
-                                        (click)="onNextPage()" aria-label="Next page">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                            <path d="M9 18l6-6-6-6" />
-                                        </svg>
-                                    </button>
-                                </div>
-
-                                <div class="paginator-jump">
-                                    <label for="jump-page" class="paginator-jump-label">Go to</label>
-                                    <input id="jump-page" type="number" inputmode="numeric" class="paginator-jump-input"
-                                        [(ngModel)]="pageInput" [placeholder]="currentPage.toString()" [min]="1"
-                                        [max]="totalPages" [disabled]="loading" (keydown.enter)="onGoToPage()"
-                                        (blur)="onGoToPage()" />
-                                </div>
-                            </nav>
-
-                        </div>
-
-
-                    </div>
-
+                <div
+                  class="multi-select-dropdown"
+                  *ngIf="showCircNoDropdown"
+                  (click)="$event.stopPropagation()"
+                >
+                  <div
+                    class="multi-select-empty"
+                    *ngIf="
+                      !circNoDropdownLoading && circularNoOptions.length === 0
+                    "
+                  >
+                    No results
+                  </div>
+
+                  <label
+                    class="multi-select-option"
+                    [class.checked]="isCircularNoSelected(opt.id)"
+                    *ngFor="let opt of circularNoOptions"
+                  >
+                    <input
+                      type="checkbox"
+                      (change)="
+                        toggleCircularNo(opt.id, $any($event.target).checked)
+                      "
+                      [checked]="isCircularNoSelected(opt.id)"
+                    />
+
+                    <span>{{ opt.matchedValue }}</span>
+                  </label>
                 </div>
-            </section>
+              </div>
+            </div>
 
+            <div class="filter-group">
+              <span class="filter-label">Signatory</span>
+              <div class="multi-select">
+                <button
+                  type="button"
+                  class="multi-select-trigger"
+                  [class.has-value]="state.filters.signatory.length > 0"
+                  (click)="toggleSignatoryDropdown()"
+                  [attr.aria-expanded]="showSignatoryDropdown"
+                >
+                  <span
+                    *ngIf="state.filters.signatory.length <= 0"
+                    class="multi-select-placeholder"
+                    >Select signatories</span
+                  >
+                  <span
+                    *ngIf="state.filters.signatory.length > 0"
+                    class="multi-select-value"
+                    >{{ state.filters.signatory.join(", ") }}</span
+                  >
+                  <svg
+                    class="multi-select-caret"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path
+                      fill-rule="evenodd"
+                      d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.08 1.04l-4.25 4.39a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
+                </button>
 
+                <div
+                  class="multi-select-dropdown"
+                  *ngIf="showSignatoryDropdown"
+                  (click)="$event.stopPropagation()"
+                >
+                  <div
+                    class="multi-select-empty"
+                    *ngIf="signatoryOptions.length === 0"
+                  >
+                    No signatories available
+                  </div>
+                  <label
+                    class="multi-select-option"
+                    *ngFor="let name of signatoryOptions"
+                    [class.checked]="isSignatorySelected(name)"
+                  >
+                    <input
+                      type="checkbox"
+                      [checked]="isSignatorySelected(name)"
+                      (change)="
+                        toggleSignatory(name, $any($event.target).checked)
+                      "
+                    />
+                    <span>{{ name }}</span>
+                  </label>
+                </div>
+              </div>
+            </div>
 
+            <div class="filter-group">
+              <span class="filter-label">Department</span>
+              <div class="multi-select">
+                <button
+                  type="button"
+                  class="multi-select-trigger"
+                  [class.has-value]="state.filters.department !== ''"
+                  (click)="toggleDepartmentDropdown()"
+                  [attr.aria-expanded]="showDepartmentDropdown"
+                >
+                  <span
+                    *ngIf="state.filters.department === ''"
+                    class="multi-select-placeholder"
+                    >Select department</span
+                  >
+                  <span
+                    *ngIf="state.filters.department !== ''"
+                    class="multi-select-value"
+                    >{{ state.filters.department }}</span
+                  >
+                  <svg
+                    class="multi-select-caret"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path
+                      fill-rule="evenodd"
+                      d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.08 1.04l-4.25 4.39a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
+                </button>
 
-        </section>
-    </main>
+                <div
+                  class="multi-select-dropdown"
+                  *ngIf="showDepartmentDropdown"
+                  (click)="$event.stopPropagation()"
+                >
+                  <div
+                    class="multi-select-empty"
+                    *ngIf="departmentOptions.length === 0"
+                  >
+                    No departments available
+                  </div>
+                  <label
+                    class="multi-select-option radio-option"
+                    [class.checked]="state.filters.department === ''"
+                    *ngIf="
+                      departmentOptions.length > 0 &&
+                      state.filters.department !== ''
+                    "
+                  >
+                    <input
+                      type="radio"
+                      name="department"
+                      value=""
+                      [checked]="state.filters.department === ''"
+                      (change)="onDepartmentClear()"
+                    />
+                    <span>All departments</span>
+                  </label>
+                  <label
+                    class="multi-select-option radio-option"
+                    *ngFor="let name of departmentOptions"
+                    [class.checked]="state.filters.department === name"
+                  >
+                    <input
+                      type="radio"
+                      name="department"
+                      [value]="name"
+                      [checked]="state.filters.department === name"
+                      (change)="onDepartmentSelect(name)"
+                    />
+                    <span>{{ name }}</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div class="filter-group">
+              <span class="filter-label">Applicable to NSE</span>
+              <div class="filter-tabs horizontal">
+                <button
+                  class="filter-tab"
+                  [class.active]="state.filters.applicable_to_nse === null"
+                  (click)="onApplicableToNseChange(null)"
+                >
+                  All
+                </button>
+                <button
+                  class="filter-tab"
+                  [class.active]="state.filters.applicable_to_nse === true"
+                  (click)="onApplicableToNseChange(true)"
+                >
+                  Yes
+                </button>
+                <button
+                  class="filter-tab"
+                  [class.active]="state.filters.applicable_to_nse === false"
+                  (click)="onApplicableToNseChange(false)"
+                >
+                  No
+                </button>
+              </div>
+            </div>
+
+            <button class="clear-btn full-width" (click)="clearFilters()">
+              Clear filters
+            </button>
+            <button class="apply-btn full-width" (click)="onApply()">
+              Apply Filters
+            </button>
+          </aside>
+
+          <div class="results-panel">
+            <div class="filter-label">All Circulars</div>
+            <div
+              class="results-empty"
+              *ngIf="!loading && circulars.length === 0"
+            >
+              <p class="results-empty-title">No circulars to show yet</p>
+              <p class="results-empty-hint">
+                Use the filters and search, then click Apply Filters.
+              </p>
+            </div>
+
+            <div
+              class="circulars-list"
+              *ngIf="circulars.length > 0"
+              [class.is-loading]="loading"
+            >
+              <ng-container *ngFor="let circ of circulars; let i = index">
+                <a
+                  class="circular-item"
+                  [routerLink]="['/circular', circ.id]"
+                  target="_blank"
+                  [class]="{
+                    'inactive-card': circ.source === 'SEBI_MASTER' && circ.is_active === false
+                  }"
+                >
+                  <div
+                    class="exchange-badge"
+                    [class]="circ.source.toLowerCase()"
+                  >
+                    {{ circ.normalizedSource }}
+                  </div>
+                  <div class="circular-content">
+                    <div class="circular-header">
+                      <span class="circular-id">{{ circ.full_reference }}</span>
+                      <div class="circular-meta">
+                        <div
+                          *ngIf="circ.source == 'SEBI_MASTER'"
+                          [class]="circ.is_active ? 'active' : 'inactive'"
+                        >
+                          {{ circ.is_active ? "Active" : "Inactive" }}
+                        </div>
+                        <span class="circular-time">{{
+                          circ.issue_date | date: "dd-MMM-yyyy"
+                        }}</span>
+                      </div>
+                    </div>
+                    <span class="circular-title">{{ circ.title }}</span>
+
+                    <div class="circular-tags">
+                      <span
+                        class="tag tag-nse"
+                        *ngIf="circ.applicable_to_nse === true"
+                        >Applicable to NSE</span
+                      >
+                      <span
+                        class="tag tag-sebi-only"
+                        *ngIf="circ.applicable_to_nse === false"
+                        >Not Applicable to NSE</span
+                      >
+                      <span class="tag tag-dept" *ngIf="circ.department">{{
+                        circ.department
+                      }}</span>
+                      <span
+                        class="tag tag-signatory"
+                        *ngFor="let sig of circ.signatories"
+                        >{{ sig.name }}</span
+                      >
+                    </div>
+                  </div>
+                </a>
+              </ng-container>
+
+              <nav class="paginator" aria-label="Pagination">
+                <div class="paginator-group">
+                  <button
+                    type="button"
+                    class="paginator-arrow"
+                    [disabled]="!canGoPrev || loading"
+                    (click)="onPrevPage()"
+                    aria-label="Previous page"
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M15 18l-6-6 6-6" />
+                    </svg>
+                  </button>
+
+                  <div class="paginator-counter" aria-live="polite">
+                    <span class="paginator-current">{{ currentPage }}</span>
+                    <span class="paginator-divider">of</span>
+                    <span class="paginator-total">{{ totalPages }}</span>
+                  </div>
+
+                  <button
+                    type="button"
+                    class="paginator-arrow"
+                    [disabled]="!canGoNext || loading"
+                    (click)="onNextPage()"
+                    aria-label="Next page"
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M9 18l6-6-6-6" />
+                    </svg>
+                  </button>
+                </div>
+
+                <div class="paginator-jump">
+                  <label for="jump-page" class="paginator-jump-label"
+                    >Go to</label
+                  >
+                  <input
+                    id="jump-page"
+                    type="number"
+                    inputmode="numeric"
+                    class="paginator-jump-input"
+                    [(ngModel)]="pageInput"
+                    [placeholder]="currentPage.toString()"
+                    [min]="1"
+                    [max]="totalPages"
+                    [disabled]="loading"
+                    (keydown.enter)="onGoToPage()"
+                    (blur)="onGoToPage()"
+                  />
+                </div>
+              </nav>
+            </div>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
 </div>

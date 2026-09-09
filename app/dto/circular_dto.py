@@ -25,7 +25,8 @@ class CircularSummaryDTO(BaseModel):
     applicable_to_nse: bool = False
     status: str
     url: Optional[str] = None
-    signatories: List[SignatoryDTO] = []
+    signatories: List[SignatoryDTO] = [],
+    is_active: bool
 
     @field_serializer("issue_date")
     def serialize_issue_date(self, value: date) -> str:

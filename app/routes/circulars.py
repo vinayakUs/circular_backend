@@ -198,6 +198,7 @@ def register_routes(app, *, rag_generator) -> None:
         if raw_source == "ALL":
             raw_source = ""
         sort = body.get("sort", "score").strip().lower()
+        match_mode = body.get("match_mode", "keyword").strip().lower()
 
         if not query:
             return {"error": "Query parameter 'q' is required."}, 400
@@ -210,12 +211,15 @@ def register_routes(app, *, rag_generator) -> None:
         )
 
         try:
-            results = get_es_client().search_bm25_v2(query, source=raw_source or None, sort=sort)
-            if results:
-                logger.info(
-                    "BM25v2 first result (pretty):\n%s",
-                    json.dumps(results[0], indent=2, ensure_ascii=False, default=str),
+            results = get_es_client().search_bm25_v2(
+                query, source=raw_source or None, sort=sort,match_mode=match_mode
                 )
+            if results:
+                pass
+                # logger.info(
+                #     "BM25v2 first result (pretty):\n%s",
+                #     json.dumps(results[0], indent=2, ensure_ascii=False, default=str),
+                # )
             else:
                 logger.info("BM25v2 returned 0 hits: query=%r", query)
         except ConnectionTimeout:
@@ -235,6 +239,7 @@ def register_routes(app, *, rag_generator) -> None:
             "strategy": "bm25v2",
             "source": raw_source or None,
             "sort": sort,
+            "match_mode": match_mode,
             "results": [search_hit_to_dict(result, query) for result in results],
         }
 
@@ -316,6 +321,89 @@ def register_routes(app, *, rag_generator) -> None:
                 "rag_error": str(e),
             }
 
+
+
+
+    # ──────────────────────────────Hybrid Search Grouped──────────────────────────────────────────────────────
+
+    @app.post("/api/circulars/search/hybrid/grouped")
+    def search_circulars_hybrid_grouped():
+        """Same hybrid retrieval as /api/circulars/search/hybrid, but each matched
+        circular gets its own LLM-generated per-card summary. Summaries are produced
+        in parallel. Output is a list of cards ordered newest first (issue_date desc).
+        """
+        body = request.get_json() or {}
+        query = body.get("q", "").strip()
+        strategy = "hybrid"
+
+        raw_source = body.get("source", "").strip().upper()
+        if raw_source == "ALL":
+            raw_source = ""
+        from_date = body.get("from_date") or None
+        to_date = body.get("to_date") or None
+
+        if not query:
+            return {"error": "Query parameter 'q' is required."}, 400
+
+        search_metadata: dict[str, Any] = {}
+        if raw_source:
+            search_metadata["source"] = [raw_source]
+        if from_date:
+            search_metadata["from_date"] = from_date
+        if to_date:
+            search_metadata["to_date"] = to_date
+        applicable_to_nse = body.get("applicable_to_nse")
+        if applicable_to_nse is not None:
+            search_metadata["applicable_to_nse"] = applicable_to_nse
+
+        logger.info(
+            "Hybrid grouped search request: query=%r, source=%s, from_date=%s, to_date=%s, applicable_to_nse=%s",
+            query, raw_source or "ALL", from_date, to_date, applicable_to_nse,
+        )
+
+        try:
+            import time
+            search_start = time.perf_counter()
+            results = get_es_client().search(query, search_metadata, strategy=strategy)
+            search_elapsed_ms = (time.perf_counter() - search_start) * 1000
+            logger.info(
+                "Hybrid grouped search completed: query=%r results=%d duration_ms=%.2f",
+                query, len(results), search_elapsed_ms,
+            )
+        except ConnectionTimeout:
+            logger.warning("Search timeout (grouped): query=%r", query)
+            return {"error": "Search service is temporarily unavailable.",
+                    "query": query, "results": []}, 503
+        except Exception as e:
+            logger.error("Search failed (grouped): query=%r, error=%s", query, e)
+            return {"error": "Search service encountered an error.",
+                    "query": query, "results": []}, 500
+
+        try:
+            import time
+            rag_start = time.perf_counter()
+            rag_answer = rag_generator.generate_grouped_answer(query, results)
+            rag_elapsed_ms = (time.perf_counter() - rag_start) * 1000
+            logger.info(
+                "RAG grouped answer generated: query=%r cards=%d duration_ms=%.2f",
+                query, len(rag_answer.results), rag_elapsed_ms,
+            )
+            return {
+                "query": query,
+                "strategy": strategy,
+                "results": [r.model_dump(mode="json") for r in rag_answer.results],
+            }
+        except Exception as e:
+            logger.warning(
+                "RAG grouped failed, returning raw chunks: query=%r, error=%s", query, e
+            )
+            return {
+                "query": query,
+                "strategy": strategy,
+                "results": [search_hit_to_dict(result, query) for result in results],
+                "rag_error": str(e),
+            }
+
     # ── paginated list ──────────────────────────────────────────
     @app.get("/api/circulars")
     def list_circulars():
@@ -378,6 +466,13 @@ def register_routes(app, *, rag_generator) -> None:
         db_client = get_postgres_client()
         repository = CircularRepository(db_pool=db_client.get_pool())
 
+        # Default False — every record (active + superseded) is returned so
+        # callers can build a version history. Set ?active_only=true on the
+        # request to hide superseded rows from user-facing list views.
+        active_only = (
+            request.args.get("active_only", "false").strip().lower() == "true"
+        )
+
         records, total = repository.list_paginated(
             limit=limit,
             offset=offset,
@@ -388,6 +483,7 @@ def register_routes(app, *, rag_generator) -> None:
             signatory=raw_signatory,
             circular_nos=circular_nos,
             department=raw_department,
+            active_only=active_only,
         )
 
         items = [
@@ -406,6 +502,7 @@ def register_routes(app, *, rag_generator) -> None:
                     SignatoryDTO(name=s["name"], designation=s["designation"])
                     for s in (r.signatory or [])
                 ],
+                is_active=r.is_active
             )
             for r in records
         ]
@@ -428,10 +525,10 @@ def register_routes(app, *, rag_generator) -> None:
         raw_source = request.args.get("source", "").strip().upper()
         if raw_source == "ALL" or raw_source == "":
             normalized_source: str | None = None
-        elif raw_source in {"NSE", "SEBI"}:
+        elif raw_source in {"NSE", "SEBI" ,"SEBI_MASTER"}:
             normalized_source = raw_source
         else:
-            return {"error": "source must be 'NSE', 'SEBI', or 'ALL'."}, 400
+            return {"error": "source must be 'NSE', 'SEBI', 'SEBI_MASTER' or 'ALL'."}, 400
 
         db_client = get_postgres_client()
         repository = CircularRepository(db_pool=db_client.get_pool())

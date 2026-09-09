@@ -38,6 +38,8 @@ MAP_PROMPT = PromptTemplate(
 
 IMPORTANT: You MUST wrap the following in **bold** in your output: key entities (like names of regulations, frameworks, segments), obligations, deadlines (dates), and important values or thresholds. Example: "**minimum 100% margin**", "**January 6, 2026**", "**Trade-for-Trade**"
 
+Be concise — keep this section summary to about 100 words.
+
 Text:
 {text}""",
 )
@@ -49,6 +51,8 @@ REDUCE_PROMPT = PromptTemplate(
 
 IMPORTANT: You MUST wrap the following in **bold** in your output: key entities (like names of regulations, frameworks, segments), obligations, deadlines (dates), and important values or thresholds. Example: "**minimum 100% margin**", "**January 6, 2026**", "**Trade-for-Trade**"
 
+Be concise — keep the combined summary to about 250 words.
+
 Summaries:
 {text}""",
 )
@@ -59,6 +63,8 @@ SUMMARY_PROMPT = PromptTemplate(
     template="""You are a regulatory compliance assistant. Summarize the following document as a single cohesive paragraph. Write in plain prose without headers, bullet points, tables, or lists. Focus on: what the regulation requires, who it applies to, key compliance obligations and deadlines, and important entities or thresholds. For any tables or data sets, include only aggregate statistics (e.g., "covers 45 securities across 6 categories" or "lists 12 items with values ranging from X to Y"). Do not enumerate individual table entries. Do not include any contact information, email addresses, phone numbers, or references to help desk/FAQ/exchange contacts. Ignore UI steps, navigation instructions, SOPs, and procedural how-to guides. Be precise and factual.
 
 IMPORTANT: You MUST wrap the following in **bold** in your output: key entities (like names of regulations, frameworks, segments), obligations, deadlines (dates), and important values or thresholds. Example: "**minimum 100% margin**", "**January 6, 2026**", "**Trade-for-Trade**"
+
+Be concise — keep this summary to about 250 words.
 
 Document:
 {text}""",
@@ -94,22 +100,22 @@ class DocumentSummarizerProcessor(BaseProcessor):
     def name(self) -> str:
         return "document_summarizer"
 
-    def run(self, record: CircularRecord) -> bool:
-        """Override to restrict to last-24h circulars only."""
-        from datetime import datetime, timezone, timedelta
+    # def run(self, record: CircularRecord) -> bool:
+    #     """Override to restrict to last-24h circulars only."""
+    #     from datetime import datetime, timezone, timedelta
 
-        cutoff = datetime.now(timezone.utc).date()
-        yesterday = cutoff - timedelta(days=1)
-        if record.issue_date and record.issue_date < yesterday:
-            self.logger.info(
-                "Skipping circular_id=%s issue_date=%s (older than 24h)",
-                record.id, record.issue_date
-            )
-            # Mark as completed so it's not retried
-            self.processor_repo.mark_task_completed(record.id, self.name)
-            return True
+    #     cutoff = datetime.now(timezone.utc).date()
+    #     yesterday = cutoff - timedelta(days=1)
+    #     if record.issue_date and record.issue_date < yesterday:
+    #         self.logger.info(
+    #             "Skipping circular_id=%s issue_date=%s (older than 24h)",
+    #             record.id, record.issue_date
+    #         )
+    #         # Mark as completed so it's not retried
+    #         self.processor_repo.mark_task_completed(record.id, self.name)
+    #         return True
 
-        return super().run(record)
+    #     return super().run(record)
 
     def process(self, record: CircularRecord) -> None:
         # Get PDF path from circular_assets table (new architecture)

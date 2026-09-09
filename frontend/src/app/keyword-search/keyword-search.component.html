@@ -15,15 +15,33 @@
                                 role="combobox" aria-autocomplete="list"
                                 [attr.aria-expanded]="showRecentSearches" autocomplete="off"
                                 (focus)="onSearchFocus()" (blur)="onSearchBlur()" />
-                            <div class="mode-toggle" role="tablist" aria-label="Search mode">
-                                <button *ngFor="let option of modes" type="button" role="tab"
-                                    class="mode-toggle-btn"
-                                    [class.active]="mode === option.value"
-                                    [attr.aria-selected]="mode === option.value"
-                                    (mousedown)="$event.preventDefault()"
-                                    (click)="onModeChange(option.value)">
-                                    {{ option.label }}
+                            <div class="mode-select-wrapper">
+                                <button type="button" class="mode-trigger"
+                                    aria-haspopup="listbox"
+                                    [attr.aria-expanded]="showModeMenu"
+                                    (click)="toggleModeMenu(); $event.stopPropagation()">
+                                    <span class="mode-trigger-label">{{ currentModeLabel() }}</span>
+                                    <svg class="mode-trigger-caret" viewBox="0 0 24 24" fill="none"
+                                        stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                        <polyline points="6 9 12 15 18 9" />
+                                    </svg>
                                 </button>
+
+                                <ul class="mode-menu" role="listbox" aria-label="Search mode"
+                                    *ngIf="showModeMenu">
+                                    <li *ngFor="let option of modes" role="option"
+                                        class="mode-menu-item"
+                                        [class.is-selected]="mode === option.value"
+                                        [attr.aria-selected]="mode === option.value"
+                                        (mousedown)="$event.preventDefault()"
+                                        (click)="onModeOptionClick(option.value)">
+                                        <span class="mode-menu-item-label">{{ option.label }}</span>
+                                        <svg class="mode-menu-item-check" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2.25" aria-hidden="true">
+                                            <polyline points="20 6 9 17 4 12" />
+                                        </svg>
+                                    </li>
+                                </ul>
                             </div>
                             <button type="submit" class="search-submit" aria-label="Search">
                                 <svg class="search-submit-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -74,9 +92,9 @@
                 <div class="filter-group">
                     <span class="filter-label">Exchange</span>
                     <div class="filter-tabs horizontal">
-                        <button *ngFor="let value of exchanges" type="button" class="filter-tab"
-                            [class.active]="source === value" (click)="onSourceChange(value)">
-                            {{ exchangeLabel(value) }}
+                        <button *ngFor="let key of exchanges" type="button" class="filter-tab"
+                            [class.active]="source === getExchangeValue(key)" (click)="onSourceChange(getExchangeValue(key))">
+                            {{ exchangeLabel(key) }}
                         </button>
                     </div>
                 </div>
@@ -133,8 +151,8 @@
                                     <span class="circular-id">{{ result.fullReference }}</span>
                                     <span class="circular-time">{{ result.issueDate | date:'dd-MMM-yyyy'}}</span>
                                 </div>
-                                <span class="circular-title">{{ result.title }}</span>
-                                <p class="circular-preview" *ngIf="result.highlights?.['chunk_text']?.[0] || result.preview"
+                                <span class="circular-title" [innerHTML]="safeTitle(result.title, result.highlights)"></span>
+                                <p class="circular-preview" *ngIf="result.highlights?.['chunk_text']?.[0]"
                                     [innerHTML]="safeHighlight(result.highlights)"></p>
                                 <div class="circular-tags">
                                     <span class="tag tag-nse" *ngIf="result.applicableToNse === true">Applicable to
