@@ -72,6 +72,9 @@ class Config:
     ELASTICSEARCH_URL = os.getenv(
         "ELASTICSEARCH_URL", "http://localhost:9200"
     )
+    FRONTEND_BASE_URL = os.getenv(
+        "FRONTEND_BASE_URL", "http://localhost:4200"
+    )
     ELASTICSEARCH_USERNAME = os.getenv("ELASTICSEARCH_USERNAME", "elastic")
     ELASTICSEARCH_PASSWORD = os.getenv(
         "ELASTICSEARCH_PASSWORD", "H9QWD2laWoDp3yVLWnz3MNcJ"

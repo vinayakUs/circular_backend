@@ -320,7 +320,7 @@
         } @else {
         <div class="comments-list">
           @for (c of comments; track c.id) {
-          <div class="comment-item">
+          <div class="comment-item" [attr.id]="'comment-' + c.id">
             <div class="comment-header">
               <span class="comment-author">{{ c.author_name ?? c.author_user_id }}</span>
               <span class="comment-time">{{ c.created_at | date:'MMM d, h:mm a' }}</span>

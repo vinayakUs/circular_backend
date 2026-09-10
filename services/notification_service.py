@@ -175,13 +175,23 @@ class EmailService:
         """row comes from MentionNotificationsRepository.list_pending()."""
         print(row)
         template_name = "mention_notification.html"
+        # Format the comment timestamp for display; fall back to blank if missing.
+        comment_dt = row.get("created_at")
+        comment_created_at = (
+            comment_dt.strftime("%d %b %Y, %H:%M")
+            if hasattr(comment_dt, "strftime")
+            else ""
+        )
         variables = {
             "mentioned_by_user_id": row["mentioned_by_user_id"],
             "mentioned_by_name": row.get("mentioned_by_name"),
             "target_label": row["target_label"],
             "comment_text": row["text"],
             "expert_name":  row["expert_name"],
-            "comment_url":  f"https://abc.com/expert/{row['expert_id']}#comment-{row['comment_id']}",
+            "comment_url":  f"{Config.FRONTEND_BASE_URL}/testpdfviewer?id={row['circular_uuid']}&expertId={row['expert_id']}#comment-{row['comment_id']}",
+            "comment_created_at": comment_created_at,
+            "circular_title": row.get("circular_title", ""),
+            "circular_full_reference": row.get("circular_full_reference", ""),
         }
         subject = f"You were mentioned in a comment by @{row['mentioned_by_user_id']}"
         html = self._render_template(template_name, variables)
@@ -275,7 +285,7 @@ class EmailService:
                 "department": record.department,
                 "issue_date": str(record.issue_date) if record.issue_date else "",
                 "source": record.source,
-                "url": f"https://abc.com/circular/{record.id}",
+                "url": f"{Config.FRONTEND_BASE_URL}/circular/{record.id}",
                 "pdf_url": record.pdf_url,
                 "applicable_to_nse": record.applicable_to_nse,
                 "summary_html": summary_html,

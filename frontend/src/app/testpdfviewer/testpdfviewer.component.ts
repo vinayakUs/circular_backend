@@ -88,6 +88,15 @@ export class TestpdfviewerComponent implements OnInit {
   isLoadingComments = false;
   isSubmittingComment = false;
 
+  /**
+   * The `#comment-<uuid>` fragment from the route, captured at navigation
+   * time. Held so `loadComments` can scroll to the right comment AFTER
+   * the comment DOM nodes are rendered. Read from `route.fragment` (not
+   * `window.location.hash`) because some router navigations strip the
+   * hash from the URL bar but ActivatedRoute retains the requested value.
+   */
+  pendingFragment: string | null = null;
+
   // Inline dept edit (rendered at the bottom of the expert-section)
   isEditingDept = false;
   editedDeptIds: string[] = [];
@@ -143,6 +152,18 @@ export class TestpdfviewerComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadDepartments();
+
+    // Capture the URL fragment so loadComments can scroll to the matching
+    // comment after the DOM is ready. Two triggers: at navigation (deep
+    // link from email) the value is captured; when the fragment changes
+    // while comments are already on screen (re-nav within the same route)
+    // we scroll immediately without refetching.
+    this.route.fragment.subscribe(fragment => {
+      this.pendingFragment = fragment ?? null;
+      if (fragment && !this.isLoadingComments && this.comments.length > 0) {
+        this.scrollToFragment(fragment);
+      }
+    });
 
     this.route.queryParamMap.subscribe(params => {
       const circularId = params.get('id');
@@ -226,12 +247,34 @@ export class TestpdfviewerComponent implements OnInit {
   /** Mirror the current selection into the URL so the view is shareable / reloadable. */
   private syncExpertIdInUrl(expertId: string | null): void {
     this.lastAppliedExpertId = expertId;
+    // IMPORTANT: router.navigate() drops the URL fragment unless it's passed
+    // explicitly via the `fragment` navigation extra. Without this, a deep
+    // link like /testpdfviewer?...#comment-<uuid> loses its hash as soon
+    // as the component auto-selects an expert.
     this.router.navigate([], {
       relativeTo: this.route,
       queryParams: { expertId },
       queryParamsHandling: 'merge',
       replaceUrl: true,
+      fragment: this.route.snapshot.fragment ?? undefined,
     });
+  }
+
+  /**
+   * Scroll to an element matching the given id (expected to be `comment-<uuid>`)
+   * after the next paint cycle. No-op if the element isn't in the DOM yet —
+   * callers (loadComments / fragment subscription) handle retry if needed.
+   */
+  private scrollToFragment(id: string): void {
+    if (!id) return;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+        console.warn('[scroll] fragment target not found:', id);
+      }
+    }));
   }
 
   loadDepartments(): void {
@@ -458,6 +501,10 @@ export class TestpdfviewerComponent implements OnInit {
       next: (res) => {
         this.comments = res?.comments ?? [];
         this.isLoadingComments = false;
+        // Deep-link from email: scroll to the requested comment. Wait two
+        // RAFs so Angular's CD + DOM paint run before scrollIntoView —
+        // otherwise the target element doesn't exist yet.
+        if (this.pendingFragment) this.scrollToFragment(this.pendingFragment);
       },
       error: (err) => {
         console.error('[comments] load failed', err);

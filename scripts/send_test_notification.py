@@ -14,6 +14,7 @@ import sys
 
 import markdown as md
 
+from config import Config
 from db.postgres_client import get_postgres_client
 from ingestion.repository.circular_repository import CircularRepository
 from ingestion.repository.summary_repository import SummaryRepository
@@ -54,7 +55,7 @@ def main(uuid_str: str) -> int:
         "department": record.department,
         "issue_date": str(record.issue_date) if record.issue_date else "",
         "source": record.source,
-        "url": f"https://abc.com/circular/{record.id}",
+        "url": f"{Config.FRONTEND_BASE_URL}/circular/{record.id}",
         "pdf_url": record.pdf_url,
         "applicable_to_nse": bool(getattr(record, "applicable_to_nse", False)),
         "summary_html": summary_html,

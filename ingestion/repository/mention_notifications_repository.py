@@ -105,6 +105,8 @@ class MentionNotificationsRepository:
         return queued
 
     def list_pending(self, limit: int = 100) -> list[dict[str, Any]]:
+        """Return up to `limit` PENDING mention notifications joined with the
+        comment, expert, circular, and mentioner — oldest first."""
         with self.db_pool.acquire() as conn:
             cur = conn.cursor()
             cur.execute(
@@ -114,11 +116,15 @@ class MentionNotificationsRepository:
                        cm.target_label, cm.target_type,
                        u.user_id AS mentioned_by_user_id,
                        u.name    AS mentioned_by_name,
-                       c.text, c.created_at, e.expert_name
+                       c.text, c.created_at, e.expert_name,
+                       cir.id              AS circular_uuid,
+                       cir.title           AS circular_title,
+                       cir.full_reference  AS circular_full_reference
                 FROM mention_notifications mn
                 JOIN comment_mentions cm ON cm.id = mn.mention_id
                 JOIN comments c          ON c.id  = cm.comment_id
                 JOIN experts e           ON e.id  = cm.expert_id
+                JOIN circulars cir       ON cir.id = e.circular_id
                 JOIN users u             ON u.id  = cm.mentioned_by_user_db_id
                 WHERE mn.status = 'PENDING'
                 ORDER BY mn.created_at
