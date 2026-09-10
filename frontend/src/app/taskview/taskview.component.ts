@@ -1,11 +1,23 @@
-import { Component, OnInit, ElementRef, ViewChild, HostListener, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, ElementRef, HostListener, inject, OnInit, signal, ViewChild } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
-import { NgxExtendedPdfViewerModule, NgxExtendedPdfViewerService } from 'ngx-extended-pdf-viewer';
-import { CircularsApiService, Expert, Department } from '../services/circulars-api.service';
+import { DatePipe } from '@angular/common';
+import { EditorAnnotation, NgxExtendedPdfViewerModule, NgxExtendedPdfViewerService } from 'ngx-extended-pdf-viewer';
 import { environment } from 'src/environments/environment';
 import { NavbarComponent } from '../navbar/navbar.component';
+import { CircularsApiService, Department, Expert } from '../services/circulars-api.service';
+import { AnnotationApiService } from '../services/annotation-api.service';
+import { AnnotationEntry, Task, TaskService } from '../services/task.service';
+import { AnnotationMode } from '../services/annotation-mode.enum';
+
+
+interface AnnotationEditorEventLike {
+  type?: string;
+  editorType?: string | number;
+  id?: string;
+  source?: { name?: string; text?: string; parent?: { id?: string } };
+  value?: string | { text?: string; color?: string; thickness?: number; isFreeHighlight?: boolean };
+}
 
 interface Comment {
   id: string;
@@ -26,35 +38,74 @@ interface MentionSegment {
 // rendered pills always match what the server actually parsed.
 const COMMENT_MENTION_RE = /(?<![A-Za-z0-9_@])@((?:dep:)?)([A-Za-z0-9_.\-@]+)/g;
 
+
 @Component({
   selector: 'app-taskview',
-  standalone: true,
-  imports: [CommonModule, FormsModule, NgxExtendedPdfViewerModule, NavbarComponent],
+  imports: [NavbarComponent, NgxExtendedPdfViewerModule, FormsModule, DatePipe],
   templateUrl: './taskview.component.html',
   styleUrl: './taskview.component.css'
 })
 export class TaskviewComponent implements OnInit {
-  pdfUrl: string = '';
-  circularId: string = '';
-  experts: Expert[] = [];
-  departments: Department[] = [];
-  selectedExpert: Expert | null = null;
-  comments: Comment[] = [];
-  newComment: string = '';
-  isLoadingComments = false;
+
+  pdfService = inject(NgxExtendedPdfViewerService);
+  circularsApi = inject(CircularsApiService);
+  taskService = inject(TaskService);
+  readonly currentMode = signal<AnnotationMode>(AnnotationMode.NONE);
+
+  /** Run auto-load only once after the editor layer is ready. */
+  private autoLoadDone = false;
+
+  /**
+   * Deep-link focus (`?expertId=`). Applying it needs BOTH the experts fetched
+   * and the pdf.js editor layer mounted, and those two race — whichever
+   * finishes last triggers `maybeAutoLoad()`.
+   */
+  private pendingExpertId: string | null = null;
+  private lastAppliedExpertId: string | null = null;
+  private expertsLoaded = false;
+  private layerReady = false;
+
+  /** Set when `?expertId=` points at an expert that isn't on this circular. */
+  expertNotFound = false;
+
+  readonly activeTask = this.taskService.activeTask;
+  readonly savedTasks = this.taskService.savedTasks;
+
+
+
+  pdfUrl = '';
+  circularId = '';
   isAddingTask = false;
-  isSubmittingComment = false;
-  pendingSelection = '';
-  pendingHighlight: any = null;
-  newTaskTitle = '';
+  departments: Department[] = [];
   newTaskDeptIds: string[] = [];
+  newTaskTitle = '';
   showDeptDropdown = false;
 
-  // Inline dept edit (rendered at the top of the comments section)
+  // ── Comments per saved task ─────────────────────────────────
+  selectedTask: Task | null = null;
+  comments: Comment[] = [];
+  newComment = '';
+  isLoadingComments = false;
+  isSubmittingComment = false;
+
+  /**
+   * The `#comment-<uuid>` fragment from the route, captured at navigation
+   * time. Held so `loadComments` can scroll to the right comment AFTER
+   * the comment DOM nodes are rendered. Read from `route.fragment` (not
+   * `window.location.hash`) because some router navigations strip the
+   * hash from the URL bar but ActivatedRoute retains the requested value.
+   */
+  pendingFragment: string | null = null;
+
+  // Inline dept edit (rendered at the bottom of the expert-section)
   isEditingDept = false;
   editedDeptIds: string[] = [];
   showEditDeptDropdown = false;
   isSavingDept = false;
+
+  // Loading flag for the initial experts fetch — keeps the empty state from
+  // flashing before the API responds.
+  isLoadingExperts = false;
 
   // ── @mention picker ─────────────────────────────────────────
   @ViewChild('commentBox') commentBox!: ElementRef<HTMLTextAreaElement>;
@@ -62,49 +113,421 @@ export class TaskviewComponent implements OnInit {
   mentionUsers: { id: string; user_id: string }[] = [];
   mentionDepartments: { id: string; name: string }[] = [];
   mentionActive = 0;
-  mentionTriggerPos: number | null = null;       // char index of the '@' that opened the picker
-  mentionPos: { top: number; left: number; width: number } | null = null;  // fixed-positioned popup coords
+  mentionTriggerPos: number | null = null;
+  mentionPos: { top: number; left: number; width: number } | null = null;
   private mentionDebounce?: ReturnType<typeof setTimeout>;
 
-  // TEMP: hardcoded ID for testing — replace with a real UUID, then remove before merging.
-  private readonly DEFAULT_EXPERT_ID = '8c398f65-b9e8-4664-b86e-13ea773456c0';
-  private pendingAutoSelectId: string | null = null;
-  private pdfPageRendered = false;
 
-  private annotationsRestored = false;
-  private isRestoring = false;
-  private isClearingHighlights = false;
 
-  // Sort experts: open tasks first, then closed
-  get sortedExperts(): Expert[] {
-    return [...this.experts].sort((a, b) => {
-      if (a.status === 'closed' && b.status !== 'closed') return 1;
-      if (a.status !== 'closed' && b.status === 'closed') return -1;
-      return 0;
-    });
-  }
 
   constructor(
     private route: ActivatedRoute,
-    private api: CircularsApiService,
-    private pdfViewerService: NgxExtendedPdfViewerService,
-    private cdr: ChangeDetectorRef
-  ) {
-    // Suppress a known PDF.js race condition: when addEditorAnnotation adds a
-    // highlight, the annotation gets focus, which auto-switches the editor
-    // mode and tries to re-enable ALL editor layers on every page. For pages
-    // that haven't been rendered yet, the layer's `div` is null and the
-    // update throws "Cannot read properties of null (reading 'append')".
-    // The annotation is still added correctly — only the uncaught rejection
-    // log noise needs silencing.
-    window.addEventListener('unhandledrejection', (event) => {
-      const msg = event.reason?.message ?? '';
-      if (
-        msg.includes("Cannot read properties of null (reading 'append')") ||
-        msg.includes("Cannot read properties of undefined (reading 'div')")
-      ) {
-        event.preventDefault();
+    private router: Router
+  ) { }
+
+  toggleAddTask(): void {
+    this.isAddingTask = !this.isAddingTask;
+  }
+
+  cancelAddTask(): void {
+    // Remove any highlights captured during this session from the PDF
+    const task = this.taskService.activeTask();
+    if (task) {
+      for (const annotation of task.annotations) {
+        try {
+          this.pdfService.removeEditorAnnotations((a: any) => a.id === annotation.id);
+        } catch (err) {
+          console.warn('[cancelAddTask] remove failed', err);
+        }
       }
+    }
+
+    this.taskService.clearActiveTask();
+    this.isAddingTask = false;
+    this.newTaskDeptIds = [];
+    this.newTaskTitle = '';
+    this.showDeptDropdown = false;
+    this.setMode(AnnotationMode.NONE);
+  }
+
+  ngOnInit(): void {
+    this.loadDepartments();
+
+    // Capture the URL fragment so loadComments can scroll to the matching
+    // comment after the DOM is ready. Two triggers: at navigation (deep
+    // link from email) the value is captured; when the fragment changes
+    // while comments are already on screen (re-nav within the same route)
+    // we scroll immediately without refetching.
+    this.route.fragment.subscribe(fragment => {
+      this.pendingFragment = fragment ?? null;
+      if (fragment && !this.isLoadingComments && this.comments.length > 0) {
+        this.scrollToFragment(fragment);
+      }
+    });
+
+    this.route.queryParamMap.subscribe(params => {
+      const circularId = params.get('id');
+      if (!circularId) {
+        this.router.navigate(['/']);
+        return;
+      }
+
+      const expertId = params.get('expertId');
+
+      // Same circular, only ?expertId changed — re-focus in place instead of
+      // refetching and re-rendering the PDF.
+      if (circularId === this.circularId) {
+        if (this.autoLoadDone && expertId !== this.lastAppliedExpertId) {
+          this.pendingExpertId = expertId;
+          this.applyExpertFocus();
+        }
+        return;
+      }
+
+      this.circularId = circularId;
+      this.pdfUrl = `${environment.apiUrl}/api/circulars/${circularId}/content`;
+
+      // The task store is root-provided and survives navigation; start clean.
+      this.taskService.reset();
+      this.selectedTask = null;
+      this.comments = [];
+      this.expertNotFound = false;
+      this.pendingExpertId = expertId;
+      this.lastAppliedExpertId = null;
+      this.autoLoadDone = false;
+      this.expertsLoaded = false;
+      this.layerReady = false;
+
+      this.fetchExperts();
+    });
+  }
+
+  /**
+   * Runs once both the experts list and the pdf.js editor layer are ready.
+   * With `?expertId=` we jump straight to that expert (its highlights only);
+   * otherwise we fall back to rendering every saved highlight.
+   */
+  private maybeAutoLoad(): void {
+    if (this.autoLoadDone || !this.layerReady || !this.expertsLoaded) return;
+    this.autoLoadDone = true;
+
+    if (this.pendingExpertId) {
+      this.applyExpertFocus();
+    } else {
+      this.loadFromApi();
+    }
+  }
+
+  /** Open the expert named by `pendingExpertId`, or show everything if absent. */
+  private applyExpertFocus(): void {
+    const expertId = this.pendingExpertId;
+    this.pendingExpertId = null;
+    this.lastAppliedExpertId = expertId;
+
+    if (!expertId) {
+      this.expertNotFound = false;
+      this.selectedTask = null;
+      this.comments = [];
+      this.showAllInPdf();
+      return;
+    }
+
+    const task = this.savedTasks().find(t => t.id === expertId);
+    if (!task) {
+      console.warn('[applyExpertFocus] expert not on this circular', expertId);
+      this.expertNotFound = true;
+      this.showAllInPdf();
+      return;
+    }
+
+    this.expertNotFound = false;
+    this.selectTaskForComments(task);
+  }
+
+  /** Mirror the current selection into the URL so the view is shareable / reloadable. */
+  private syncExpertIdInUrl(expertId: string | null): void {
+    this.lastAppliedExpertId = expertId;
+    // IMPORTANT: router.navigate() drops the URL fragment unless it's passed
+    // explicitly via the `fragment` navigation extra. Without this, a deep
+    // link like /taskview?...#comment-<uuid> loses its hash as soon
+    // as the component auto-selects an expert.
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { expertId },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+      fragment: this.route.snapshot.fragment ?? undefined,
+    });
+  }
+
+  /**
+   * Scroll to an element matching the given id (expected to be `comment-<uuid>`)
+   * after the next paint cycle. No-op if the element isn't in the DOM yet —
+   * callers (loadComments / fragment subscription) handle retry if needed.
+   */
+  private scrollToFragment(id: string): void {
+    if (!id) return;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+        console.warn('[scroll] fragment target not found:', id);
+      }
+    }));
+  }
+
+  loadDepartments(): void {
+    this.circularsApi.getAvailableDepartments().subscribe({
+      next: response => {
+        this.departments = response.items.filter(department => !department.archived);
+      },
+      error: error => {
+        console.error('Failed to load departments', error);
+      }
+    });
+  }
+
+  toggleNewTaskDepartment(deptId: string): void {
+    this.newTaskDeptIds = this.newTaskDeptIds.includes(deptId)
+      ? this.newTaskDeptIds.filter(id => id !== deptId)
+      : [...this.newTaskDeptIds, deptId];
+    this.taskService.setActiveTaskDepartments(this.newTaskDeptIds);
+  }
+
+  isNewTaskDeptSelected(deptId: string): boolean {
+    return this.newTaskDeptIds.includes(deptId);
+  }
+
+  removeNewTaskDept(deptId: string): void {
+    this.newTaskDeptIds = this.newTaskDeptIds.filter(id => id !== deptId);
+    this.taskService.setActiveTaskDepartments(this.newTaskDeptIds);
+  }
+
+  getDeptName(deptId: string): string {
+    return this.departments.find(department => department.id === deptId)?.name ?? '';
+  }
+
+  onAnnotationEditorModeChanged(event: { mode: number }): void {
+    this.currentMode.set(event.mode as AnnotationMode);
+  }
+  setMode(mode: AnnotationMode): void {
+    this.pdfService.switchAnnotationEdtorMode(mode);
+  }
+
+  selectTask(): void {
+    if (!this.taskService.activeTask()) {
+      this.taskService.startNewTask(this.circularId);
+      this.newTaskTitle = '';
+    }
+    this.isAddingTask = true;
+    this.setMode(AnnotationMode.HIGHLIGHT);
+  }
+
+  renameActiveTask(title: string): void {
+    const trimmed = title.trim();
+    if (!trimmed) return;
+    this.taskService.renameActiveTask(trimmed);
+  }
+  // saveTask(): void {
+  //   if (this.newTaskDeptIds.length === 0) return;
+
+  //   const savedTask = this.taskService.saveActiveTask();
+  //   if (!savedTask) return;
+
+  //   this.isAddingTask = false;
+  //   this.newTaskDeptIds = [];
+  //   this.showDeptDropdown = false;
+  //   this.setMode(AnnotationMode.NONE);
+  // }
+
+  
+    saveTask(): void {
+      if (this.newTaskDeptIds.length === 0) return;
+
+      const task = this.taskService.activeTask();          // ← this line was missing
+      if (!task || task.annotations.length === 0) return;
+
+      const payload: Expert = {
+        title: task.name,
+        text: task.annotations[0]?.text ?? '',
+        dept_ids: [...this.newTaskDeptIds],
+        highlights: task.annotations.map(a => a.serialized),
+      };
+
+      this.circularsApi.createExpert(this.circularId, payload).subscribe({
+        next: (res) => {
+          const savedTask = this.taskService.saveActiveTask();
+          if (!savedTask) return;
+
+          // Swap the local temp id for the server-assigned id so subsequent
+          // PUT /departments, PATCH /status, etc. use the canonical id.
+          this.taskService.updateTaskId(savedTask.id, res.expert.id);
+
+          this.isAddingTask = false;
+          this.newTaskDeptIds = [];
+          this.showDeptDropdown = false;
+          this.setMode(AnnotationMode.NONE);
+          this.loadFromApi();
+        },
+        error: (err) => {
+          console.error('[saveTask] createExpert failed', err);
+          alert('Failed to save task. Please try again.');
+        }
+      });
+    }
+
+  // ── Comments ────────────────────────────────────────────────
+  selectTaskForComments(task: Task): void {
+    this.selectedTask = task;
+    this.comments = [];
+    this.expertNotFound = false;
+    if (!task.id) return;
+    this.loadComments(task.id);
+    this.showTaskInPdf(task.id).then(() => this.scrollToTask(task));
+    this.syncExpertIdInUrl(task.id);
+  }
+
+  /**
+   * Scroll the viewer to the page holding a task's first highlight.
+   * Deferred + guarded: pdf.js throws from scrollPagePosIntoView if the target
+   * page div hasn't been mounted yet.
+   */
+  private scrollToTask(task: Task): void {
+    const first = task.annotations[0];
+    if (!first) return;
+    const page = (first.pageIndex ?? 0) + 1;
+    setTimeout(() => {
+      try {
+        this.pdfService.scrollPageIntoView(page, { top: 100 });
+      } catch (err) {
+        console.warn('[scrollToTask] page not rendered yet', err);
+      }
+    }, 200);
+  }
+
+  deselectTask(): void {
+    this.selectedTask = null;
+    this.comments = [];
+    this.newComment = '';
+    this.expertNotFound = false;
+    this.showAllInPdf();
+    this.syncExpertIdInUrl(null);
+  }
+
+  closeTask(): void {
+    if (!this.selectedTask?.id) return;
+    if (!confirm('Are you sure you want to close this task?')) return;
+
+    const taskId = this.selectedTask.id;
+    this.circularsApi.updateExpertStatus(this.circularId, taskId, 'closed').subscribe({
+      next: () => {
+        this.taskService.updateTaskStatus(taskId, 'closed');
+        if (this.selectedTask) {
+          this.selectedTask = { ...this.selectedTask, taskStatus: 'closed' };
+        }
+      },
+      error: (err) => {
+        console.error('[closeTask] failed', err);
+        alert('Failed to close task. Please try again.');
+      },
+    });
+  }
+
+  // ── Inline dept edit ───────────────────────────────────────
+  private resetDeptEditState(): void {
+    this.isEditingDept = false;
+    this.editedDeptIds = [];
+    this.showEditDeptDropdown = false;
+    this.isSavingDept = false;
+  }
+
+  startEditDept(): void {
+    if (!this.selectedTask) return;
+    this.editedDeptIds = [...this.selectedTask.deptIds];
+    this.isEditingDept = true;
+    this.showEditDeptDropdown = false;
+  }
+
+  cancelEditDept(): void {
+    this.resetDeptEditState();
+  }
+
+  toggleEditDept(deptId: string): void {
+    this.editedDeptIds = this.editedDeptIds.includes(deptId)
+      ? this.editedDeptIds.filter(id => id !== deptId)
+      : [...this.editedDeptIds, deptId];
+  }
+
+  isEditDeptSelected(deptId: string): boolean {
+    return this.editedDeptIds.includes(deptId);
+  }
+
+  removeEditDept(deptId: string): void {
+    this.editedDeptIds = this.editedDeptIds.filter(id => id !== deptId);
+  }
+
+  saveEditDept(): void {
+    const task = this.selectedTask;
+    if (!task?.id || this.isSavingDept) return;
+    if (this.editedDeptIds.length === 0) return;
+
+    const taskId = task.id;
+    const newDeptIds = [...this.editedDeptIds];
+
+    this.isSavingDept = true;
+    this.circularsApi.setExpertDepartments(this.circularId, taskId, newDeptIds).subscribe({
+      next: () => {
+        // Clear deptNames so the template falls through to deptIds + getDeptName().
+        // deptNames is a snapshot from the initial load and would otherwise keep
+        // showing the old dept names after an edit.
+        if (this.selectedTask) {
+          this.selectedTask = { ...this.selectedTask, deptIds: newDeptIds, deptNames: undefined };
+        }
+        this.taskService.updateTaskDeptIds(taskId, newDeptIds);
+        this.resetDeptEditState();
+      },
+      error: (err) => {
+        console.error('[saveEditDept] failed', err);
+        this.isSavingDept = false;
+        alert('Failed to save departments. Please try again.');
+      },
+    });
+  }
+
+  loadComments(expertId: string): void {
+    this.isLoadingComments = true;
+    this.circularsApi.getComments(this.circularId, expertId).subscribe({
+      next: (res) => {
+        this.comments = res?.comments ?? [];
+        this.isLoadingComments = false;
+        // Deep-link from email: scroll to the requested comment. Wait two
+        // RAFs so Angular's CD + DOM paint run before scrollIntoView —
+        // otherwise the target element doesn't exist yet.
+        if (this.pendingFragment) this.scrollToFragment(this.pendingFragment);
+      },
+      error: (err) => {
+        console.error('[comments] load failed', err);
+        this.isLoadingComments = false;
+      },
+    });
+  }
+
+  addComment(): void {
+    const text = this.newComment.trim();
+    if (!text || !this.selectedTask?.id || this.isSubmittingComment) return;
+
+    this.isSubmittingComment = true;
+    this.circularsApi.createComment(this.circularId, this.selectedTask.id, text).subscribe({
+      next: (res) => {
+        this.comments = [...this.comments, res.comment];
+        this.newComment = '';
+        this.isSubmittingComment = false;
+      },
+      error: (err) => {
+        console.error('[comments] create failed', err);
+        this.isSubmittingComment = false;
+      },
     });
   }
 
@@ -122,7 +545,7 @@ export class TaskviewComponent implements OnInit {
   parseCommentSegments(text: string): MentionSegment[] {
     if (!text) return [];
     const out: MentionSegment[] = [];
-    COMMENT_MENTION_RE.lastIndex = 0;        // reset stateful regex (g flag)
+    COMMENT_MENTION_RE.lastIndex = 0;
     let lastIndex = 0;
     for (const m of text.matchAll(COMMENT_MENTION_RE)) {
       if (m.index === undefined) break;
@@ -151,44 +574,32 @@ export class TaskviewComponent implements OnInit {
     const caret = ta.selectionStart ?? this.newComment.length;
     const before = this.newComment.slice(0, caret);
 
-    // Match an '@' that starts a mention token: must be at text-start or after whitespace/punct,
-    // followed by optional 'dep:' and then non-space, non-@ chars up to the caret.
     const m = before.match(/(?:^|[\s.,;!?()])@((?:dep:)?[^\s@]*)$/i);
     if (!m) {
       this.closeMention();
       return;
     }
 
-    this.mentionTriggerPos = caret - m[1].length - 1;     // position of the '@'
+    this.mentionTriggerPos = caret - m[1].length - 1;
     this.mentionOpen = true;
     this.updatePopupPos();
     this.scheduleMentionSearch(m[1]);
   }
 
-  /** Recompute popup coords from the textarea's viewport bounding rect.
-   *  Flip rules:
-   *    • 1 result   → always above (compact, close to the user's eye line)
-   *    • many results → flip above only if it wouldn't fit below
-   *  The popup's actual height is clamped to its content (1 row ≈ 32px,
-   *  many rows up to POPUP_MAX_H), so for the single-row case we use the
-   *  content height when computing the flipped position. */
+  /** Recompute popup coords from the textarea's viewport bounding rect. */
   private updatePopupPos(): void {
     const ta = this.commentBox?.nativeElement;
     if (!ta) return;
     const r = ta.getBoundingClientRect();
-    const POPUP_MAX_H = 260;                              // matches CSS .mention-popup max-height
-    const ROW_H       = 36;                               // approx single-row height incl. padding
-    const GAP         = 4;
-    const vh          = window.innerHeight;
-    const total       = this.flatMentionCount();
+    const POPUP_MAX_H = 260;
+    const ROW_H = 36;
+    const GAP = 4;
+    const vh = window.innerHeight;
+    const total = this.flatMentionCount();
 
-    // Pick an estimated popup height so the "flipped" position lands cleanly.
     const popupH = total === 1 ? ROW_H : Math.min(total * ROW_H, POPUP_MAX_H);
-
     const spaceBelow = vh - r.bottom;
-    const placeAbove =
-      total === 1 ||                                      // 1 result: always above
-      (spaceBelow < popupH && r.top > spaceBelow);        // many: flip if no room below
+    const placeAbove = total === 1 || (spaceBelow < popupH && r.top > spaceBelow);
 
     this.mentionPos = {
       top: placeAbove ? r.top - popupH - GAP : r.bottom + GAP,
@@ -203,13 +614,13 @@ export class TaskviewComponent implements OnInit {
   }
 
   private runMentionSearch(q: string): void {
-    this.api.searchMentions(q, 8).subscribe({
+    this.circularsApi.searchMentions(q, 8).subscribe({
       next: (res) => {
         this.mentionUsers = res.users ?? [];
         this.mentionDepartments = res.departments ?? [];
         const total = this.flatMentionCount();
         this.mentionActive = total === 0 ? 0 : Math.min(this.mentionActive, total - 1);
-        this.updatePopupPos();       // re-evaluate (1-result → above rule now applies)
+        this.updatePopupPos();
       },
       error: () => this.closeMention(),
     });
@@ -221,14 +632,12 @@ export class TaskviewComponent implements OnInit {
     this.mentionPos = null;
   }
 
-  /** Recompute popup position when the user scrolls or resizes while popup is open. */
   @HostListener('window:scroll')
   @HostListener('window:resize')
   onWindowScrollOrResize(): void {
     if (this.mentionOpen) this.updatePopupPos();
   }
 
-  /** Keyboard navigation while the picker is open. */
   onCommentKey(ev: KeyboardEvent): void {
     if (!this.mentionOpen) return;
 
@@ -254,592 +663,248 @@ export class TaskviewComponent implements OnInit {
     }
   }
 
-  /** Insert the chosen mention at the @ trigger position and close the picker. */
   insertMention(kind: 'user' | 'department', item: { user_id?: string; name?: string }): void {
     const ta = this.commentBox?.nativeElement;
     if (!ta || this.mentionTriggerPos === null) return;
     const token = kind === 'user' ? item.user_id! : `dep:${item.name!}`;
     const caret = ta.selectionStart ?? this.newComment.length;
     const before = this.newComment.slice(0, this.mentionTriggerPos);
-    const after  = this.newComment.slice(caret);
+    const after = this.newComment.slice(caret);
     this.newComment = `${before}@${token} ${after}`;
-    const newCaret = before.length + 1 + token.length + 1;       // 1 for '@', 1 for trailing space
+    const newCaret = before.length + 1 + token.length + 1;
     setTimeout(() => { ta.focus(); ta.setSelectionRange(newCaret, newCaret); });
     this.closeMention();
   }
 
-  ngOnInit(): void {
-    this.route.params.subscribe(params => {
-      const id = params['id'];
-      if (id) {
-        this.circularId = id;
-        this.pdfUrl = `${environment.apiUrl}/api/circulars/${id}/content`;
-        this.loadExperts(id);
-        this.loadDepartments();
-      }
-    });
-
-    // Handle expertId query param to auto-select an expert
-    this.route.queryParams.subscribe(queryParams => {
-      const expertId = queryParams['expertId'];
-      console.log("expertid" , expertId);
-      if (expertId) {
-        // Experts may not be loaded yet, so select after they load
-        const existingId = expertId;
-        // const trySelect = () => {
-        //   const expert = this.experts.find(e => e.id === existingId);
-        //   console.log('Trying to select expert with ID:', existingId, 'Found:', expert);
-        //   if (expert) {
-        //     this.selectExpert(expert);
-        //   }
-        // };
-
-        console.log('Experts length:', this.experts.length);
-
-        if (this.experts.length > 0) {
-          // trySelect();
-          const expert = this.experts.find(e => e.id === existingId);
-          console.log('Trying to select expert with ID:', existingId, 'Found:', expert);
-
-        }
-        //  else {
-        //   // Poll until experts are loaded
-        //   const checkExperts = setInterval(() => {
-        //     if (this.experts.length > 0) {
-        //       clearInterval(checkExperts);
-        //       trySelect();
-        //     }
-        //   }, 100);
-        // }
-      }
-    });
-
-    // TEMP: queue the hardcoded ID so the auto-select runs once the PDF page
-    // is rendered (see onEvent and tryAutoSelect).
-    this.pendingAutoSelectId = this.DEFAULT_EXPERT_ID;
-  }
-
-  loadExperts(circularId: string): void {
-    this.api.getExperts(circularId).subscribe({
-      next: (res) => {
-        this.experts = res.experts;
-        console.log('Experts:', this.experts);
-
-        // TEMP: try auto-select now (PDF page may already be rendered).
-        this.tryAutoSelect();
-      },
-      error: (err) => {
-        console.error('Failed to load experts', err);
-      }
-    });
-  }
-
-  /** TEMP: consume the queued DEFAULT_EXPERT_ID once BOTH the experts list
-   *  is loaded AND the first PDF page has been rendered. Either side can
-   *  trigger this — the helper is a no-op unless both prerequisites are met. */
-  private tryAutoSelect(): void {
-    console.log('[auto-select] tryAutoSelect called', {
-      pendingId: this.pendingAutoSelectId,
-      pdfPageRendered: this.pdfPageRendered,
-      expertsCount: this.experts.length,
-    });
-    if (this.pendingAutoSelectId && this.pdfPageRendered && this.experts.length > 0) {
-      const id = this.pendingAutoSelectId;
-      this.pendingAutoSelectId = null;
-      console.log('[auto-select] calling selectExpertById with', id);
-      this.selectExpertById(id);
-    }
-  }
-
-  loadDepartments(): void {
-    this.api.getAvailableDepartments().subscribe({
-      next: (res) => {
-        this.departments = res.items.filter((d: any) => !d.archived);
-      },
-      error: (err) => {
-        console.error('Failed to load departments', err);
-      }
-    });
-  }
-
-  selectExpert(expert: Expert): void {
-    console.log('[auto-select] selectExpert called for', expert.id, expert.title);
-    this.selectedExpert = expert;
-    this.comments = [];
-    this.showHighlightForExpert(expert);
-    this.loadComments(expert.id!);
-    console.log('[auto-select] selectedExpert is now', this.selectedExpert?.id);
-    // The PDF viewer dispatches 'annotationLayerRendered' outside Angular's zone,
-    // so any state mutation we make in response (like setting selectedExpert)
-    // won't trigger change detection on its own. Force it.
-    this.cdr.detectChanges();
-  }
-
   /**
-   * Programmatically select an expert by ID.
-   * This will:
-   * 1. Set the selected expert
-   * 2. Switch to the expert's comments tab
-   * 3. Show only the expert's highlights on the PDF
-   * 4. Load the expert's comments
-   */
-  selectExpertById(expertId: string | undefined): void {
-    console.log('[auto-select] selectExpertById called with', expertId);
-    if (!expertId) {
-      console.warn('[auto-select] expertId is empty');
-      return;
-    }
-    const expert = this.experts.find(e => e.id === expertId);
-    if (expert) {
-      console.log('[auto-select] found expert', expert.id);
-      this.selectExpert(expert);
-    } else {
-      console.warn(`Expert with ID ${expertId} not found among ${this.experts.length} experts`);
-    }
+  * Resets the PDF editor mode to NONE. addEditorAnnotation() can flip the
+  * editor back to HIGHLIGHT so the user can keep annotating — we override
+  * that with multiple passes after a short delay.
+  */
+  private resetModeAfterReadd(): void {
+    // pdf.js queues several async HIGHLIGHT-mode flips after addEditorAnnotation.
+    // Schedule multiple NONE passes to catch them all — one synchronous + three
+    // delayed retries. Without this the editor sometimes stays in HIGHLIGHT mode
+    // and the cursor shows as a highlighter instead of a pointer.
+    this.setMode(AnnotationMode.NONE);
+    setTimeout(() => this.setMode(AnnotationMode.NONE), 50);
+    setTimeout(() => this.setMode(AnnotationMode.NONE), 200);
+    setTimeout(() => this.setMode(AnnotationMode.NONE), 500);
   }
+  async readdAllAnnotations(): Promise<void> {
+    const entries = this.taskService.allEntries();
+    console.log('[readdAllAnnotations] re-adding', entries.length, 'annotations');
 
-  deselectExpert(): void {
-    this.selectedExpert = null;
-    this.comments = [];
-    this.isAddingTask = false;
-    this.resetDeptEditState();
-    // Force view mode and keep it there
-    this.forceViewMode();
-    this.showAllHighlights();
-    // Force Angular to re-render the right panel so the task list reappears.
-    this.cdr.detectChanges();
-  }
-
-  private forceViewMode(): void {
-    // Immediately switch to view mode
-    this.pdfViewerService.switchAnnotationEdtorMode(0);
-    // Also ensure after a short delay in case addEditorAnnotation re-enables it
-    setTimeout(() => {
-      this.pdfViewerService.switchAnnotationEdtorMode(0);
-    }, 100);
-  }
-
-  closeExpert(): void {
-    if (!this.selectedExpert?.id) return;
-    if (!confirm('Are you sure you want to close this task?')) return;
-
-    const expertId = this.selectedExpert.id;
-    const circularId = this.circularId;
-
-    this.api.updateExpertStatus(circularId, expertId, 'closed').subscribe({
-      next: () => {
-        console.log('Task closed');
-        // Update local state
-        const expert = this.experts.find(e => e.id === expertId);
-        if (expert) {
-          expert.status = 'closed';
-        }
-        this.deselectExpert();
-      },
-      error: (err) => {
-        console.error('Failed to close task:', err);
-        alert('Failed to close task. Please try again.');
-      }
-    });
-  }
-
-  loadComments(expertId: string): void {
-    console.log('[comments] loadComments called for', expertId);
-    this.isLoadingComments = true;
-    this.api.getComments(this.circularId, expertId).subscribe({
-      next: (res) => {
-        console.log('[comments] response received', res);
-        this.comments = res?.comments ?? [];
-        this.isLoadingComments = false;
-        this.cdr.detectChanges();
-        console.log('[comments] state set — isLoadingComments =', this.isLoadingComments, 'comments.length =', this.comments.length);
-      },
-      error: (err) => {
-        console.error('[comments] failed to load', err);
-        this.isLoadingComments = false;
-        this.cdr.detectChanges();
-      }
-    });
-  }
-
-  addComment(): void {
-    if (!this.newComment.trim() || !this.selectedExpert || this.isSubmittingComment) return;
-
-    this.isSubmittingComment = true;
-    this.api.createComment(this.circularId, this.selectedExpert.id!, this.newComment.trim()).subscribe({
-      next: (res) => {
-        this.comments.push(res.comment);
-        this.newComment = '';
-        this.isSubmittingComment = false;
-      },
-      error: (err) => {
-        console.error('Failed to add comment', err);
-        this.isSubmittingComment = false;
-      }
-    });
-  }
-
-  toggleAddTask(): void {
-    this.isAddingTask = !this.isAddingTask;
-    if (this.isAddingTask) {
-      // Enable annotation mode for adding highlights
-      this.pdfViewerService.switchAnnotationEdtorMode(9);
-    } else {
-      // Disable annotation mode
-      this.pdfViewerService.switchAnnotationEdtorMode(0);
-      this.resetPendingState();
-    }
-  }
-
-  cancelAddTask(): void {
-    // Remove the pending highlight annotation from PDF if it exists
-    if (this.pendingHighlight?.annotationId) {
-      this.pdfViewerService.removeEditorAnnotations((annotation: any) => annotation.id === this.pendingHighlight.annotationId);
-    }
-    this.isAddingTask = false;
-    this.pdfViewerService.switchAnnotationEdtorMode(0);
-    this.resetPendingState();
-  }
-
-  onPdfMouseUp(_event: MouseEvent): void {
-    const selection = window.getSelection();
-    if (selection && selection.toString().trim().length > 0) {
-      this.pendingSelection = selection.toString().trim();
-    }
-    // Hide any annotation popups
-    const popups = document.querySelectorAll('.popup, .popover, [class*="popup"]');
-    popups.forEach(p => (p as HTMLElement).style.display = 'none');
-  }
-
-  onAnnotationEvent(event: any): void {
-    console.log('Annotation event:', event);
-
-    if (event.type === 'added' && this.isAddingTask) {
+    for (const entry of entries) {
       try {
-        const sourceText = typeof event.source?.text === 'string' ? event.source.text : '';
-        const selectionText = window.getSelection()?.toString().trim() || '';
-        let valueText = '';
-        if (typeof event.value === 'string') {
-          valueText = event.value.trim();
-        } else if (event.value && typeof (event.value as any).text === 'string') {
-          valueText = (event.value as any).text.trim();
+        await this.pdfService.addEditorAnnotation(entry.serialized);
+      } catch (err) {
+        console.warn('[readdAllAnnotations] failed for', entry.id, err);
+      }
+    }
+    console.log('[readdAllAnnotations] done');
+  }
+
+
+
+
+
+  
+  async loadFromApi(): Promise<void> {
+      console.log('[loadFromApi] rehydrating PDF annotations…');
+      // Experts are already loaded via fetchExperts() in ngOnInit.
+      // This just re-adds the saved highlights to the PDF editor layer.
+      await this.readdAllAnnotations();
+      this.resetModeAfterReadd();
+      console.log('[loadFromApi] done');
+    }
+
+  fetchExperts(): void {
+    if (!this.circularId) return;
+    console.log('[fetchExperts] fetching…');
+    this.isLoadingExperts = true;
+    this.circularsApi.getExperts(this.circularId).subscribe({
+      next: (res) => {
+        for (const e of res.experts ?? []) {
+          const createdAtMs = e.created_at
+            ? new Date(e.created_at).getTime()
+            : Date.now();
+
+          this.taskService.importApiTask({
+            id: e.id!,
+            name: e.title,
+            annotations: e.highlights.map(h => ({
+              id: h.id ?? crypto.randomUUID(),
+              pageIndex: h.pageIndex ?? 0,
+              rect: h.rect ?? [0, 0, 0, 0],
+              text: e.text ?? '',
+              serialized: h as any,
+              createdAt: createdAtMs,
+            })),
+            circularId: this.circularId,
+            createdAt: createdAtMs,
+            createdAtIso: e.created_at ?? undefined,
+            deptIds: e.dept_ids,
+            deptNames: e.dept_names,
+            taskStatus: e.status,
+            createdByUsername: e.created_by_username ?? undefined,
+          });
         }
-        const highlightText = (sourceText || selectionText || valueText || this.pendingSelection || '').trim();
-
-        if (highlightText) {
-          // Store pending highlight data - don't add to list yet
-          this.pendingHighlight = {
-            text: highlightText,
-            annotationId: event.id
-          };
-          this.newTaskTitle = 'New Task ' + (this.experts.length + 1);
-          this.pendingSelection = '';
-        }
-      } catch (e) {
-        console.warn('Error adding task:', e);
-      }
-    }
-
-    if (event.type === 'removed' && !this.isClearingHighlights) {
-      const annotationId = event.id;
-      const expertIndex = this.experts.findIndex(e =>
-        e.highlights?.some((h: any) => h.id === annotationId)
-      );
-      if (expertIndex !== -1) {
-        this.experts.splice(expertIndex, 1);
-      }
-    }
+        this.isLoadingExperts = false;
+        console.log('[fetchExperts] done');
+        this.expertsLoaded = true;
+        this.maybeAutoLoad();
+      },
+      error: (err) => {
+        console.error('[fetchExperts] failed', err);
+        this.isLoadingExperts = false;
+        // Unblock the gate so the editor layer isn't left waiting forever.
+        this.expertsLoaded = true;
+        this.maybeAutoLoad();
+      },
+    });
   }
 
-  onPdfLoaded(): void {
-    // Force view mode immediately when PDF loads
-    this.pdfViewerService.switchAnnotationEdtorMode(0);
+
+  async showAllInPdf(): Promise<void> {
+    await this.pdfService.removeEditorAnnotations(() => true);
+    await this.readdAllAnnotations();
+    this.resetModeAfterReadd();
   }
 
-  async onEvent(type: string, event: any): Promise<void> {
-    if (type === 'annotationLayerRendered' && event.pageNumber === 1) {
-      if (!this.annotationsRestored && !this.isRestoring) {
-        await this.restoreHighlights();
-        // Ensure view mode after restore
-        this.forceViewMode();
-      }
-      // TEMP: mark the page as rendered and try the queued auto-select.
-      this.pdfPageRendered = true;
-      this.tryAutoSelect();
-    }
-  }
 
-  private async restoreHighlights(): Promise<void> {
-    if (this.annotationsRestored || this.isRestoring) return;
-    if (this.experts.length === 0) return;
 
-    this.isRestoring = true;
-
-    const annotations: any[] = [];
-    for (const expert of this.experts) {
-      if (expert.highlights?.length) {
-        annotations.push(...expert.highlights);
-      }
-    }
-
-    if (!annotations.length) {
-      this.isRestoring = false;
+  async showTaskInPdf(taskId: string): Promise<void> {
+    const task =
+      this.taskService.savedTasks().find((t) => t.id === taskId) ??
+      (this.taskService.activeTask()?.id === taskId
+        ? this.taskService.activeTask()!
+        : null);
+    if (!task) {
+      console.warn('[showTaskInPdf] task not found', taskId);
       return;
     }
 
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await this.pdfService.removeEditorAnnotations(() => true);
 
-    for (const annotation of annotations) {
+    for (const entry of task.annotations) {
       try {
-        await this.pdfViewerService.addEditorAnnotation(annotation);
-      } catch (e) {
-        console.warn('Failed to restore annotation:', e);
+        await this.pdfService.addEditorAnnotation(entry.serialized);
+      } catch (err) {
+        console.warn('[showTaskInPdf] failed to re-add', err);
       }
     }
 
-    this.annotationsRestored = true;
-    this.isRestoring = false;
-    // Ensure view mode after restoring
-    this.forceViewMode();
+    this.resetModeAfterReadd();
   }
 
-  private async showHighlightForExpert(expert: Expert): Promise<void> {
-    this.annotationsRestored = false;
-    this.isRestoring = false;
-    this.clearHighlights();
 
-    // Switch to view mode immediately
-    this.forceViewMode();
 
-    if (!expert.highlights?.length) return;
 
-    await new Promise(resolve => setTimeout(resolve, 100));
 
-    for (const highlight of expert.highlights) {
-      try {
-        await this.pdfViewerService.addEditorAnnotation(highlight);
-      } catch (e) {
-        console.warn('Failed to add highlight:', e);
-      }
+  onEvent(name: string, event: unknown): void {
+    console.log(name, event);
+
+    if (name === 'annotationEditorLayerRendered' && !this.autoLoadDone) {
+      // pdfLoaded fires before the editor's deserialize() is wired up;
+      // annotationEditorLayerRendered fires after — that's when addEditorAnnotation
+      // is safe to call.
+      console.log('[onEvent] editor layer ready');
+      this.layerReady = true;
+      this.maybeAutoLoad();
     }
 
-    const page = (expert.highlights[0].pageIndex ?? 0) + 1;
-    console.log('Scrolling to page:', page, 'highlight:', expert.highlights[0]);
-    // Scroll to the page with a small delay. Guard against the page div not
-    // being mounted yet (PDFViewer.scrollPagePosIntoView reads `div` off the
-    // page record and throws if the page hasn't been rendered).
-    setTimeout(() => {
-      try {
-        this.pdfViewerService.scrollPageIntoView(page, { top: 100 });
-      } catch (e) {
-        console.warn('scrollPageIntoView failed (page not rendered yet):', e);
-      }
-      this.forceViewMode();
-    }, 200);
-    this.annotationsRestored = true;
-  }
-
-  private async showAllHighlights(): Promise<void> {
-    this.annotationsRestored = false;
-    this.isRestoring = false;
-    this.clearHighlights();
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    console.log('showAllHighlights called, experts count:', this.experts.length);
-    for (const expert of this.experts) {
-      console.log('Expert:', expert.title, 'has', expert.highlights?.length ?? 0, 'highlights');
-    }
-
-    for (const expert of this.experts) {
-      if (expert.highlights?.length) {
-        for (const highlight of expert.highlights) {
-          try {
-            await this.pdfViewerService.addEditorAnnotation(highlight);
-          } catch (e) {
-            console.warn('Failed to add highlight:', e);
-          }
-        }
-      }
-    }
-    this.annotationsRestored = true;
-    // Ensure view mode after restoring all highlights
-    this.forceViewMode();
-  }
-
-  private clearHighlights(): void {
-    this.isClearingHighlights = true;
-    this.pdfViewerService.removeEditorAnnotations(() => true);
-    setTimeout(() => { this.isClearingHighlights = false; }, 100);
-  }
-
-  toggleNewTaskDepartment(deptId: string): void {
-    const idx = this.newTaskDeptIds.indexOf(deptId);
-    if (idx === -1) {
-      this.newTaskDeptIds = [...this.newTaskDeptIds, deptId];
-    } else {
-      this.newTaskDeptIds = this.newTaskDeptIds.filter(id => id !== deptId);
-    }
-  }
-
-  isNewTaskDeptSelected(deptId: string): boolean {
-    return this.newTaskDeptIds.includes(deptId);
-  }
-
-  removeNewTaskDept(deptId: string): void {
-    this.newTaskDeptIds = this.newTaskDeptIds.filter(id => id !== deptId);
-  }
-
-  getDeptNames(ids: string[] | undefined | null): string {
-    if (!ids || ids.length === 0) return '';
-    return ids
-      .map(id => this.departments.find(d => d.id === id)?.name ?? '')
-      .filter(name => !!name)
-      .join(', ');
-  }
-
-  saveTask(): void {
-    if (!this.pendingHighlight) return;
-    if (this.newTaskDeptIds.length === 0) return;
-
-    // Capture values before clearing
-    const pendingText = this.pendingHighlight.text;
-    const pendingAnnotationId = this.pendingHighlight.annotationId;
-    const title = this.newTaskTitle || 'New Task ' + (this.experts.length + 1);
-    const deptIds = [...this.newTaskDeptIds];
-
-    // Create the expert object
-    const newExpert: Expert = {
-      dept_ids: deptIds,
-      title: title,
-      text: pendingText,
-      highlights: []
-    } as Expert;
-
-    // Get the annotation and attach to expert
-    const allAnnotations = this.pdfViewerService.getSerializedAnnotations() || [];
-    const annotation = allAnnotations.find((a: any) => a.id === pendingAnnotationId);
-    if (annotation) {
-      newExpert.highlights = [annotation];
-    }
-
-    // Call API to save first
-    const circularId = this.pdfUrl.split('/api/circulars/')[1].split('/content')[0];
-    this.api.saveExperts(circularId, [newExpert], []).subscribe({
-      next: () => {
-        console.log('Task saved');
-        // Switch back to view mode after saving
-        this.pdfViewerService.switchAnnotationEdtorMode(0);
-        // Reset the add-task UI now that the server has persisted.
-        this.resetPendingState();
-        this.isAddingTask = false;
-        // The backend's save endpoint returns only { success: true } without
-        // the new task's server-assigned UUID, so we refetch the full list to
-        // hydrate each item with its real id (and created_at / creator, etc.)
-        // before pushing it into the view. Without this the new task appears
-        // in the list but can't be opened because selectExpertById() requires
-        // a real id.
-        this.api.getExperts(circularId).subscribe({
-          next: (response) => {
-            this.experts = response.experts ?? [];
-          },
-          error: (refetchErr) => {
-            console.warn('Failed to refresh tasks after save', refetchErr);
-          }
-        });
-      },
-      error: (err) => {
-        console.error('Failed to save task', err);
-        // Switch back to view mode on error too
-        this.pdfViewerService.switchAnnotationEdtorMode(0);
-        // Reset UI state but don't add to list
-        this.resetPendingState();
-        this.isAddingTask = false;
-        alert('Failed to save task. Please try again.');
-      }
-    });
-  }
-
-  private resetPendingState(): void {
-    this.pendingHighlight = null;
-    this.newTaskTitle = '';
-    this.newTaskDeptIds = [];
-    this.pendingSelection = '';
-    this.showDeptDropdown = false;
-  }
-
-  removeExpert(index: number): void {
-    const expert = this.experts[index];
-    if (expert.highlights) {
-      for (const highlight of expert.highlights) {
-        this.pdfViewerService.removeEditorAnnotations((annotation: any) => annotation.id === highlight.id);
-      }
-    }
-    this.experts.splice(index, 1);
-  }
-
-  getDeptName(deptId: string): string {
-    const dept = this.departments.find(d => d.id === deptId);
-    return dept ? dept.name : '';
-  }
-
-  // ===== Inline dept edit (comments section) =====
-
-  private resetDeptEditState(): void {
-    this.isEditingDept = false;
-    this.editedDeptIds = [];
-    this.showEditDeptDropdown = false;
-    this.isSavingDept = false;
-  }
-
-  startEditDept(): void {
-    if (!this.selectedExpert) return;
-    this.editedDeptIds = [...(this.selectedExpert.dept_ids ?? [])];
-    this.isEditingDept = true;
-    this.showEditDeptDropdown = false;
-  }
-
-  cancelEditDept(): void {
-    this.resetDeptEditState();
-  }
-
-  toggleEditDept(deptId: string): void {
-    this.editedDeptIds = this.editedDeptIds.includes(deptId)
-      ? this.editedDeptIds.filter(id => id !== deptId)
-      : [...this.editedDeptIds, deptId];
-  }
-
-  isEditDeptSelected(deptId: string): boolean {
-    return this.editedDeptIds.includes(deptId);
-  }
-
-  removeEditDept(deptId: string): void {
-    this.editedDeptIds = this.editedDeptIds.filter(id => id !== deptId);
-  }
-
-  saveEditDept(): void {
-    const expert = this.selectedExpert;
-    if (!expert?.id || this.isSavingDept) return;
-    if (this.editedDeptIds.length === 0) return;
-
-    const expertId = expert.id;
-    const newDeptIds = [...this.editedDeptIds];
-
-    this.isSavingDept = true;
-    this.api
-      .saveExperts(this.circularId, [{ ...expert, dept_ids: newDeptIds }], [expertId])
-      .subscribe({
-        next: () => {
-          // safe: `expert` was captured from `this.selectedExpert` above
-          this.selectedExpert!.dept_ids = newDeptIds;
-          const listEntry = this.experts.find(e => e.id === expertId);
-          if (listEntry) listEntry.dept_ids = newDeptIds;
-          this.resetDeptEditState();
-        },
-        error: (err) => {
-          console.error('Failed to save departments', err);
-          this.isSavingDept = false;
-          alert('Failed to save departments. Please try again.');
-        },
+    if (name === 'annotationEditorEvent') {
+      const e = event as AnnotationEditorEventLike;
+      console.log('[annotationEditorEvent]', {
+        type: e?.type,
+        editorType: e?.editorType,
+        id: e?.id,
+        sourceName: e?.source?.name,
       });
+
+      // capture on commit OR added, regardless of editorType — we'll filter later
+      const isCommitOrAdded = e?.type === 'commit' || e?.type === 'added';
+      if (isCommitOrAdded && e?.id && this.isAddingTask) {
+        this.captureHighlight(e.id, e);
+      }
+
+
+        // pdf.js emits a separate colorChanged event after the user picks a new
+        // color in the highlight popup. The original commit was already serialized
+        // with the old color, so we patch it now on the matching active annotation.
+        if (e?.type === 'colorChanged' && e?.id && this.isAddingTask) {
+          const hex = typeof e.value === 'string' ? e.value : null;
+          if (hex) {
+            const m = hex.match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
+            if (m) {
+              const rgb: [number, number, number] = [
+                parseInt(m[1], 16),
+                parseInt(m[2], 16),
+                parseInt(m[3], 16),
+              ];
+              this.taskService.updateAnnotationColor(e.id, rgb);
+            }
+          }
+        }
+
+
+    }
   }
+
+
+
+
+
+
+  private async captureHighlight(id: string, e: AnnotationEditorEventLike): Promise<void> {
+    console.log('[captureHighlight] called for id', id, 'editorType', e.editorType);
+
+    // Prefer text emitted by the annotation event. The editor can provide it
+    // either as value.text, source.text, or a plain string depending on the event.
+    const valueText = typeof e.value === 'string' ? e.value : e.value?.text;
+    const text = (valueText ?? e.source?.text ?? window.getSelection()?.toString() ?? '').trim();
+
+    // try the service first; if it returns null (race), retry after a microtask
+    let ann = this.pdfService.getSerializedAnnotation(id) as
+      | (EditorAnnotation & { pageIndex: number; rect: [number, number, number, number] })
+      | null
+      | undefined;
+
+    if (!ann) {
+      await new Promise((r) => setTimeout(r, 0));
+      ann = this.pdfService.getSerializedAnnotation(id) as
+        | (EditorAnnotation & { pageIndex: number; rect: [number, number, number, number] })
+        | null
+        | undefined;
+    }
+
+    if (!ann) {
+      console.warn('[captureHighlight] no annotation found for id', id);
+      return;
+    }
+
+    if (typeof ann.pageIndex !== 'number' || !ann.rect) {
+      console.warn('[captureHighlight] annotation missing pageIndex/rect', ann);
+      return;
+    }
+
+    // store the FULL serialized annotation so we can re-add even after pdf.js
+    // loses track of it (e.g. after clearAndReadd).
+    const { id: _ignored, ...serialized } = ann;
+
+    const entry: AnnotationEntry = {
+      id,
+      pageIndex: ann.pageIndex,
+      rect: ann.rect,
+      text: text ?? '',
+      serialized,
+      createdAt: Date.now(),
+    };
+
+    this.taskService.addAnnotation(entry);
+    console.log('[captureHighlight] added entry', entry);
+  }
+
+
 }

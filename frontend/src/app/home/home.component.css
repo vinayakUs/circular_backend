@@ -231,6 +231,16 @@
   color: #ef4444;
 }
 
+/* Larger stat-card numbers reuse the SEBI/NSE color families but at a deeper
+   shade for legibility at the larger font size of `.stat-value`. */
+.stat-value-sebi {
+  color: #7e22ce !important;
+}
+
+.stat-value-nse {
+  color: #ef4444 !important;
+}
+
 .count-badge.datecard {
   background: #3c47e21a;
   color: oklch(48.436% 0.22092 283.032);

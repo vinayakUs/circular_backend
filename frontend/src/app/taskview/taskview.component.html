@@ -1,350 +1,401 @@
 <div class="page-container">
   <app-navbar></app-navbar>
-  <div class="main-content">
-    <div class="pdf-viewer-section" (contextmenu)="$event.preventDefault()" (mouseup)="onPdfMouseUp($event)">
-      <div class="pdf-viewer-container">
-        <ngx-extended-pdf-viewer
-          [src]="pdfUrl"
-          [showToolbar]="true"
-          [showSidebarButton]="false"
-          [showFindButton]="false"
-          [showPagingButtons]="true"
-          [showSignatureEditor]="false"
-          [showDrawEditor]="false"
-          [showCommentEditor]="false"
-          [showStampEditor]="false"
-          [showTextEditor]="false"
-          [showHighlightEditor]="false"
-          [showPresentationModeButton]="false"
-          [showOpenFileButton]="false"
-          [showPrintButton]="false"
-          [showDownloadButton]="true"
-          [showSecondaryToolbarButton]="false"
-          [showMovePageButton]="false"
-          [showRotateButton]="false"
-          [showRotateCwButton]="false"
-          [showRotateCcwButton]="false"
-          [showHandToolButton]="false"
-          [showScrollingButtons]="false"
-          [showSpreadButton]="false"
-          [showPropertiesButton]="false"
-          [showBorders]="false"
-          [textLayer]="true"
-          [handTool]="false"
-          (pdfLoaded)="onPdfLoaded()"
-          (annotationLayerRendered)="onEvent('annotationLayerRendered', $event)"
-          (annotationEditorEvent)="onAnnotationEvent($event)">
-        </ngx-extended-pdf-viewer>
-      </div>
-    </div>
-  </div>
 
-  <div class="tasks-section">
-    @if (!selectedExpert || isAddingTask) {
+  <main class="viewer-content">
+    @if (pdfUrl) {
+    <ngx-extended-pdf-viewer [src]="pdfUrl" [showHighlightEditor]="false" [showSidebarButton]="false"
+      [showToolbar]="true" [showSidebarButton]="false" [showFindButton]="false" [showPagingButtons]="true"
+      [showSignatureEditor]="false" [showHighlightEditor]="false" [showDrawEditor]="false" [showCommentEditor]="false"
+      [showStampEditor]="false" [showTextEditor]="false" [showZoomButtons]="false" [showPresentationModeButton]="true"
+      [showOpenFileButton]="false" [showPrintButton]="false" [showDownloadButton]="true"
+      [showSecondaryToolbarButton]="true" [showMovePageButton]="false" [showRotateCwButton]="false"
+      [showRotateCcwButton]="false" [showHandToolButton]="false" [showScrollingButtons]="false"
+      [showSpreadButton]="false" [showPropertiesButton]="false" [textLayer]="true"
+      (annotationEditorModeChanged)="onAnnotationEditorModeChanged($event)"
+      (annotationEditorLayerRendered)="onEvent('annotationEditorLayerRendered', $event)"
+      (annotationEditorEvent)="onEvent('annotationEditorEvent', $event)">
+    </ngx-extended-pdf-viewer>
+    }
+  </main>
+
+  <aside class="tasks-section">
+    @if (!selectedTask) {
     <div class="list-header">
       <h2>Tasks</h2>
       @if (!isAddingTask) {
-        <button class="add-btn" (click)="toggleAddTask()">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="12" y1="5" x2="12" y2="19"></line>
-            <line x1="5" y1="12" x2="19" y2="12"></line>
-          </svg>
-          Add Task
-        </button>
+      <button class="add-btn" (click)="selectTask()" [disabled]="!!activeTask()" type="button">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+        Add Task
+      </button>
       }
     </div>
     }
 
-    @if (isAddingTask) {
-      <div class="add-task-hint">
-        <p>Highlight text in PDF to create a task</p>
-        <button class="cancel-btn" (click)="cancelAddTask()">Cancel</button>
+    @if (!selectedTask) {
+    <div class="tasks-scroll">
+    @if (activeTask(); as task) {
+    <section class="active-task" aria-live="polite">
+      <div class="active-task-heading">
+        <div>
+          <span class="eyebrow">New task</span>
+          <input
+            class="task-title-input"
+            type="text"
+            [ngModel]="task.name"
+            (ngModelChange)="renameActiveTask($event)"
+            name="activeTaskTitle"
+            placeholder="Task name">
+        </div>
+        <span class="task-status">{{ task.annotations.length }} selected</span>
       </div>
-    }
 
-    @if (experts.length === 0 && !isAddingTask) {
-      <div class="empty-state">No tasks</div>
-    }
-
-    @if (!selectedExpert || isAddingTask) {
-    <div class="tasks-list">
-      @if (pendingHighlight && isAddingTask) {
-        <div class="task-item pending-task">
-          <div class="task-dot active"></div>
-          <div class="task-content">
-            <input class="task-title-input" type="text" [(ngModel)]="newTaskTitle" placeholder="Task name">
-            <div class="task-text">"{{ pendingHighlight.text }}"</div>
-            <div class="dept-row">
-              <div class="dept-selector">
-                <div class="dept-chips">
-                  @for (deptId of newTaskDeptIds; track deptId) {
-                    <span class="dept-chip">
-                      {{ getDeptName(deptId) }}
-                      <button type="button" class="chip-x" (click)="removeNewTaskDept(deptId)" aria-label="Remove">×</button>
-                    </span>
-                  }
-                  <button type="button" class="dept-btn" (click)="showDeptDropdown = !showDeptDropdown">
-                    <span>{{ newTaskDeptIds.length === 0 ? 'Assign Department' : 'Add Department' }}</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <polyline points="6 9 12 15 18 9"></polyline>
-                    </svg>
-                  </button>
-                </div>
-                @if (showDeptDropdown) {
-                  <div class="dept-dropdown">
-                    @for (dept of departments; track dept.id) {
-                      <div class="dept-option" [class.selected]="isNewTaskDeptSelected(dept.id)" (click)="toggleNewTaskDepartment(dept.id)">
-                        <span class="dept-check">{{ isNewTaskDeptSelected(dept.id) ? '✓' : '' }}</span>
-                        {{ dept.name }}
-                      </div>
-                    }
-                  </div>
-                }
-              </div>
-              <button class="cancel-btn" (click)="cancelAddTask()">Cancel</button>
-              <button class="save-btn" (click)="saveTask()" [disabled]="newTaskDeptIds.length === 0">Save</button>
-            </div>
-          </div>
+      @if (task.annotations.length === 0) {
+      <div class="selection-hint">
+        <span class="selection-icon" aria-hidden="true">Aa</span>
+        <div>
+          <strong>Select text in the PDF</strong>
+          <p>Your highlighted passages will appear here.</p>
         </div>
-      }
+      </div>
+      } @else {
+      <div class="selected-text-list">
+        <div class="selected-text-label">Selected text</div>
+        @for (annotation of task.annotations; track annotation.id) {
+        <blockquote class="selected-text">
+          <span class="quote-mark" aria-hidden="true">“</span>
+          <p>{{ annotation.text }}</p>
+          <span class="page-number">Page {{ annotation.pageIndex + 1 }}</span>
+        </blockquote>
+        }
+      </div>
 
-      @for (expert of sortedExperts; track $index; let i = $index) {
-        <div class="task-item" (click)="selectExpertById(expert.id)">
-          <div class="task-dot" [class.active]="expert.highlights && expert.highlights.length" [class.inactive]="!expert.highlights || !expert.highlights.length"></div>
-          <div class="task-content">
-            <div class="task-title">{{ expert.title }}</div>
-            <div class="task-text">"{{ expert.text }}"</div>
-            <div class="task-meta">
-              <div class="task-meta-row">
-                <span class="task-meta-label">Task Status</span>
-                @if (expert.status === 'closed') {
-                  <span class="task-status closed">Closed</span>
-                } @else {
-                  <span class="task-status open">Open</span>
-                }
-              </div>
-              <div class="task-meta-row">
-                <span class="task-meta-label">Assigned Dep</span>
-                <span>{{ getDeptNames(expert.dept_ids) || 'Unassigned' }}</span>
-              </div>
-              @if (expert.created_at) {
-                <div class="task-meta-row">
-                  <span class="task-meta-label">Created Date</span>
-                  <span class="task-date">{{ expert.created_at | date:'MMM d, yyyy' }}</span>
-                </div>
-              }
-              @if (expert.created_by_username) {
-                <div class="task-meta-row">
-                  <span class="task-meta-label">Created By User</span>
-                  <span class="task-creator">{{ expert.created_by_username }}</span>
-                </div>
-              }
-            </div>
-          </div>
-          <button class="remove-btn" (click)="removeExpert(i); $event.stopPropagation()">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
-          </button>
-        </div>
-      }
-    </div>
-    }
+      <div class="department-field">
+        <div class="department-label">Assign departments</div>
+        <div class="dept-selector">
+          <div class="dept-chips">
+            @for (deptId of newTaskDeptIds; track deptId) {
+            <span class="dept-chip">
+              {{ getDeptName(deptId) }}
+              <button type="button" class="chip-x" (click)="removeNewTaskDept(deptId)"
+                [attr.aria-label]="'Remove ' + getDeptName(deptId)">×</button>
+            </span>
+            }
 
-    @if (selectedExpert && !isAddingTask) {
-      <div class="detail-view">
-        <div class="detail-header">
-          <button class="back-btn" (click)="deselectExpert()">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="19" y1="12" x2="5" y2="12"></line>
-              <polyline points="12 19 5 12 12 5"></polyline>
-            </svg>
-            Back to tasks
-          </button>
-          @if (selectedExpert.status !== 'closed') {
-            <button class="close-expert-btn" (click)="closeExpert()">
-              Close Task
+            <button type="button" class="dept-btn" (click)="showDeptDropdown = !showDeptDropdown"
+              [attr.aria-expanded]="showDeptDropdown">
+              <span>{{ newTaskDeptIds.length === 0 ? 'Assign Department' : 'Add Department' }}</span>
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
             </button>
+          </div>
+
+          @if (showDeptDropdown) {
+          <div class="dept-dropdown" role="listbox" aria-label="Departments" aria-multiselectable="true">
+            @for (dept of departments; track dept.id) {
+            <button type="button" class="dept-option" [class.selected]="isNewTaskDeptSelected(dept.id)" role="option"
+              [attr.aria-selected]="isNewTaskDeptSelected(dept.id)" (click)="toggleNewTaskDepartment(dept.id)">
+              <span class="dept-check">{{ isNewTaskDeptSelected(dept.id) ? '✓' : '' }}</span>
+              <span>{{ dept.name }}</span>
+            </button>
+            } @empty {
+            <div class="dept-empty">No departments available</div>
+            }
+          </div>
           }
         </div>
+      </div>
 
-        <div class="expert-section">
-          <div class="expert-title">{{ selectedExpert.title }}</div>
-          <div class="expert-quote">"{{ selectedExpert.text }}"</div>
+      <div class="task-actions">
+        <button type="button" class="cancel-task-btn" (click)="cancelAddTask()">
+          Cancel
+        </button>
+        <button type="button" class="save-task-btn" (click)="saveTask()" [disabled]="newTaskDeptIds.length === 0">
+          Save Task
+        </button>
+      </div>
+      }
+    </section>
+    }
+
+    @if (expertNotFound) {
+    <div class="tasks-notice" role="status">
+      <strong>Task not found</strong>
+      <p>The linked task isn't on this circular. Showing all tasks instead.</p>
+    </div>
+    }
+
+    @if (isLoadingExperts) {
+    <div class="tasks-empty">
+      <strong>Loading…</strong>
+      <p>Fetching tasks for this circular.</p>
+    </div>
+    } @else if (!activeTask() && savedTasks().length === 0) {
+    <div class="tasks-empty">
+      <strong>No saved tasks</strong>
+      <p>Select Add Task and highlight text in the PDF to begin.</p>
+    </div>
+    }
+
+    @if (savedTasks().length > 0) {
+    @if (!selectedTask) {
+    <section class="saved-tasks" aria-label="Saved tasks">
+      <div class="saved-tasks-label">Saved tasks</div>
+      @for (task of savedTasks(); track task.id) {
+      <div class="task-item" (click)="selectTaskForComments(task)">
+        <div class="task-dot" [class.active]="task.taskStatus !== 'closed'"
+          [class.inactive]="task.taskStatus === 'closed'"></div>
+        <div class="task-content">
+          <div class="task-title">{{ task.name }}</div>
+          @if (task.annotations[0]; as first) {
+          <div class="task-text">"{{ first.text }}"</div>
+          }
           <div class="task-meta">
             <div class="task-meta-row">
               <span class="task-meta-label">Task Status</span>
-              @if (selectedExpert.status === 'closed') {
-                <span class="task-status closed">Closed</span>
+              @if (task.taskStatus === 'closed') {
+              <span class="task-status closed">Closed</span>
               } @else {
-                <span class="task-status open">Open</span>
+              <span class="task-status open">Open</span>
               }
             </div>
             <div class="task-meta-row">
               <span class="task-meta-label">Assigned Dep</span>
-              <span>{{ getDeptNames(selectedExpert.dept_ids) || 'Unassigned' }}</span>
-            </div>
-            @if (selectedExpert.created_at) {
-              <div class="task-meta-row">
-                <span class="task-meta-label">Created Date </span>
-                <span class="task-date">{{ selectedExpert.created_at | date:'MMM d, yyyy' }}</span>
-              </div>
-            }
-            @if (selectedExpert.created_by_username) {
-              <div class="task-meta-row">
-                <span class="task-meta-label">Created By User</span>
-                <span class="task-creator">{{ selectedExpert.created_by_username }}</span>
-              </div>
-            }
-          </div>
-
-          <div class="dept-edit-row">
-            @if (!isEditingDept) {
-              <button type="button" class="edit-dept-btn"
-                      (click)="startEditDept()" aria-label="Edit departments">
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13"
-                     viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                     aria-hidden="true">
-                  <path d="M12 20h9"></path>
-                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4z"></path>
-                </svg>
-                Edit Departments
-              </button>
-            } @else {
-              <div class="dept-selector dept-selector-inline">
-                <div class="dept-chips">
-                  @for (deptId of editedDeptIds; track deptId) {
-                    <span class="dept-chip">
-                      {{ getDeptName(deptId) }}
-                      <button type="button" class="chip-x"
-                              (click)="removeEditDept(deptId)" aria-label="Remove">×</button>
-                    </span>
-                  }
-                  <button type="button" class="dept-btn"
-                          (click)="showEditDeptDropdown = !showEditDeptDropdown"
-                          [attr.aria-expanded]="showEditDeptDropdown">
-                    <span>{{ editedDeptIds.length === 0 ? 'Assign Department' : 'Add Department' }}</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12"
-                         viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                         stroke-width="2" aria-hidden="true">
-                      <polyline points="6 9 12 15 18 9"></polyline>
-                    </svg>
-                  </button>
-                </div>
-                @if (showEditDeptDropdown) {
-                  <div class="dept-dropdown" role="listbox">
-                    @for (dept of departments; track dept.id) {
-                      <div class="dept-option"
-                           [class.selected]="isEditDeptSelected(dept.id)"
-                           role="option"
-                           [attr.aria-selected]="isEditDeptSelected(dept.id)"
-                           (click)="toggleEditDept(dept.id)">
-                        <span class="dept-check">{{ isEditDeptSelected(dept.id) ? '✓' : '' }}</span>
-                        {{ dept.name }}
-                      </div>
-                    }
-                  </div>
+              <span>
+                @if (task.deptNames; as depts) {
+                {{ depts.join(', ') }}
+                } @else if (task.deptIds.length > 0) {
+                @for (deptId of task.deptIds; track deptId; let last = $last) {
+                {{ getDeptName(deptId) }}{{ last ? '' : ', ' }}
                 }
-              </div>
-              <button type="button" class="cancel-btn"
-                      (click)="cancelEditDept()" [disabled]="isSavingDept">Cancel</button>
-              <button type="button" class="save-btn"
-                      (click)="saveEditDept()"
-                      [disabled]="editedDeptIds.length === 0 || isSavingDept">
-                {{ isSavingDept ? 'Saving…' : 'Save' }}
-              </button>
+                } @else {
+                Unassigned
+                }
+              </span>
+            </div>
+            @if (task.createdAtIso) {
+            <div class="task-meta-row">
+              <span class="task-meta-label">Created Date</span>
+              <span class="task-date">{{ task.createdAtIso | date:'MMM d, y' }}</span>
+            </div>
+            }
+            @if (task.createdByUsername) {
+            <div class="task-meta-row">
+              <span class="task-meta-label">Created By User</span>
+              <span class="task-creator">{{ task.createdByUsername }}</span>
+            </div>
             }
           </div>
         </div>
+      </div>
+      }
+    </section>
+    }
+    }
+    </div>
+    }
 
-        <div class="comments-section">
-          <div class="comments-label">Comments</div>
-          @if (isLoadingComments) {
-            <div class="loading">Loading...</div>
-          } @else if (comments.length === 0) {
-            <div class="no-comments">No comments yet</div>
-          } @else {
-            <div class="comments-list">
-              @for (comment of comments; track comment.id) {
-                <div class="comment-item">
-                  <div class="comment-header">
-                    <span class="comment-author">{{ comment.author_name || comment.author_user_id }}</span>
-                    <span class="comment-time">{{ comment.created_at | date:'MMM d, h:mm a' }}</span>
-                  </div>
-                  <div class="comment-text">
-                    @for (seg of parseCommentSegments(comment.text); track $index) {
-                      @switch (seg.kind) {
-                        @case ('user') {
-                          <span class="mention-pill mention-user">{{ seg.value }}</span>
-                        }
-                        @case ('department') {
-                          <span class="mention-pill mention-department">{{ seg.value }}</span>
-                        }
-                        @default {
-                          <span>{{ seg.value }}</span>
-                        }
-                      }
-                    }
-                  </div>
-                </div>
-              }
-            </div>
-          }
-          <div class="comment-input-wrap">
-            <div class="comment-input">
-              <textarea
-                #commentBox
-                [(ngModel)]="newComment"
-                placeholder="Add a comment. Type @ to mention a person or department."
-                [disabled]="selectedExpert.status === 'closed'"
-                (input)="onCommentInput()"
-                (keydown)="onCommentKey($event)"
-                (keyup.enter)="!mentionOpen && addComment()"
-                rows="2"></textarea>
-              <button
-                (click)="addComment()"
-                [disabled]="!newComment.trim() || selectedExpert.status === 'closed' || isSubmittingComment || mentionOpen">
-                Post
-              </button>
-            </div>
+    @if (selectedTask) {
+    <section class="selected-task-detail" aria-label="Selected task">
+      <div class="detail-header">
+        <button type="button" class="back-btn" (click)="deselectTask()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+          </svg>
+          Back to tasks
+        </button>
+        @if (selectedTask.taskStatus !== 'closed') {
+        <button type="button" class="close-expert-btn" (click)="closeTask()">
+          Close Task
+        </button>
+        }
+      </div>
 
-            @if (mentionOpen && mentionPos) {
-              <div class="mention-popup"
-                   [style.top.px]="mentionPos.top"
-                   [style.left.px]="mentionPos.left"
-                   [style.width.px]="mentionPos.width">
-                @for (u of mentionUsers; track u.id; let i = $index) {
-                  <div class="mention-row"
-                       [class.active]="mentionActive === i"
-                       (mousedown)="insertMention('user', u); $event.preventDefault()">
-                    <span class="mention-avatar">{{ initials(u.user_id) }}</span>
-                    <span class="mention-name">{{ u.user_id }}</span>
-                  </div>
-                }
-                @if (mentionUsers.length && mentionDepartments.length) {
-                  <div class="mention-sep"></div>
-                }
-                @for (d of mentionDepartments; track d.id; let j = $index) {
-                  <div class="mention-row"
-                       [class.active]="mentionActive === mentionUsers.length + j"
-                       (mousedown)="insertMention('department', d); $event.preventDefault()">
-                    <span class="mention-avatar dep">&#64;</span>
-                    <span class="mention-name">dep:{{ d.name }}</span>
-                  </div>
-                }
-                @if (!mentionUsers.length && !mentionDepartments.length) {
-                  <div class="mention-empty">No matches</div>
-                }
-              </div>
+      <div class="scrollable-content">
+        <div class="expert-section">
+        <div class="expert-title">{{ selectedTask.name }}</div>
+        @if (selectedTask.annotations[0]; as first) {
+        <div class="expert-quote">"{{ first.text }}"</div>
+        }
+        <div class="task-meta">
+          <div class="task-meta-row">
+            <span class="task-meta-label">Task Status</span>
+            @if (selectedTask.taskStatus === 'closed') {
+            <span class="task-status closed">Closed</span>
+            } @else {
+            <span class="task-status open">Open</span>
             }
           </div>
-          @if (selectedExpert.status === 'closed') {
-            <div class="comments-closed-notice">Comments are disabled for closed tasks</div>
+          <div class="task-meta-row">
+            <span class="task-meta-label">Assigned Dep</span>
+            <span>
+              @if (selectedTask.deptNames; as depts) {
+              {{ depts.join(', ') }}
+              } @else if (selectedTask.deptIds.length > 0) {
+              @for (deptId of selectedTask.deptIds; track deptId; let last = $last) {
+              {{ getDeptName(deptId) }}{{ last ? '' : ', ' }}
+              }
+              } @else {
+              Unassigned
+              }
+            </span>
+          </div>
+          @if (selectedTask.createdAtIso) {
+          <div class="task-meta-row">
+            <span class="task-meta-label">Created Date </span>
+            <span class="task-date">{{ selectedTask.createdAtIso | date:'MMM d, y' }}</span>
+          </div>
+          }
+          @if (selectedTask.createdByUsername) {
+          <div class="task-meta-row">
+            <span class="task-meta-label">Created By User</span>
+            <span class="task-creator">{{ selectedTask.createdByUsername }}</span>
+          </div>
+          }
+        </div>
+
+        <div class="dept-edit-row">
+          @if (!isEditingDept) {
+          <button type="button" class="edit-dept-btn" (click)="startEditDept()" aria-label="Edit departments">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 20h9"></path>
+              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4z"></path>
+            </svg>
+            Edit Departments
+          </button>
+          } @else {
+          <div class="dept-selector dept-selector-inline">
+            <div class="dept-chips">
+              @for (deptId of editedDeptIds; track deptId) {
+              <span class="dept-chip">
+                {{ getDeptName(deptId) }}
+                <button type="button" class="chip-x" (click)="removeEditDept(deptId)" aria-label="Remove">×</button>
+              </span>
+              }
+              <button type="button" class="dept-btn" (click)="showEditDeptDropdown = !showEditDeptDropdown"
+                [attr.aria-expanded]="showEditDeptDropdown">
+                <span>{{ editedDeptIds.length === 0 ? 'Assign Department' : 'Add Department' }}</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </button>
+            </div>
+            @if (showEditDeptDropdown) {
+            <div class="dept-dropdown" role="listbox">
+              @for (dept of departments; track dept.id) {
+              <div class="dept-option" [class.selected]="isEditDeptSelected(dept.id)" role="option"
+                [attr.aria-selected]="isEditDeptSelected(dept.id)" (click)="toggleEditDept(dept.id)">
+                <span class="dept-check">{{ isEditDeptSelected(dept.id) ? '✓' : '' }}</span>
+                {{ dept.name }}
+              </div>
+              }
+            </div>
+            }
+          </div>
+          <button type="button" class="cancel-btn" (click)="cancelEditDept()" [disabled]="isSavingDept">Cancel</button>
+          <button type="button" class="save-btn" (click)="saveEditDept()"
+            [disabled]="editedDeptIds.length === 0 || isSavingDept">
+            {{ isSavingDept ? 'Saving…' : 'Save' }}
+          </button>
           }
         </div>
       </div>
+
+      <div class="comments-section">
+        <div class="comments-label">Comments</div>
+
+        @if (isLoadingComments) {
+        <p class="comments-loading">Loading…</p>
+        } @else if (comments.length === 0) {
+        <p class="comments-empty">No comments yet.</p>
+        } @else {
+        <div class="comments-list">
+          @for (c of comments; track c.id) {
+          <div class="comment-item" [attr.id]="'comment-' + c.id">
+            <div class="comment-header">
+              <span class="comment-author">{{ c.author_name ?? c.author_user_id }}</span>
+              <span class="comment-time">{{ c.created_at | date:'MMM d, h:mm a' }}</span>
+            </div>
+            <div class="comment-text">
+              @for (seg of parseCommentSegments(c.text); track $index) {
+                @switch (seg.kind) {
+                  @case ('user') {
+                    <span class="mention-pill mention-user">{{ seg.value }}</span>
+                  }
+                  @case ('department') {
+                    <span class="mention-pill mention-department">{{ seg.value }}</span>
+                  }
+                  @default {
+                    <span>{{ seg.value }}</span>
+                  }
+                }
+              }
+            </div>
+          </div>
+          }
+        </div>
+        }
+      </div>
+      </div>
+
+      <div class="comment-input-wrap">
+        <div class="comment-input">
+          <textarea
+            #commentBox
+            rows="2"
+            placeholder="Add a comment. Type @ to mention a person or department."
+            [(ngModel)]="newComment"
+            name="newComment"
+            (input)="onCommentInput()"
+            (keydown)="onCommentKey($event)"
+            (keyup.enter)="!mentionOpen && addComment()"
+            [disabled]="isSubmittingComment"></textarea>
+          <button type="button" (click)="addComment()"
+            [disabled]="!newComment.trim() || isSubmittingComment || mentionOpen">
+            {{ isSubmittingComment ? 'Posting…' : 'Post' }}
+          </button>
+        </div>
+
+        @if (mentionOpen && mentionPos) {
+        <div class="mention-popup"
+          [style.top.px]="mentionPos.top"
+          [style.left.px]="mentionPos.left"
+          [style.width.px]="mentionPos.width">
+          @for (u of mentionUsers; track u.id; let i = $index) {
+          <div class="mention-row"
+            [class.active]="mentionActive === i"
+            (mousedown)="insertMention('user', u); $event.preventDefault()">
+            <span class="mention-avatar">{{ initials(u.user_id) }}</span>
+            <span class="mention-name">{{ u.user_id }}</span>
+          </div>
+          }
+          @if (mentionUsers.length && mentionDepartments.length) {
+          <div class="mention-sep"></div>
+          }
+          @for (d of mentionDepartments; track d.id; let j = $index) {
+          <div class="mention-row"
+            [class.active]="mentionActive === mentionUsers.length + j"
+            (mousedown)="insertMention('department', d); $event.preventDefault()">
+            <span class="mention-avatar dep">&#64;</span>
+            <span class="mention-name">dep:{{ d.name }}</span>
+          </div>
+          }
+          @if (!mentionUsers.length && !mentionDepartments.length) {
+          <div class="mention-empty">No matches</div>
+          }
+        </div>
+        }
+      </div>
+    </section>
     }
-  </div>
+  </aside>
 </div>

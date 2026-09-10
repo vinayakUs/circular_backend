@@ -106,7 +106,7 @@ export class ExpertsByDepartmentComponent implements OnInit {
   /** Open a task in the PDF viewer, focused on its own highlights. */
   openExpertInViewer(circularId: string, expertId: string): void {
     this.router.navigate(
-      ['/testpdfviewer'],
+      ['/taskview'],
       { queryParams: { id: circularId, expertId } }
     );
   }

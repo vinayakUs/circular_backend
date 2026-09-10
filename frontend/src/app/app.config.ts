@@ -11,7 +11,7 @@ export const appConfig: ApplicationConfig = {
       routes,
       // Preserve the URL fragment on navigation and let `ActivatedRoute.fragment`
       // emit it — without these, deep-links like
-      // /testpdfviewer?...#comment-<uuid> lose their hash on initial load
+      // /taskview?...#comment-<uuid> lose their hash on initial load
       // and `route.fragment.subscribe(...)` never fires.
       withInMemoryScrolling({
         anchorScrolling: 'enabled',

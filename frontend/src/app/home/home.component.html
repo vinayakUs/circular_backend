@@ -14,8 +14,7 @@
             <span class="gradient-text">regulatory update</span>
           </h1>
           <p class="hero-description">
-            AI-powered tracking across NSE and SEBI circulars. Real-time alerts,
-            intelligent search, and compliance insights for regulatory professionals.
+            AI-powered tracking across NSE, SEBI and SEBI Master circulars
           </p>
 
           <div class="search-container">
@@ -29,7 +28,7 @@
             </div>
           </div>
 
-          <div class="trust-badges">
+          <!-- <div class="trust-badges">
             <span class="trust-item">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="12" cy="12" r="10"/>
@@ -44,7 +43,7 @@
               </svg>
               AI Summaries
             </span>
-          </div>
+          </div> -->
         </div>
 
         <div class="hero-visual">
@@ -126,15 +125,6 @@
     <section class="stats-section">
       <div class="stats-container three-col">
         <div class="stat-card">
-          <div class="stat-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-              <polyline points="14,2 14,8 20,8"/>
-              <line x1="16" y1="13" x2="8" y2="13"/>
-              <line x1="16" y1="17" x2="8" y2="17"/>
-              <polyline points="10,9 9,9 8,9"/>
-            </svg>
-          </div>
           <div class="stat-value" *ngIf="!loadingCounts; else loadingTotal">
             {{ counts?.total == null ? '—' : (counts?.total | number) }}
           </div>
@@ -144,10 +134,7 @@
           <div class="stat-label">Total Circulars</div>
         </div>
         <div class="stat-card">
-          <div class="stat-logo">
-            <img src="assets/images/sebi-logo.png" alt="SEBI" class="org-logo" />
-          </div>
-          <div class="stat-value" *ngIf="!loadingCounts; else loadingSebi">
+          <div class="stat-value stat-value-sebi" *ngIf="!loadingCounts; else loadingSebi">
             {{ counts?.sebi == null ? '—' : (counts?.sebi | number) }}
           </div>
           <ng-template #loadingSebi>
@@ -156,10 +143,7 @@
           <div class="stat-label">SEBI Circulars</div>
         </div>
         <div class="stat-card">
-          <div class="stat-logo">
-            <img src="assets/images/nse-logo.png" alt="NSE" class="org-logo" />
-          </div>
-          <div class="stat-value" *ngIf="!loadingCounts; else loadingNse">
+          <div class="stat-value stat-value-nse" *ngIf="!loadingCounts; else loadingNse">
             {{ counts?.nse == null ? '—' : (counts?.nse | number) }}
           </div>
           <ng-template #loadingNse>

@@ -188,7 +188,7 @@ class EmailService:
             "target_label": row["target_label"],
             "comment_text": row["text"],
             "expert_name":  row["expert_name"],
-            "comment_url":  f"{Config.FRONTEND_BASE_URL}/testpdfviewer?id={row['circular_uuid']}&expertId={row['expert_id']}#comment-{row['comment_id']}",
+            "comment_url":  f"{Config.FRONTEND_BASE_URL}/taskview?id={row['circular_uuid']}&expertId={row['expert_id']}#comment-{row['comment_id']}",
             "comment_created_at": comment_created_at,
             "circular_title": row.get("circular_title", ""),
             "circular_full_reference": row.get("circular_full_reference", ""),
