@@ -384,6 +384,7 @@ class CircularRepository:
         circular_nos: list[str] | None = None,
         department: str | None = None,
         active_only: bool = False,
+        status: str | None = None,
     ) -> tuple[list[CircularRecord], int]:
         """Default behaviour: return every record (active + superseded) so
         callers see the full version chain. Pass `active_only=True` to hide
@@ -424,6 +425,10 @@ class CircularRepository:
             idx += 1
         if active_only:
             where.append("c.is_active = TRUE")
+        if status:
+            where.append("c.status = %s")
+            args.append(status.upper())
+            idx += 1
 
         where_sql = " AND ".join(where) if where else "1=1"
 

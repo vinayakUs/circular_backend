@@ -82,14 +82,30 @@ class LooksLikePdfUrlTests(unittest.TestCase):
     def test_pdf_with_query(self):
         self.assertTrue(_looks_like_pdf_url("https://x.com/a.pdf?x=1"))
 
-    def test_sebi_legal_no_suffix(self):
-        self.assertTrue(_looks_like_pdf_url("https://www.sebi.gov.in/legal/foo/bar"))
+    def test_sebi_legal_html_url_rejected(self):
+        # SEBI's /legal/ paths serve HTML detail pages, not PDFs. The loose
+        # fallback that accepted any sebi.gov.in/legal/ URL was the cause of
+        # the circular-72195 ingestion failure.
+        self.assertFalse(
+            _looks_like_pdf_url(
+                "https://www.sebi.gov.in/legal/gazette-notification/jan-2022/"
+                "notification-of-electronic-gold-receipts-as-securities-under-"
+                "scra-1956_55247.html"
+            )
+        )
+
+    def test_sebi_legal_no_suffix_rejected(self):
+        # Without an explicit .pdf suffix, /legal/ URLs are HTML detail pages.
+        self.assertFalse(_looks_like_pdf_url("https://www.sebi.gov.in/legal/foo/bar"))
 
     def test_sebi_non_legal_no_suffix(self):
         self.assertFalse(_looks_like_pdf_url("https://www.sebi.gov.in/about/"))
 
     def test_non_sebi_html(self):
         self.assertFalse(_looks_like_pdf_url("https://example.com/page"))
+
+    def test_pdf_uppercase_suffix_accepted(self):
+        self.assertTrue(_looks_like_pdf_url("https://x.com/A.PDF"))
 
 
 class LocateIndexPagesTests(unittest.TestCase):
@@ -185,6 +201,37 @@ class ExtractChapterUrlsTests(unittest.TestCase):
         ])
         urls = extract_chapter_urls(pdf, "https://main.com/main.pdf")
         self.assertEqual(urls, [])
+
+    def test_skips_html_link_annotations(self):
+        # Regression for circular 72195 failure: SEBI master circular index
+        # pages embed links to legal HTML detail pages (gazette notifications,
+        # regulations) which must not be treated as chapter PDFs.
+        pdf = _make_pdf(["body", "body", "body", "Enclosures:"])
+        pdf = _add_link_annotation(
+            pdf, 3,
+            "https://www.sebi.gov.in/legal/gazette-notification/jan-2022/"
+            "notification-of-electronic-gold-receipts-as-securities-under-"
+            "scra-1956_55247.html",
+        )
+        urls = extract_chapter_urls(pdf, "https://main.com/main.pdf")
+        self.assertEqual(urls, [])
+
+    def test_skips_html_keeps_pdf_in_text_and_annotations(self):
+        # HTML annotation must be ignored while legitimate .pdf URLs from
+        # both page text and link annotations are kept.
+        pdf = _make_pdf([
+            "body", "body", "body",
+            "Enclosures:\nhttps://x.com/c1.pdf",
+        ])
+        pdf = _add_link_annotation(pdf, 3, "https://x.com/c2.pdf")
+        pdf = _add_link_annotation(
+            pdf, 3,
+            "https://www.sebi.gov.in/legal/regulations/nov-2022/some-regulation_99.html",
+        )
+        urls = extract_chapter_urls(pdf, "https://main.com/main.pdf")
+        self.assertIn("https://x.com/c1.pdf", urls)
+        self.assertIn("https://x.com/c2.pdf", urls)
+        self.assertEqual(len(urls), 2)
 
 
 class MergePdfsTests(unittest.TestCase):

@@ -75,22 +75,43 @@ class LDAPAuth:
                         logger.warning("LDAP unbind failed (simple bind) for user=%s", username, exc_info=True)
 
     def create_token(self, username: str, user_db_id: str | None = None) -> str:
-        """Create JWT token for authenticated user."""
+        """Create JWT token for authenticated user.
+
+        Raises RuntimeError if JWT_PRIVATE_KEY is not configured — login route
+        catches this and returns 503, so the failure is visible to ops rather
+        than silently falling back to a known-bad key.
+        """
+        if not Config.JWT_PRIVATE_KEY:
+            raise RuntimeError(
+                "JWT_PRIVATE_KEY is not configured. "
+                "Set the env var to a PEM-encoded RSA private key."
+            )
         payload = {
             "sub": username,
             "user_db_id": user_db_id,
-            "exp": datetime.now(timezone.utc) + timedelta(hours=Config.JWT_EXPIRATION_HOURS),
+            "exp": datetime.now(timezone.utc)
+                + timedelta(minutes=Config.JWT_EXPIRATION_MINUTES),
             "iat": datetime.now(timezone.utc),
         }
-        return jwt.encode(payload, Config.JWT_SECRET, algorithm=Config.JWT_ALGORITHM)
+        return jwt.encode(payload, Config.JWT_PRIVATE_KEY, algorithm=Config.JWT_ALGORITHM)
 
     @staticmethod
     def decode_token(token: str) -> dict[str, Any] | None:
-        """Decode and validate JWT token. Returns payload or None if invalid."""
+        """Decode and validate JWT token. Returns payload or None if invalid.
+
+        If JWT_PUBLIC_KEY is not configured, logs an error and rejects every
+        token — we refuse to fall back to a known-bad signing key.
+        """
+        if not Config.JWT_PUBLIC_KEY:
+            logger.error(
+                "JWT_PUBLIC_KEY is not configured; rejecting token for security. "
+                "Set the env var to a PEM-encoded RSA public key."
+            )
+            return None
         try:
             payload = jwt.decode(
                 token,
-                Config.JWT_SECRET,
+                Config.JWT_PUBLIC_KEY,
                 algorithms=[Config.JWT_ALGORITHM],
             )
             return payload
@@ -105,7 +126,7 @@ def require_auth(f):
 
     After JWT validation, this decorator also checks `users.is_deleted`
     to enforce M1 (soft-delete defense). A user soft-deleted today can
-    still use their existing JWT for up to JWT_EXPIRATION_HOURS; this
+    still use their existing JWT for up to JWT_EXPIRATION_MINUTES; this
     DB check blocks them at the auth layer instead.
 
     Cost: 1 extra DB query per protected request (~1-2ms). For higher
@@ -135,7 +156,7 @@ def require_auth(f):
 
         # M1: defense against soft-deleted users.
         # JWT is stateless — a user soft-deleted today can still use
-        # their existing token for up to JWT_EXPIRATION_HOURS. This
+        # their existing token for up to JWT_EXPIRATION_MINUTES. This
         # DB check blocks them at the auth layer for EVERY protected
         # route — comments, experts, mentions, all of them.
         from db.postgres_client import get_postgres_client

@@ -30,8 +30,12 @@ _DATE_PATTERN = re.compile(
 # as "AFD – PoD"). The body is lazy + terminates on a lookahead so it
 # never swallows trailing metadata like "ISSUED ON" or the uppercase
 # "<MONTH> <DAY>" date printed on the same line as the reference.
+#
+# Accepted prefixes:
+#   - SEBI/HO/, HO/, SEBI/  (post-2018 layout, e.g. SEBI/HO/MIRSD/.../2025/91)
+#   - CIR/                    (older pre-2018 layout, e.g. CIR/MRD/DMS/40/2010)
 _REFERENCE_TOKEN = re.compile(
-    r"(?:SEBI\s*/\s*HO\s*/\s*|HO\s*/\s*|SEBI\s*/\s*)"
+    r"(?:SEBI\s*/\s*HO\s*/\s*|HO\s*/\s*|SEBI\s*/\s*|CIR\s*/\s*)"
     r"[A-Z0-9/\-\.\(\)\s_–—]+?"
     r"(?=\s+(?:ISSUED(?:\s+ON)?|"
     r"(?:JANUARY|FEBRUARY|MARCH|APRIL|MAY|JUNE|JULY|AUGUST|"
@@ -44,10 +48,11 @@ _REFERENCE_TOKEN = re.compile(
 # artefacts (internal whitespace around "/" and en/em-dashes) so the stored
 # reference matches what's printed in the PDF.
 _REFERENCE_CHARSET = re.compile(r"^[A-Z0-9/\-\.\(\)\s_–—]+$", re.IGNORECASE)
-# Valid SEBI master-circular reference prefixes: "HO/...", "SEBI/...", "SEBI/HO/..."
-# (e.g. HO/49/14/14(7)2025-CFD-POD2/I/3762/2026, SEBI/HO/MIRSD/...).
+# Valid SEBI master-circular reference prefixes: "HO/...", "SEBI/...",
+# "SEBI/HO/..." (post-2018 layout), and "CIR/..." (older pre-2018 layout,
+# e.g. CIR/MRD/DMS/40/2010).
 _REFERENCE_LEADER = re.compile(
-    r"^(?:SEBI\s*/\s*HO\s*/\s*|HO\s*/\s*|SEBI\s*/\s*)",
+    r"^(?:SEBI\s*/\s*HO\s*/\s*|HO\s*/\s*|SEBI\s*/\s*|CIR\s*/\s*)",
     re.IGNORECASE,
 )
 
@@ -57,9 +62,10 @@ def _looks_like_reference(candidate: str) -> bool:
 
     Valid SEBI master-circular references (per the samples
     HO/49/14/14(7)2025-CFD-POD2/I/3762/2026,
-    SEBI/HO/MIRSD/MIRSD-PoD/P/CIR/2025/91, and
-    SEBI/HO/OIAE/OIAE_IAD-1/P/CIR/2023/145) always have:
-      - a recognised prefix: SEBI/HO/, HO/, or SEBI/
+    SEBI/HO/MIRSD/MIRSD-PoD/P/CIR/2025/91,
+    SEBI/HO/OIAE/OIAE_IAD-1/P/CIR/2023/145, and the older
+    CIR/MRD/DMS/40/2010) always have:
+      - a recognised prefix: SEBI/HO/, HO/, SEBI/, or CIR/
       - 2+ forward slashes
       - only A-Z, 0-9, /, -, ., (, ), _, plus internal whitespace and
         en/em-dashes (pypdf artefacts — kept as-is so the stored reference
@@ -125,7 +131,9 @@ def _extract_via_llm(text: str) -> str | None:
         "A SEBI master circular reference is a code like:\n"
         "  HO/49/14/14(7)2025-CFD-POD2/I/3762/2026\n"
         "  SEBI/HO/MIRSD/MIRSD-PoD/P/CIR/2025/91\n"
-        "  SEBI/HO/OIAE/OIAE_IAD-1/P/CIR/2023/145\n\n"
+        "  SEBI/HO/OIAE/OIAE_IAD-1/P/CIR/2023/145\n"
+        "  CIR/MRD/DMS/40/2010  (older pre-2018 layout)\n"
+        "  CIR/MRD/DP/ 41 /2010  (older layout; may have internal whitespace)\n\n"
         "It appears near the top of the page, right after the 'MASTER CIRCULAR' "
         "header (with optional subtitle / version note in between) and before "
         "the 'To,' addressees block. Return the reference exactly as printed. "

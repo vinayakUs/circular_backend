@@ -427,6 +427,10 @@ def register_routes(app, *, rag_generator) -> None:
         elif normalized_source and normalized_source not in {"NSE", "SEBI","SEBI_MASTER"}:
             return {"error": "source must be 'NSE', 'SEBI', or 'ALL'."}, 400
 
+        raw_status = request.args.get("status", "").strip().upper() or None
+        if raw_status and raw_status not in {"FETCHED", "DISCOVERED", "FAILED"}:
+            return {"error": "status must be 'FETCHED', 'DISCOVERED', or 'FAILED'."}, 400
+
         raw_signatory = [s for s in request.args.getlist("signatory") if s.strip()]
         raw_from_date = request.args.get("from_date", "").strip() or None
         raw_to_date = request.args.get("to_date", "").strip() or None
@@ -484,6 +488,7 @@ def register_routes(app, *, rag_generator) -> None:
             circular_nos=circular_nos,
             department=raw_department,
             active_only=active_only,
+            status=raw_status,
         )
 
         items = [

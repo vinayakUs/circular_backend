@@ -56,7 +56,14 @@ def register_routes(app) -> None:
             )
             return {"error": "User not provisioned in DB"}, 403
 
-        token = auth.create_token(username, user_db_id)
+        try:
+            token = auth.create_token(username, user_db_id)
+        except RuntimeError as exc:
+            # JWT keys missing — surface the misconfiguration to ops with a
+            # distinct 503 rather than a generic 500.
+            logger.error("Auth misconfigured: %s", exc)
+            return {"error": "Authentication service is misconfigured"}, 503
+
         return {"access_token": token, "token_type": "bearer"}
 
     @app.get("/api/auth/me")

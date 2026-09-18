@@ -141,11 +141,15 @@ def _maybe_add(
 
 
 def _looks_like_pdf_url(url: str) -> bool:
+    """Accept only URLs that point to a PDF by file suffix or query suffix.
+
+    SEBI's `/legal/` paths serve HTML detail pages (gazette notifications,
+    regulations) rather than the underlying PDF. Treating them as PDFs caused
+    the chapter-merge step to fetch HTML and fail the byte-magic validation,
+    so we no longer accept `/legal/` URLs without an explicit `.pdf` suffix.
+    """
     url_lower = url.lower()
-    if url_lower.endswith(".pdf") or ".pdf?" in url_lower:
-        return True
-    # SEBI sometimes serves PDFs without an explicit .pdf suffix.
-    return "sebi.gov.in" in url_lower and "/legal/" in url_lower
+    return url_lower.endswith(".pdf") or ".pdf?" in url_lower
 
 
 def _is_self_reference(url: str, main_pdf_url: str) -> bool:

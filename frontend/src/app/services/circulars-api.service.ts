@@ -228,6 +228,7 @@ export class CircularsApiService {
     signatory?: string[];
           circular_nos?: string[];
     department?: string;
+    status?: string;
   }): Observable<PaginatedCircularsResponse> {
     const queryParams = new URLSearchParams();
     if (params.source) queryParams.set('source', params.source);
@@ -236,6 +237,7 @@ export class CircularsApiService {
     if (params.from_date) queryParams.set('from_date', params.from_date);
     if (params.to_date) queryParams.set('to_date', params.to_date);
     if (params.search) queryParams.set('search', params.search);
+    if (params.status) queryParams.set('status', params.status);
     if (params.applicable_to_nse !== null && params.applicable_to_nse !== undefined) {
       queryParams.set('applicable_to_nse', params.applicable_to_nse.toString());
     }

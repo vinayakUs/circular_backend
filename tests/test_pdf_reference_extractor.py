@@ -56,6 +56,18 @@ class LooksLikeReferenceTestCase(unittest.TestCase):
             _looks_like_reference("HO/49/MIRSD,COMPLIANCE/2026/1234")
         )
 
+    def test_accepts_cir_prefix_reference(self) -> None:
+        # Older SEBI master circulars (pre-2018) used a CIR/... reference
+        # format instead of the newer HO/... or SEBI/HO/... format. These
+        # are valid SEBI references and must be accepted.
+        self.assertTrue(_looks_like_reference("CIR/MRD/DMS/40/2010"))
+
+    def test_accepts_cir_prefix_with_internal_whitespace(self) -> None:
+        # pypdf sometimes inserts whitespace around numeric tokens in
+        # older CIR/... references (e.g. "CIR/MRD/DP/ 41 /2010"). The
+        # validator must tolerate this.
+        self.assertTrue(_looks_like_reference("CIR/MRD/DP/ 41 /2010"))
+
 
 class ExtractMasterCircularReferenceTestCase(unittest.TestCase):
     def test_extracts_reference_from_real_sample_layout(self) -> None:
@@ -125,6 +137,20 @@ class ExtractMasterCircularReferenceTestCase(unittest.TestCase):
         pdf_bytes = _make_pdf_with_text(text)
 
         self.assertIsNone(extract_master_circular_reference(pdf_bytes))
+
+    def test_extracts_cir_prefix_reference(self) -> None:
+        # Older SEBI master circulars use CIR/... references like
+        # CIR/MRD/DMS/40/2010. The regex path must recognise this prefix.
+        text = (
+            "MASTER CIRCULAR\n"
+            "CIR/MRD/DMS/40/2010      December 31, 2010\n"
+            "To,\nAll Stock Exchanges and Depositories\n"
+        )
+        pdf_bytes = _make_pdf_with_text(text)
+
+        result = extract_master_circular_reference(pdf_bytes)
+
+        self.assertEqual(result, "CIR/MRD/DMS/40/2010")
 
     def test_returns_none_on_garbage_bytes(self) -> None:
         self.assertIsNone(extract_master_circular_reference(b"not a pdf"))

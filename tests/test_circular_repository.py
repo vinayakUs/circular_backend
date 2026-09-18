@@ -377,5 +377,89 @@ class CircularSupersessionTestCase(unittest.TestCase):
         self.assertNotIn(rid_casing, result_ids)     # excluded — exact match required
 
 
+class CircularRepositoryStatusFilterTestCase(unittest.TestCase):
+    """Tests for the `status` filter on list_paginated(). Uses Postgres."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.pool = get_postgres_client().get_pool()
+        cls.repo = CircularRepository(cls.pool)
+        cls.source = "TEST_STATUS_FILTER"
+
+    def setUp(self) -> None:
+        with self.pool.acquire() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "DELETE FROM circulars WHERE source = %s",
+                (self.source,),
+            )
+            conn.commit()
+
+    def tearDown(self) -> None:
+        with self.pool.acquire() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "DELETE FROM circulars WHERE source = %s",
+                (self.source,),
+            )
+            conn.commit()
+
+    def _insert(self, circular_id: str, status: str) -> None:
+        with self.pool.acquire() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO circulars (source, circular_id, source_item_key,
+                                       full_reference, title, issue_date,
+                                       status, detected_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    self.source, circular_id, f"{self.source}/{circular_id}",
+                    f"REF/{circular_id}", f"Title {circular_id}",
+                    date(2024, 6, 1), status, datetime.now(timezone.utc),
+                ),
+            )
+            conn.commit()
+
+    def test_list_paginated_filters_by_status_fetched(self) -> None:
+        self._insert("CIRC_FETCHED", "FETCHED")
+        self._insert("CIRC_FAILED", "FAILED")
+
+        records, total = self.repo.list_paginated(
+            source=self.source, status="FETCHED", limit=10, offset=0,
+        )
+
+        self.assertEqual(total, 1)
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0].status, "FETCHED")
+        self.assertEqual(records[0].circular_id, "CIRC_FETCHED")
+
+    def test_list_paginated_filters_by_status_failed(self) -> None:
+        self._insert("CIRC_FETCHED", "FETCHED")
+        self._insert("CIRC_FAILED", "FAILED")
+
+        records, total = self.repo.list_paginated(
+            source=self.source, status="FAILED", limit=10, offset=0,
+        )
+
+        self.assertEqual(total, 1)
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0].status, "FAILED")
+
+    def test_list_paginated_status_none_returns_all(self) -> None:
+        # Default behavior (no status filter) must be unchanged — returns
+        # every record regardless of status.
+        self._insert("CIRC_FETCHED", "FETCHED")
+        self._insert("CIRC_FAILED", "FAILED")
+
+        records, total = self.repo.list_paginated(
+            source=self.source, limit=10, offset=0,
+        )
+
+        self.assertEqual(total, 2)
+        self.assertEqual(len(records), 2)
+
+
 if __name__ == "__main__":
     unittest.main()

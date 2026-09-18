@@ -13,7 +13,10 @@ def _parse_scraper_sources(raw_value: str | None) -> tuple[str, ...]:
 
 
 class Config:
-    SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key")
+    # Flask session secret. No default — fail-at-use-site if missing.
+    # Previously defaulted to "dev-secret-key", which meant any misconfigured
+    # deploy silently ran with a publicly-known session signing key.
+    SECRET_KEY = os.getenv("SECRET_KEY")
     FLASK_ENV = os.getenv("FLASK_ENV", "development")
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 
@@ -33,9 +36,15 @@ class Config:
     LDAP_BASE_DN = os.getenv("LDAP_BASE_DN", "dc=company,dc=com")  # only for simple bind
     LDAP_USER_DN_TEMPLATE = os.getenv("LDAP_USER_DN_TEMPLATE", "uid={username},ou=users,dc=company,dc=com")  # only for simple bind
     # ==== End LDAP ====
-    JWT_SECRET = os.getenv("JWT_SECRET", "s2L65pGQtRN0Tu1ZDAH80SqP1Rl7FgWXOzanvGKeOS0")
-    JWT_ALGORITHM = "HS256"
-    JWT_EXPIRATION_HOURS = int(os.getenv("JWT_EXPIRATION_HOURS", "24"))
+    # RS256 (asymmetric) — server signs with the PRIVATE key, verifies with the PUBLIC key.
+    # Neither value has a committed fallback. If the env vars are missing, the auth code
+    # raises RuntimeError at use-site (login route catches and returns 503).
+    JWT_PRIVATE_KEY = os.getenv("JWT_PRIVATE_KEY")  # PEM-encoded RSA private key
+    JWT_PUBLIC_KEY = os.getenv("JWT_PUBLIC_KEY")      # PEM-encoded RSA public key
+    JWT_ALGORITHM = "RS256"
+    # Short-lived access tokens. Was 24h, dropped to 15m — limits blast radius of any
+    # leaked token. Without refresh tokens this means users re-login once per session.
+    JWT_EXPIRATION_MINUTES = int(os.getenv("JWT_EXPIRATION_MINUTES", "15"))
     DATABASE_URL = os.getenv(
         "DATABASE_URL", "oracle+oracledb://circular_user:MyAppPass123@localhost:1521/XEPDB1"
     )

@@ -140,7 +140,8 @@ export class AllCircularsComponent implements OnInit {
       applicable_to_nse: this.state.filters.applicable_to_nse,
       signatory: this.state.filters.signatory || undefined,
       circular_nos: this.state.filters.circular_nos ? this.state.filters.circular_nos : undefined,
-      department: this.state.filters.department || undefined
+      department: this.state.filters.department || undefined,
+      status: 'FETCHED'
     }).subscribe({
       next: (data) => {
         this.circulars = data.data.circulars.map(c => ({
