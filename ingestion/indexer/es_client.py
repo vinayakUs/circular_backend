@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from typing import Any
-
 from pypdf import filters
-
 from config import Config
 from ingestion.indexer.dto import IndexDocument, SearchHit
 from ingestion.indexer.embedding_provider import EmbeddingProvider, NoOpEmbeddingProvider
@@ -17,6 +16,13 @@ try:
 except ImportError:
     RANX_AVAILABLE = False
 
+# Defaults for batched bulk indexing. Tuned at the call site by passing
+# overrides to bulk_index_batches(); kept as module-level constants so the
+# defaults are visible in the function signature rather than scattered
+# across Config / env vars.
+_DEFAULT_BULK_CHUNK_SIZE = 100
+_DEFAULT_BULK_BATCH_RETRIES = 3
+_DEFAULT_BULK_RETRY_BACKOFF_SECONDS = 2.0
 
 DEFAULT_INDEX_MAPPING: dict[str, Any] = {
     "mappings": {
@@ -165,11 +171,13 @@ class ElasticsearchClient:
         self.client.indices.delete(index=self.index_name)
 
     def bulk_index(self, documents: list[IndexDocument]) -> tuple[int, int]:
+        """One-shot bulk index (no batching, no retry). Prefer bulk_index_batches
+        for production records with >100 chunks."""
         if not documents:
             return 0, 0
 
         try:
-            from elasticsearch.helpers import bulk  # type: ignore[import]
+            from elasticsearch.helpers import bulk
         except ImportError as exc:
             raise RuntimeError(
                 "elasticsearch is not installed. Install dependencies before running the indexer."
@@ -192,6 +200,178 @@ class ElasticsearchClient:
         )
         failed_count = len(errors)
         return success_count, failed_count
+
+    def bulk_index_batches(
+        self,
+        documents: list[IndexDocument],
+        *,
+        chunk_size: int = _DEFAULT_BULK_CHUNK_SIZE,
+        max_retries: int = _DEFAULT_BULK_BATCH_RETRIES,
+        base_backoff_seconds: float = _DEFAULT_BULK_RETRY_BACKOFF_SECONDS,
+    ) -> tuple[int, int]:
+        """Index documents in batches with per-batch retry on transport failures.
+        Splits the documents into chunks of ``chunk_size`` (defaults to
+        ``_DEFAULT_BULK_CHUNK_SIZE``) so each HTTP ``_bulk`` request stays
+        small enough to finish within the client's ``request_timeout``. On
+        transport-level failures (``ConnectionError``, ``ConnectionTimeout``),
+        retries the batch up to ``max_retries`` times with exponential
+        backoff. After retries are exhausted, raises the last exception so
+        the caller can mark the record as failed.
+
+        Returns ``(total_success_count, total_failed_doc_count)`` summed
+        across batches. ``chunk_id`` is deterministic and ``_op_type="index"``,
+        so retrying the same record upserts the same ``_id`` rather than
+        creating duplicates.
+        """
+        if not documents:
+            return 0, 0
+
+        try:
+            from elasticsearch.helpers import bulk  # type: ignore[import]
+        except ImportError as exc:
+            raise RuntimeError(
+                "elasticsearch is not installed. Install dependencies before running the indexer."
+            ) from exc
+
+        actions = [
+            {
+                "_op_type": "index",
+                "_index": self.index_name,
+                "_id": document.chunk_id,
+                "_source": document.to_es_body(),
+            }
+            for document in documents
+        ]
+        success_total = 0
+        errors_total: list = []
+
+        for batch_start in range(0, len(actions), chunk_size):
+            batch = actions[batch_start : batch_start + chunk_size]
+            batch_success, batch_errors = self._bulk_index_batch_with_retry(
+                batch,
+                max_retries=max_retries,
+                base_backoff_seconds=base_backoff_seconds,
+            )
+            success_total += batch_success
+            errors_total.extend(batch_errors)
+
+        return success_total, len(errors_total)
+
+    def _bulk_index_batch_with_retry(
+        self,
+        batch: list[dict[str, Any]],
+        *,
+        max_retries: int,
+        base_backoff_seconds: float,
+    ) -> tuple[int, list]:
+        """Send a single batch to ES with retry on transport failures only.
+
+        Per-doc errors (mapping rejections, version conflicts, doc-too-large)
+        are NOT retried — they are returned immediately via the ``errors`` list.
+        Only transport-level failures (``ConnectionError``, ``ConnectionTimeout``)
+        trigger retry, because those are typically transient.
+        """
+        from elasticsearch.helpers import bulk  # type: ignore[import]
+        from elastic_transport import ConnectionError as EsConnectionError
+        from elastic_transport import ConnectionTimeout
+
+        transient_errors = (EsConnectionError, ConnectionTimeout)
+        last_exc: Exception | None = None
+
+        for attempt in range(max_retries):
+            try:
+                success, errors = bulk(
+                    self.client,
+                    batch,
+                    raise_on_error=False,
+                    raise_on_exception=False,
+                )
+                if errors:
+                    self._log_bulk_errors(batch, errors)
+                return success, list(errors)
+            except transient_errors as exc:
+                last_exc = exc
+                self.logger.warning(
+                    "ES bulk batch failed attempt=%d/%d batch_size=%d error=%s",
+                    attempt + 1,
+                    max_retries,
+                    len(batch),
+                    exc,
+                )
+                if attempt < max_retries - 1:
+                    time.sleep(base_backoff_seconds * (2 ** attempt))
+
+        # All retries exhausted — surface to caller so the record is marked failed.
+        assert last_exc is not None  # for type-checkers
+        raise last_exc
+
+    def _log_bulk_errors(
+        self, batch: list[dict[str, Any]], errors: list[Any]
+    ) -> None:
+        """Log per-doc errors from a bulk indexing call.
+
+        Each ``errors`` entry is shaped like
+        ``{"<op>": {"_id": ..., "status": ..., "error": {"type": ..., "reason": ...}}}``
+        where ``<op>`` is ``index`` / ``create`` / ``update`` / ``delete``.
+        Some entries may be ``Exception`` instances when the underlying
+        transport raised despite ``raise_on_exception=False``.
+
+        Logs chunk_id, status, error type and reason. When type/reason are
+        unavailable (some ES responses nest the error differently or omit it
+        when JSON parsing fails for a doc), dumps the full ``info`` dict so
+        the actual response shape is visible in the log.
+
+        Chunk text is intentionally NOT included to keep logs small.
+        """
+        for err in errors:
+            if isinstance(err, Exception):
+                self.logger.error(
+                    "ES bulk item raised exception=%s batch_size=%d",
+                    err,
+                    len(batch),
+                )
+                continue
+            if not isinstance(err, dict):
+                self.logger.error(
+                    "ES bulk item returned unexpected shape=%r batch_size=%d",
+                    err,
+                    len(batch),
+                )
+                continue
+            for op, info in err.items():
+                if not isinstance(info, dict):
+                    continue
+                err_info = info.get("error")
+                err_type: Any = None
+                err_reason: Any = None
+                if isinstance(err_info, dict):
+                    err_type = err_info.get("type")
+                    err_reason = err_info.get("reason")
+                elif err_info is not None:
+                    err_type = type(err_info).__name__
+                    err_reason = str(err_info)
+
+                if err_type is None and err_reason is None:
+                    # Fall back to dumping the whole info dict — ES sometimes
+                    # returns errors under a different key (e.g. caused_by) or
+                    # omits the error block entirely when JSON parsing of the
+                    # doc body fails.
+                    self.logger.error(
+                        "ES bulk doc failed op=%s _id=%s status=%s info=%s",
+                        op,
+                        info.get("_id"),
+                        info.get("status"),
+                        info,
+                    )
+                else:
+                    self.logger.error(
+                        "ES bulk doc failed op=%s _id=%s status=%s type=%s reason=%s",
+                        op,
+                        info.get("_id"),
+                        info.get("status"),
+                        err_type,
+                        err_reason,
+                    )
 
     def search(
         self,
@@ -239,7 +419,7 @@ class ElasticsearchClient:
             hits = self._parse_hits(bm25_response)
             hits = self._deduplicate_by_circular_id(hits)
             return hits
-        # elif strategy == "vector":
+        elif strategy == "vector":
             if query_vector is None:
                 search_kwargs["query"] = bm25_query
                 response = self.client.search(**search_kwargs)

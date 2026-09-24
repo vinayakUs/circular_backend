@@ -4,11 +4,14 @@
   <main class="main-content">
     <div class="login-wrapper">
       <div class="login-header">
-        <h2>Sign in to Circular Hub</h2>
-        <p>Enter your credentials to access your account</p>
+        <h2 *ngIf="step === 'credentials'">Sign in to Circular Hub</h2>
+        <h2 *ngIf="step === 'mfa'">Verify your identity</h2>
+        <p *ngIf="step === 'credentials'">Enter your credentials to access your account</p>
+        <p *ngIf="step === 'mfa'">Choose how to receive your verification code</p>
       </div>
 
-      <form class="login-form" (ngSubmit)="onSubmit()">
+      <!-- ════════════════ STEP 1: credentials + captcha ════════════════ -->
+      <form class="login-form" *ngIf="step === 'credentials'" (ngSubmit)="onSubmit()">
         <div class="form-group">
           <label for="username" class="form-label">Username</label>
           <input
@@ -25,39 +28,225 @@
 
         <div class="form-group">
           <label for="password" class="form-label">Password</label>
-          <div class="password-wrapper">
+          <input
+            type="password"
+            id="password"
+            class="form-input"
+            placeholder="Enter your password"
+            [(ngModel)]="password"
+            name="password"
+            required
+          />
+        </div>
+
+        <div class="form-group captcha-group">
+          <label for="captcha" class="form-label">Verification</label>
+          <div class="captcha-row">
+            <div class="captcha-box">
+              <img
+                *ngIf="captchaImageData; else loadingTpl"
+                [src]="captchaImageData"
+                alt="captcha"
+                class="captcha-image"
+                draggable="false"
+              />
+              <ng-template #loadingTpl>
+                <div class="captcha-loading">…</div>
+              </ng-template>
+              <button
+                type="button"
+                class="captcha-refresh"
+                (click)="refreshCaptcha()"
+                [disabled]="captchaLoading"
+                aria-label="Refresh captcha"
+                title="Get a new challenge"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M23 4v6h-6M1 20v-6h6"/>
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                </svg>
+              </button>
+            </div>
             <input
-              [type]="showPassword ? 'text' : 'password'"
-              id="password"
-              class="form-input"
-              placeholder="Enter your password"
-              [(ngModel)]="password"
-              name="password"
+              type="text"
+              id="captcha"
+              class="form-input captcha-input"
+              placeholder="Enter the characters"
+              [(ngModel)]="captchaAnswer"
+              name="captcha_answer"
+              maxlength="6"
+              autocomplete="off"
+              spellcheck="false"
+              autocapitalize="off"
               required
             />
-            <button
-              type="button"
-              class="password-toggle"
-              (click)="togglePassword()"
-              aria-label="Toggle password visibility"
-            >
-              <svg *ngIf="!showPassword" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                <circle cx="12" cy="12" r="3"/>
-              </svg>
-              <svg *ngIf="showPassword" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-                <line x1="1" y1="1" x2="23" y2="23"/>
-              </svg>
-            </button>
           </div>
         </div>
 
-        <button type="submit" class="btn btn-primary" [disabled]="isLoading">
+        <button type="submit" class="btn btn-primary" [disabled]="isLoading || !challengeId">
           <span *ngIf="!isLoading">Sign in</span>
           <span *ngIf="isLoading" class="loading-spinner"></span>
         </button>
       </form>
+
+      <!-- ════════════════ STEP 2: MFA — channel + code ════════════════ -->
+      <div class="login-form mfa-step" *ngIf="step === 'mfa'">
+
+        <!-- Lock icon header -->
+        <div class="mfa-icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+        </div>
+
+        <!-- Channel picker -->
+        <div class="channel-picker">
+          <div class="form-label">Send verification code via</div>
+          <div class="channel-grid">
+            <label
+              *ngFor="let ch of availableChannels"
+              class="channel-card"
+              [class.selected]="isSelected(ch)"
+              (click)="toggleChannel(ch)"
+            >
+              <div class="channel-icon">
+                <svg *ngIf="ch === 'email'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                  <polyline points="22,6 12,13 2,6"/>
+                </svg>
+                <svg *ngIf="ch === 'sms'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+                </svg>
+              </div>
+              <div class="channel-content">
+                <div class="channel-name">{{ channelLabel(ch) }}</div>
+                <div class="channel-meta">
+                  {{ ch === 'email' ? 'Code sent to your inbox' : 'Code sent via SMS' }}
+                </div>
+              </div>
+              <div class="channel-check">
+                <svg *ngIf="isSelected(ch)" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Send / Resend button (before code is sent) -->
+        <button
+          *ngIf="!codeSent"
+          type="button"
+          class="btn btn-primary btn-large"
+          [disabled]="isSendingCode || selectedChannels.size === 0"
+          (click)="onSendCode()"
+        >
+          <span *ngIf="!isSendingCode" class="btn-content">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"/>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+            Send verification code
+          </span>
+          <span *ngIf="isSendingCode" class="btn-content">
+            <span class="loading-spinner"></span>
+            Sending…
+          </span>
+        </button>
+
+        <!-- Code sent → show input + countdown -->
+        <div *ngIf="codeSent" class="otp-section">
+          <div class="form-group">
+            <label for="otp" class="form-label otp-label">
+              <span>Enter the 6-digit code</span>
+              <span
+                class="ttl-badge"
+                [class.warning]="ttlSeconds > 0 && ttlSeconds < 60"
+                [class.expired]="ttlSeconds <= 0"
+                *ngIf="ttlSeconds > 0"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polyline points="12 6 12 12 16 14"/>
+                </svg>
+                {{ ttlDisplay() }}
+              </span>
+            </label>
+            <input
+              type="text"
+              id="otp"
+              class="form-input otp-input"
+              placeholder=""
+              [(ngModel)]="otp"
+              name="otp"
+              maxlength="6"
+              inputmode="numeric"
+              pattern="[0-9]{6}"
+              autocomplete="one-time-code"
+              spellcheck="false"
+              autocapitalize="off"
+            />
+          </div>
+
+          <div class="otp-actions">
+            <button
+              *ngIf="ttlSeconds > 0"
+              type="button"
+              class="btn btn-primary btn-large"
+              [disabled]="isVerifying || otp.length !== 6"
+              (click)="onVerifyCode()"
+            >
+              <span *ngIf="!isVerifying" class="btn-content">
+                Verify and sign in
+              </span>
+              <span *ngIf="isVerifying" class="btn-content">
+                <span class="loading-spinner"></span>
+                Verifying…
+              </span>
+            </button>
+            <button
+              *ngIf="ttlSeconds <= 0"
+              type="button"
+              class="btn btn-primary btn-large"
+              (click)="onResendCode()"
+              [disabled]="isSendingCode"
+            >
+              <span *ngIf="!isSendingCode" class="btn-content">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="23 4 23 10 17 10"/>
+                  <polyline points="1 20 1 14 7 14"/>
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                </svg>
+                Resend code
+              </span>
+              <span *ngIf="isSendingCode" class="btn-content">
+                <span class="loading-spinner"></span>
+                Sending…
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Error message -->
+        <div *ngIf="mfaError" class="error-message">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          {{ mfaError }}
+        </div>
+
+        <!-- Back to credentials -->
+        <button
+          type="button"
+          class="btn-link"
+          (click)="onBackToCredentials()"
+        >
+          ← Back to sign in
+        </button>
+      </div>
     </div>
   </main>
 </div>

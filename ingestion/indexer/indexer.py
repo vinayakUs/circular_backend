@@ -239,7 +239,12 @@ class ElasticsearchIndexer:
                 )
                 return False
 
-            success_count, failed_count = self.es_client.bulk_index(documents)
+            success_count, failed_count = self.es_client.bulk_index_batches(
+                documents,
+                chunk_size=200,
+                max_retries=3,
+                base_backoff_seconds=2.0,
+            )
             if failed_count or success_count != len(documents):
                 self.logger.error(
                     "Failed bulk indexing record_id=%s success_count=%s failed_count=%s expected=%s",

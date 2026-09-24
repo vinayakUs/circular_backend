@@ -46,8 +46,16 @@ class LDAPAuth:
                 user = f"{Config.LDAP_DOMAIN}\\{username}"
                 conn = Connection(srv, user=user, password=password, authentication=NTLM, auto_bind=True)
                 return True
+            except ldap3.core.exceptions.LDAPBindError:
+                # Invalid credentials — expected user error. Single INFO
+                # line keeps failed logins auditable without burying real
+                # ops incidents under a stacktrace per wrong-password attempt.
+                logger.info("LDAP NTLM bind rejected for user=%s (invalid credentials)", username)
+                return False
             except Exception:
-                logger.exception("NTLM Auth failed for user=%s", username)
+                # Server unreachable, TLS failure, malformed config — these
+                # ARE ops-level incidents and the traceback is the signal.
+                logger.exception("LDAP NTLM Bind failed for user=%s", username)
                 return False
             finally:
                 if conn is not None:
@@ -64,8 +72,16 @@ class LDAPAuth:
                 server = ldap3.Server(self.server, get_info=ldap3.DSA)
                 conn = ldap3.Connection(server, user=user_dn, password=password, auto_bind=True)
                 return conn.bound
+            except ldap3.core.exceptions.LDAPBindError:
+                # Invalid credentials — expected user error. Single INFO
+                # line keeps failed logins auditable without burying real
+                # ops incidents under a stacktrace per wrong-password attempt.
+                logger.info("LDAP bind rejected for user=%s (invalid credentials)", username)
+                return False
             except Exception:
-                logger.exception("Simple Bind failed for user=%s", username)
+                # Server unreachable, DNS failure, malformed config — these
+                # ARE ops-level incidents and the traceback is the signal.
+                logger.exception("LDAP Simple Bind failed for user=%s", username)
                 return False
             finally:
                 if conn is not None:

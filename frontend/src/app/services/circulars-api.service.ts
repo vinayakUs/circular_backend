@@ -101,6 +101,26 @@ export interface SemanticSearchResponse {
   rag_error?: string;
 }
 
+export interface CircularGroupSummary {
+  circular_db_id: string;
+  circular_id: string;
+  full_reference: string;
+  title: string;
+  source: string;
+  department: string | null;
+  issue_date: string;
+  url: string | null;
+  applicable_to_nse: boolean | null;
+  summary: string;
+}
+
+export interface GroupedSearchResponse {
+  query: string;
+  strategy: string;
+  results: CircularGroupSummary[];
+  rag_error?: string;
+}
+
 export interface SearchResponse {
   query: string;
   strategy: string;
@@ -265,6 +285,19 @@ export class CircularsApiService {
   }): Observable<SemanticSearchResponse> {
     return this.http.post<SemanticSearchResponse>(
       `${this.baseUrl}/api/circulars/search/hybrid`,
+      { q: params.query, source: params.source, from_date: params.from_date, to_date: params.to_date, applicable_to_nse: params.applicable_to_nse }
+    );
+  }
+
+  semanticSearchGrouped(params: {
+    query: string;
+    source?: string;
+    from_date?: string;
+    to_date?: string;
+    applicable_to_nse?: boolean | null;
+  }): Observable<GroupedSearchResponse> {
+    return this.http.post<GroupedSearchResponse>(
+      `${this.baseUrl}/api/circulars/search/hybrid/grouped`,
       { q: params.query, source: params.source, from_date: params.from_date, to_date: params.to_date, applicable_to_nse: params.applicable_to_nse }
     );
   }

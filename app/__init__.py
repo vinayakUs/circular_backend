@@ -89,7 +89,7 @@ def create_app() -> Flask:
     rag_generator = RAGAnswerGenerator()
 
     # Warm up the ranx JIT so the first hybrid search request isn't slow.
-    # _warmup_ranx_rrf()
+    _warmup_ranx_rrf()
 
     @app.get("/")
     def health_check():

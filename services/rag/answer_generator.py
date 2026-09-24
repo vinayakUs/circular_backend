@@ -12,6 +12,11 @@ GROUP_SUMMARY_MAX_TOKENS = 1900
 MAX_PARALLEL_WORKERS = 8
 PER_GROUP_PROMPT_MAX_CHARS = 22000
 
+# Sentinel the LLM is instructed to emit (verbatim, nothing else) in the
+# summary field when a circular's excerpts do not address the query. We drop
+# those cards from the response so users only see cards with a real write-up.
+NO_MATCH_SENTINEL = "__NO_MATCH__"
+
 
 class RAGAnswerGenerator:
     """Generates answers using LLM based on retrieved chunks."""
@@ -252,13 +257,19 @@ REFERENCES:
 
 
         # 4) Map index-aligned results back into CircularGroupSummary entries.
+        # Cards whose summary equals the no-match sentinel are dropped so the
+        # caller never sees an empty/fallback "not relevant" write-up.
         results: list[CircularGroupSummary] = []
+        dropped = 0
         for idx, cid in enumerate(ordered_cids):
             doc = repr_by_group[cid].document
             raw = parallel_results[idx] if idx < len(parallel_results) else None
             text = ""
             if raw is not None and getattr(raw, "summary", None):
                 text = raw.summary.strip()
+            if text == NO_MATCH_SENTINEL:
+                dropped += 1
+                continue
             if not text:
                 text = "Summary unavailable for this circular."
             results.append(
@@ -274,6 +285,12 @@ REFERENCES:
                     applicable_to_nse=doc.applicable_to_nse,
                     summary=text,
                 )
+            )
+
+        if dropped:
+            self.logger.info(
+                "RAG grouped: dropped %d non-relevant card(s) (sentinel=%r)",
+                dropped, NO_MATCH_SENTINEL,
             )
 
         return RAGGroupedAnswer(results=results)
@@ -326,8 +343,9 @@ REFERENCES:
             f"THIS circular addresses the user's question. Use ONLY information in the excerpts.\n\n"
             f"Strict rules:\n"
             f"- Do not invent facts.\n"
-            f'- If the excerpts do not address the question, say "This circular does not '
-            f'directly address the question." in one sentence.\n'
+            f'- If the excerpts do not address the question, output EXACTLY the string '
+            f'`{NO_MATCH_SENTINEL}` and nothing else in the summary field. '
+            f'Do not paraphrase. Do not add punctuation. Do not wrap it in quotes.\n'
             f"- Preserve the exact meaning of the circular; do not broaden requirements.\n"
             f"- Write in clear, professional English; prefer short sentences or bullets.\n\n"
             f"CIRCULAR EXCERPTS:\n{excerpts_text}\n"

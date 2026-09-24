@@ -19,6 +19,7 @@ class UserRecord:
     updated_by: str | None
     is_deleted: bool
     deleted_at: datetime | None
+    phone_e164: str | None = None
 
 
 class UsersRepository:
@@ -99,8 +100,8 @@ class UsersRepository:
             cursor.execute(
                 """
                 SELECT id, user_id, department_id, email, name,
-                       created_at, created_by, updated_at, updated_by,
-                       is_deleted, deleted_at
+                       phone_e164, created_at, created_by, updated_at,
+                       updated_by, is_deleted, deleted_at
                 FROM users
                 WHERE user_id = %s
                   AND is_deleted = FALSE
@@ -125,8 +126,8 @@ class UsersRepository:
             cursor.execute(
                 """
                 SELECT id, user_id, department_id, email, name,
-                       created_at, created_by, updated_at, updated_by,
-                       is_deleted, deleted_at
+                       phone_e164, created_at, created_by, updated_at,
+                       updated_by, is_deleted, deleted_at
                 FROM users
                 WHERE id = %s
                   AND is_deleted = FALSE
@@ -148,8 +149,8 @@ class UsersRepository:
             cursor.execute(
                 f"""
                 SELECT id, user_id, department_id, email, name,
-                       created_at, created_by, updated_at, updated_by,
-                       is_deleted, deleted_at
+                       phone_e164, created_at, created_by, updated_at,
+                       updated_by, is_deleted, deleted_at
                 FROM users
                 {filter_clause}
                 ORDER BY user_id
@@ -165,8 +166,8 @@ class UsersRepository:
             cursor.execute(
                 """
                 SELECT id, user_id, department_id, email, name,
-                       created_at, created_by, updated_at, updated_by,
-                       is_deleted, deleted_at
+                       phone_e164, created_at, created_by, updated_at,
+                       updated_by, is_deleted, deleted_at
                 FROM users
                 WHERE department_id = %s
                   AND is_deleted = FALSE
@@ -184,8 +185,8 @@ class UsersRepository:
             cursor.execute(
                 """
                 SELECT id, user_id, department_id, email, name,
-                       created_at, created_by, updated_at, updated_by,
-                       is_deleted, deleted_at
+                       phone_e164, created_at, created_by, updated_at,
+                       updated_by, is_deleted, deleted_at
                 FROM users
                 WHERE user_id = %s
                   AND is_deleted = FALSE
@@ -205,10 +206,11 @@ class UsersRepository:
             department_id=row[2],
             email=row[3],
             name=row[4],
-            created_at=row[5],
-            created_by=row[6],
-            updated_at=row[7],
-            updated_by=row[8],
-            is_deleted=row[9],
-            deleted_at=row[10],
+            phone_e164=row[5],
+            created_at=row[6],
+            created_by=row[7],
+            updated_at=row[8],
+            updated_by=row[9],
+            is_deleted=row[10],
+            deleted_at=row[11],
         )

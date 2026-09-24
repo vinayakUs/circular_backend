@@ -104,7 +104,7 @@
         <section class="results-section">
             <div class="results-panel">
                 <div class="results-header">
-                    <span class="filter-label">{{ isKeywordMode ? 'Search Results' : 'Semantic Answer' }}</span>
+                    <span class="filter-label">{{ isKeywordMode ? 'Search Results' : 'Semantic Search Answer' }}</span>
                     <div class="sort-links" *ngIf="isKeywordMode && results.length > 0">
                         <span class="sort-links-label">Sort by</span>
                         <ng-container *ngFor="let option of sortOptions; let last = last">
@@ -191,35 +191,78 @@
                     <p class="results-empty-hint">Please try again in a moment.</p>
                 </div>
 
+                <!-- Semantic mode: AI disclaimer (covers both exec + grouped outputs) -->
+                <div class="semantic-disclaimer" role="note" aria-label="AI-generated content notice"
+                    *ngIf="showSemanticAnswer || showGroupedCards">
+                    <svg class="semantic-disclaimer-icon" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75"
+                            d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                    </svg>
+                    <span class="semantic-disclaimer-text">
+                        <strong>AI-generated response.</strong>
+                        Verify the answer against the cited circulars before relying on it for compliance or legal use.
+                    </span>
+                </div>
+
                 <!-- Semantic mode: answer + references -->
                 <div class="semantic-result" *ngIf="showSemanticAnswer">
-                    <div class="semantic-disclaimer" role="note" aria-label="AI-generated content notice">
-                        <svg class="semantic-disclaimer-icon" viewBox="0 0 24 24" fill="none"
-                            stroke="currentColor" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75"
-                                d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-                        </svg>
-                        <span class="semantic-disclaimer-text">
-                            <strong>AI-generated response.</strong>
-                            Verify the answer against the cited circulars before relying on it for compliance or legal use.
-                        </span>
-                    </div>
-
                     <div class="semantic-answer" [innerHTML]="safeMarkdown(semanticResult?.answer)"></div>
-
-                    <div class="semantic-references" *ngIf="semanticResult?.references?.length">
-                        <div class="semantic-references-label">References</div>
-                        <ul class="semantic-references-list">
-                            <li class="semantic-reference-item" *ngFor="let ref of semanticResult?.references">
-                                {{ ref }}
-                            </li>
-                        </ul>
-                    </div>
 
                     <div class="semantic-meta" *ngIf="semanticResult?.rag_error">
                         <span class="semantic-meta-warning">RAG fallback used: {{ semanticResult?.rag_error }}</span>
                     </div>
                 </div>
+
+                <!-- Semantic mode: per-circular summary cards -->
+                <section class="semantic-cards" *ngIf="isSemanticMode">
+                    <header class="semantic-cards-header">
+                        <span class="semantic-cards-title">Summary per Circular</span>
+                        <span class="semantic-cards-count"
+                            *ngIf="showGroupedCards && groupedResult?.results?.length">
+                            {{ groupedResult?.results?.length }} matched
+                        </span>
+                    </header>
+
+                    <div class="summary-card-list" *ngIf="showGroupedCards">
+                        <article class="summary-card" *ngFor="let card of groupedResult?.results"
+                            (click)="onSummaryCardClick(card, $event)" role="button" tabindex="0"
+                            [attr.aria-label]="'Open circular ' + card.full_reference">
+                            <div class="exchange-badge" [class]="badgeClass(card.source)">{{ card.source }}</div>
+                            <div class="summary-card-body">
+                                <div class="summary-card-head">
+                                    <span class="circular-id">{{ card.full_reference }}</span>
+                                    <span class="circular-time">{{ card.issue_date | date:'dd-MMM-yyyy' }}</span>
+                                </div>
+                                <span class="circular-title">{{ card.title }}</span>
+                                <div class="summary-card-summary">
+                                    <span class="summary-card-eyebrow">Summary</span>
+                                    <p>{{ card.summary }}</p>
+                                </div>
+                            </div>
+                        </article>
+                    </div>
+
+                    <div class="results-empty" *ngIf="showGroupedLoading && !showGroupedCards">
+                        <div class="semantic-spinner"></div>
+                        <p class="results-empty-title">Generating per-circular summaries...</p>
+                        <p class="results-empty-hint">This runs in parallel with the executive answer.</p>
+                    </div>
+
+                    <div class="results-empty" *ngIf="showGroupedEmpty">
+                        <p class="results-empty-title">No per-circular summaries available</p>
+                        <p class="results-empty-hint">Try rephrasing your question or adding an exchange filter.</p>
+                    </div>
+
+                    <div class="results-empty" *ngIf="showGroupedError">
+                        <p class="results-empty-title">Per-circular summaries unavailable</p>
+                        <p class="results-empty-hint">The executive answer above is still usable.</p>
+                    </div>
+
+                    <div class="semantic-meta" *ngIf="groupedResult?.rag_error && showGroupedCards">
+                        <span class="semantic-meta-warning">RAG fallback used: {{ groupedResult?.rag_error }}</span>
+                    </div>
+                </section>
             </div>
         </section>
     </main>

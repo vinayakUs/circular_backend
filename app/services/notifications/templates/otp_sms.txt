@@ -1,0 +1,1 @@
+CircularHub: Your verification code is {{ code }}. Expires in {{ ttl_minutes }} minutes. Do not share.

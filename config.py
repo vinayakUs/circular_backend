@@ -45,6 +45,18 @@ class Config:
     # Short-lived access tokens. Was 24h, dropped to 15m — limits blast radius of any
     # leaked token. Without refresh tokens this means users re-login once per session.
     JWT_EXPIRATION_MINUTES = int(os.getenv("JWT_EXPIRATION_MINUTES", "15"))
+
+    # ==== CAPTCHA ====
+    # Self-hosted text CAPTCHA on /api/auth/login. See
+    # app/auth/captcha/captcha_service.py for the consuming code.
+    CAPTCHA_TTL_SECONDS = int(os.getenv("CAPTCHA_TTL_SECONDS", "300"))   # 5 min
+    CAPTCHA_LENGTH = int(os.getenv("CAPTCHA_LENGTH", "5"))              # chars per answer
+    CAPTCHA_IMAGE_WIDTH = int(os.getenv("CAPTCHA_IMAGE_WIDTH", "150"))
+    CAPTCHA_IMAGE_HEIGHT = int(os.getenv("CAPTCHA_IMAGE_HEIGHT", "50"))
+    CAPTCHA_FONT_FILE = os.getenv(
+        "CAPTCHA_FONT_FILE",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+    )
     DATABASE_URL = os.getenv(
         "DATABASE_URL", "oracle+oracledb://circular_user:MyAppPass123@localhost:1521/XEPDB1"
     )
@@ -153,7 +165,41 @@ class Config:
     SMTP_USE_TLS = os.getenv("SMTP_USE_TLS", "true").lower() == "true"
     SMTP_FROM_EMAIL = os.getenv("SMTP_FROM_EMAIL", "circulars@company.com")
     SMTP_FROM_NAME = os.getenv("SMTP_FROM_NAME", "CircularHub")
+
+    # ==== Email backend selection ====
+    # "smtp"     — direct Gmail/any SMTP server (dev/CI)
+    # "splitter" — org notification splitter v3 (prod)
+    EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "smtp").strip().lower()
+
+    # ==== Internal Notification Splitter (org email/SMS gateway) ====
+    # v3 endpoint returns a transactionID; v1/v2 do not.
+    # Required fields per v3 docs: appName, serviceProvider, from, to, subject, html.
+    INTERNAL_SPLITTER_EMAIL_URL = os.getenv(
+        "INTERNAL_SPLITTER_EMAIL_URL",
+        "https://uatnotificationsplitter.nse.co.in:8060/v3/email/send",
+    )
+    INTERNAL_SPLITTER_AUTH_TOKEN = os.getenv(
+        "INTERNAL_SPLITTER_AUTH_TOKEN",
+        "bm90aWZpY2F0aW9uLXNwbGl0dGVyLXRyYW5zYWN0aW9uYWw=",
+    )
+    INTERNAL_SPLITTER_APP_NAME = os.getenv("INTERNAL_SPLITTER_APP_NAME", "CircularHub")
+    INTERNAL_SPLITTER_SERVICE_PROVIDER = os.getenv(
+        "INTERNAL_SPLITTER_SERVICE_PROVIDER", "JIO"
+    )
+    INTERNAL_SPLITTER_TIMEOUT_SECONDS = float(
+        os.getenv("INTERNAL_SPLITTER_TIMEOUT_SECONDS", "10")
+    )
     SUMMARY_GRACE_PERIOD_HOURS = int(os.getenv("SUMMARY_GRACE_PERIOD_HOURS", "10"))
     NOTIFICATION_RECIPIENTS = [
         r.strip() for r in os.getenv("NOTIFICATION_RECIPIENTS", "").split(",") if r.strip()
     ]
+
+    # ==== MFA / OTP ====
+    OTP_LENGTH = int(os.getenv("OTP_LENGTH", "6"))
+    OTP_TTL_SECONDS = int(os.getenv("OTP_TTL_SECONDS", "300"))
+    OTP_MAX_ATTEMPTS = int(os.getenv("OTP_MAX_ATTEMPTS", "3"))
+    MFA_PENDING_TOKEN_TTL_SECONDS = int(os.getenv("MFA_PENDING_TOKEN_TTL_SECONDS", "300"))
+    # Pepper for HMAC-SHA256 of OTP codes. Generate with:
+    #   python -c "import secrets; print(secrets.token_hex(32))"
+    # MUST be set in env; make_mfa_services() raises if missing.
+    OTP_PEPPER_SECRET = os.getenv("OTP_PEPPER_SECRET", "")

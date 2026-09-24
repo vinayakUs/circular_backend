@@ -17,6 +17,8 @@
 --  13. expert_departments_mapping -> experts, properties
 --  14. comment_mentions          -> comments, experts                (added for @mention module)
 --  15. mention_notifications     -> comment_mentions, notification_logs
+--  16. captcha_challenges        -> store captcha req  
+--  17. captcha_images            -> store captcha images 
 -- =====================================================================
 
 -- properties table
@@ -151,6 +153,7 @@ CREATE TABLE IF NOT EXISTS users (
     department_id UUID NOT NULL REFERENCES properties(id),
     email VARCHAR(255),                      -- display/contact email (nullable for now)
     name VARCHAR(255),                       -- display name (nullable for now)
+    phone_e164 VARCHAR(32),                  -- phone for SMS OTP (nullable; LDAP-provisioned)
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_by VARCHAR(255) NOT NULL,        -- LDAP uid of admin who added
     updated_at TIMESTAMPTZ,
@@ -289,3 +292,49 @@ CREATE TABLE IF NOT EXISTS mention_notifications (
 );
 CREATE INDEX IF NOT EXISTS idx_mention_notif_status    ON mention_notifications(status, created_at);
 CREATE INDEX IF NOT EXISTS idx_mention_notif_recipient ON mention_notifications(recipient_user_id, created_at DESC);
+
+-- CAPTCHA tables (added 2026-09)
+CREATE TABLE IF NOT EXISTS captcha_challenges (
+    id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    answer_hash CHAR(64)    NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at  TIMESTAMPTZ NOT NULL,
+    consumed    BOOLEAN     NOT NULL DEFAULT FALSE
+);
+CREATE INDEX IF NOT EXISTS idx_captcha_challenges_expires
+    ON captcha_challenges (expires_at);
+
+CREATE TABLE IF NOT EXISTS captcha_images (
+    challenge_id UUID        PRIMARY KEY REFERENCES captcha_challenges(id) ON DELETE CASCADE,
+    png_bytes    BYTEA       NOT NULL,
+    content_type VARCHAR(50) NOT NULL DEFAULT 'image/png',
+    byte_len     INTEGER     NOT NULL,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- MFA tables (added 2026-09)
+CREATE TABLE IF NOT EXISTS mfa_challenges (
+    id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_db_id  UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    channel     VARCHAR(16) NOT NULL CHECK (channel IN ('email','sms')),
+    code_hash   VARCHAR(64) NOT NULL,
+    attempts    INT         NOT NULL DEFAULT 0,
+    consumed    BOOLEAN     NOT NULL DEFAULT FALSE,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at  TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_mfa_challenge_user_active
+    ON mfa_challenges (user_db_id, consumed, expires_at);
+
+CREATE TABLE IF NOT EXISTS mfa_pending_tokens (
+    token_id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    token_hash        VARCHAR(64) NOT NULL UNIQUE,
+    user_db_id        UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    issued_ip         INET,
+    issued_user_agent TEXT,
+    consumed          BOOLEAN     NOT NULL DEFAULT FALSE,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at        TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_mfa_pending_user_active
+    ON mfa_pending_tokens (user_db_id, consumed, expires_at);

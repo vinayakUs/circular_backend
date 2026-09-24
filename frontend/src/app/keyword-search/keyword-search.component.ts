@@ -4,9 +4,10 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { marked } from 'marked';
+import { forkJoin } from 'rxjs';
 
 import { NavbarComponent } from '../navbar/navbar.component';
-import { CircularsApiService, SearchResult, SemanticSearchResponse } from '../services/circulars-api.service';
+import { CircularsApiService, SearchResult, SemanticSearchResponse, GroupedSearchResponse, CircularGroupSummary } from '../services/circulars-api.service';
 import { RecentSearchesService, RecentSearch, SearchMode } from '../services/recent-searches.service';
 import { ExchangeSource, exchangeLabel } from '../util/source.util';
 
@@ -50,6 +51,11 @@ export class KeywordSearchComponent implements OnInit {
   semanticResult: SemanticSearchResponse | null = null;
   semanticLoading = false;
   semanticError = false;
+
+  // Per-circular grouped summary state (semantic mode only)
+  groupedResult: GroupedSearchResponse | null = null;
+  groupedLoading = false;
+  groupedError = false;
 
   readonly exchanges = Object.keys(ExchangeSource) as (keyof typeof ExchangeSource)[];
   readonly sortOptions: SortTab[] = [
@@ -226,6 +232,7 @@ export class KeywordSearchComponent implements OnInit {
     this.mode = value;
     // Only flip UI state; the user has to hit Search to run with the new mode.
     this.semanticError = false;
+    this.groupedError = false;
     this.error = false;
   }
 
@@ -335,11 +342,14 @@ export class KeywordSearchComponent implements OnInit {
     if (!q) {
       this.results = [];
       this.semanticResult = null;
+      this.groupedResult = null;
       this.hasSearched = false;
       this.loading = false;
       this.error = false;
       this.semanticLoading = false;
       this.semanticError = false;
+      this.groupedLoading = false;
+      this.groupedError = false;
       return;
     }
 
@@ -356,6 +366,7 @@ export class KeywordSearchComponent implements OnInit {
     this.error = false;
     this.hasSearched = true;
     this.semanticResult = null;
+    this.groupedResult = null;
 
     this.apiService.keywordSearchV2({
       query: this.query.trim(),
@@ -386,25 +397,82 @@ export class KeywordSearchComponent implements OnInit {
     const token = ++this.searchToken;
     this.semanticLoading = true;
     this.semanticError = false;
+    this.groupedLoading = true;
+    this.groupedError = false;
     this.hasSearched = true;
     this.results = [];
 
-    this.apiService.semanticSearch({
-      query: this.query.trim(),
-      strategy: 'hybrid',
-      source: this.source === 'ALL' ? undefined : this.source,
+    // Fire both the executive-summary call and the per-circular summary call
+    // in parallel. They share the same query/source filters, are independent
+    // server-side, and have independent success/failure states so one can
+    // succeed while the other errors without breaking the other.
+    forkJoin({
+      exec: this.apiService.semanticSearch({
+        query: this.query.trim(),
+        strategy: 'hybrid',
+        source: this.source === 'ALL' ? undefined : this.source,
+      }),
+      grouped: this.apiService.semanticSearchGrouped({
+        query: this.query.trim(),
+        source: this.source === 'ALL' ? undefined : this.source,
+      }),
     }).subscribe({
-      next: (response) => {
+      next: ({ exec, grouped }) => {
         if (token !== this.searchToken) return;
-        this.semanticResult = response;
+        this.semanticResult = exec;
+        this.groupedResult = grouped;
         this.semanticLoading = false;
+        this.groupedLoading = false;
       },
+      // forkJoin only errors when the upstream observable errors; treat the
+      // whole bundle as failed but still keep the executive summary usable
+      // where possible. (Practical effect: both fall back to error UI; the
+      // per-call guards below run if we ever switch to per-stream handling.)
       error: () => {
         if (token !== this.searchToken) return;
         this.semanticResult = null;
+        this.groupedResult = null;
         this.semanticLoading = false;
         this.semanticError = true;
+        this.groupedLoading = false;
+        this.groupedError = true;
       }
     });
+  }
+
+  /** Open the circular detail in a new tab from a per-circular summary card. */
+  onSummaryCardClick(card: CircularGroupSummary, event: MouseEvent): void {
+    // Build the SPA route through the router so base href / hash strategy /
+    // future route changes stay correct, then open in a new tab with
+    // noopener+noreferrer for security.
+    const url = this.router.serializeUrl(
+      this.router.createUrlTree(['/circular', card.circular_db_id])
+    );
+    window.open(window.location.origin + url, '_blank', 'noopener,noreferrer');
+  }
+
+  get showGroupedCards(): boolean {
+    return this.isSemanticMode
+      && !this.groupedLoading
+      && !!this.groupedResult
+      && !this.groupedError
+      && (this.groupedResult.results?.length ?? 0) > 0;
+  }
+
+  get showGroupedLoading(): boolean {
+    return this.isSemanticMode && this.groupedLoading;
+  }
+
+  get showGroupedEmpty(): boolean {
+    return this.isSemanticMode
+      && !this.groupedLoading
+      && this.hasSearched
+      && !!this.groupedResult
+      && !this.groupedError
+      && (this.groupedResult.results?.length ?? 0) === 0;
+  }
+
+  get showGroupedError(): boolean {
+    return this.isSemanticMode && this.groupedError;
   }
 }

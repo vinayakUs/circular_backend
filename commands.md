@@ -53,3 +53,8 @@ nohup python -m ingestion.processor.runner --limit 50 --log-file /root circular_
   nohup python -m services.notification_worker \                                                                                                      
     --log-file /root/circular_backend/logs/notification.log \
     > /dev/null 2>&1 &
+
+
+
+
+LD_LIBRARY_PATH=/root/circular_backend/.venv/lib NUMBA_THREADING_LAYER=tbb python run.py
