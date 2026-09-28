@@ -70,12 +70,12 @@ class CompositeNotificationChannel(NotificationChannel):
             logger.warning(
                 "unknown channel %r requested by %s; registered channels: %s",
                 request.channel,
-                request.recipient,
+                request.recipients,
                 sorted(self._channels.keys()),
             )
             return DeliveryResult.fail(
                 channel=request.channel,
-                recipient=request.recipient,
+                recipients=request.recipients,
                 error_code="unknown_channel",
                 error_detail=(
                     f"No channel registered for {request.channel!r}; "

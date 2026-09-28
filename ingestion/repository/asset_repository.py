@@ -41,7 +41,7 @@ class AssetRepository:
     def replace_assets(self, circular_id: UUID, assets: list[CircularAsset]) -> list[CircularAssetRecord]:
         """Replace all assets for a circular.
 
-        DELETE + INSERT loop runs inside an explicit conn.transaction() block —
+        DELETE + INSERT loop runs inside an explicit conn.transaction() block 
         if any INSERT fails, the entire operation (including the DELETE)
         rolls back (M9 defense-in-depth fix).
         """

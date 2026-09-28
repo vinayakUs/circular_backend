@@ -153,6 +153,7 @@ Only extract entities from the "To" field, not from the body of the circular."""
                 prompts=[prompt],
                 model=model,
                 response_model=RecipientExtractionResponse,
+                max_retries=6
             )[0]
 
             if extraction_response is None:

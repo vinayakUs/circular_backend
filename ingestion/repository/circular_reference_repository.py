@@ -71,7 +71,7 @@ class CircularReferenceRepository:
     # Hard cap on BFS depth as a safety net against runaway recursion in dense graphs.
     # 5 = 5-hop neighbourhood (root + 4 outward). Tight enough to stay readable,
     # loose enough to capture the meaningful dependency context.
-    _MAX_GRAPH_DEPTH = 5
+    _MAX_GRAPH_DEPTH = 3
 
     def get_neighborhood(
         self, root_id: UUID,

@@ -9,7 +9,7 @@ Builds and wires every collaborator for NotificationService:
                  └─ "smtp_email"    → SmtpEmailChannel       (dev/CI, direct SMTP)
 
     renderers ──▶ {"default": JinjaTemplateRenderer}
-    logger    ──▶ NoopNotificationLogger                     (Phase 6 swap later)
+    logger    ──▶ NotificationLogAuditLogger                  (writes notification_logs)
 
 Channel naming convention:
     smtp_email      — direct SMTP (Gmail for dev)
@@ -42,10 +42,14 @@ from app.services.notifications.renderers.jinja_renderer import (
     JinjaTemplateRenderer,
 )
 
-# ── Concrete logger (Phase 6 — currently noop) ─────────────────────
-from app.services.notifications.logger.noop_logger import (
-    NoopNotificationLogger,
+# ── Concrete logger (Phase 6 — audit logger wired in) ────────────
+from app.services.notifications.logger.audit_logger import (
+    NotificationLogAuditLogger,
 )
+from app.services.notifications.repository.notification_log_repository import (
+    NotificationLogRepository,
+)
+from db.postgres_client import get_postgres_client
 
 # ── Orchestrator (Phase 7) ─────────────────────────────────────────
 from app.services.notifications.notification_service import (
@@ -105,9 +109,13 @@ def make_notification_service() -> NotificationService:
     }
 
     # ── Logger ──────────────────────────────────────────────────────
-    # Phase 6 deferred: using NoopNotificationLogger until login audit
-    # wiring is added. Swap to LoginAuditNotificationLogger later.
-    notification_logger = NoopNotificationLogger()
+    # DB-backed audit: writes one notification_logs row per delivery.
+    # The repo's record_outcome() uses the same notification_logs schema
+    # the legacy EmailService populated via create_log + mark_sent/failed.
+    log_repo = NotificationLogRepository(
+        db_pool=get_postgres_client().get_pool(),
+    )
+    notification_logger = NotificationLogAuditLogger(repo=log_repo)
 
     # ── Wire it all together ────────────────────────────────────────
     return NotificationService(

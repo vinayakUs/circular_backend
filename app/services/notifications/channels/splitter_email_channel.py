@@ -90,12 +90,16 @@ class SplitterEmailChannel(NotificationChannel):
 
         payload = {
             "from": self._from_email,
-            "to": [request.recipient],
+            "to": list(request.recipients),
             "subject": subject,
             "html": html_body,
             "appName": self._app_name,
             "serviceProvider": self._service_provider,
         }
+        if request.cc:
+            payload["cc"] = list(request.cc)
+        if request.bcc:
+            payload["bcc"] = list(request.bcc)
 
         # If the caller set correlation_id, include it for splitter-side tracing.
         if request.correlation_id:
@@ -124,7 +128,7 @@ class SplitterEmailChannel(NotificationChannel):
         except Exception as e:
             logger.exception(
                 "unexpected exception in SplitterEmailChannel.send for %s",
-                request.recipient,
+                request.recipients,
             )
             return self._fail(request, started, "splitter_unknown", type(e).__name__)
 
@@ -168,7 +172,7 @@ class SplitterEmailChannel(NotificationChannel):
         latency_ms = int((ended - started).total_seconds() * 1000)
         return DeliveryResult.ok(
             channel="email",
-            recipient=request.recipient,
+            recipients=request.recipients,
             delivered_at=ended,
             latency_ms=latency_ms,
             provider_message_id=transaction_id,
@@ -186,7 +190,7 @@ class SplitterEmailChannel(NotificationChannel):
         latency_ms = int((ended - started).total_seconds() * 1000)
         return DeliveryResult.fail(
             channel="email",
-            recipient=request.recipient,
+            recipients=request.recipients,
             error_code=error_code,
             error_detail=error_detail,
             delivered_at=ended,

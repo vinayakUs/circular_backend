@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -40,6 +41,69 @@ class NotificationLogRepository:
             log_id = cursor.fetchone()[0]
             conn.commit()
             self.logger.info("Notification log created id=%s template=%s recipient=%s", log_id, template_name, recipient_email)
+            return log_id
+
+    def record_outcome(
+        self,
+        *,
+        template_name: str | None,
+        recipient_email: str,
+        subject: str | None,
+        variables: dict[str, Any],
+        status: str,
+        error_message: str | None,
+        sent_at: datetime | None,
+        correlation_id: str | None,
+    ) -> UUID:
+        """Insert a single audit row reflecting the final delivery outcome.
+
+        Unlike create_log() + mark_sent()/mark_failed() (the 3-step flow
+        the old EmailService used), this captures the outcome in one shot
+        — fits the new pipeline where the logger only sees the final
+        DeliveryResult, not the in-flight state.
+
+        Args:
+            template_name: name of the rendered template.
+            recipient_email: comma-joined list of recipient addresses.
+            subject: email subject line.
+            variables: dict passed to the renderer.
+            status: final status — "SENT" or "FAILED".
+            error_message: populated on failure (code + detail).
+            sent_at: delivery completion timestamp (success only).
+            correlation_id: per-call tracing token from the request.
+
+        Returns:
+            UUID of the inserted row.
+        """
+        with self.db_pool.acquire() as conn:
+            cursor = conn.cursor()
+            variables_json = json.dumps(variables)
+            cursor.execute(
+                """
+                INSERT INTO notification_logs (
+                    template_name, recipient_email, subject, variables,
+                    status, error_message, sent_at, correlation_id
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+                """,
+                (
+                    template_name,
+                    recipient_email,
+                    subject,
+                    variables_json,
+                    status,
+                    error_message,
+                    sent_at,
+                    correlation_id,
+                ),
+            )
+            log_id = cursor.fetchone()[0]
+            conn.commit()
+            self.logger.info(
+                "Notification log recorded id=%s status=%s recipient=%s correlation=%s",
+                log_id, status, recipient_email, correlation_id,
+            )
             return log_id
 
     def mark_sent(self, log_id: UUID) -> None:
@@ -96,7 +160,7 @@ class NotificationLogRepository:
                     "sent_at": row[7],
                     "created_at": row[8],
                 }
-                for row in rows
+                for row in cursor.fetchall()
             ]
 
     def is_circular_notified(self, circular_id: str) -> bool:

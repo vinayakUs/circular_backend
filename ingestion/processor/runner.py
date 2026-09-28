@@ -84,9 +84,9 @@ def main():
         pipeline = ProcessorPipeline(pool)
 
         # Register processors
-        # pipeline.register_processor(NSEApplicabilityProcessor(pool))
-        # pipeline.register_processor(DesignationExtractorProcessor(pool))
-        # pipeline.register_processor(DocumentSummarizerProcessor(pool))
+        pipeline.register_processor(NSEApplicabilityProcessor(pool))
+        pipeline.register_processor(DesignationExtractorProcessor(pool))
+        pipeline.register_processor(DocumentSummarizerProcessor(pool))
         pipeline.register_processor(ReferenceExtractor(pool))
 
         logger.info(f"Running pipeline with limit {args.limit}...")

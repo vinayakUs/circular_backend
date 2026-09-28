@@ -74,12 +74,17 @@ class NotificationService:
 
         # ── Step 1: VALIDATE ──────────────────────────────────────────
         # composite.supports() returns True iff any child supports.
-        if not self._channels.supports(request.recipient):
+        # For multi-recipient requests, every recipient must be supported.
+        unsupported = [
+            r for r in request.recipients
+            if not self._channels.supports(r)
+        ]
+        if unsupported:
             return self._fail(
                 request,
                 error_code="invalid_recipient",
                 error_detail=(
-                    f"No registered channel supports {request.recipient!r}"
+                    f"No registered channel supports {unsupported!r}"
                 ),
                 started=started,
             )
@@ -132,7 +137,13 @@ class NotificationService:
         )
         # ── Step 4: LOG (best-effort, never fails the pipeline) ───────
         try:
-            self._notification_logger.record(result, request.correlation_id)
+            self._notification_logger.record(
+                result,
+                request.correlation_id,
+                template_name=request.template_name,
+                subject=request.subject,
+                variables=request.variables,
+            )
         except Exception:
             # Swallow + log. The result is already in the caller's hands;
             # failing the whole send because the audit table is unreachable
@@ -179,7 +190,7 @@ class NotificationService:
         latency_ms = int((ended - started).total_seconds() * 1000)
         return DeliveryResult.fail(
             channel=request.channel,
-            recipient=request.recipient,
+            recipients=request.recipients,
             error_code=error_code,
             error_detail=error_detail,
             delivered_at=ended,

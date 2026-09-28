@@ -144,7 +144,22 @@ class MfaChallengeService:
         if channel == "email":
             recipient = user.email
             template = "otp_email.html"
-            physical_channel = "smtp_email"
+            # Pick whichever email channel the composite has registered.
+            # No fallback — if no email channel exists, log and return.
+            # Prevents silently routing through a non-existent channel
+            # (e.g. "smtp_email" when splitter is the active backend).
+            email_channels = [
+                n for n in self._notifications.supported_channels()
+                if n.endswith("_email")
+            ]
+            if not email_channels:
+                logger.error(
+                    "No email channel registered on NotificationService; "
+                    "check Config.EMAIL_BACKEND. user=%s",
+                    user_db_id,
+                )
+                return
+            physical_channel = email_channels[0]
         elif channel == "sms":
             recipient = user.phone_e164
             template = "otp_sms.txt"
@@ -160,16 +175,35 @@ class MfaChallengeService:
             return
 
         try:
-            self._notifications.send(NotificationRequest(
+            result = self._notifications.send(NotificationRequest(
                 channel=physical_channel,
-                recipient=recipient,
+                recipients=(recipient,),
                 template_name=template,
                 subject="CircularHub: Your verification code",
+                # Per-issue correlation id so splitter-side logs can be
+                # traced back to this MFA challenge.
+                correlation_id=f"mfa-otp:{user_db_id}:{channel}",
                 variables={
                     "code": code,
                     "ttl_minutes": self._ttl // 60,
                 },
             ))
         except Exception:
-            # Never fail issue() on delivery error — user will see 401 on verify.
-            logger.exception("OTP delivery failed for user=%s", user_db_id)
+            # NotificationService.send() doesn't raise on transport/channel
+            # failures (it returns DeliveryResult.fail), so this branch
+            # only fires for genuinely unexpected errors in the pipeline.
+            logger.exception("OTP delivery pipeline raised for user=%s", user_db_id)
+            return
+
+        if not result.success:
+            # Surface every delivery failure as a structured WARN log so
+            # splitter timeouts, 4xx/5xx, and unknown_channel errors are
+            # visible in ops logs instead of being silently dropped.
+            logger.warning(
+                "OTP delivery failed user=%s channel=%s code=%s detail=%s provider_msg_id=%s",
+                user_db_id,
+                channel,
+                result.error_code,
+                result.error_detail,
+                result.provider_message_id,
+            )

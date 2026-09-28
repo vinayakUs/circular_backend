@@ -33,7 +33,7 @@ class CircularSignatoryRepository:
     def upsert_signatories(self, circular_id: UUID, signatories: list[Signatory]) -> list[CircularSignatoryRecord]:
         """Replace all signatories for a circular with the given list.
 
-        DELETE + INSERT runs inside an explicit conn.transaction() block —
+        DELETE + INSERT runs inside an explicit conn.transaction() block 
         if any INSERT fails, the entire operation (including the DELETE)
         rolls back so the circular never ends up half-stripped of its
         prior signatories (M9 defense-in-depth fix).

@@ -180,7 +180,6 @@ class MasterCircularChunkingStrategy:
         for block in blocks:
             text_parts.append(block.content)
         full_text = "\n\n".join(text_parts)
-        print(full_text)
         
         # Dynamic abbreviation extraction from document text
         abbrev_dict = self._extract_abbreviations(blocks)

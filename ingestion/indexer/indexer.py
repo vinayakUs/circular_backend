@@ -147,27 +147,16 @@ class ElasticsearchIndexer:
                         ),
                     )
 
-                    self.logger.info("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
-                    self.logger.info("Generated chunks count=%s record_id=%s asset_id=%s circular_key=%s chunks=%s",
-                                    len(chunks),
-                                    record.id,
-                                    asset.id,
-                                    (
-                                        f"{record.source}:{record.circular_id}:"
-                                        f"{asset.asset_role}:{asset.archive_member_path or asset.file_path}"
-                                    ),
-                                    [
-                                        {
-                                            "chunk_id": c.chunk_id,
-                                            "chunk_index": c.chunk_index,
-                                            "text_len": len(c.text),
-                                            "text_preview": c.text[:200],
-                                        }
-                                        for c in chunks
-                                    ],
-                                    )
-                    self.logger.info("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
-
+                    self.logger.info(
+                        "Generated chunks count=%s record_id=%s asset_id=%s circular_key=%s",
+                        len(chunks),
+                        record.id,
+                        asset.id,
+                        (
+                            f"{record.source}:{record.circular_id}:"
+                            f"{asset.asset_role}:{asset.archive_member_path or asset.file_path}"
+                        ),
+                    )
                 # Build full text for contextual retrieval (concatenate chunk texts)
                 full_text_for_context = " ".join(c.text for c in chunks)
 

@@ -79,7 +79,7 @@ class SEBIScraper(IScraper):
             title = str(item.get("title", "")).strip()
             issue_date = self._parse_issue_date(item.get("date", ""))
 
-            # html_url is the canonical detail page and is unique per record —
+            # html_url is the canonical detail page and is unique per record 
             # preserve the previous SEBI dedup key shape.
             source_item_key = html_url
 

@@ -69,6 +69,8 @@ class NSEScraper(IScraper):
                 continue
 
             raw_circular_id = str(item.get("circular_id", "")).strip()
+            circular_no = str(item.get("circular_no", "")).strip()
+
             if not raw_circular_id:
                 skipped_missing_field_count += 1
                 continue
@@ -93,7 +95,7 @@ class NSEScraper(IScraper):
                 Circular(
                     source=self.source_name,
                     circular_id=circular_id,
-                    full_reference=circular_id,
+                    full_reference=circular_no,
                     department=department,
                     title=title,
                     issue_date=issue_date,

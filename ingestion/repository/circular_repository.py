@@ -270,7 +270,7 @@ class CircularRepository:
         `title` exactly. Used by the orchestrator supersession gate.
 
         Match is exact-string (no normalization) so callers can rely on
-        identical payloads collapsing — useful when SEBI keeps the title
+        identical payloads collapsing useful when SEBI keeps the title
         string stable across editions.
         """
         with self.db_pool.acquire() as conn:

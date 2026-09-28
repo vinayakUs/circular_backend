@@ -161,7 +161,7 @@ class ScraperOrchestrator:
 
             record = self.circular_repository.get_record(circular.source, circular.source_item_key)
 
-            self.logger.info("existing record=%s", record)  
+            # self.logger.info("existing record=%s", record)  
 
             if record is not None:
                 reasons = []
@@ -622,7 +622,7 @@ class ScraperOrchestrator:
             return placeholder.encode("utf-8")
 
         # Retry on mid-stream disconnects (ChunkedEncodingError / IncompleteRead
-        # are common with SEBI's CDN — connection drops part-way through a
+        # are common with SEBI's CDN connection drops part-way through a
         # large PDF). Same backoff pattern as IScraper._fetch_with_retry.
         max_retries = 3
         backoff_seconds = 1.0

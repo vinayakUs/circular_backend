@@ -31,10 +31,10 @@ def register_routes(app) -> None:
         if not username or not password:
             return {"error": "Username and password are required."}, 400
 
-        # CAPTCHA first — bots can't even reach LDAP with bad creds.
+        # CAPTCHA first - bots can't even reach LDAP with bad creds.
         # Both fields are required so empty/absent captcha is a 401,
         # not a 500.  Importantly, the LDAP server is never contacted
-        # if the captcha is wrong — protects the directory server
+        # if the captcha is wrong - protects the directory server
         # from brute-force enumeration.
         if not captcha_id or not captcha_answer:
             return {"error": "Invalid or expired CAPTCHA"}, 401
@@ -132,7 +132,7 @@ def register_routes(app) -> None:
             # Generic 401 for wrong code / expired / consumed / not found
             return {"error": "Invalid credentials or verification code"}, 401
 
-        # Success — consume the pending token and mint the JWT.
+        # Success - consume the pending token and mint the JWT.
         pending_token_service.consume(pending.token_id)
 
         db_client = get_postgres_client()
@@ -223,12 +223,12 @@ def register_routes(app) -> None:
         Single-call design: the browser gets both the challenge UUID
         *and* the rendered PNG in one round-trip. ``image_data`` is a
         standard ``data:`` URL that ``<img [src]="...">`` accepts
-        directly — no second HTTP request needed for the image.
+        directly - no second HTTP request needed for the image.
 
         The plaintext answer is **never** included in this response
-        — only the SHA-256 hash is stored server-side.
+        - only the SHA-256 hash is stored server-side.
 
-        Public endpoint — no auth required (login hasn't happened yet).
+        Public endpoint - no auth required (login hasn't happened yet).
         """
         challenge, png_bytes = get_captcha_service().new_challenge()
         image_data = (

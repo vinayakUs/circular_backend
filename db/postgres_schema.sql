@@ -140,10 +140,12 @@ CREATE TABLE IF NOT EXISTS notification_logs (
     status VARCHAR(20) NOT NULL,
     error_message TEXT,
     sent_at TIMESTAMPTZ,
+    correlation_id VARCHAR(255),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_notification_logs_status ON notification_logs(status);
 CREATE INDEX IF NOT EXISTS idx_notification_logs_recipient ON notification_logs(recipient_email);
+CREATE INDEX IF NOT EXISTS idx_notification_logs_correlation ON notification_logs(correlation_id);
 
 -- users (LDAP user to department mapping with audit)
 -- MUST come before experts: experts.created_by_user_id references users(id)

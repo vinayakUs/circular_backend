@@ -92,7 +92,7 @@ class SentenceTransformerEmbeddingProvider(EmbeddingProvider):
     def embed_for_similarity(self, texts: list[str]) -> Any | None:
         """Encode texts as a torch.Tensor for tensor math.
 
-        Subclass override — defaults to None on the base class so callers
+        Subclass override defaults to None on the base class so callers
         can detect a no-op provider and fall back.
         """
         if not texts:
@@ -113,7 +113,7 @@ class SentenceTransformerEmbeddingProvider(EmbeddingProvider):
 
 
     def _construct_model(self) -> Any:
-        """Bare constructor body — runs under the lock. Split off from
+        """Bare constructor body runs under the lock. Split off from
           _load_model so the lock is held only for the (slow) constructor,
           not for the (fast, thread-safe) encode() calls that follow."""
 

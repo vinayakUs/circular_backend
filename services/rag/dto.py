@@ -17,7 +17,7 @@ class CircularGroupSummary(BaseModel):
     issue_date: date
     url: str | None = None
     applicable_to_nse: bool | None = None
-    summary: str            # brief LLM-generated summary (≤3 sentences)
+    summary: str            # brief LLM-generated summary (<=3 sentences)
 
 class RAGGroupedAnswer(BaseModel):
     results: list[CircularGroupSummary] = []

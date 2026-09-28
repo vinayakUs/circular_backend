@@ -1,4 +1,5 @@
 '''
+  python -m ingestion.processor.designation_extractor_processor --limit 54
   python -m ingestion.processor.designation_extractor_processor --circular_id "SEBI/HO/CFD/..."
   python -m ingestion.processor.designation_extractor_processor --circular_id "COM74324"
 '''

@@ -24,19 +24,24 @@ class NotificationRequest:
 
     Immutable so callers cannot mutate a request mid-flight between the
     validate → render → dispatch → log pipeline.
+
+    `recipients` is a tuple so the same shape carries one address (MFA OTP)
+    or many (circular fan-out). Channels fan out per-recipient as needed.
     """
     channel: Channel
-    recipient: str
+    recipients: tuple[str, ...]
     template_name: str
     variables: Mapping[str, Any] = field(default_factory=dict)
     subject: str | None = None
     correlation_id: str | None = None
+    cc: tuple[str, ...] = ()
+    bcc: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.channel:
             raise ValueError("channel is required")
-        if not self.recipient:
-            raise ValueError("recipient is required")
+        if not self.recipients:
+            raise ValueError("at least one recipient is required")
         if not self.template_name:
             raise ValueError("template_name is required")
 
@@ -69,10 +74,14 @@ class DeliveryResult:
     as success=False plus an error_code string.
 
     Callers pattern-match on (success, error_code) instead of try/except.
+
+    `recipients` is a tuple so single-recipient (MFA) and multi-recipient
+    (circular fan-out) deliveries share one shape — audit/logs always
+    know exactly who was targeted.
     """
     success: bool
     channel: str
-    recipient: str
+    recipients: tuple[str, ...]
     delivered_at: datetime
     latency_ms: int
     provider_message_id: str | None = None
@@ -81,6 +90,8 @@ class DeliveryResult:
 
 
     def __post_init__(self) -> None:
+        if not self.recipients:
+            raise ValueError("at least one recipient is required")
         if self.success and self.error_code is not None:
             raise ValueError(
                 "DeliveryResult cannot have both success=True and an error_code"
@@ -97,7 +108,7 @@ class DeliveryResult:
         cls,
         *,
         channel: str,
-        recipient: str,
+        recipients: tuple[str, ...],
         delivered_at: datetime,
         latency_ms: int,
         provider_message_id: str | None = None,
@@ -107,7 +118,7 @@ class DeliveryResult:
         return cls(
             success=True,
             channel=channel,
-            recipient=recipient,
+            recipients=recipients,
             delivered_at=delivered_at,
             latency_ms=latency_ms,
             provider_message_id=provider_message_id,
@@ -118,7 +129,7 @@ class DeliveryResult:
         cls,
         *,
         channel: str,
-        recipient: str,
+        recipients: tuple[str, ...],
         error_code: str,
         error_detail: str | None = None,
         delivered_at: datetime,
@@ -129,7 +140,7 @@ class DeliveryResult:
         return cls(
             success=False,
             channel=channel,
-            recipient=recipient,
+            recipients=recipients,
             delivered_at=delivered_at,
             latency_ms=latency_ms,
             error_code=error_code,

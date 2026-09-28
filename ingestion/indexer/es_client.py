@@ -777,7 +777,7 @@ class ElasticsearchClient:
                             "fields": [
                                 "chunk_text^2",         # raw text
                                 "title^2",              # title
-                                "department",           # department
+                                # "department",           # department
                                 # "source" removed — keyword field, use filter for exact match
                             ],
                             "type": "best_fields",

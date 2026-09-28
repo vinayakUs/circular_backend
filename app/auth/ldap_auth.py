@@ -47,13 +47,13 @@ class LDAPAuth:
                 conn = Connection(srv, user=user, password=password, authentication=NTLM, auto_bind=True)
                 return True
             except ldap3.core.exceptions.LDAPBindError:
-                # Invalid credentials — expected user error. Single INFO
+                # Invalid credentials - expected user error. Single INFO
                 # line keeps failed logins auditable without burying real
                 # ops incidents under a stacktrace per wrong-password attempt.
                 logger.info("LDAP NTLM bind rejected for user=%s (invalid credentials)", username)
                 return False
             except Exception:
-                # Server unreachable, TLS failure, malformed config — these
+                # Server unreachable, TLS failure, malformed config - these
                 # ARE ops-level incidents and the traceback is the signal.
                 logger.exception("LDAP NTLM Bind failed for user=%s", username)
                 return False
@@ -73,13 +73,13 @@ class LDAPAuth:
                 conn = ldap3.Connection(server, user=user_dn, password=password, auto_bind=True)
                 return conn.bound
             except ldap3.core.exceptions.LDAPBindError:
-                # Invalid credentials — expected user error. Single INFO
+                # Invalid credentials - expected user error. Single INFO
                 # line keeps failed logins auditable without burying real
                 # ops incidents under a stacktrace per wrong-password attempt.
                 logger.info("LDAP bind rejected for user=%s (invalid credentials)", username)
                 return False
             except Exception:
-                # Server unreachable, DNS failure, malformed config — these
+                # Server unreachable, DNS failure, malformed config - these
                 # ARE ops-level incidents and the traceback is the signal.
                 logger.exception("LDAP Simple Bind failed for user=%s", username)
                 return False
@@ -93,7 +93,7 @@ class LDAPAuth:
     def create_token(self, username: str, user_db_id: str | None = None) -> str:
         """Create JWT token for authenticated user.
 
-        Raises RuntimeError if JWT_PRIVATE_KEY is not configured — login route
+        Raises RuntimeError if JWT_PRIVATE_KEY is not configured - login route
         catches this and returns 503, so the failure is visible to ops rather
         than silently falling back to a known-bad key.
         """
@@ -116,7 +116,7 @@ class LDAPAuth:
         """Decode and validate JWT token. Returns payload or None if invalid.
 
         If JWT_PUBLIC_KEY is not configured, logs an error and rejects every
-        token — we refuse to fall back to a known-bad signing key.
+        token - we refuse to fall back to a known-bad signing key.
         """
         if not Config.JWT_PUBLIC_KEY:
             logger.error(
@@ -146,7 +146,7 @@ def require_auth(f):
     DB check blocks them at the auth layer instead.
 
     Cost: 1 extra DB query per protected request (~1-2ms). For higher
-    traffic, cache the result in Redis (see C6 — token revocation).
+    traffic, cache the result in Redis (see C6 - token revocation).
 
     Failure mode: if the DB is unreachable, fail-open (allow the request
     through). The user is authenticated by a valid JWT; denying the
@@ -171,10 +171,10 @@ def require_auth(f):
             return {"error": "User not authorized"}, 403
 
         # M1: defense against soft-deleted users.
-        # JWT is stateless — a user soft-deleted today can still use
+        # JWT is stateless - a user soft-deleted today can still use
         # their existing token for up to JWT_EXPIRATION_MINUTES. This
         # DB check blocks them at the auth layer for EVERY protected
-        # route — comments, experts, mentions, all of them.
+        # route - comments, experts, mentions, all of them.
         from db.postgres_client import get_postgres_client
         from ingestion.repository.users_repository import UsersRepository
         try:

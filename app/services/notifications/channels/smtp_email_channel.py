@@ -88,14 +88,14 @@ class SmtpEmailChannel(NotificationChannel):
             if self._username and self._password:
                 server.login(self._username, self._password)
 
-            refused = server.send_message(msg)
+            refused = server.send_message(msg, to_addrs=list(request.recipients))
             ended = datetime.now(timezone.utc)
             latency_ms = int((ended - started).total_seconds() * 1000)
 
             if refused:
                 return DeliveryResult.fail(
                     channel="email",
-                    recipient=request.recipient,
+                    recipients=request.recipients,
                     error_code="smtp_recipient_refused",
                     error_detail=str(refused),
                     delivered_at=ended,
@@ -107,7 +107,7 @@ class SmtpEmailChannel(NotificationChannel):
             provider_id = msg.get("Message-Id")
             return DeliveryResult.ok(
                 channel="email",
-                recipient=request.recipient,
+                recipients=request.recipients,
                 delivered_at=ended,
                 latency_ms=latency_ms,
                 provider_message_id=provider_id,
@@ -145,7 +145,7 @@ class SmtpEmailChannel(NotificationChannel):
             # the unexpected exception is visible to ops.
             logger.exception(
                 "unexpected exception in SmtpEmailChannel.send for %s",
-                request.recipient,
+                request.recipients,
             )
             return self._fail(request, started, "smtp_unknown", type(e).__name__)
         finally:
@@ -162,7 +162,7 @@ class SmtpEmailChannel(NotificationChannel):
     ) -> MIMEMultipart:
         msg = MIMEMultipart("alternative")
         msg["From"] = formataddr((self._from_name, self._from_email))
-        msg["To"] = request.recipient
+        msg["To"] = ", ".join(request.recipients)
         msg["Subject"] = request.subject or rendered.subject
         if request.correlation_id:
             msg["X-Correlation-ID"] = request.correlation_id
@@ -185,7 +185,7 @@ class SmtpEmailChannel(NotificationChannel):
         latency_ms = int((ended - started).total_seconds() * 1000)
         return DeliveryResult.fail(
             channel="email",
-            recipient=request.recipient,
+            recipients=request.recipients,
             error_code=error_code,
             error_detail=error_detail,
             delivered_at=ended,

@@ -158,21 +158,16 @@ class HybridReferenceExtractor(BaseProcessor):
         extractor = PDFTextExtractorPyMuPDF()
         text = extractor.extract(file_path)
 
-        print('xx')
-        print(text)
-        print('xx')
-
-
         if not text.strip():
             self.logger.warning("Empty text extracted for circular_id=%s", record.circular_id)
             return
 
         candidates = self._extract_candidates(text)
 
-        for x in candidates:
-            print("xxx")
-            print(f"[{x.start}] [{x.matched_text}]")
-            print("xxx")
+        # for x in candidates:
+        #     print("xxx")
+        #     print(f"[{x.start}] [{x.matched_text}]")
+        #     print("xxx")
 
 
         print(f"\n=== REGEX CANDIDATES ({len(candidates)}) ===")
