@@ -3,6 +3,7 @@
 Verifies:
   - NotificationRequest validates the tuple shape
   - SplitterEmailChannel sends all recipients as the wire 'to' list
+    AND sends multipart/form-data (not form-encoded — see regression test)
   - SmtpEmailChannel joins recipients into msg['To'] and sends to all
 """
 from __future__ import annotations
@@ -11,6 +12,8 @@ import unittest
 from datetime import datetime, timezone
 from email.mime.multipart import MIMEMultipart
 from unittest.mock import MagicMock, patch
+
+import requests as real_requests
 
 from app.services.notifications.channels.smtp_email_channel import (
     SmtpEmailChannel,
@@ -69,7 +72,6 @@ class SplitterChannelRecipientsTests(unittest.TestCase):
             endpoint="https://example.test/v3/email/send",
             auth_token="auth-token",
             app_name="CircularHub",
-            service_provider="JIO",
             from_email="noreply@x.com",
             timeout_seconds=5.0,
         )
@@ -82,9 +84,18 @@ class SplitterChannelRecipientsTests(unittest.TestCase):
         return resp
 
     def _payload_from_post_call(self, post_mock):
-        # requests.post(url, data=payload, headers=..., timeout=...)
-        # post_mock.call_args.kwargs["data"] is the multipart payload dict
-        return post_mock.call_args.kwargs["data"]
+        """Extract the multipart files list passed to requests.post.
+
+        Returns a {field_name: [value, ...]} view so tests can assert on
+        individual fields without caring about the (None, value) tuple wrapping
+        that requests requires for multipart form fields.
+        """
+        files = post_mock.call_args.kwargs["files"]
+        out: dict[str, list[str]] = {}
+        for field_name, wrapped in files:
+            value = wrapped[1] if isinstance(wrapped, tuple) else wrapped
+            out.setdefault(field_name, []).append(value)
+        return out
 
     @patch("app.services.notifications.channels.splitter_email_channel.requests")
     def test_sends_single_recipient_as_to_list(self, requests_mod):
@@ -157,6 +168,94 @@ class SplitterChannelRecipientsTests(unittest.TestCase):
         result = channel.send(req, rendered)
         self.assertFalse(result.success)
 
+    @patch("app.services.notifications.channels.splitter_email_channel.requests")
+    def test_sends_multipart_form_data_not_urlencoded(self, requests_mod):
+        """Regression: splitter v3 requires multipart/form-data.
+
+        Bug: ``requests.post(url, data=dict)`` defaults to
+        ``application/x-www-form-urlencoded``. The splitter accepts that on
+        intake and returns a transactionID, but its downstream delivery
+        pipeline only handles multipart — the email never lands. curl works
+        because ``-F`` forces multipart.
+
+        This test would have failed before the fix and must keep failing if
+        the channel regresses to ``data=``.
+        """
+        requests_mod.post.return_value = self._fake_response({
+            "statusCode": 200,
+            "data": {"transactionID": "tx-1", "submittedTime": "now", "serviceProvider": "JIO"},
+        })
+        channel = self._build_channel()
+        req = NotificationRequest(
+            channel="email",
+            recipients=("alice@example.com", "bob@example.com"),
+            template_name="circular_notification.html",
+            subject="Circular",
+            variables={},
+        )
+        rendered = RenderedPayload(body_text="hi", body_html="<p>hi</p>")
+
+        result = channel.send(req, rendered)
+
+        self.assertTrue(result.success)
+
+        call_kwargs = requests_mod.post.call_args.kwargs
+
+        # 1. Must use files= (multipart) and NOT data= (form-encoded).
+        self.assertIn(
+            "files", call_kwargs,
+            "splitter_email_channel must send multipart/form-data via files= "
+            "(splitter v3 returns txID for form-encoded but does not deliver)",
+        )
+        self.assertNotIn(
+            "data", call_kwargs,
+            "splitter_email_channel must NOT send form-encoded data — the "
+            "splitter returns a txID for it but never delivers the email",
+        )
+
+        # 2. Re-serialize the same files= payload through requests and verify
+        #    Content-Type on the wire is multipart/form-data.
+        files = call_kwargs["files"]
+        prepared = real_requests.Request(
+            "POST", "https://example.test/v3/email/send", files=files,
+        ).prepare()
+        content_type = prepared.headers.get("Content-Type", "")
+        self.assertTrue(
+            content_type.startswith("multipart/form-data"),
+            f"Expected multipart/form-data, got: {content_type!r}",
+        )
+        # And the boundary should be present (it's what makes it parseable).
+        self.assertIn("boundary=", content_type)
+
+    @patch("app.services.notifications.channels.splitter_email_channel.requests")
+    def test_sends_cc_and_bcc_as_repeated_multipart_fields(self, requests_mod):
+        """CC and BCC must also be sent as repeated multipart fields, not lists
+        inside a single field. This matches what curl ``-F`` does for repeated
+        flags and is what the splitter v3 API expects."""
+        requests_mod.post.return_value = self._fake_response({
+            "statusCode": 200,
+            "data": {"transactionID": "tx-1", "submittedTime": "now", "serviceProvider": "JIO"},
+        })
+        channel = self._build_channel()
+        req = NotificationRequest(
+            channel="email",
+            recipients=("alice@example.com",),
+            cc=("cc1@example.com", "cc2@example.com"),
+            bcc=("bcc1@example.com",),
+            template_name="circular_notification.html",
+            subject="Circular",
+            variables={},
+        )
+        rendered = RenderedPayload(body_text="hi", body_html="<p>hi</p>")
+
+        result = channel.send(req, rendered)
+
+        self.assertTrue(result.success)
+        payload = self._payload_from_post_call(requests_mod.post)
+        self.assertEqual(payload["cc"], ["cc1@example.com", "cc2@example.com"])
+        self.assertEqual(payload["bcc"], ["bcc1@example.com"])
+
+    
 
 # ── SmtpEmailChannel wire format ──────────────────────────────────────
 

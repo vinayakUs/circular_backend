@@ -79,7 +79,6 @@ def make_notification_service() -> NotificationService:
             endpoint=Config.INTERNAL_SPLITTER_EMAIL_URL,
             auth_token=Config.INTERNAL_SPLITTER_AUTH_TOKEN,
             app_name=Config.INTERNAL_SPLITTER_APP_NAME,
-            service_provider=Config.INTERNAL_SPLITTER_SERVICE_PROVIDER,
             from_email=Config.SMTP_FROM_EMAIL,
             timeout_seconds=Config.INTERNAL_SPLITTER_TIMEOUT_SECONDS,
         )

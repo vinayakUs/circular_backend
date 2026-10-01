@@ -173,7 +173,7 @@ class Config:
 
     # ==== Internal Notification Splitter (org email/SMS gateway) ====
     # v3 endpoint returns a transactionID; v1/v2 do not.
-    # Required fields per v3 docs: appName, serviceProvider, from, to, subject, html.
+    # Required fields per v3 docs: appName, from, to, subject, html.
     INTERNAL_SPLITTER_EMAIL_URL = os.getenv(
         "INTERNAL_SPLITTER_EMAIL_URL",
         "https://uatnotificationsplitter.nse.co.in:8060/v3/email/send",
@@ -183,9 +183,6 @@ class Config:
         "bm90aWZpY2F0aW9uLXNwbGl0dGVyLXRyYW5zYWN0aW9uYWw=",
     )
     INTERNAL_SPLITTER_APP_NAME = os.getenv("INTERNAL_SPLITTER_APP_NAME", "CircularHub")
-    INTERNAL_SPLITTER_SERVICE_PROVIDER = os.getenv(
-        "INTERNAL_SPLITTER_SERVICE_PROVIDER", "JIO"
-    )
     INTERNAL_SPLITTER_TIMEOUT_SECONDS = float(
         os.getenv("INTERNAL_SPLITTER_TIMEOUT_SECONDS", "10")
     )

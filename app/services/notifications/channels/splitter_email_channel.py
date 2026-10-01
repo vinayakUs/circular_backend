@@ -14,9 +14,8 @@ Per the splitter docs (v3):
         subject          (mandatory, string)
         html             (mandatory, string)
         appName          (mandatory, string)   APP-PNEUMONIC
-        serviceProvider  (mandatory, string)   e.g. "JIO"
     Response (200):
-        { statusCode, message, data: { transactionID, submittedTime, serviceProvider } }
+        { statusCode, message, data: { transactionID, submittedTime } }
 
 Every transport failure maps to a stable error_code string so callers
 can branch on the failure mode without parsing free-text.
@@ -53,7 +52,6 @@ class SplitterEmailChannel(NotificationChannel):
         endpoint:        Full URL of the v3 send endpoint.
         auth_token:      Value for the Authorization header.
         app_name:        APP-PNEUMONIC registered with the splitter.
-        service_provider: e.g. "JIO" — required by v3 for transactional OTP mail.
         from_email:      Default sender email (request.from_email overrides if set).
         timeout_seconds: HTTP timeout per request.
     """
@@ -64,14 +62,12 @@ class SplitterEmailChannel(NotificationChannel):
         endpoint: str,
         auth_token: str,
         app_name: str,
-        service_provider: str,
         from_email: str,
         timeout_seconds: float = 10.0,
     ) -> None:
         self._endpoint = endpoint
         self._auth_token = auth_token
         self._app_name = app_name
-        self._service_provider = service_provider
         self._from_email = from_email
         self._timeout = timeout_seconds
 
@@ -88,34 +84,44 @@ class SplitterEmailChannel(NotificationChannel):
         # Splitter expects HTML. Fall back to text wrapped in <pre> if no html.
         html_body = rendered.body_html or f"<pre>{rendered.body_text}</pre>"
 
-        payload = {
-            "from": self._from_email,
-            "to": list(request.recipients),
-            "subject": subject,
-            "html": html_body,
-            "appName": self._app_name,
-            "serviceProvider": self._service_provider,
-        }
+        # Splitter v3 requires multipart/form-data (per the v3 API docs).
+        # requests.post(url, data=dict) defaults to application/x-www-form-urlencoded,
+        # which the splitter accepts on intake but does not deliver — it returns a
+        # transactionID but the email never lands. curl works because -F forces
+        # multipart. To match curl on the wire, build a list of
+        # (field_name, (None, value)) tuples and pass via files=; the (None, value)
+        # shape signals a regular form field (not a file upload) and requests sets
+        # Content-Type: multipart/form-data with a generated boundary.
+        multipart_payload: list[tuple[str, tuple[None, str]]] = [
+            ("from",            (None, self._from_email)),
+            ("subject",         (None, subject)),
+            ("html",            (None, html_body, "text/html; charset=utf-8")),
+            ("appName",         (None, self._app_name)),
+        ]
+        # v3 expects 'to' as a list — repeat the field once per recipient so the
+        # splitter parses them as a true list (form-encoded collapses to ambiguous).
+        multipart_payload += [("to", (None, r)) for r in request.recipients]
         if request.cc:
-            payload["cc"] = list(request.cc)
+            multipart_payload += [("cc", (None, r)) for r in request.cc]
         if request.bcc:
-            payload["bcc"] = list(request.bcc)
-
+            multipart_payload += [("bcc", (None, r)) for r in request.bcc]
         # If the caller set correlation_id, include it for splitter-side tracing.
-        if request.correlation_id:
-            payload["transactionId"] = request.correlation_id
+        # if request.correlation_id:
+        #     multipart_payload.append(("transactionId", (None, request.correlation_id)))
 
         headers = {
             "Authorization": self._auth_token,
-            # requests sets the multipart boundary automatically; don't set Content-Type manually.
+            # files= triggers requests to set Content-Type: multipart/form-data
+            # with a generated boundary. Do not override it manually.
         }
 
         try:
             response = requests.post(
                 self._endpoint,
-                data=payload,
+                files=multipart_payload,
                 headers=headers,
                 timeout=self._timeout,
+                verify=False
             )
         except requests.exceptions.Timeout as e:
             return self._fail(request, started, "splitter_timeout", str(e))
@@ -196,3 +202,4 @@ class SplitterEmailChannel(NotificationChannel):
             delivered_at=ended,
             latency_ms=latency_ms,
         )
+ 
