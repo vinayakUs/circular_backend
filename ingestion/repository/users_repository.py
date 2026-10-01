@@ -37,11 +37,13 @@ class UsersRepository:
         created_by: str,
         email: str | None = None,
         name: str | None = None,
+        phone_e164: str | None = None,
     ) -> UserRecord | None:
         """Add a user to a department. Returns None if user already exists.
 
-        ``email`` and ``name`` are optional — pass None to leave them blank.
-        Empty strings are normalised to None so the column stays NULL.
+        ``email``, ``name`` and ``phone_e164`` are optional — pass None to
+        leave them blank. Empty strings are normalised to None so the
+        column stays NULL.
 
         Uses ON CONFLICT (user_id) DO NOTHING to be race-free under
         concurrent admin writes (H6 from the concurrency audit). Without
@@ -51,6 +53,7 @@ class UsersRepository:
         """
         clean_email = (email or "").strip() or None
         clean_name = (name or "").strip() or None
+        clean_phone = (phone_e164 or "").strip() or None
 
         with self.db_pool.acquire() as conn:
             cursor = conn.cursor()
@@ -59,14 +62,21 @@ class UsersRepository:
             # with no TOCTOU window between the existence check and the insert.
             cursor.execute(
                 """
-                INSERT INTO users (user_id, department_id, email, name, created_by)
-                VALUES (%s, %s, %s, %s, %s)
+                INSERT INTO users (user_id, department_id, email, name, phone_e164, created_by)
+                VALUES (%s, %s, %s, %s, %s, %s)
                 ON CONFLICT (user_id) DO NOTHING
                 RETURNING id, user_id, department_id, email, name,
-                          created_at, created_by, updated_at, updated_by,
-                          is_deleted, deleted_at
+                          phone_e164, created_at, created_by, updated_at,
+                          updated_by, is_deleted, deleted_at
                 """,
-                (user_id, str(department_id), clean_email, clean_name, created_by),
+                (
+                    user_id,
+                    str(department_id),
+                    clean_email,
+                    clean_name,
+                    clean_phone,
+                    created_by,
+                ),
             )
             row = cursor.fetchone()
             conn.commit()

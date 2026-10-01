@@ -20,6 +20,7 @@ def _serialize_user_record(u) -> dict:
         "department_id": str(u.department_id),
         "email": u.email,
         "name": u.name,
+        "phone_e164": u.phone_e164,
         "created_at": u.created_at.isoformat(),
         "created_by": u.created_by,
         "updated_at": u.updated_at.isoformat() if u.updated_at else None,
@@ -42,15 +43,17 @@ def register_routes(app) -> None:
     def add_user_to_department(dept_id):
         """Add a user to a department.
 
-        Body: { user_id, email?, name? }
-          • user_id — required, LDAP uid
-          • email   — optional, stored in users.email (nullable)
-          • name    — optional, stored in users.name (nullable)
+        Body: { user_id, email?, name?, phone_e164? }
+          • user_id    — required, LDAP uid
+          • email      — optional, stored in users.email (nullable)
+          • name       — optional, stored in users.name (nullable)
+          • phone_e164 — optional, E.164 phone stored in users.phone_e164 (nullable)
         """
         body = request.get_json() or {}
         user_id = body.get("user_id", "").strip()
         email = body.get("email")
         name = body.get("name")
+        phone_e164 = body.get("phone_e164")
         created_by = g.current_user  # Use authenticated user automatically
 
         if not user_id:
@@ -60,6 +63,7 @@ def register_routes(app) -> None:
         # strings to the DB columns.
         email_clean = (email or "").strip() or None
         name_clean = (name or "").strip() or None
+        phone_clean = (phone_e164 or "").strip() or None
 
         # Validate email format if provided.
         if email_clean and "@" not in email_clean:
@@ -80,6 +84,7 @@ def register_routes(app) -> None:
             created_by=created_by,
             email=email_clean,
             name=name_clean,
+            phone_e164=phone_clean,
         )
         if record is None:
             return {"error": "User already exists in this or another department"}, 409
