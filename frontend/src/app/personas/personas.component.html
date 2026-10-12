@@ -1,0 +1,34 @@
+<div class="personas-page">
+  <app-navbar></app-navbar>
+
+  <main class="main-content">
+    <header class="page-header">
+      <h1 class="page-title">Personas</h1>
+      <p class="page-subtitle">
+        Choose a role to see only the circulars that matter to you. Each persona
+        filters circulars by relevant departments and categories across all exchanges.
+      </p>
+    </header>
+
+    <section class="personas-grid">
+      <a
+        *ngFor="let persona of personas; let i = index"
+        class="persona-card"
+        [style.--stagger]="i"
+        [routerLink]="['/circulars']"
+        [queryParams]="{ persona: persona.id }"
+      >
+        <div class="persona-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path [attr.d]="persona.icon" />
+          </svg>
+        </div>
+        <h2 class="persona-name">{{ persona.name }}</h2>
+        <p class="persona-description">{{ persona.description }}</p>
+        <div class="persona-exchanges">
+          <span class="exchange-chip" *ngFor="let ex of persona.exchanges">{{ ex }}</span>
+        </div>
+      </a>
+    </section>
+  </main>
+</div>
