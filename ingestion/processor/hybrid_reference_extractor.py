@@ -204,15 +204,15 @@ class HybridReferenceExtractor(BaseProcessor):
         self.ref_repo.insert_reference_batch(record.id, unique_refs)
         self.logger.info("Inserted %d references for circular_id=%s", len(unique_refs), record.circular_id)
 
-    def _get_pdf_path(self, record: CircularRecord) -> str:
-        assets = self.circular_repo.list_assets(record.id)
-        for role in ['extracted_pdf', 'original_pdf']:
-            for asset in assets:
-                if asset.asset_role == role and asset.file_path and asset.file_path.lower().endswith('.pdf'):
-                    return asset.file_path
-        if record.file_path and record.file_path.lower().endswith('.pdf'):
-            return record.file_path
-        raise ValueError(f"No PDF file path found for circular: {record.circular_id}")
+    # def _get_pdf_path(self, record: CircularRecord) -> str:
+    #     assets = self.circular_repo.list_assets(record.id)
+    #     for role in ['extracted_pdf', 'original_pdf']:
+    #         for asset in assets:
+    #             if asset.asset_role == role and asset.file_path and asset.file_path.lower().endswith('.pdf'):
+    #                 return asset.file_path
+    #     if record.file_path and record.file_path.lower().endswith('.pdf'):
+    #         return record.file_path
+    #     raise ValueError(f"No PDF file path found for circular: {record.circular_id}")
 
     def _extract_candidates(self, text: str) -> list[CandidateMatch]:
         """Extract candidates using two-pass approach.

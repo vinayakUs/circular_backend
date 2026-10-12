@@ -643,24 +643,24 @@ class ReferenceExtractor(BaseProcessor):
     # STEP 1: LOCATE PDF
     # ─────────────────────────────────────────────────────────────────────────
 
-    def _get_pdf_path(self, record: CircularRecord) -> str:
-        assets = self.asset_repo.list_assets(record.id)
-        for role in ('extracted_pdf', 'original_pdf'):
-            for asset in assets:
-                if (
-                    asset.asset_role == role
-                    and asset.file_path
-                    and asset.file_path.lower().endswith('.pdf')
-                ):
-                    return asset.file_path
+    # def _get_pdf_path(self, record: CircularRecord) -> str:
+    #     assets = self.asset_repo.list_assets(record.id)
+    #     for role in ('extracted_pdf', 'original_pdf'):
+    #         for asset in assets:
+    #             if (
+    #                 asset.asset_role == role
+    #                 and asset.file_path
+    #                 and asset.file_path.lower().endswith('.pdf')
+    #             ):
+    #                 return asset.file_path
 
-        # Fallback: record.file_path is not declared on the slotted CircularRecord,
-        # so use getattr for backward-compat with any older code paths.
-        fallback = getattr(record, "file_path", None)
-        if fallback and fallback.lower().endswith('.pdf'):
-            return fallback
+    #     # Fallback: record.file_path is not declared on the slotted CircularRecord,
+    #     # so use getattr for backward-compat with any older code paths.
+    #     fallback = getattr(record, "file_path", None)
+    #     if fallback and fallback.lower().endswith('.pdf'):
+    #         return fallback
 
-        raise ValueError(f"No PDF file path found for circular: {record.circular_id}")
+    #     raise ValueError(f"No PDF file path found for circular: {record.circular_id}")
 
     # ─────────────────────────────────────────────────────────────────────────
     # STEP 2: EXTRACT TEXT

@@ -522,9 +522,10 @@ interface ActionItem {
   id: string;
   action_item: string;
   circular_id: string;
-  deadline: string;
-  persona: string;
-  priority: string;
+  deadline: string | null;
+  priority: string | null;
+  days_until_deadline: number | null;
+  relative_deadline: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -14,9 +14,10 @@ interface ActionItem {
   id: string;
   action_item: string;
   circular_id: string;
-  deadline: string;
-  persona: string;
-  priority: string;
+  deadline: string | null;
+  priority: string | null;
+  days_until_deadline: number | null;
+  relative_deadline: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -671,5 +672,13 @@ export class CircularDetailComponent implements OnInit, AfterViewInit, OnDestroy
     } else {
       return `Due in ${Math.floor(diffDays / 30)} months`;
     }
+  }
+
+  /** Map backend-provided days_until_deadline to a CSS class for color-coding. */
+  getRelativeClass(days: number | null): string {
+    if (days === null) return '';
+    if (days < 0) return 'overdue';
+    if (days <= 7) return 'due-soon';
+    return 'future';
   }
 }

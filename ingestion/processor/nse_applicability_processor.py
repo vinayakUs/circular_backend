@@ -53,8 +53,8 @@ class NSEApplicabilityProcessor(BaseProcessor):
             return
 
         file_path = self._get_pdf_path(record)
-        if not file_path:
-            raise ValueError(f"No PDF file path found for circular: {record.circular_id}")
+        # if not file_path:
+        #     raise ValueError(f"No PDF file path found for circular: {record.circular_id}")
 
         first_page_text = self._extract_first_page(file_path)
         if not first_page_text:
@@ -82,16 +82,16 @@ class NSEApplicabilityProcessor(BaseProcessor):
 
         self.logger.info("=== NSE Check END ===")
 
-    def _get_pdf_path(self, record: CircularRecord) -> str | None:
-        assets = self.asset_repo.list_assets(record.id)
-        for role in ['extracted_pdf', 'original_pdf']:
-            for asset in assets:
-                if asset.asset_role == role and asset.file_path and asset.file_path.lower().endswith('.pdf'):
-                    return asset.file_path
+    # def _get_pdf_path(self, record: CircularRecord) -> str | None:
+    #     assets = self.asset_repo.list_assets(record.id)
+    #     for role in ['extracted_pdf', 'original_pdf']:
+    #         for asset in assets:
+    #             if asset.asset_role == role and asset.file_path and asset.file_path.lower().endswith('.pdf'):
+    #                 return asset.file_path
 
-        if record.file_path and record.file_path.lower().endswith('.pdf'):
-            return record.file_path
-        return None
+    #     if record.file_path and record.file_path.lower().endswith('.pdf'):
+    #         return record.file_path
+    #     return None
 
     def _extract_first_page(self, path: str | Path) -> str:
         try:

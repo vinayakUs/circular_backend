@@ -51,8 +51,6 @@ class DesignationExtractorProcessor(BaseProcessor):
         self.logger.info('designation extractor process start %s', record.applicable_to_nse)
 
         file_path = self._get_pdf_path(record)
-        if not file_path:
-            raise ValueError(f"No PDF file path found for circular: {record.circular_id}")
 
         full_text = self._extract_all_text(file_path)
         if not full_text:
@@ -80,15 +78,15 @@ class DesignationExtractorProcessor(BaseProcessor):
         else:
             self.logger.info("No signatory block found for circular_id=%s", record.circular_id)
 
-    def _get_pdf_path(self, record: CircularRecord) -> str | None:
-        assets = self.asset_repo.list_assets(record.id)
-        for role in ['extracted_pdf', 'original_pdf']:
-            for asset in assets:
-                if asset.asset_role == role and asset.file_path and asset.file_path.lower().endswith('.pdf'):
-                    return asset.file_path
-        if record.file_path and record.file_path.lower().endswith('.pdf'):
-            return record.file_path
-        return None
+    # def _get_pdf_path(self, record: CircularRecord) -> str | None:
+    #     assets = self.asset_repo.list_assets(record.id)
+    #     for role in ['extracted_pdf', 'original_pdf']:
+    #         for asset in assets:
+    #             if asset.asset_role == role and asset.file_path and asset.file_path.lower().endswith('.pdf'):
+    #                 return asset.file_path
+    #     if record.file_path and record.file_path.lower().endswith('.pdf'):
+    #         return record.file_path
+    #     return None
 
     def _extract_all_text(self, path: str | Path) -> str:
         try:

@@ -278,85 +278,76 @@
   color: #5e6ad2;
 }
 
-.priority-badge {
-  padding: 4px 10px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
-.priority-badge.critical {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+/* Action items section — same background as the AI summary card */
+.action-items-list {
+  display: flex;
+  flex-direction: column;
 }
 
 .action-item-card {
   background: #fafafa;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: 10px;
-  padding: 20px;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 6px;
 }
 
+.action-item-card:last-child { margin-bottom: 0; }
+
+/* Top row: priority pill on left, deadline on right */
 .action-item-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  gap: 10px;
+  margin-bottom: 6px;
 }
 
-.due-date {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: 14px;
+/* Priority pill — colored by priority, restrained */
+.priority-pill {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.4;
+}
+.priority-pill.critical { background: rgba(220, 38, 38, 0.10);  color: #b91c1c; }
+.priority-pill.high     { background: rgba(217, 119, 6, 0.10);  color: #b45309; }
+.priority-pill.medium   { background: rgba(99, 102, 241, 0.10); color: #4f46e5; }
+.priority-pill.low      { background: rgba(8, 145, 178, 0.10);  color: #0e7490; }
+
+/* Deadline — right-aligned, date + relative on one line */
+.action-item-deadline {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 13px;
+  color: #64748b;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.action-item-deadline .deadline-date {
   font-weight: 500;
-  color: #0a0a0a;
+  color: #334155;
 }
 
-.due-status {
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-}
+.action-item-deadline .deadline-sep { color: #cbd5e1; margin: 0 6px; }
 
-.due-status.high {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
-}
+.action-item-deadline .deadline-relative.overdue  { color: #b91c1c; }
+.action-item-deadline .deadline-relative.due-soon { color: #b45309; }
+.action-item-deadline .deadline-relative.future   { color: #64748b; }
 
-.due-status.medium {
-  background: rgba(94, 106, 210, 0.1);
-  color: #5e6ad2;
-}
-
-.due-status.low {
-  background: rgba(16, 185, 129, 0.1);
-  color: #10b981;
-}
-
-.action-item-content p {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+/* Body — matches page body-text size */
+.action-item-text {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-size: 14px;
   line-height: 1.6;
-  color: #5e5e5e;
-  margin: 0 0 12px 0;
-}
-
-.action-item-tags {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.tag {
-  padding: 4px 10px;
-  background: #ffffff;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 4px;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: 12px;
-  font-weight: 500;
-  color: #5e5e5e;
+  color: #0f172a;
+  margin: 0;
+  letter-spacing: -0.005em;
 }
 
 .ai-summary-section {

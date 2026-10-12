@@ -95,6 +95,47 @@
           </div>
           
 
+          <!-- Action Items section -->
+          <div class="action-items-section">
+            <div class="section-header">
+              <h2>Action Items</h2>
+            </div>
+
+            <div class="loading-state small" *ngIf="actionItemsLoading">
+              <div class="loading-spinner small"></div>
+              <p>Loading action items...</p>
+            </div>
+
+            <div class="empty-state small" *ngIf="!actionItemsLoading && actionItemsError === 'connection'">
+              <p>Could not load action items — connection failed.</p>
+            </div>
+
+            <div class="empty-state small" *ngIf="!actionItemsLoading && actionItemsError === 'not_found'">
+              <p>Action items unavailable.</p>
+            </div>
+
+            <div class="empty-state small" *ngIf="!actionItemsLoading && !actionItemsError && actionItems.length === 0">
+              <p>No action items extracted yet.</p>
+            </div>
+
+            <div class="action-items-list">
+              <article class="action-item-card" *ngFor="let item of actionItems">
+                <div class="action-item-header">
+                  <span class="priority-pill" [ngClass]="item.priority || 'medium'">{{ item.priority || 'medium' }}</span>
+                  <span class="action-item-deadline" *ngIf="item.deadline">
+                    <span class="deadline-date">{{ formatDate(item.deadline) }}</span>
+                    <span class="deadline-sep">·</span>
+                    <span class="deadline-relative"
+                          [ngClass]="getRelativeClass(item.days_until_deadline)">
+                      {{ item.relative_deadline }}
+                    </span>
+                  </span>
+                </div>
+                <p class="action-item-text">{{ item.action_item }}</p>
+              </article>
+            </div>
+          </div>
+
           <div class="experts-section" *ngIf="isLoggedIn">
             <div class="section-header">
               <h2>Tasks</h2>

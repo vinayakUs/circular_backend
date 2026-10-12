@@ -212,7 +212,7 @@ def create_app() -> Flask:
         }, status_code
 
     # Wire up domain route modules.
-    from app.routes import auth, circulars, experts, mentions, properties, admin
+    from app.routes import auth, circulars, experts, mentions, properties, admin, action_items
 
     auth.register_routes(app)
     circulars.register_routes(app, rag_generator=rag_generator)
@@ -220,5 +220,6 @@ def create_app() -> Flask:
     mentions.register_routes(app)
     properties.register_routes(app)
     admin.register_routes(app)
+    action_items.register_routes(app)
 
     return app

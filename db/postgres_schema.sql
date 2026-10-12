@@ -340,3 +340,21 @@ CREATE TABLE IF NOT EXISTS mfa_pending_tokens (
 );
 CREATE INDEX IF NOT EXISTS idx_mfa_pending_user_active
     ON mfa_pending_tokens (user_db_id, consumed, expires_at);
+
+-- DDL for action items table (12-10-2026)
+
+CREATE TABLE IF NOT EXISTS action_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    circular_id UUID NOT NULL REFERENCES circulars(id) ON DELETE CASCADE,
+    action_item TEXT NOT NULL,
+    deadline DATE,
+    priority VARCHAR(20),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_action_items_circular_id
+    ON action_items(circular_id);
+CREATE INDEX IF NOT EXISTS idx_action_items_priority
+    ON action_items(priority);
+
