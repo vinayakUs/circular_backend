@@ -1,0 +1,291 @@
+/* ── Deadline Calendar Widget ──────────────────────────────────────────────
+   Reusable, custom date-fmt calendar. Light theme. */
+
+.dc {
+  --dc-bg: #ffffff;
+  --dc-border: rgba(15, 23, 42, 0.08);
+  --dc-text: #0f172a;
+  --dc-text-muted: #64748b;
+  --dc-text-soft: #94a3b8;
+  --dc-hover: rgba(15, 23, 42, 0.04);
+  --dc-selected: rgba(94, 106, 210, 0.12);
+  --dc-selected-border: #5e6ad2;
+  --dc-today: rgba(94, 106, 210, 0.06);
+  --dc-accent: #5e6ad2;
+  --dc-radius: 12px;
+
+  background: var(--dc-bg);
+  border: 1px solid var(--dc-border);
+  border-radius: var(--dc-radius);
+  padding: 18px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: var(--dc-text);
+  width: 100%;
+  max-width: 380px;
+  box-sizing: border-box;
+}
+
+.dc.is-disabled {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+/* ── Header ────────────────────────────────────────────── */
+.dc__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.dc__title {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--dc-text);
+  margin: 0;
+}
+
+.dc__view-all {
+  background: transparent;
+  border: none;
+  color: var(--dc-accent);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-family: inherit;
+  transition: background 120ms ease;
+}
+
+.dc__view-all:hover:not(:disabled) {
+  background: rgba(94, 106, 210, 0.08);
+}
+
+.dc__view-all:disabled {
+  cursor: not-allowed;
+}
+
+/* ── Month navigation ─────────────────────────────────── */
+.dc__month-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.dc__nav {
+  background: transparent;
+  border: 1px solid var(--dc-border);
+  color: var(--dc-text-muted);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-family: inherit;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+  min-width: 32px;
+}
+
+.dc__nav:hover:not(:disabled) {
+  background: var(--dc-hover);
+  color: var(--dc-text);
+  border-color: rgba(15, 23, 42, 0.16);
+}
+
+.dc__nav:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.dc__month-label {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--dc-text);
+}
+
+/* ── Weekday headers ───────────────────────────────────── */
+.dc__weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  margin-bottom: 4px;
+}
+
+.dc__weekday {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dc-text-soft);
+  text-align: center;
+  padding: 6px 0;
+}
+
+/* ── Day grid ─────────────────────────────────────────── */
+.dc__grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.dc__day {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--dc-text);
+  padding: 6px 2px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  font-family: inherit;
+  transition: background 120ms ease, border-color 120ms ease;
+  min-height: 40px;
+}
+
+.dc__day:hover:not(:disabled):not(.is-outside) {
+  background: var(--dc-hover);
+}
+
+.dc__day:disabled {
+  cursor: not-allowed;
+}
+
+.dc__day.is-outside {
+  color: var(--dc-text-soft);
+  opacity: 0.4;
+}
+
+.dc__day.is-today {
+  background: var(--dc-today);
+}
+
+.dc__day.is-selected {
+  background: var(--dc-selected);
+  border-color: var(--dc-selected-border);
+}
+
+.dc__day.has-events .dc__day-num {
+  font-weight: 700;
+}
+
+.dc__day-num {
+  font-size: 13px;
+  line-height: 1;
+}
+
+/* ── Priority dots under day number ─────────────────── */
+.dc__dots {
+  display: flex;
+  gap: 3px;
+  justify-content: center;
+  height: 4px;
+}
+
+.dc__dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--dc-text-soft);
+}
+
+.dc__dot--critical { background: #ef4444; }
+.dc__dot--high     { background: #f59e0b; }
+.dc__dot--medium   { background: #5e6ad2; }
+.dc__dot--low      { background: #14b8a6; }
+
+/* ── Items list below ────────────────────────────────── */
+.dc__items {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--dc-border);
+}
+
+.dc__items-header {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--dc-text-muted);
+  margin-bottom: 8px;
+}
+
+.dc__items-header strong {
+  color: var(--dc-text);
+  font-weight: 600;
+}
+
+.dc__items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dc__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  flex-wrap: wrap;
+  line-height: 1.4;
+}
+
+.dc__pill {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+  line-height: 1.4;
+}
+
+.dc__pill--critical { background: rgba(239, 68, 68, 0.12); color: #b91c1c; }
+.dc__pill--high     { background: rgba(245, 158, 11, 0.12); color: #b45309; }
+.dc__pill--medium   { background: rgba(94, 106, 210, 0.12); color: #4f46e5; }
+.dc__pill--low      { background: rgba(20, 184, 166, 0.12); color: #0f766e; }
+
+.dc__pill--exchange {
+  background: rgba(15, 23, 42, 0.06);
+  color: var(--dc-text);
+}
+
+.dc__item-title {
+  color: var(--dc-text);
+  text-decoration: none;
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+}
+
+a.dc__item-title:hover {
+  color: var(--dc-accent);
+  text-decoration: underline;
+}
+
+.dc__more {
+  background: transparent;
+  border: none;
+  color: var(--dc-accent);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 0;
+  margin-top: 4px;
+  text-align: left;
+  font-family: inherit;
+}
+
+.dc__more:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.dc__more:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}

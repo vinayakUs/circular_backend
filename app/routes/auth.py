@@ -1,5 +1,5 @@
 """
-Auth routes: login, current user lookup, captcha, and the root health check.
+Auth routes: login, current user lookup, persona selection, captcha, and the root health check.
 """
 from __future__ import annotations
 
@@ -248,9 +248,24 @@ def register_routes(app) -> None:
 
         user = users_repo.get_user(g.current_user)
         if not user:
-            return {"username": g.current_user, "department": None}
+            return {
+                "username": g.current_user,
+                "department": None,
+                "persona_slug": None,
+                "persona": None,
+            }
 
         dept = properties_repo.get_by_id(user.department_id)
+
+        # Resolve the persona object (if any) from config/personas.json
+        persona_obj = None
+        if user.persona_slug:
+            from app.services.personas import get_personas
+            for p in get_personas():
+                if p.slug == user.persona_slug:
+                    persona_obj = p.model_dump()
+                    break
+
         return {
             "username": g.current_user,
             "user_db_id": str(user.id),
@@ -258,4 +273,35 @@ def register_routes(app) -> None:
             "department": dept.name if dept else None,
             "email": user.email,
             "name": user.name,
+            "persona_slug": user.persona_slug,
+            "persona": persona_obj,
         }
+
+    @app.put("/api/auth/me/persona")
+    @require_auth
+    def set_my_persona():
+        """Set (or clear) the current user's persona.
+
+        Body: { "slug": "trading-desk" }   to set
+              { "slug": null }             to clear
+
+        Returns 204 on success. 400 if the slug isn't in config/personas.json.
+        """
+        body = request.get_json(silent=True) or {}
+        slug = body.get("slug")
+
+        if slug is not None:
+            # Validate against config/personas.json
+            from app.services.personas import get_personas
+            valid_slugs = {p.slug for p in get_personas()}
+            if slug not in valid_slugs:
+                return {
+                    "error": f"Unknown persona slug: {slug!r}. "
+                             f"Must be one of: {sorted(valid_slugs)}"
+                }, 400
+
+        users_repo = UsersRepository(db_pool=get_postgres_client().get_pool())
+        users_repo.set_persona_slug(UUID(g.user_db_id), slug)
+
+        logger.info("User %s set persona_slug=%s", g.current_user, slug)
+        return "", 204

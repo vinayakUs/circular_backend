@@ -2,13 +2,12 @@ import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { NavbarComponent } from '../navbar/navbar.component';
 import { CircularsApiService, Department, ExpertWithCircular } from '../services/circulars-api.service';
 
 @Component({
   selector: 'app-experts-by-department',
   standalone: true,
-  imports: [CommonModule, NavbarComponent, DatePipe, FormsModule],
+  imports: [CommonModule, DatePipe, FormsModule],
   templateUrl: './experts-by-department.component.html',
   styleUrl: './experts-by-department.component.css'
 })

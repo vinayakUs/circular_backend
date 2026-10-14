@@ -1,23 +1,24 @@
 import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
-import { NavbarComponent } from '../navbar/navbar.component';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { LoginService } from '../services/login.service';
+import { CurrentPersonaService } from '../services/current-persona.service';
 
 type LoginStep = 'credentials' | 'mfa' | 'submitting';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [NavbarComponent, FormsModule, CommonModule],
+  imports: [FormsModule, CommonModule],
   templateUrl: './login.component.html',
   styleUrl: './login.component.css'
 })
 export class LoginComponent implements OnInit, OnDestroy {
 
   private loginService = inject(LoginService);
+  private personaSvc = inject(CurrentPersonaService);
   private router = inject(Router);
 
   step: LoginStep = 'credentials';
@@ -214,6 +215,7 @@ export class LoginComponent implements OnInit, OnDestroy {
     this.loginService.getCurrentUser().subscribe({
       next: (user) => {
         localStorage.setItem('user_details', JSON.stringify(user));
+        this.personaSvc.setFromMe(user);   // populate reactive persona store
         this.router.navigate(['/']);
       },
       error: () => this.router.navigate(['/']),

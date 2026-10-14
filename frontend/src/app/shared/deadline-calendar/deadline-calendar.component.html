@@ -1,0 +1,112 @@
+<div class="dc" [class.is-disabled]="disabled">
+  <header class="dc__header">
+    <h3 class="dc__title">{{ title }}</h3>
+    <button
+      type="button"
+      class="dc__view-all"
+      [disabled]="disabled"
+      (click)="onViewAll($event)"
+    >
+      View all
+    </button>
+  </header>
+
+  <div class="dc__month-nav">
+    <button
+      type="button"
+      class="dc__nav"
+      [disabled]="disabled"
+      (click)="prevMonth()"
+      aria-label="Previous month"
+    >
+      ←
+    </button>
+    <span class="dc__month-label">{{ format(currentMonth(), 'MMMM yyyy') }}</span>
+    <button
+      type="button"
+      class="dc__nav"
+      [disabled]="disabled"
+      (click)="nextMonth()"
+      aria-label="Next month"
+    >
+      →
+    </button>
+  </div>
+
+  <div class="dc__weekdays">
+    <span *ngFor="let d of weekDays" class="dc__weekday">{{ d }}</span>
+  </div>
+
+  <div class="dc__grid">
+    <button
+      type="button"
+      *ngFor="let day of calendarDays()"
+      class="dc__day"
+      [class.is-outside]="!isSameMonthFn(day, currentMonth())"
+      [class.is-today]="isTodayFn(day)"
+      [class.is-selected]="selectedDay() !== null && isSameDayFn(day, selectedDay()!)"
+      [class.has-events]="hasEventsOn(day)"
+      [disabled]="disabled"
+      (click)="selectDay(day)"
+    >
+      <span class="dc__day-num">{{ format(day, 'd') }}</span>
+      <div class="dc__dots" *ngIf="hasEventsOn(day)">
+        <span
+          *ngFor="let p of priorityDotsForDay(day)"
+          class="dc__dot"
+          [class]="'dc__dot--' + p"
+        ></span>
+      </div>
+    </button>
+  </div>
+
+  <div
+    class="dc__items"
+    *ngIf="showItemList && selectedDay() !== null"
+  >
+    <div class="dc__items-header">
+      {{ format(selectedDay()!, 'MMMM d') }} —
+      <strong>{{ selectedDayEvents().length }}</strong>
+      <span> {{ selectedDayEvents().length === 1 ? 'item' : 'items' }}</span>
+    </div>
+
+    <div class="dc__items-list">
+      <div
+        *ngFor="let event of visibleSelectedDayEvents()"
+        class="dc__item"
+      >
+        <span
+          *ngIf="event.priority"
+          class="dc__pill dc__pill--{{ event.priority }}"
+        >
+          {{ event.priority }}
+        </span>
+        <span
+          *ngIf="event.exchange"
+          class="dc__pill dc__pill--exchange"
+        >
+          {{ event.exchange }}
+        </span>
+        <a
+          *ngIf="event.url; else noLink"
+          class="dc__item-title"
+          [href]="event.url"
+          (click)="onEventClick(event, $event)"
+        >{{ event.title }}</a>
+        <ng-template #noLink>
+          <span class="dc__item-title">{{ event.title }}</span>
+        </ng-template>
+      </div>
+
+      <button
+        *ngIf="overflowCount() > 0"
+        type="button"
+        class="dc__more"
+        [disabled]="disabled"
+        (click)="onViewAll($event)"
+      >
+        +{{ overflowCount() }} more
+      </button>
+    </div>
+  </div>
+</div>

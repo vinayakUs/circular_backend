@@ -1,17 +1,13 @@
 .keyword-search-page {
-  min-height: 100vh;
+  min-height: calc(100vh - 56px);
   background: #fff;
   color: #0a0a0a;
-}
-
-.main-content {
-  padding-top: 56px;
 }
 
 .header-section {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 60px 24px 24px;
+  padding: 66px 24px;
   text-align: center;
 }
 

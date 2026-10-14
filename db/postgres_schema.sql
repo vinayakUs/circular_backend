@@ -156,6 +156,7 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(255),                      -- display/contact email (nullable for now)
     name VARCHAR(255),                       -- display name (nullable for now)
     phone_e164 VARCHAR(32),                  -- phone for SMS OTP (nullable; LDAP-provisioned)
+    persona_slug TEXT,                       -- selected persona (null = not set; references config/personas.json)
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_by VARCHAR(255) NOT NULL,        -- LDAP uid of admin who added
     updated_at TIMESTAMPTZ,
@@ -165,12 +166,14 @@ CREATE TABLE IF NOT EXISTS users (
 );
 CREATE INDEX IF NOT EXISTS idx_users_department ON users(department_id);
 CREATE INDEX IF NOT EXISTS idx_users_is_deleted ON users(is_deleted) WHERE is_deleted = FALSE;
+CREATE INDEX IF NOT EXISTS idx_users_persona_slug ON users(persona_slug) WHERE persona_slug IS NOT NULL;
 
 -- Idempotent migration for existing databases (no-op on fresh installs).
 -- ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255);
 -- ALTER TABLE users ADD COLUMN IF NOT EXISTS name VARCHAR(255);
 -- ALTER TABLE users ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT FALSE;
 -- ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+-- ALTER TABLE users ADD COLUMN IF NOT EXISTS persona_slug TEXT;
 
 -- experts (current schema)
 CREATE TABLE IF NOT EXISTS experts (
@@ -358,3 +361,13 @@ CREATE INDEX IF NOT EXISTS idx_action_items_circular_id
 CREATE INDEX IF NOT EXISTS idx_action_items_priority
     ON action_items(priority);
 
+-- DDL for per circular_persona_matches Many-to-many join table (added 13-10-2026)
+
+CREATE TABLE IF NOT EXISTS circular_persona_matches (
+    circular_id  UUID        NOT NULL REFERENCES circulars(id) ON DELETE CASCADE,
+    persona_slug TEXT        NOT NULL,
+    matched_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (circular_id, persona_slug)
+);
+CREATE INDEX IF NOT EXISTS idx_cpm_lookup ON circular_persona_matches(persona_slug);
+CREATE INDEX IF NOT EXISTS idx_cpm_circular ON circular_persona_matches(circular_id);

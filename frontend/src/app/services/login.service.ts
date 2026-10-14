@@ -79,12 +79,30 @@ export class LoginService {
     user_db_id?: string;
     department_id?: string;
     department?: string;
+    persona_slug?: string | null;
+    persona?: {
+      slug: string;
+      name: string;
+      description: string;
+      icon: string;
+      filters: { source: string; departments: string[]; categories: string[] }[];
+      keywords: string[];
+    } | null;
   }> {
     return this.http.get<{
       username: string;
       user_db_id?: string;
       department_id?: string;
       department?: string;
+      persona_slug?: string | null;
+      persona?: {
+        slug: string;
+        name: string;
+        description: string;
+        icon: string;
+        filters: { source: string; departments: string[]; categories: string[] }[];
+        keywords: string[];
+      } | null;
     }>(`${this.baseUrl}/api/auth/me`);
   }
 
@@ -109,6 +127,15 @@ export class LoginService {
     user_db_id?: string;
     department_id?: string;
     department?: string;
+    persona_slug?: string | null;
+    persona?: {
+      slug: string;
+      name: string;
+      description: string;
+      icon: string;
+      filters: { source: string; departments: string[]; categories: string[] }[];
+      keywords: string[];
+    } | null;
   } | null {
     const stored = localStorage.getItem('user_details');
     if (stored) {

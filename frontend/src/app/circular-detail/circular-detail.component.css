@@ -1,11 +1,10 @@
 .circular-detail-page {
-  min-height: 100vh;
+  min-height: calc(100vh - 56px);
   background: #fafafa;
   color: #0a0a0a;
 }
 
 .main-content {
-  padding-top: 56px;
 }
 
 .loading-state {
@@ -15,7 +14,6 @@
   justify-content: center;
   min-height: calc(100vh - 56px);
   gap: 16px;
-  padding-top: 56px;
 }
 
 .loading-spinner {

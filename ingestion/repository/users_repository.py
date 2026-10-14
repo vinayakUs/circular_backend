@@ -20,6 +20,15 @@ class UserRecord:
     is_deleted: bool
     deleted_at: datetime | None
     phone_e164: str | None = None
+    persona_slug: str | None = None
+
+
+# Columns selected by every read query, kept as a constant so adding a new
+# field only requires updating one place (plus _row_to_record).
+_USER_COLUMNS = (
+    "id, user_id, department_id, email, name, phone_e164, persona_slug, "
+    "created_at, created_by, updated_at, updated_by, is_deleted, deleted_at"
+)
 
 
 class UsersRepository:
@@ -57,17 +66,12 @@ class UsersRepository:
 
         with self.db_pool.acquire() as conn:
             cursor = conn.cursor()
-            # The schema has UNIQUE on user_id (see postgres_schema.sql).
-            # ON CONFLICT against that constraint atomically inserts-or-skips
-            # with no TOCTOU window between the existence check and the insert.
             cursor.execute(
-                """
+                f"""
                 INSERT INTO users (user_id, department_id, email, name, phone_e164, created_by)
                 VALUES (%s, %s, %s, %s, %s, %s)
                 ON CONFLICT (user_id) DO NOTHING
-                RETURNING id, user_id, department_id, email, name,
-                          phone_e164, created_at, created_by, updated_at,
-                          updated_by, is_deleted, deleted_at
+                RETURNING {_USER_COLUMNS}
                 """,
                 (
                     user_id,
@@ -108,10 +112,8 @@ class UsersRepository:
         with self.db_pool.acquire() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                """
-                SELECT id, user_id, department_id, email, name,
-                       phone_e164, created_at, created_by, updated_at,
-                       updated_by, is_deleted, deleted_at
+                f"""
+                SELECT {_USER_COLUMNS}
                 FROM users
                 WHERE user_id = %s
                   AND is_deleted = FALSE
@@ -134,10 +136,8 @@ class UsersRepository:
         with self.db_pool.acquire() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                """
-                SELECT id, user_id, department_id, email, name,
-                       phone_e164, created_at, created_by, updated_at,
-                       updated_by, is_deleted, deleted_at
+                f"""
+                SELECT {_USER_COLUMNS}
                 FROM users
                 WHERE id = %s
                   AND is_deleted = FALSE
@@ -158,9 +158,7 @@ class UsersRepository:
             cursor = conn.cursor()
             cursor.execute(
                 f"""
-                SELECT id, user_id, department_id, email, name,
-                       phone_e164, created_at, created_by, updated_at,
-                       updated_by, is_deleted, deleted_at
+                SELECT {_USER_COLUMNS}
                 FROM users
                 {filter_clause}
                 ORDER BY user_id
@@ -174,10 +172,8 @@ class UsersRepository:
         with self.db_pool.acquire() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                """
-                SELECT id, user_id, department_id, email, name,
-                       phone_e164, created_at, created_by, updated_at,
-                       updated_by, is_deleted, deleted_at
+                f"""
+                SELECT {_USER_COLUMNS}
                 FROM users
                 WHERE department_id = %s
                   AND is_deleted = FALSE
@@ -193,10 +189,8 @@ class UsersRepository:
         with self.db_pool.acquire() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                """
-                SELECT id, user_id, department_id, email, name,
-                       phone_e164, created_at, created_by, updated_at,
-                       updated_by, is_deleted, deleted_at
+                f"""
+                SELECT {_USER_COLUMNS}
                 FROM users
                 WHERE user_id = %s
                   AND is_deleted = FALSE
@@ -206,6 +200,49 @@ class UsersRepository:
             )
             rows = cursor.fetchall()
         return [r for row in rows if (r := self._row_to_record(row))]
+
+    # ─────────────────────────────────────────────────────────────────────
+    # PERSONA
+    # ─────────────────────────────────────────────────────────────────────
+
+    def get_persona_slug(self, user_db_id: UUID) -> str | None:
+        """Return the user's selected persona slug, or None if not set.
+
+        Args:
+            user_db_id: the user's UUID primary key (NOT the LDAP uid string).
+        """
+        with self.db_pool.acquire() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT persona_slug FROM users WHERE id = %s AND is_deleted = FALSE",
+                (str(user_db_id),),
+            )
+            row = cursor.fetchone()
+        return row[0] if row else None
+
+    def set_persona_slug(self, user_db_id: UUID, slug: str | None) -> None:
+        """Set (or clear with None) the user's persona. Idempotent.
+
+        Args:
+            user_db_id: the user's UUID primary key.
+            slug: persona slug from config/personas.json, or None to clear.
+
+        Note: slug validation against personas.json happens at the API layer,
+        not here — this method trusts the caller.
+        """
+        with self.db_pool.acquire() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                UPDATE users
+                   SET persona_slug = %s,
+                       updated_at = NOW()
+                 WHERE id = %s
+                   AND is_deleted = FALSE
+                """,
+                (slug, str(user_db_id)),
+            )
+            conn.commit()
 
     def _row_to_record(self, row: Any) -> UserRecord | None:
         if row is None:
@@ -217,10 +254,11 @@ class UsersRepository:
             email=row[3],
             name=row[4],
             phone_e164=row[5],
-            created_at=row[6],
-            created_by=row[7],
-            updated_at=row[8],
-            updated_by=row[9],
-            is_deleted=row[10],
-            deleted_at=row[11],
+            persona_slug=row[6],
+            created_at=row[7],
+            created_by=row[8],
+            updated_at=row[9],
+            updated_by=row[10],
+            is_deleted=row[11],
+            deleted_at=row[12],
         )

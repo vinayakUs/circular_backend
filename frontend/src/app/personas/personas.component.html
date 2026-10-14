@@ -1,5 +1,4 @@
 <div class="personas-page">
-  <app-navbar></app-navbar>
 
   <main class="main-content">
     <header class="page-header">
@@ -10,23 +9,33 @@
       </p>
     </header>
 
-    <section class="personas-grid">
+    <div class="loading-state" *ngIf="loading">
+      <div class="loading-spinner"></div>
+      <p>Loading personas...</p>
+    </div>
+
+    <div class="error-state" *ngIf="!loading && error">
+      <p>{{ error }}</p>
+    </div>
+
+    <section class="personas-grid" *ngIf="!loading && !error">
       <a
         *ngFor="let persona of personas; let i = index"
         class="persona-card"
         [style.--stagger]="i"
-        [routerLink]="['/circulars']"
-        [queryParams]="{ persona: persona.id }"
+        [routerLink]="['/personas', persona.slug]"
       >
         <div class="persona-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="currentColor">
-            <path [attr.d]="persona.icon" />
+            <path [attr.d]="iconPath(persona.icon)" />
           </svg>
         </div>
         <h2 class="persona-name">{{ persona.name }}</h2>
         <p class="persona-description">{{ persona.description }}</p>
         <div class="persona-exchanges">
-          <span class="exchange-chip" *ngFor="let ex of persona.exchanges">{{ ex }}</span>
+          <span class="exchange-chip" *ngFor="let src of uniqueSources(persona)">
+            {{ src }}
+          </span>
         </div>
       </a>
     </section>

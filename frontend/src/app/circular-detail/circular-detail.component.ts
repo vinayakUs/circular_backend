@@ -1,7 +1,6 @@
 import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink, RouterModule } from '@angular/router';
-import { NavbarComponent } from '../navbar/navbar.component';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { marked } from 'marked';
 import type cytoscape from 'cytoscape';
@@ -26,7 +25,7 @@ interface ActionItem {
 @Component({
   selector: 'app-circular-detail',
   standalone: true,
-  imports: [CommonModule, NavbarComponent, DatePipe, ExpertModalComponent, RouterModule, RouterLink],
+  imports: [CommonModule, DatePipe, ExpertModalComponent, RouterModule, RouterLink],
   templateUrl: './circular-detail.component.html',
   styleUrl: './circular-detail.component.css'
 })

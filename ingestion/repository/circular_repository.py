@@ -8,6 +8,11 @@ from typing import Any
 from uuid import UUID
 
 
+# Classifier is imported lazily inside upsert_circular() to avoid
+# triggering the app package load (and its heavy dependencies) at
+# module import time.
+
+
 @dataclass(slots=True)
 class CircularRecord:
     id: UUID
@@ -44,7 +49,12 @@ class CircularRepository:
         self.db_pool = db_pool
 
     def upsert_circular(self, circular: Any) -> tuple[UUID, bool]:
-        self.logger.info("upsert_circular %s" , circular)
+        """Insert or update a circular, then populate circular_persona_matches.
+
+        All three steps (insert/update circular, wipe matches, re-insert matches)
+        happen in a single transaction. Either all succeed or all roll back.
+        """
+        self.logger.info("upsert_circular %s", circular)
         source = circular.source
         circular_id = circular.circular_id
         source_item_key = circular.source_item_key
@@ -52,108 +62,141 @@ class CircularRepository:
         department = circular.department
         title = circular.title
         issue_date = circular.issue_date
-        url = getattr(circular, 'url', '') or ''
-        pdf_url = getattr(circular, 'pdf_url', '') or ''
-        content_hash = getattr(circular, 'content_hash', None)
-        applicable_to_nse = getattr(circular, 'applicable_to_nse', False)
-        is_active = getattr(circular,'is_active', True)
-        detected_at = getattr(circular, 'detected_at', None) or datetime.now(timezone.utc)
+        url = getattr(circular, "url", "") or ""
+        pdf_url = getattr(circular, "pdf_url", "") or ""
+        content_hash = getattr(circular, "content_hash", None)
+        applicable_to_nse = getattr(circular, "applicable_to_nse", False)
+        is_active = getattr(circular, "is_active", True)
+        detected_at = getattr(circular, "detected_at", None) or datetime.now(timezone.utc)
 
         with self.db_pool.acquire() as conn:
-            cursor = conn.cursor()
-            source_upper = source.upper()
-            circular_id_upper = circular_id.upper()
+            with conn.transaction():
+                cursor = conn.cursor()
+                source_upper = source.upper()
+                circular_id_upper = circular_id.upper()
 
-            cursor.execute(
-                "SELECT id FROM circulars WHERE source = %s AND source_item_key = %s",
-                (source_upper, source_item_key),
-            )
-            existing = cursor.fetchone()
-
-            if existing:
                 cursor.execute(
-                    """
-                    UPDATE circulars
-                    SET circular_id = %s, 
-                        source_item_key = %s, 
-                        full_reference = %s, 
-                        department = %s, 
-                        title = %s,
-                        issue_date = %s, 
-                        url = %s, 
-                        pdf_url = %s,
-                        content_hash = %s, 
-                        status = %s, 
-                        detected_at = %s, 
-                        is_active = %s,
-                        updated_at = NOW()
-                    WHERE id = %s
-                    """,
-                    (
-                        circular_id_upper, 
-                        source_item_key, 
-                        full_reference, 
-                        department, 
-                        title, 
-                        issue_date,
-                        url, 
-                        pdf_url, 
-                        content_hash, 
-                        "DISCOVERED", 
-                        detected_at,
-                        is_active,
-                        existing[0]
-                    ),
+                    "SELECT id FROM circulars WHERE source = %s AND source_item_key = %s",
+                    (source_upper, source_item_key),
                 )
-                conn.commit()
-                record_id = existing[0]
-                self.logger.info("Circular upserted (update) source=%s circular_id=%s", source_upper, circular_id_upper)
-                return record_id, False
-            else:
-                # if source_upper == "NSE":
-                #     applicable_to_nse = True  # Moved to NSE scraper DTO
-                cursor.execute(
-                    """
-                    INSERT INTO circulars (
-                        source, 
-                        circular_id,
-                        source_item_key,
-                        full_reference, 
-                        department,
-                        title, 
-                        issue_date, 
-                        url, 
-                        pdf_url, 
-                        content_hash, 
-                        status, 
-                        detected_at, 
-                        applicable_to_nse,
-                        is_active
+                existing = cursor.fetchone()
+
+                if existing:
+                    cursor.execute(
+                        """
+                        UPDATE circulars
+                        SET circular_id      = %s,
+                            source_item_key  = %s,
+                            full_reference    = %s,
+                            department       = %s,
+                            title             = %s,
+                            issue_date        = %s,
+                            url               = %s,
+                            pdf_url           = %s,
+                            content_hash      = %s,
+                            status            = %s,
+                            detected_at       = %s,
+                            is_active         = %s,
+                            updated_at        = NOW()
+                        WHERE id = %s
+                        """,
+                        (
+                            circular_id_upper,
+                            source_item_key,
+                            full_reference,
+                            department,
+                            title,
+                            issue_date,
+                            url,
+                            pdf_url,
+                            content_hash,
+                            "DISCOVERED",
+                            detected_at,
+                            is_active,
+                            existing[0],
+                        ),
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    RETURNING id
-                    """,
-                    (
-                        source_upper, 
-                        circular_id_upper, 
-                        source_item_key, 
-                        full_reference,
-                        department, 
-                        title, 
-                        issue_date, 
-                        url, 
-                        pdf_url, 
-                        content_hash,
-                        "DISCOVERED", 
-                        detected_at, 
-                        applicable_to_nse,
-                        is_active
-                    ),
+                    record_id = existing[0]
+                    self.logger.info(
+                        "Circular upserted (update) source=%s circular_id=%s",
+                        source_upper, circular_id_upper,
+                    )
+                else:
+                    cursor.execute(
+                        """
+                        INSERT INTO circulars (
+                            source,
+                            circular_id,
+                            source_item_key,
+                            full_reference,
+                            department,
+                            title,
+                            issue_date,
+                            url,
+                            pdf_url,
+                            content_hash,
+                            status,
+                            detected_at,
+                            applicable_to_nse,
+                            is_active
+                        )
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        RETURNING id
+                        """,
+                        (
+                            source_upper,
+                            circular_id_upper,
+                            source_item_key,
+                            full_reference,
+                            department,
+                            title,
+                            issue_date,
+                            url,
+                            pdf_url,
+                            content_hash,
+                            "DISCOVERED",
+                            detected_at,
+                            applicable_to_nse,
+                            is_active,
+                        ),
+                    )
+                    record_id = cursor.fetchone()[0]
+                    self.logger.info(
+                        "Circular upserted (insert) source=%s circular_id=%s",
+                        source_upper, circular_id_upper,
+                    )
+
+                # Populate persona matches — wipe + re-insert based on current
+                # classifier output. Idempotent: re-running with the same circular
+                # produces the same matches.
+                from app.services.circular_classifier import CircularRef, classify
+                ref = CircularRef(
+                    source=source,
+                    department=department,
                 )
-                record_id = cursor.fetchone()[0]
-                conn.commit()
-                self.logger.info("Circular upserted (insert) source=%s circular_id=%s", source_upper, circular_id_upper)
-                return record_id, True
+                matched_slugs = classify(ref)
+
+                cursor.execute(
+                    "DELETE FROM circular_persona_matches WHERE circular_id = %s",
+                    (str(record_id),),
+                )
+                for slug in matched_slugs:
+                    cursor.execute(
+                        """
+                        INSERT INTO circular_persona_matches
+                            (circular_id, persona_slug)
+                        VALUES (%s, %s)
+                        ON CONFLICT DO NOTHING
+                        """,
+                        (str(record_id), slug),
+                    )
+
+                self.logger.info(
+                    "Persona matches for circular_id=%s: %s",
+                    str(record_id), matched_slugs,
+                )
+
+                return record_id, existing is None
 
     def get_record(self, source: str, source_item_key: str) -> CircularRecord | None:
         with self.db_pool.acquire() as conn:

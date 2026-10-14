@@ -44,7 +44,7 @@ class Config:
     JWT_ALGORITHM = "RS256"
     # Short-lived access tokens. Was 24h, dropped to 15m — limits blast radius of any
     # leaked token. Without refresh tokens this means users re-login once per session.
-    JWT_EXPIRATION_MINUTES = int(os.getenv("JWT_EXPIRATION_MINUTES", "15"))
+    JWT_EXPIRATION_MINUTES = int(os.getenv("JWT_EXPIRATION_MINUTES", "1440"))  # 1 day
 
     # ==== CAPTCHA ====
     # Self-hosted text CAPTCHA on /api/auth/login. See

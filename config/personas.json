@@ -1,0 +1,267 @@
+[
+  {
+    "slug": "compliance-officer",
+    "name": "Compliance Officer",
+    "description": "Regulatory compliance, SEBI directives, KYC/AML updates, penalties",
+    "icon": "shield-check",
+    "filters": [
+      {
+        "source": "NSE",
+        "departments": [
+          "NSE Clearing - Capital Market",
+          "Membership",
+          "Surveillance & Investigation",
+          "Legal, ISC & Arbitration",
+          "Inspection & Compliance",
+          "Exchange Compliance"
+        ],
+        "categories": []
+      },
+      {
+        "source": "SEBI",
+        "departments": [
+          "Market Intermediaries Regulation and Supervision Department",
+          "Market Regulation Department",
+          "Integrated Surveillance Department",
+          "Office of Investor Assistance and Education",
+          "Legal Affairs Department",
+          "Recovery and Refund Department",
+          "Enforcement Department",
+          "International Financial Services Centres Authority"
+        ],
+        "categories": []
+      }
+    ],
+    "keywords": [
+      "compliance",
+      "KYC",
+      "AML",
+      "SEBI",
+      "regulation",
+      "penalty"
+    ]
+  },
+  {
+    "slug": "trading-desk",
+    "name": "Trading Desk",
+    "description": "Market hours, trading halts, circuit limits, new product launches",
+    "icon": "bar-chart-2",
+    "filters": [
+      {
+        "source": "NSE",
+        "departments": [
+          "NSE Clearing - Capital Market",
+          "Membership",
+          "Currency Derivatives",
+          "Commodity Derivatives",
+          "Futures & Options",
+          "Electronic Gold Receipt"
+        ],
+        "categories": []
+      },
+      {
+        "source": "SEBI",
+        "departments": [
+          "Market Regulation Department",
+          "Market Intermediaries Regulation and Supervision Department"
+        ],
+        "categories": []
+      }
+    ],
+    "keywords": [
+      "trading",
+      "halt",
+      "circuit",
+      "margin",
+      "expiry",
+      "contract"
+    ]
+  },
+  {
+    "slug": "risk-manager",
+    "name": "Risk Manager",
+    "description": "Margin changes, risk management frameworks, settlement, collateral",
+    "icon": "alert-triangle",
+    "filters": [
+      {
+        "source": "NSE",
+        "departments": [
+          "NSE Clearing - Capital Market",
+          "Surveillance & Investigation"
+        ],
+        "categories": []
+      },
+      {
+        "source": "SEBI",
+        "departments": [
+          "Market Regulation Department",
+          "Market Intermediaries Regulation and Supervision Department",
+          "Integrated Surveillance Department"
+        ],
+        "categories": []
+      }
+    ],
+    "keywords": [
+      "margin",
+      "risk",
+      "VaR",
+      "settlement",
+      "collateral",
+      "exposure"
+    ]
+  },
+  {
+    "slug": "technology",
+    "name": "Technology / Connectivity",
+    "description": "API changes, CTCL updates, connectivity, testing windows, tech upgrades",
+    "icon": "cpu",
+    "filters": [
+      {
+        "source": "NSE",
+        "departments": [
+          "NSE Clearing - Capital Market",
+          "Member Service Department",
+          "Capital Market (Equities) Trade",
+          "Systems & Telecom",
+          "Debt Segment"
+        ],
+        "categories": []
+      },
+      {
+        "source": "SEBI",
+        "departments": [
+          "Information Technology Department",
+          "Market Regulation Department"
+        ],
+        "categories": []
+      }
+    ],
+    "keywords": [
+      "API",
+      "CTCL",
+      "connectivity",
+      "colocation",
+      "DR",
+      "testing",
+      "FIX",
+      "protocol"
+    ]
+  },
+  {
+    "slug": "operations",
+    "name": "Operations / Back Office",
+    "description": "Settlement cycles, clearing, corporate actions, fund transfers",
+    "icon": "settings",
+    "filters": [
+      {
+        "source": "NSE",
+        "departments": [
+          "Securities Lending & Borrowing Scheme",
+          "NSE Clearing - Capital Market",
+          "Finance & Accounts",
+          "Listing",
+          "Electronic Gold Receipt"
+        ],
+        "categories": []
+      },
+      {
+        "source": "SEBI",
+        "departments": [
+          "Market Intermediaries Regulation and Supervision Department",
+          "Market Regulation Department"
+        ],
+        "categories": []
+      }
+    ],
+    "keywords": [
+      "settlement",
+      "clearing",
+      "payout",
+      "corporate action",
+      "dividend"
+    ]
+  },
+  {
+    "slug": "fpi",
+    "name": "Foreign Portfolio Investor",
+    "description": "FPI registration, investment limits, custodian rules, SEBI/RBI regulations, ODI/P-Notes, position limits",
+    "icon": "globe",
+    "filters": [
+      {
+        "source": "NSE",
+        "departments": [
+          "NSE Clearing - Capital Market",
+          "Surveillance & Investigation",
+          "Legal, ISC & Arbitration",
+          "Currency Derivatives",
+          "Futures & Options",
+          "Capital Market (Equities) Trade"
+        ],
+        "categories": []
+      },
+      {
+        "source": "SEBI",
+        "departments": [
+          "Alternative Investment Fund and Foreign Portfolio Investors Department",
+          "Investment Management Department"
+        ],
+        "categories": []
+      }
+    ],
+    "keywords": [
+      "FPI",
+      "foreign portfolio",
+      "foreign institutional",
+      "custodian",
+      "ODI",
+      "P-Notes",
+      "participatory note",
+      "position limit",
+      "investment limit",
+      "FEMA",
+      "repatriation"
+    ]
+  },
+  {
+    "slug": "investor",
+    "name": "Investor",
+    "description": "Listings, IPOs, NFOs, OFS, mutual funds, ETFs, corporate governance",
+    "icon": "trending-up",
+    "filters": [
+      {
+        "source": "NSE",
+        "departments": [
+          "NSE Clearing - Capital Market",
+          "Corporate Communications",
+          "Listing",
+          "Mutual Fund",
+          "Electronic Gold Receipt"
+        ],
+        "categories": []
+      },
+      {
+        "source": "SEBI",
+        "departments": [
+          "Investment Management Department",
+          "Corporation Finance Department",
+          "Department of Debt and Hybrid Securities",
+          "Office of Investor Assistance and Education"
+        ],
+        "categories": []
+      }
+    ],
+    "keywords": [
+      "listing",
+      "IPO",
+      "NFO",
+      "OFS",
+      "mutual fund",
+      "ETF",
+      "delisting",
+      "LODR",
+      "governance",
+      "NAV",
+      "SIP"
+    ]
+  }
+]

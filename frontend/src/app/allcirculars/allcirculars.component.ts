@@ -1,7 +1,6 @@
 import { Component, inject, OnInit, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormControl, FormsModule } from '@angular/forms';
-import { NavbarComponent } from "../navbar/navbar.component";
 import { CircularsApiService, Circular, SemanticSearchResponse, SearchResult, SearchResponse, CircularDbLookupItem } from '../services/circulars-api.service';
 import { CircularfilterstateService } from '../services/circularfilterstate.service';
 import { Router, RouterModule } from '@angular/router';
@@ -11,7 +10,7 @@ import { ExchangeSource, exchangeLabel, normalizeSource } from '../util/source.u
 
 @Component({
   selector: 'app-allcirculars',
-  imports: [NavbarComponent, CommonModule, FormsModule, ReactiveFormsModule, RouterModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterModule],
   templateUrl: './allcirculars.component.html',
   styleUrl: './allcirculars.component.css',
   standalone: true

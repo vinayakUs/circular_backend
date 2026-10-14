@@ -1,10 +1,9 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { NavbarComponent } from '../navbar/navbar.component';
 
 @Component({
   selector: 'app-alerts',
-  imports: [CommonModule, NavbarComponent],
+  imports: [CommonModule],
   templateUrl: './alerts.component.html',
   styleUrl: './alerts.component.css'
 })

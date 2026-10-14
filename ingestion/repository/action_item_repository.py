@@ -203,3 +203,83 @@ class ActionItemRepository:
         """Convenience: all action items for one circular, newest first."""
         items, _ = self.get_action_items(circular_id=circular_id, limit=1000, offset=0)
         return items
+
+    # Used by persona-slug API endpoint to fetch deadlines
+    def get_deadlines_for_persona(
+        self,
+        persona_slug: str,
+        from_date: date,
+        to_date: date,
+        priority_csv: Optional[str] = None,
+        exchange_csv: Optional[str] = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> Tuple[List[Tuple[UUID, date, str, str, Optional[str], UUID]], int]:
+        """Return (rows, total) for deadlines matching this persona.
+
+        Joins action_items → circulars → circular_persona_matches.
+        Multiplication-safe: circular_persona_matches has UNIQUE PK on
+        (circular_id, persona_slug), so the JOIN can't duplicate rows.
+
+        Two queries: COUNT(*) for total + SELECT for the page.
+        Both use the same WHERE clause + ORDER BY with stable tiebreaker.
+        """
+        # Normalize empty string to None (defensive — route already does this)
+        priority_csv = priority_csv or None
+        exchange_csv = exchange_csv or None
+
+        where_parts = [
+            "ai.deadline IS NOT NULL",
+            "ai.deadline BETWEEN %s AND %s",
+            # ::text casts make the placeholder type explicit — works with both
+            # psycopg2 (client-side substitution) and psycopg3 (server-side binding)
+            "(%s::text IS NULL OR ai.priority = ANY(string_to_array(%s::text, ',')))",
+            "(%s::text IS NULL OR c.source    = ANY(string_to_array(%s::text, ',')))",
+        ]
+        where = " AND ".join(where_parts)
+
+        count_query = f"""
+            SELECT COUNT(*)
+            FROM   action_items ai
+            JOIN   circulars c ON c.id = ai.circular_id
+            JOIN   circular_persona_matches m
+                ON m.circular_id = c.id
+                AND m.persona_slug = %s
+            WHERE  {where}
+        """
+        data_query = f"""
+            SELECT ai.id,
+                ai.deadline,
+                ai.action_item,
+                c.source,
+                ai.priority,
+                c.id
+            FROM   action_items ai
+            JOIN   circulars c ON c.id = ai.circular_id
+            JOIN   circular_persona_matches m
+                ON m.circular_id = c.id
+                AND m.persona_slug = %s
+            WHERE  {where}
+            ORDER BY ai.deadline ASC, ai.id ASC
+            LIMIT  %s OFFSET %s
+        """
+
+        base_params = (
+            persona_slug,
+            from_date,
+            to_date,
+            priority_csv,
+            priority_csv,
+            exchange_csv,
+            exchange_csv,
+        )
+
+        with self.db_pool.acquire() as conn:
+            with conn.transaction():
+                cursor = conn.cursor()
+                cursor.execute(count_query, base_params)
+                total = cursor.fetchone()[0]
+                cursor.execute(data_query, base_params + (limit, offset))
+                rows = cursor.fetchall()
+
+        return list(rows), total

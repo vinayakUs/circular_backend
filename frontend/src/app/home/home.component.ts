@@ -2,13 +2,12 @@ import { Component, OnInit, inject } from '@angular/core';
 import { DecimalPipe, DatePipe, NgIf, NgFor } from '@angular/common';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { NavbarComponent } from '../navbar/navbar.component';
 import { CircularsApiService, Circular, PaginatedCircularsResponse, CountsResponse } from '../services/circulars-api.service';
 
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [NavbarComponent, DecimalPipe, DatePipe, NgIf, NgFor, FormsModule],
+  imports: [DecimalPipe, DatePipe, NgIf, NgFor, FormsModule],
   templateUrl: './home.component.html',
   styleUrl: './home.component.css'
 })

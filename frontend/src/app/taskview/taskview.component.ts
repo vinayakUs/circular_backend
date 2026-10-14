@@ -4,7 +4,6 @@ import { FormsModule } from '@angular/forms';
 import { DatePipe } from '@angular/common';
 import { EditorAnnotation, NgxExtendedPdfViewerModule, NgxExtendedPdfViewerService } from 'ngx-extended-pdf-viewer';
 import { environment } from 'src/environments/environment';
-import { NavbarComponent } from '../navbar/navbar.component';
 import { CircularsApiService, Department, Expert } from '../services/circulars-api.service';
 import { AnnotationApiService } from '../services/annotation-api.service';
 import { AnnotationEntry, Task, TaskService } from '../services/task.service';
@@ -41,7 +40,7 @@ const COMMENT_MENTION_RE = /(?<![A-Za-z0-9_@])@((?:dep:)?)([A-Za-z0-9_.\-@]+)/g;
 
 @Component({
   selector: 'app-taskview',
-  imports: [NavbarComponent, NgxExtendedPdfViewerModule, FormsModule, DatePipe],
+  imports: [NgxExtendedPdfViewerModule, FormsModule, DatePipe],
   templateUrl: './taskview.component.html',
   styleUrl: './taskview.component.css'
 })

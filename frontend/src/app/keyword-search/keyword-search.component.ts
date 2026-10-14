@@ -6,7 +6,6 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { marked } from 'marked';
 import { forkJoin } from 'rxjs';
 
-import { NavbarComponent } from '../navbar/navbar.component';
 import { CircularsApiService, SearchResult, SemanticSearchResponse, GroupedSearchResponse, CircularGroupSummary } from '../services/circulars-api.service';
 import { RecentSearchesService, RecentSearch, SearchMode } from '../services/recent-searches.service';
 import { ExchangeSource, exchangeLabel } from '../util/source.util';
@@ -26,7 +25,7 @@ interface ModeTab {
 
 @Component({
   selector: 'app-keyword-search',
-  imports: [NavbarComponent, CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './keyword-search.component.html',
   styleUrl: './keyword-search.component.css',
   standalone: true

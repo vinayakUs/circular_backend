@@ -1,0 +1,46 @@
+<main class="persona-detail-page">
+  <div *ngIf="loading">Loading...</div>
+
+  <div *ngIf="!loading && error">{{ error }}</div>
+
+  <ng-container *ngIf="!loading && !error && persona">
+    <header>
+      <h1>{{ isAuthenticated ? 'Your feed as' : 'Top circulars for' }}</h1>
+      <h2>{{ persona.name }}</h2>
+      <p>{{ persona.description }}</p>
+    </header>
+
+    <section>
+      <h3>How are these selected?</h3>
+      <div *ngFor="let f of persona.filters">
+        <strong>{{ f.source }}</strong>
+        <p>
+          <span *ngIf="f.departments.length">{{ f.departments.join(', ') }}</span>
+          <span *ngIf="f.departments.length && f.categories.length">, </span>
+          <span *ngIf="f.categories.length">{{ f.categories.join(', ') }}</span>
+        </p>
+      </div>
+    </section>
+
+    <!-- Source filter for the calendar — controls which events are shown -->
+    <nav class="source-filter" aria-label="Filter calendar by source">
+      <button
+        *ngFor="let s of sourceFilterOptions"
+        type="button"
+        class="source-chip"
+        [class.is-active]="sourceFilter() === s.value"
+        (click)="setSourceFilter(s.value)"
+      >
+        {{ s.label }}
+      </button>
+    </nav>
+
+    <!-- Deadline calendar — hardcoded data, remove when backend endpoint exists -->
+    <section class="cal-section">
+      <app-deadline-calendar
+        [events]="filteredCalendarEvents()"
+        [maxItemsVisible]="3"
+      ></app-deadline-calendar>
+    </section>
+  </ng-container>
+</main>
