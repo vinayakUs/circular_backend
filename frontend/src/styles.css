@@ -29,8 +29,37 @@ body {
   padding-top: 56px;
 }
 
-/* Exchange badge color palette — shared across components.
-   Each component still defines its own base shape (padding/font-size) in scoped CSS. */
+/* Exchange badge color palette — central source of truth.
+   Components consume the variables below; the `.exchange-badge` class
+   is the default pill shape and any component-specific shape (e.g. a
+   compact inline pill on the upcoming-changes rows) can still use
+   the same color tokens. */
+
+:root {
+  /* Brand primary — used for active pill states, focused outlines,
+     and any other "this thing is on" indicator across the app. */
+  --primary:                #5e6ad2;
+  --primary-hover:          #4f5bc4;
+  --primary-fg:             #ffffff;
+  --primary-text:           #4338ca;
+  --primary-soft:           rgba(94, 106, 210, 0.08);
+  --primary-soft-subtle:    rgba(94, 106, 210, 0.04);
+  --primary-soft-strong:    rgba(94, 106, 210, 0.12);
+  --primary-soft-medium:    rgba(94, 106, 210, 0.14);
+  --primary-soft-edge:      rgba(94, 106, 210, 0.2);
+  --primary-soft-border:    rgba(94, 106, 210, 0.3);
+  --primary-soft-hover:     rgba(94, 106, 210, 0.05);
+
+  /* Exchange badge color palette. */
+  --exchange-nse-bg:         rgba(239, 68, 68, 0.1);
+  --exchange-nse-fg:         #ef4444;
+  --exchange-sebi-bg:        rgba(168, 85, 247, 0.1);
+  --exchange-sebi-fg:        #a855f7;
+  --exchange-sebi-master-bg: rgba(168, 85, 247, 0.1);
+  --exchange-sebi-master-fg: #a855f7;
+  --exchange-default-bg:     rgba(15, 23, 42, 0.06);
+  --exchange-default-fg:     #0f172a;
+}
 
 .exchange-badge {
   padding: 6px 10px;
@@ -42,17 +71,18 @@ body {
   text-align: center;
   flex-shrink: 0;
 }
+
 .exchange-badge.sebi {
-  background: rgba(168, 85, 247, 0.1);
-  color: #a855f7;
+  background: var(--exchange-sebi-bg);
+  color: var(--exchange-sebi-fg);
 }
 
 .exchange-badge.nse {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+  background: var(--exchange-nse-bg);
+  color: var(--exchange-nse-fg);
 }
 
 .exchange-badge.sebi_master {
-  background: rgba(168, 85, 247, 0.1);
-  color: #a855f7;
+  background: var(--exchange-sebi-master-bg);
+  color: var(--exchange-sebi-master-fg);
 }

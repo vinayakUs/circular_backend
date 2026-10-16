@@ -205,7 +205,10 @@
               class="priority-pill"
               [class]="'priority-pill--' + d.priority"
             >{{ d.priority }}</span>
-            <span *ngIf="d.exchange" class="exchange-tag">{{ d.exchange }}</span>
+            <span
+              *ngIf="d.exchange"
+              [class]="'exchange-tag tag-' + d.exchange.toLowerCase()"
+            >{{ d.exchange }}</span>
           </div>
           <span class="deadline-row__date">{{ d.date | date: 'd MMM y' }}</span>
         </div>

@@ -6,6 +6,7 @@ import { LogoutService } from '../services/logout.service';
 import { DepartmentModalComponent } from '../department-modal/department-modal.component';
 import { UserManagementModalComponent } from '../user-management-modal/user-management-modal.component';
 import { CurrentPersonaService } from '../services/current-persona.service';
+import { personaIconPath } from '../util/persona-icons';
 
 @Component({
   selector: 'app-navbar',
@@ -65,6 +66,10 @@ export class NavbarComponent implements OnInit {
   }
   get currentPersonaName(): string | null {
     return this.personaSvc.persona()?.name ?? null;
+  }
+  /** SVG path for the active persona's icon — falls back to a shield. */
+  get currentPersonaIconPath(): string {
+    return personaIconPath(this.personaSvc.persona()?.icon);
   }
   toggleDropdown(): void {
     this.dropdownOpen = !this.dropdownOpen;

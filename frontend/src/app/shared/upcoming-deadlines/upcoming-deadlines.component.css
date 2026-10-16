@@ -134,9 +134,27 @@
 .ud__pill--medium   { background: rgba(94, 106, 210, 0.12); color: #4f46e5; }
 .ud__pill--low      { background: rgba(20, 184, 166, 0.12); color: #0f766e; }
 
+/* Exchange pill — defaults to neutral; per-exchange colors come from
+   the global palette in src/styles.css so it matches the rest of the
+   app. The HTML also applies `tag-<exchange>` via [ngClass]. */
 .ud__pill--exchange {
-  background: rgba(15, 23, 42, 0.06);
-  color: var(--ud-text);
+  background: var(--exchange-default-bg, rgba(15, 23, 42, 0.06));
+  color: var(--exchange-default-fg, var(--ud-text));
+}
+
+.ud__pill--exchange.tag-nse {
+  background: var(--exchange-nse-bg, rgba(239, 68, 68, 0.1));
+  color: var(--exchange-nse-fg, #ef4444);
+}
+
+.ud__pill--exchange.tag-sebi {
+  background: var(--exchange-sebi-bg, rgba(168, 85, 247, 0.1));
+  color: var(--exchange-sebi-fg, #a855f7);
+}
+
+.ud__pill--exchange.tag-sebi_master {
+  background: var(--exchange-sebi-master-bg, rgba(168, 85, 247, 0.1));
+  color: var(--exchange-sebi-master-fg, #a855f7);
 }
 
 .ud__item-title {

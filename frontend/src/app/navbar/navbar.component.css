@@ -124,6 +124,66 @@
   align-items: center;
 }
 
+/* ── Persona row at the top of the dropdown ────────────────────────
+   The whole row is the click target — clicking anywhere on it
+   (icon, name, or "Change" text) navigates to the persona picker.
+   Implemented as a real <button> so focus / keyboard activation
+   just work, with hover feedback on the row and a small visual
+   hint (underline) on the trailing "Change" text. */
+.persona-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 14px 16px 10px;
+  font-size: 13px;
+  color: #0f172a;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 120ms ease;
+}
+
+.persona-row:hover {
+  background: rgba(15, 23, 42, 0.04);
+}
+
+.persona-row:focus-visible {
+  outline: 2px solid #5e6ad2;
+  outline-offset: -2px;
+}
+
+.persona-row__icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: #64748b;
+}
+
+.persona-row__name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.persona-row__change {
+  flex-shrink: 0;
+  color: #5e6ad2;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.persona-row:hover .persona-row__change {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .dropdown-menu {
   position: absolute;
   right: 0;
@@ -132,25 +192,52 @@
   border: 1px solid #ddd;
   border-radius: 4px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  min-width: 150px;
+  min-width: 240px;
   z-index: 100;
   margin-top: 8px;
 }
 
 .dropdown-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   width: 100%;
   padding: 10px 16px;
   text-align: left;
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 14px;
-  color: #333;
+  font-family: inherit;
+  font-size: 13px;
+  color: #0f172a;
+  transition: background 120ms ease;
+}
+
+.dropdown-item__icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: #64748b;
+  transition: color 120ms ease;
+}
+
+.dropdown-item__label {
+  flex: 1;
+  min-width: 0;
 }
 
 .dropdown-item:hover {
-  background: #f5f5f5;
+  background: rgba(15, 23, 42, 0.04);
+}
+
+.dropdown-item:hover .dropdown-item__icon,
+.dropdown-item:focus-visible .dropdown-item__icon {
+  color: #5e6ad2;
+}
+
+.dropdown-item:focus-visible {
+  outline: 2px solid #5e6ad2;
+  outline-offset: -2px;
 }
 
 /* Persona entry — read as a two-line status: "Persona" tag + the

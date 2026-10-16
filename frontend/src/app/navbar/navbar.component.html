@@ -56,28 +56,88 @@
         @if (dropdownOpen) {
           <div class="dropdown-menu" *ngIf="dropdownOpen">
             <button
-              class="dropdown-item dropdown-item--persona"
+              type="button"
+              class="persona-row"
               (click)="navigateToPersonaSelection()"
             >
-              @if (currentPersonaName) {
-                <span class="dropdown-item-label">Current persona</span>
-                <span class="dropdown-item-value">{{ currentPersonaName }}</span>
-              } @else {
-                <span class="dropdown-item-label">Persona</span>
-                <span class="dropdown-item-value dropdown-item-value--muted"
-                  >Choose one</span
-                >
-              }
+              <svg
+                class="persona-row__icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path [attr.d]="currentPersonaIconPath" />
+              </svg>
+              <span class="persona-row__name">
+                {{ currentPersonaName || 'Choose a persona' }}
+              </span>
+              <span class="persona-row__change">Change</span>
             </button>
             <div class="dropdown-divider" aria-hidden="true"></div>
+
             <button class="dropdown-item" (click)="navigateToDepartmentModel()">
-              Department
+              <svg
+                class="dropdown-item__icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <!-- building / office -->
+                <rect x="4" y="3" width="16" height="18" rx="1" />
+                <path d="M9 8h2M13 8h2M9 12h2M13 12h2M9 16h2M13 16h2" />
+                <path d="M10 21v-4h4v4" />
+              </svg>
+              <span class="dropdown-item__label">Department</span>
             </button>
+
             <button class="dropdown-item" (click)="navigateToUserManagement()">
-              Manage Users
+              <svg
+                class="dropdown-item__icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <!-- people / users -->
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="3" />
+                <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+              <span class="dropdown-item__label">Manage Users</span>
             </button>
+
             <div class="dropdown-divider" aria-hidden="true"></div>
-            <button (click)="logout()" class="dropdown-item">Logout</button>
+
+            <button (click)="logout()" class="dropdown-item">
+              <svg
+                class="dropdown-item__icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <!-- exit / logout -->
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+              <span class="dropdown-item__label">Logout</span>
+            </button>
           </div>
         }
       </div>

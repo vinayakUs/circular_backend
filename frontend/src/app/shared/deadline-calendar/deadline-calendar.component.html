@@ -84,6 +84,7 @@
         <span
           *ngIf="event.exchange"
           class="dc__pill dc__pill--exchange"
+          [ngClass]="'tag-' + event.exchange.toLowerCase()"
         >
           {{ event.exchange }}
         </span>

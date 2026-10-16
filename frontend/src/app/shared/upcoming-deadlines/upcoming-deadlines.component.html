@@ -35,6 +35,7 @@
           <span
             *ngIf="item.exchange"
             class="ud__pill ud__pill--exchange"
+            [ngClass]="'tag-' + item.exchange.toLowerCase()"
           >
             {{ item.exchange }}
           </span>
