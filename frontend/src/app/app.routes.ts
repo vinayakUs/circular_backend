@@ -10,6 +10,7 @@ import { authGuard, guestOnlyGuard } from './auth.guard';
 import { TaskviewComponent } from './taskview/taskview.component';
 import { PersonasComponent } from './personas/personas.component';
 import { PersonaDetailComponent } from './persona-detail/persona-detail.component';
+import { UpcomingChangesComponent } from './upcoming-changes/upcoming-changes.component';
 
 export const routes: Routes = [
   { path: '', component: HomeComponent },
@@ -22,5 +23,6 @@ export const routes: Routes = [
   { path: 'allcirculars', component: AllCircularsComponent },
   { path: 'personas', component: PersonasComponent },
   { path: 'personas/:slug', component: PersonaDetailComponent },
+  { path: 'upcoming-changes', component: UpcomingChangesComponent },
   { path: '**', redirectTo: '' }
 ];

@@ -1,0 +1,232 @@
+<main class="upcoming-changes-page">
+  <header class="page-header">
+    <h1 class="page-title">Upcoming Changes</h1>
+    <p class="page-subtitle">
+      Upcoming implementation dates and deadlines from exchange circulars.
+    </p>
+  </header>
+
+  <nav class="source-filter" aria-label="Filter deadlines by source">
+    <span class="source-filter__label">SOURCES</span>
+    <button
+      *ngFor="let source of sourceOptions"
+      type="button"
+      class="source-chip"
+      [class.is-active]="sourceFilter() === source.value"
+      [attr.aria-pressed]="sourceFilter() === source.value"
+      (click)="setSourceFilter(source.value)"
+    >
+      {{ source.label }}
+    </button>
+  </nav>
+
+  <section class="filters-section" aria-label="Additional filters">
+    <div class="filters-section__row">
+      <button
+        *ngIf="showActivePersonaChip()"
+        type="button"
+        class="persona-chip"
+        [class.is-active]="isPersonaFilterActive()"
+        [attr.aria-pressed]="isPersonaFilterActive()"
+        (click)="onPersonaChipClick()"
+        [title]="isPersonaFilterActive()
+          ? 'Filtering by your role. Click to show deadlines for all roles.'
+          : 'Click to filter deadlines by your role.'"
+      >
+        <svg
+          class="persona-chip__icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+          <circle cx="12" cy="7" r="4"></circle>
+        </svg>
+        <span>{{ currentPersona()!.name }}</span>
+      </button>
+
+      <a
+        *ngIf="!isAuthenticated()"
+        routerLink="/login"
+        class="filters-section__signin"
+      >
+        <svg
+          class="persona-chip__icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+          <circle cx="12" cy="7" r="4"></circle>
+        </svg>
+        <span>Sign in to filter by your role</span>
+      </a>
+
+      <button
+        type="button"
+        class="filters-toggle"
+        [attr.aria-expanded]="filtersExpanded()"
+        [attr.aria-controls]="'filters-panel'"
+        (click)="toggleFilters()"
+      >
+        <span>More filters</span>
+        <svg
+          class="filters-toggle__chevron"
+          [class.is-open]="filtersExpanded()"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </button>
+    </div>
+
+    <div
+      id="filters-panel"
+      class="filters-section__panel"
+      [class.is-open]="filtersExpanded()"
+    >
+      <div class="filter-row">
+        <span class="filter-row__label">SEVERITY</span>
+        <select
+          class="filter-field__select"
+          [value]="severityFilter()"
+          (change)="onSeverityChange($any($event.target).value)"
+        >
+          <option *ngFor="let opt of severityOptions" [value]="opt.value">
+            {{ opt.label }}
+          </option>
+        </select>
+      </div>
+
+      <div class="filter-row">
+        <span class="filter-row__label">PERIOD</span>
+        <div class="period-chips" role="group" aria-label="Period filter">
+          <button
+            *ngFor="let p of periodOptions"
+            type="button"
+            class="period-chip"
+            [class.is-active]="periodFilter() === p.value"
+            [attr.aria-pressed]="periodFilter() === p.value"
+            (click)="setPeriodFilter(p.value)"
+          >
+            {{ p.label }}
+          </button>
+        </div>
+      </div>
+
+      <div
+        *ngIf="periodFilter() === 'OTHER'"
+        class="filter-row filter-row--custom-dates"
+        role="group"
+        aria-label="Custom date range"
+      >
+        <label class="date-field">
+          <span class="date-field__label">FROM</span>
+          <input
+            type="date"
+            class="date-field__input"
+            [value]="customFromDate()"
+            (change)="onCustomDateChange('from', $any($event.target).value)"
+          />
+        </label>
+        <label class="date-field">
+          <span class="date-field__label">TO</span>
+          <input
+            type="date"
+            class="date-field__input"
+            [value]="customToDate()"
+            (change)="onCustomDateChange('to', $any($event.target).value)"
+          />
+        </label>
+      </div>
+    </div>
+  </section>
+
+  <section class="deadlines-section" aria-label="Upcoming deadlines">
+    <div
+      *ngIf="
+        !deadlinesLoading() &&
+        !dateWindowIncomplete() &&
+        !deadlinesError() &&
+        windowLabel() as label
+      "
+      class="deadlines-summary"
+      aria-live="polite"
+    >
+      Showing changes for the {{ label }} — {{ countLabel() }}
+    </div>
+
+    <div *ngIf="deadlinesLoading()" class="deadlines-state deadlines-state--loading">
+      Loading deadlines…
+    </div>
+
+    <div
+      *ngIf="!deadlinesLoading() && dateWindowIncomplete()"
+      class="deadlines-state deadlines-state--prompt"
+    >
+      Pick a start and end date to see deadlines in that range.
+    </div>
+
+    <div
+      *ngIf="!deadlinesLoading() && !dateWindowIncomplete() && deadlinesError()"
+      class="deadlines-state deadlines-state--error"
+      role="alert"
+    >
+      Couldn't load deadlines. Please try again.
+    </div>
+
+    <ul
+      *ngIf="!deadlinesLoading() && !dateWindowIncomplete() && !deadlinesError() && deadlines().length > 0"
+      class="deadlines-list"
+    >
+      <li
+        *ngFor="let d of deadlines(); let i = index"
+        class="deadline-row"
+        [style.--i]="i"
+      >
+        <div class="deadline-row__top">
+          <div class="deadline-row__tags">
+            <span
+              *ngIf="d.priority"
+              class="priority-pill"
+              [class]="'priority-pill--' + d.priority"
+            >{{ d.priority }}</span>
+            <span *ngIf="d.exchange" class="exchange-tag">{{ d.exchange }}</span>
+          </div>
+          <span class="deadline-row__date">{{ d.date | date: 'd MMM y' }}</span>
+        </div>
+
+        <a
+          *ngIf="d.url; else plainTitle"
+          class="deadline-row__title"
+          [href]="d.url"
+          (click)="onDeadlineClick(d, $event)"
+        >{{ d.title }}</a>
+        <ng-template #plainTitle>
+          <div class="deadline-row__title deadline-row__title--plain">{{ d.title }}</div>
+        </ng-template>
+      </li>
+    </ul>
+
+    <div
+      *ngIf="!deadlinesLoading() && !dateWindowIncomplete() && !deadlinesError() && deadlines().length === 0"
+      class="deadlines-state deadlines-state--empty"
+    >
+      No deadlines match these filters.
+    </div>
+  </section>
+</main>

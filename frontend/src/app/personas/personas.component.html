@@ -22,20 +22,46 @@
       <a
         *ngFor="let persona of personas; let i = index"
         class="persona-card"
+        [class.is-current]="isCurrentPersona(persona.slug)"
+        [class.is-saving]="savingSlug() === persona.slug"
         [style.--stagger]="i"
-        [routerLink]="['/personas', persona.slug]"
+        [attr.href]="'/personas/' + persona.slug"
+        [attr.aria-current]="isCurrentPersona(persona.slug) ? 'true' : null"
+        (click)="selectPersona(persona, $event)"
       >
         <div class="persona-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="currentColor">
             <path [attr.d]="iconPath(persona.icon)" />
           </svg>
         </div>
-        <h2 class="persona-name">{{ persona.name }}</h2>
+        <h2 class="persona-name">
+          {{ persona.name }}
+          <span
+            *ngIf="isCurrentPersona(persona.slug)"
+            class="persona-current-tag"
+            aria-label="Current selection"
+          >Current</span>
+        </h2>
         <p class="persona-description">{{ persona.description }}</p>
         <div class="persona-exchanges">
           <span class="exchange-chip" *ngFor="let src of uniqueSources(persona)">
             {{ src }}
           </span>
+        </div>
+        <p
+          *ngIf="savingErrorSlug() === persona.slug"
+          class="persona-error"
+          role="alert"
+        >
+          Couldn't save this persona. Please try again.
+        </p>
+        <div
+          *ngIf="savingSlug() === persona.slug"
+          class="persona-saving-overlay"
+          aria-hidden="true"
+        >
+          <div class="loading-spinner small"></div>
+          <span>Saving…</span>
         </div>
       </a>
     </section>

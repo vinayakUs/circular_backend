@@ -21,9 +21,16 @@
         Personas
       </a>
       <a routerLink="/experts-by-department" class="nav-link">Tasks</a>
-      <!-- <a href="/changes" class="nav-link">Changes</a> -->
+      <a routerLink="/upcoming-changes" routerLinkActive="active" class="nav-link">Changes</a>
       <a routerLink="/keyword-search" class="nav-link">Search</a>
       <a routerLink="/allcirculars" class="nav-link">All Circulars</a>
+      <span
+        *ngIf="isAuthenticated && currentPersonaName"
+        class="persona-pill"
+        [title]="currentPersonaName"
+      >
+        <span class="persona-pill-label">{{ currentPersonaName }}</span>
+      </span>
       <a routerLink="/login" *ngIf="!isAuthenticated" class="btn btn-outline"
         >Login</a
       >
@@ -48,12 +55,28 @@
         </button>
         @if (dropdownOpen) {
           <div class="dropdown-menu" *ngIf="dropdownOpen">
+            <button
+              class="dropdown-item dropdown-item--persona"
+              (click)="navigateToPersonaSelection()"
+            >
+              @if (currentPersonaName) {
+                <span class="dropdown-item-label">Current persona</span>
+                <span class="dropdown-item-value">{{ currentPersonaName }}</span>
+              } @else {
+                <span class="dropdown-item-label">Persona</span>
+                <span class="dropdown-item-value dropdown-item-value--muted"
+                  >Choose one</span
+                >
+              }
+            </button>
+            <div class="dropdown-divider" aria-hidden="true"></div>
             <button class="dropdown-item" (click)="navigateToDepartmentModel()">
               Department
             </button>
             <button class="dropdown-item" (click)="navigateToUserManagement()">
               Manage Users
             </button>
+            <div class="dropdown-divider" aria-hidden="true"></div>
             <button (click)="logout()" class="dropdown-item">Logout</button>
           </div>
         }

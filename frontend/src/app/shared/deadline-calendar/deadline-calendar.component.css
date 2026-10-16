@@ -21,7 +21,7 @@
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   color: var(--dc-text);
   width: 100%;
-  max-width: 380px;
+  max-width: 100%;
   box-sizing: border-box;
 }
 

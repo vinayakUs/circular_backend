@@ -1,0 +1,607 @@
+/* ── Upcoming Changes page ─────────────────────────────────────────
+   Page chrome only: header, source filter row, filters section
+   (persona chip / sign-in link + expanded severity select). */
+
+.upcoming-changes-page {
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 20px 28px 24px;
+  box-sizing: border-box;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #0f172a;
+  animation: page-enter 320ms ease-out both;
+}
+
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Page header ───────────────────────────────────────────────── */
+.page-header {
+  margin-bottom: 16px;
+}
+
+.page-title {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  margin: 0 0 6px;
+  color: #0f172a;
+}
+
+.page-subtitle {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #64748b;
+  margin: 0;
+  max-width: 640px;
+}
+
+/* ── Source filter row ─────────────────────────────────────────── */
+.source-filter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 10px 0 12px;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  flex-wrap: wrap;
+}
+
+.source-filter__label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  margin-right: 6px;
+}
+
+.source-chip {
+  appearance: none;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  color: #0f172a;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.source-chip:hover:not(.is-active) {
+  background: rgba(15, 23, 42, 0.04);
+  border-color: rgba(15, 23, 42, 0.2);
+}
+
+.source-chip.is-active {
+  background: #1d4ed8;        /* blue-700 — authoritative accent */
+  border-color: #1d4ed8;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.source-chip:focus-visible {
+  outline: 2px solid #1d4ed8;
+  outline-offset: 2px;
+}
+
+/* ── Filters section ─────────────────────────────────────────────── */
+.filters-section {
+  padding-top: 8px;
+  padding-bottom: 0;
+}
+
+.filters-section__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Persona chip — toggleable filter pill with person icon.
+   Default state: outlined = filter off (show all roles).
+   .is-active: filled blue = filter on (scoped to this role). */
+.persona-chip {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.16);
+  color: #0f172a;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.persona-chip:hover {
+  background: rgba(15, 23, 42, 0.04);
+  border-color: rgba(15, 23, 42, 0.24);
+}
+
+.persona-chip.is-active {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.persona-chip.is-active:hover {
+  background: #1e40af;
+  border-color: #1e40af;
+}
+
+.persona-chip:focus-visible {
+  outline: 2px solid #1d4ed8;
+  outline-offset: 2px;
+}
+
+.persona-chip__icon {
+  width: 16px;
+  height: 16px;
+  color: #64748b;
+}
+
+/* "Sign in to filter by your role" link (logged-out variant) */
+.filters-section__signin {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #64748b;
+  font-size: 13px;
+  text-decoration: none;
+  transition: color 120ms ease;
+}
+
+.filters-section__signin:hover {
+  color: #0f172a;
+}
+
+/* "More filters" toggle button */
+.filters-toggle {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  color: #1d4ed8;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.filters-toggle:hover {
+  background: rgba(29, 78, 216, 0.08);
+}
+
+.filters-toggle__chevron {
+  width: 14px;
+  height: 14px;
+  transition: transform 160ms ease;
+}
+
+.filters-toggle__chevron.is-open {
+  transform: rotate(180deg);
+}
+
+/* Expanded filter panel — animated reveal. max-height + opacity let
+   the transition breathe without leaving residual space when closed. */
+.filters-section__panel {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  padding-top: 0;
+  border-top: 1px solid transparent;
+  margin-top: 0;
+  transition:
+    max-height 240ms ease,
+    opacity 200ms ease,
+    padding-top 240ms ease,
+    border-color 240ms ease,
+    margin-top 240ms ease;
+}
+
+.filters-section__panel.is-open {
+  max-height: 360px; /* generous ceiling — enough for both filter rows */
+  opacity: 1;
+  padding-top: 14px;
+  border-top-color: rgba(15, 23, 42, 0.08);
+  margin-top: 14px;
+}
+
+/* Single filter field row (label + control) */
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.filter-row:last-child {
+  margin-bottom: 0;
+}
+
+.filter-row__label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  min-width: 70px;
+}
+
+.filter-field__select {
+  appearance: none;
+  background: #ffffff
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>")
+    no-repeat right 10px center;
+  background-size: 10px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 8px;
+  color: #0f172a;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  padding: 6px 28px 6px 10px;
+  cursor: pointer;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+  min-width: 110px;
+}
+
+.filter-field__select:hover {
+  border-color: rgba(15, 23, 42, 0.24);
+}
+
+.filter-field__select:focus-visible {
+  outline: none;
+  border-color: #1d4ed8;
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.15);
+}
+
+/* Period chip cluster (rounded chips, blue when active) */
+.period-chips {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.period-chip {
+  appearance: none;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  color: #0f172a;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  min-width: 44px;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.period-chip:hover:not(.is-active) {
+  background: rgba(15, 23, 42, 0.04);
+  border-color: rgba(15, 23, 42, 0.2);
+}
+
+.period-chip.is-active {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.period-chip:focus-visible {
+  outline: 2px solid #1d4ed8;
+  outline-offset: 2px;
+}
+
+/* Custom date inputs (shown only when PERIOD = "Other") */
+.filter-row--custom-dates {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(15, 23, 42, 0.08);
+}
+
+.date-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 14px;
+}
+
+.date-field:last-child {
+  margin-right: 0;
+}
+
+.date-field__label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.date-field__input {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: #0f172a;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 8px;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.date-field__input:hover {
+  border-color: rgba(15, 23, 42, 0.24);
+}
+
+.date-field__input:focus-visible {
+  outline: none;
+  border-color: #1d4ed8;
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.15);
+}
+
+/* ── Deadlines list ─────────────────────────────────────────────── */
+.deadlines-section {
+  margin-top: 12px;
+}
+
+.deadlines-summary {
+  font-size: 13px;
+  color: #64748b;
+  padding: 6px 0 10px;
+  letter-spacing: 0.01em;
+}
+
+.deadlines-state {
+  padding: 20px;
+  border: 1px dashed rgba(15, 23, 42, 0.12);
+  border-radius: 8px;
+  text-align: center;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.deadlines-state--error {
+  border-color: rgba(220, 38, 38, 0.3);
+  color: #b91c1c;
+  background: rgba(254, 226, 226, 0.4);
+}
+
+.deadlines-state--prompt {
+  background: rgba(94, 106, 210, 0.04);
+  border-color: rgba(94, 106, 210, 0.2);
+  color: #4338ca;
+}
+
+.deadlines-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.deadline-row {
+  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: row-enter 280ms ease-out both;
+  /* Stagger each row by 32ms up to ~10 rows so the list "fills in".
+     Beyond that, all rows appear roughly together to avoid a long wait. */
+  animation-delay: calc(var(--i, 0) * 32ms);
+  transition: background 120ms ease;
+}
+
+.deadline-row:hover {
+  background: rgba(15, 23, 42, 0.025);
+}
+
+.deadline-row:last-child {
+  border-bottom: none;
+}
+
+.deadline-row__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.deadline-row__tags {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.deadline-row__date {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.deadline-row__title {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.45;
+  color: #0f172a;
+  text-decoration: none;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-clamp: 2;
+  overflow: hidden;
+  transition: color 120ms ease;
+}
+
+a.deadline-row__title:hover {
+  color: #1d4ed8;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+}
+
+.deadline-row__title--plain {
+  cursor: default;
+}
+
+@keyframes row-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .upcoming-changes-page,
+  .deadline-row,
+  .source-chip,
+  .persona-chip,
+  .period-chip,
+  .filters-section__panel {
+    animation: none;
+    transition: none;
+  }
+}
+
+.deadline-row__link {
+  display: grid;
+  grid-template-columns: 110px 56px 88px 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  font-size: 13px;
+  color: #0f172a;
+  text-decoration: none;
+  transition: background 120ms ease;
+}
+
+.deadline-row__link:hover {
+  background: rgba(15, 23, 42, 0.03);
+}
+
+.deadline-row__link--plain {
+  cursor: default;
+}
+
+.deadline-row__date {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  color: #0f172a;
+}
+
+.deadline-row__exchange {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 6px;
+  background: rgba(15, 23, 42, 0.06);
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: #0f172a;
+  text-align: center;
+}
+
+.deadline-row__title {
+  color: #0f172a;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+/* Priority pill — small coloured badge for the date column */
+.priority-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.5;
+}
+
+.priority-pill--critical {
+  background: rgba(220, 38, 38, 0.12);
+  color: #b91c1c;
+}
+
+.priority-pill--high {
+  background: rgba(245, 158, 11, 0.16);
+  color: #b45309;
+}
+
+.priority-pill--medium {
+  background: rgba(94, 106, 210, 0.14);
+  color: #4338ca;
+}
+
+.priority-pill--low {
+  background: rgba(20, 184, 166, 0.14);
+  color: #0f766e;
+}
+
+/* Exchange tag — neutral gray chip paired with the priority pill */
+.exchange-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 8px;
+  background: rgba(15, 23, 42, 0.06);
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #0f172a;
+  text-transform: uppercase;
+  line-height: 1.5;
+}

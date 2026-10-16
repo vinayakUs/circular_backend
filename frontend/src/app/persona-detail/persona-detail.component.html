@@ -35,12 +35,25 @@
       </button>
     </nav>
 
-    <!-- Deadline calendar — hardcoded data, remove when backend endpoint exists -->
     <section class="cal-section">
-      <app-deadline-calendar
-        [events]="filteredCalendarEvents()"
-        [maxItemsVisible]="3"
-      ></app-deadline-calendar>
+      <div class="cal-section__col cal-section__col--calendar">
+        <app-deadline-calendar
+          [events]="filteredCalendarEvents()"
+          [maxItemsVisible]="3"
+          [disabled]="loadingMonth() !== null"
+          (monthChange)="onMonthChange($event)"
+          (viewAll)="onViewAll()"
+        ></app-deadline-calendar>
+      </div>
+
+      <div class="cal-section__col cal-section__col--upcoming">
+        <app-upcoming-deadlines
+          [events]="upcomingEvents()"
+          [loading]="loadingUpcoming()"
+          (eventClicked)="onUpcomingEventClicked($event)"
+          (viewAll)="onViewAll()"
+        ></app-upcoming-deadlines>
+      </div>
     </section>
   </ng-container>
 </main>

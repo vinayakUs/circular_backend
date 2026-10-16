@@ -1,74 +1,26 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
 import { LoginService } from '../services/login.service';
-import { Persona, PersonasApiService } from '../services/personas-api.service';
 import {
-  DeadlineCalendarComponent,
   DeadlineEvent,
-  UUID,
-} from '../shared/deadline-calendar/deadline-calendar.component';
-
-// ─────────────────────────────────────────────────────────────────────
-// HARDCODED CALENDAR DATA — REMOVE WHEN BACKEND ENDPOINT IS READY
-// Replace `calendarEvents` and `filterDeadline()` with a real API call to
-// `GET /api/personas/:slug/deadlines` (or similar). The mock below gives
-// the calendar widget something to display while the backend is pending.
-// ─────────────────────────────────────────────────────────────────────
-function makeMockDeadlines(slug: string | null): DeadlineEvent[] {
-  if (!slug) return [];
-
-  // Anchor on the start of the current month so days render predictably.
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = today.getMonth();
-
-  const day = (d: number) => new Date(year, month, d);
-  // Cast literal strings to UUID (backend will produce real UUIDs).
-  const id = (s: string) => s as UUID;
-
-  // Different mock data per persona — shows realistic content per role.
-  if (slug === 'compliance-officer') {
-    return [
-      { id: id('11111111-1111-1111-1111-111111111111'), date: day(5),  title: 'KYC attribute submission deadline for new members',     exchange: 'NSE',  priority: 'critical', url: '/circulars/aaa' },
-      { id: id('22222222-2222-2222-2222-222222222222'), date: day(5),  title: 'AML reporting window opens for Q3',                exchange: 'SEBI', priority: 'high',     url: '/circulars/bbb' },
-      { id: id('33333333-3333-3333-3333-333333333333'), date: day(8),  title: 'Penalty review — non-compliant trading members', exchange: 'BSE',  priority: 'medium',   url: '/circulars/ccc' },
-      { id: id('44444444-4444-4444-4444-444444444444'), date: day(13), title: 'Quarterly compliance certificate due',              exchange: 'NSE',  priority: 'high',     url: '/circulars/ddd' },
-      { id: id('55555555-5555-5555-5555-555555555555'), date: day(20), title: 'Annual AML audit report deadline',                 exchange: 'SEBI', priority: 'medium',   url: '/circulars/eee' },
-    ];
-  }
-
-  if (slug === 'trading-desk') {
-    return [
-      { id: id('aaaaaaaa-1111-1111-1111-aaaaaaaaaaaa'), date: day(3),  title: 'Auction settlement — G-Sec (SDL)',                   exchange: 'BSE', priority: 'critical', url: '/circulars/ggg' },
-      { id: id('aaaaaaaa-2222-2222-2222-aaaaaaaaaaaa'), date: day(10), title: 'Mock SIP/PMS registration window',                   exchange: 'NSE', priority: 'high',     url: '/circulars/hhh' },
-      { id: id('aaaaaaaa-3333-3333-3333-aaaaaaaaaaaa'), date: day(13), title: 'Options expiry — weekly contract adjustments',     exchange: 'NSE', priority: 'critical', url: '/circulars/iii' },
-      { id: id('aaaaaaaa-4444-4444-4444-aaaaaaaaaaaa'), date: day(18), title: 'Index rebalance effective',                        exchange: 'NSE', priority: 'medium',   url: '/circulars/jjj' },
-    ];
-  }
-
-  if (slug === 'risk-manager') {
-    return [
-      { id: id('bbbbbbbb-1111-1111-1111-bbbbbbbbbbbb'), date: day(7),  title: 'VaR margin recalibration',                          exchange: 'NSE',  priority: 'critical', url: '/circulars/kkk' },
-      { id: id('bbbbbbbb-2222-2222-2222-bbbbbbbbbbbb'), date: day(13), title: 'Initial margin rate revision effective',           exchange: 'BSE',  priority: 'high',     url: '/circulars/lll' },
-      { id: id('bbbbbbbb-3333-3333-3333-bbbbbbbbbbbb'), date: day(22), title: 'Risk-weight review for new instruments',           exchange: 'SEBI', priority: 'medium',   url: '/circulars/mmm' },
-    ];
-  }
-
-  // Generic fallback for any other slug
-  return [
-    { id: id('cccccccc-1111-1111-1111-cccccccccccc'), date: day(13), title: 'Mock deadline for this persona',         exchange: 'NSE',  priority: 'high',     url: '/circulars/xxx' },
-    { id: id('cccccccc-2222-2222-2222-cccccccccccc'), date: day(18), title: 'Mock review window opens',               exchange: 'SEBI', priority: 'medium',   url: '/circulars/yyy' },
-    { id: id('cccccccc-3333-3333-3333-cccccccccccc'), date: day(25), title: 'Mock compliance filing deadline',         exchange: 'BSE',  priority: 'low',      url: '/circulars/zzz' },
-  ];
-}
-// ───────────────────────────────────────────────────────────────────────
+  Persona,
+  PersonasApiService,
+} from '../services/personas-api.service';
+import { DeadlineCalendarComponent } from '../shared/deadline-calendar/deadline-calendar.component';
+import { UpcomingDeadlinesComponent } from '../shared/upcoming-deadlines/upcoming-deadlines.component';
+import { addDays, endOfMonth, format } from 'date-fns';
 
 @Component({
   selector: 'app-persona-detail',
   standalone: true,
-  imports: [CommonModule, RouterLink, DeadlineCalendarComponent],
+  imports: [
+    CommonModule,
+    RouterLink,
+    DeadlineCalendarComponent,
+    UpcomingDeadlinesComponent,
+  ],
   templateUrl: './persona-detail.component.html',
   styleUrl: './persona-detail.component.css',
 })
@@ -78,29 +30,44 @@ export class PersonaDetailComponent implements OnInit {
   loading = true;
   error: string | null = null;
 
-  /** Hardcoded — remove when backend deadline endpoint exists. */
-  calendarEvents: DeadlineEvent[] = [];
+  /** Deadlines for the month currently shown in the calendar. */
+  readonly calendarEvents = signal<DeadlineEvent[]>([]);
+
+  /** Month-keyed cache — key is 'MM-yyyy', exactly what the calendar emits. */
+  private readonly deadlineCache = new Map<string, DeadlineEvent[]>();
 
   /** Active source filter for the calendar. */
   sourceFilter = signal<string>('ALL');
 
+  /** Non-null while a month fetch is in flight; disables calendar navigation. */
+  readonly loadingMonth = signal<string | null>(null);
+
+  /** Upcomming deadlines for that particular widget */
+  readonly upcomingEvents = signal<DeadlineEvent[]>([]);
+  readonly loadingUpcoming = signal<boolean>(false);
+
   /** Filter chips rendered above the calendar. */
-  readonly sourceFilterOptions: ReadonlyArray<{ value: string; label: string }> = [
-    { value: 'ALL',  label: 'All sources' },
+  readonly sourceFilterOptions: ReadonlyArray<{
+    value: string;
+    label: string;
+  }> = [
+    { value: 'ALL', label: 'All sources' },
     { value: 'SEBI', label: 'SEBI' },
-    { value: 'NSE',  label: 'NSE'  },
+    { value: 'NSE', label: 'NSE' },
   ];
 
   /** Events shown in the calendar after source filter is applied. */
   filteredCalendarEvents = computed(() => {
+    const events = this.calendarEvents();
     const filter = this.sourceFilter();
-    if (filter === 'ALL') return this.calendarEvents;
-    return this.calendarEvents.filter((e) => e.exchange === filter);
+    if (filter === 'ALL') return events;
+    return events.filter((e) => e.exchange === filter);
   });
 
   private route = inject(ActivatedRoute);
   private personasApi = inject(PersonasApiService);
   private auth = inject(LoginService);
+  private router = inject(Router);
 
   ngOnInit(): void {
     this.isAuthenticated = this.auth.isAuthenticated();
@@ -119,8 +86,9 @@ export class PersonaDetailComponent implements OnInit {
           this.error = `Unknown persona: ${slug}`;
         } else {
           this.persona = match;
-          // TODO: replace with real fetch from /api/personas/:slug/deadlines
-          this.calendarEvents = makeMockDeadlines(slug);
+          this.loadDeadlines(slug, format(new Date(), 'MM-yyyy'));
+          // in ngOnInit success branch, next to loadDeadlines():
+          this.loadUpcomingDeadlines(slug); // from=today, to=today+60, limit=5
         }
         this.loading = false;
       },
@@ -130,15 +98,101 @@ export class PersonaDetailComponent implements OnInit {
       },
     });
   }
+  loadUpcomingDeadlines(slug: string) {
+    const source = this.sourceFilter();
+    const today = new Date();
+
+    console.log(source);
+    this.loadingUpcoming.set(true);
+    this.personasApi
+      .getDeadlinesForPersona(slug, {
+        from: format(today, 'yyyy-MM-dd'),
+        to: format(addDays(today, 60), 'yyyy-MM-dd'),
+        limit: 5,
+        exchange: source === 'ALL' ? undefined : source,
+      })
+      .subscribe({
+        next: (events) => {
+          this.upcomingEvents.set(events);
+          this.loadingUpcoming.set(false);
+        },
+        error: () => {
+          this.upcomingEvents.set([]);
+          this.loadingUpcoming.set(false);
+        },
+      });
+  }
+
+  /** Calendar emitted a month change — fetch that month, or serve it from cache. */
+  onMonthChange(monthKey: string): void {
+    if (this.persona) {
+      this.loadDeadlines(this.persona.slug, monthKey);
+    }
+  }
+
+  /** Load one month of deadlines; cache hit = no HTTP call. */
+  private loadDeadlines(slug: string, monthKey: string): void {
+    const cached = this.deadlineCache.get(monthKey);
+
+    if (cached) {
+      this.calendarEvents.set(cached);
+      return;
+    }
+
+    this.loadingMonth.set(monthKey);
+    const { from, to } = this.monthWindow(monthKey);
+
+    this.personasApi.getDeadlinesForPersona(slug, { from, to }).subscribe({
+      next: (events) => {
+        this.deadlineCache.set(monthKey, events);
+        this.calendarEvents.set(events);
+        this.loadingMonth.set(null);
+      },
+      error: () => {
+        // Failures are not cached, so visiting this month again retries.
+        this.calendarEvents.set([]);
+        this.loadingMonth.set(null);
+      },
+    });
+  }
+
+  /** Clicked an upcoming-deadline row — open it if it has a URL. */
+  onUpcomingEventClicked(event: DeadlineEvent): void {
+    if (!event.url) return;
+    if (event.url.startsWith('http://') || event.url.startsWith('https://')) {
+      window.open(event.url, '_blank', 'noopener');
+      return;
+    }
+
+    this.router.navigateByUrl(event.url);
+  }
+
+  /** Calendar emitted `viewAll` — jump to the cross-persona Changes page. */
+  onViewAll(): void {
+    this.router.navigate(['/upcoming-changes']);
+  }
 
   /** Set the active source filter. */
   setSourceFilter(value: string): void {
+    if (this.sourceFilter() === value) return;
     this.sourceFilter.set(value);
+    if (this.persona) this.loadUpcomingDeadlines(this.persona.slug);
   }
 
   /** Count events per source for chip labels. */
   countBySource(value: string): number {
-    if (value === 'ALL') return this.calendarEvents.length;
-    return this.calendarEvents.filter((e) => e.exchange === value).length;
+    const events = this.calendarEvents();
+    if (value === 'ALL') return events.length;
+    return events.filter((e) => e.exchange === value).length;
+  }
+
+  /** 'MM-yyyy' → first/last day of that month as 'yyyy-MM-dd'. */
+  private monthWindow(monthKey: string): { from: string; to: string } {
+    const [mm, yyyy] = monthKey.split('-').map(Number);
+    const first = new Date(yyyy, mm - 1, 1);
+    return {
+      from: format(first, 'yyyy-MM-dd'),
+      to: format(endOfMonth(first), 'yyyy-MM-dd'),
+    };
   }
 }

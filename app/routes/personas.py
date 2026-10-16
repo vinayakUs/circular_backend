@@ -93,7 +93,7 @@ def register_routes(app) -> None:
         # ── 4. Query ───────────────────────────────────────
         repo = ActionItemRepository(db_pool=get_postgres_client().get_pool())
         try:
-            rows, total = repo.get_deadlines_for_persona(
+            rows, total = repo.get_deadlines(
                 persona_slug=slug,
                 from_date=d_from,
                 to_date=d_to,
@@ -113,7 +113,7 @@ def register_routes(app) -> None:
                 "title":              row[2],
                 "exchange":           row[3],
                 "priority":           row[4],
-                "url":                f"/circulars/{row[5]}",
+                "url":                f"/circular/{row[5]}",
                 "source_circular_id": str(row[5]),
             }
             for row in rows

@@ -1,7 +1,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Any, List, Optional, Tuple
 from uuid import UUID
 
@@ -204,30 +204,46 @@ class ActionItemRepository:
         items, _ = self.get_action_items(circular_id=circular_id, limit=1000, offset=0)
         return items
 
-    # Used by persona-slug API endpoint to fetch deadlines
-    def get_deadlines_for_persona(
+    # Used by both persona-scoped (slug provided) AND cross-persona
+    # (slug=None) routes. When slug is None, the `circular_persona_matches`
+    # JOIN and its placeholder are skipped — every deadline is in scope.
+    def get_deadlines(
         self,
-        persona_slug: str,
-        from_date: date,
-        to_date: date,
+        persona_slug: Optional[str] = None,
+        from_date: Optional[date] = None,
+        to_date: Optional[date] = None,
         priority_csv: Optional[str] = None,
         exchange_csv: Optional[str] = None,
         limit: int = 100,
         offset: int = 0,
     ) -> Tuple[List[Tuple[UUID, date, str, str, Optional[str], UUID]], int]:
-        """Return (rows, total) for deadlines matching this persona.
+        """Return (rows, total) for deadlines, optionally filtered by persona.
 
-        Joins action_items → circulars → circular_persona_matches.
-        Multiplication-safe: circular_persona_matches has UNIQUE PK on
-        (circular_id, persona_slug), so the JOIN can't duplicate rows.
+        Joins action_items → circulars; when `persona_slug` is given,
+        also JOINs circular_persona_matches to scope the result to that
+        persona. Multiplication-safe: circular_persona_matches has UNIQUE
+        PK on (circular_id, persona_slug), so the JOIN can't duplicate rows.
 
-        Two queries: COUNT(*) for total + SELECT for the page.
-        Both use the same WHERE clause + ORDER BY with stable tiebreaker.
+        Two queries: COUNT(*) for total + SELECT for the page. Both use the
+        same WHERE clause + ORDER BY with stable tiebreaker.
+
+        Args:
+            persona_slug:  filter to one persona's deadlines, or None for
+                           cross-persona results.
+            from_date:     inclusive lower bound on `deadline`. Defaults to
+                           today-30d when omitted.
+            to_date:       inclusive upper bound on `deadline`. Defaults to
+                           from + 365d when omitted.
         """
-        # Normalize empty string to None (defensive — route already does this)
+        # ── Defaults ─────────────────────────────────────────
         priority_csv = priority_csv or None
         exchange_csv = exchange_csv or None
+        if from_date is None:
+            from_date = date.today() - timedelta(days=30)
+        if to_date is None:
+            to_date = from_date + timedelta(days=365)
 
+        # ── WHERE / JOINs vary by whether persona_slug is present ──
         where_parts = [
             "ai.deadline IS NOT NULL",
             "ai.deadline BETWEEN %s AND %s",
@@ -238,13 +254,20 @@ class ActionItemRepository:
         ]
         where = " AND ".join(where_parts)
 
+        if persona_slug is not None:
+            persona_join = (
+                "JOIN circular_persona_matches m "
+                "ON m.circular_id = c.id AND m.persona_slug = %s"
+            )
+        else:
+            persona_join = ""
+
+        # ── Queries ──────────────────────────────────────────
         count_query = f"""
             SELECT COUNT(*)
             FROM   action_items ai
             JOIN   circulars c ON c.id = ai.circular_id
-            JOIN   circular_persona_matches m
-                ON m.circular_id = c.id
-                AND m.persona_slug = %s
+            {persona_join}
             WHERE  {where}
         """
         data_query = f"""
@@ -256,23 +279,25 @@ class ActionItemRepository:
                 c.id
             FROM   action_items ai
             JOIN   circulars c ON c.id = ai.circular_id
-            JOIN   circular_persona_matches m
-                ON m.circular_id = c.id
-                AND m.persona_slug = %s
+            {persona_join}
             WHERE  {where}
             ORDER BY ai.deadline ASC, ai.id ASC
             LIMIT  %s OFFSET %s
         """
 
-        base_params = (
-            persona_slug,
+        # Build params in the order placeholders appear in the SQL above:
+        #   persona_slug (×1 if present), from_date, to_date,
+        #   priority_csv (×2), exchange_csv (×2), limit, offset
+        params: list = []
+        if persona_slug is not None:
+            params.append(persona_slug)
+        params += [
             from_date,
             to_date,
-            priority_csv,
-            priority_csv,
-            exchange_csv,
-            exchange_csv,
-        )
+            priority_csv, priority_csv,
+            exchange_csv, exchange_csv,
+        ]
+        base_params = tuple(params)
 
         with self.db_pool.acquire() as conn:
             with conn.transaction():

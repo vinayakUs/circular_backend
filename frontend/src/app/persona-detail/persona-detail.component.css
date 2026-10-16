@@ -1,5 +1,5 @@
 .persona-detail-page {
-  max-width: 760px;
+  max-width: 980px;
   margin: 0 auto;
   padding: 24px 32px 80px;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -141,4 +141,24 @@
   background: transparent;
   color: #5e6ad2;
   border: 1px solid rgba(94, 106, 210, 0.3);
+}
+
+/* ── Calendar + Upcoming Deadlines side-by-side ────────── */
+.cal-section {
+  display: flex;
+  flex-direction: row;
+  gap: 20px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.cal-section__col {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+@media (max-width: 720px) {
+  .cal-section__col {
+    flex: 1 1 100%;
+  }
 }

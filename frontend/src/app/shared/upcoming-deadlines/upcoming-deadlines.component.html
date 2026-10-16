@@ -1,0 +1,59 @@
+<div class="ud" [class.is-disabled]="disabled">
+  <header class="ud__header">
+    <h3 class="ud__title">{{ title }}</h3>
+    <button
+      type="button"
+      class="ud__view-all"
+      [disabled]="disabled"
+      (click)="onViewAll($event)"
+    >
+      View all
+    </button>
+  </header>
+
+  <div *ngIf="loading && events.length === 0" class="ud__state">
+    Loading upcoming deadlines…
+  </div>
+
+  <div
+    *ngIf="!loading && events.length === 0"
+    class="ud__state ud__state--empty"
+  >
+    {{ emptyMessage }}
+  </div>
+
+  <ul *ngIf="events.length > 0" class="ud__list">
+    <li *ngFor="let item of events" class="ud__item">
+      <div class="ud__item-main">
+        <div class="ud__pills">
+          <span
+            *ngIf="item.priority"
+            class="ud__pill ud__pill--priority ud__pill--{{ item.priority }}"
+          >
+            {{ item.priority }}
+          </span>
+          <span
+            *ngIf="item.exchange"
+            class="ud__pill ud__pill--exchange"
+          >
+            {{ item.exchange }}
+          </span>
+        </div>
+        <a
+          *ngIf="item.url; else noLink"
+          class="ud__item-title"
+          [href]="item.url"
+          (click)="onEventClick(item, $event)"
+        >{{ item.title }}</a>
+        <ng-template #noLink>
+          <span class="ud__item-title" (click)="onEventClick(item, $event)">
+            {{ item.title }}
+          </span>
+        </ng-template>
+      </div>
+      <time class="ud__date" [attr.datetime]="formatDate(item.date)">
+        {{ formatDate(item.date) }}
+      </time>
+    </li>
+  </ul>
+</div>

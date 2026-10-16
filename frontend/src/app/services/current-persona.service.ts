@@ -73,19 +73,23 @@ export class CurrentPersonaService {
   /**
    * PUT to backend, then update both signal AND localStorage.
    * On success, resolves the persona object via /api/personas (config).
+   *
+   * The slug is mirrored to localStorage immediately on PUT success so a
+   * later follow-up GET failure (resolving the full persona object) can't
+   * leave the durable cache stale. When /api/personas resolves, we
+   * overwrite the entry with the full object.
    */
   set(slug: string | null): Observable<void> {
     return this.http
       .put<void>(`${environment.apiUrl}/api/auth/me/persona`, { slug })
       .pipe(
         tap(() => {
-          // 1. Update slug signal immediately
           this._slug.set(slug);
+          this._mirrorToLocalStorage(slug, null);
           if (slug) {
             this._resolvePersonaFromConfig(slug);
           } else {
             this._persona.set(null);
-            this._mirrorToLocalStorage(slug, null);
           }
         }),
       );

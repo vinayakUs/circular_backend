@@ -212,7 +212,7 @@ def create_app() -> Flask:
         }, status_code
 
     # Wire up domain route modules.
-    from app.routes import auth, circulars, experts, mentions, properties, admin, action_items, personas
+    from app.routes import auth, circulars, experts, mentions, properties, admin, action_items, deadlines, personas
 
     auth.register_routes(app)
     circulars.register_routes(app, rag_generator=rag_generator)
@@ -222,6 +222,7 @@ def create_app() -> Flask:
     admin.register_routes(app)
     action_items.register_routes(app)
     personas.register_routes(app)
+    deadlines.register_routes(app)
 
     # Eagerly load personas so a malformed config fails at boot, not at first request.
     from app.services.personas import get_personas

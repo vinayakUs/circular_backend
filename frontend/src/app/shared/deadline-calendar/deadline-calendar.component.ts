@@ -64,6 +64,7 @@ export class DeadlineCalendarComponent {
   @Output() daySelected = new EventEmitter<Date>();
   @Output() viewAll = new EventEmitter<void>();
   @Output() eventClicked = new EventEmitter<DeadlineEvent>();
+  @Output() monthChange = new EventEmitter<string>();
 
   // ── State ─────────────────────────────────────────────────
   currentMonth = signal<Date>(new Date());
@@ -128,14 +129,18 @@ export class DeadlineCalendarComponent {
 
   prevMonth(): void {
     if (this.disabled) return;
-    this.currentMonth.set(subMonths(this.currentMonth(), 1));
+    const next = subMonths(this.currentMonth(), 1);
+    this.currentMonth.set(next);
     this.selectedDay.set(null);
+    this.monthChange.emit(format(next, 'MM-yyyy')); // "10-2026"
   }
 
   nextMonth(): void {
     if (this.disabled) return;
-    this.currentMonth.set(addMonths(this.currentMonth(), 1));
+    const next = addMonths(this.currentMonth(), 1);
+    this.currentMonth.set(next);
     this.selectedDay.set(null);
+    this.monthChange.emit(format(next, 'MM-yyyy'));
   }
 
   onViewAll(event: Event): void {
