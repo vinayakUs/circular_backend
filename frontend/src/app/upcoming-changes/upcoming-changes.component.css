@@ -416,13 +416,15 @@
   list-style: none;
   padding: 0;
   margin: 0;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 8px;
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .deadline-row {
-  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 10px;
   padding: 14px 16px;
   display: flex;
   flex-direction: column;
@@ -431,15 +433,12 @@
   /* Stagger each row by 32ms up to ~10 rows so the list "fills in".
      Beyond that, all rows appear roughly together to avoid a long wait. */
   animation-delay: calc(var(--i, 0) * 32ms);
-  transition: background 120ms ease;
+  transition: background 120ms ease, border-color 120ms ease;
 }
 
 .deadline-row:hover {
-  background: rgba(15, 23, 42, 0.025);
-}
-
-.deadline-row:last-child {
-  border-bottom: none;
+  background: rgba(15, 23, 42, 0.012);
+  border-color: rgba(15, 23, 42, 0.16);
 }
 
 .deadline-row__top {
@@ -462,10 +461,17 @@
   flex-shrink: 0;
 }
 
-.deadline-row__title {
+.deadline-row__body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0; /* allow children to ellipsize inside grid/flex */
+}
+
+.deadline-row__circular {
   font-size: 14px;
-  font-weight: 500;
-  line-height: 1.45;
+  font-weight: 600;
+  line-height: 1.4;
   color: #0f172a;
   text-decoration: none;
   display: -webkit-box;
@@ -476,15 +482,27 @@
   transition: color 120ms ease;
 }
 
-a.deadline-row__title:hover {
+a.deadline-row__circular:hover {
   color: #1d4ed8;
   text-decoration: underline;
   text-underline-offset: 2px;
   text-decoration-thickness: 1px;
 }
 
-.deadline-row__title--plain {
+.deadline-row__circular--plain {
   cursor: default;
+}
+
+.deadline-row__deadline {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #64748b;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-clamp: 2;
+  overflow: hidden;
 }
 
 @keyframes row-enter {

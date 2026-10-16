@@ -216,7 +216,7 @@ class ActionItemRepository:
         exchange_csv: Optional[str] = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> Tuple[List[Tuple[UUID, date, str, str, Optional[str], UUID]], int]:
+    ) -> Tuple[List[Tuple[UUID, date, str, str, Optional[str], UUID, str]], int]:
         """Return (rows, total) for deadlines, optionally filtered by persona.
 
         Joins action_items → circulars; when `persona_slug` is given,
@@ -276,7 +276,8 @@ class ActionItemRepository:
                 ai.action_item,
                 c.source,
                 ai.priority,
-                c.id
+                c.id,
+                c.title        AS circular_title
             FROM   action_items ai
             JOIN   circulars c ON c.id = ai.circular_id
             {persona_join}

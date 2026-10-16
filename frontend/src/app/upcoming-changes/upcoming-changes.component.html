@@ -210,15 +210,22 @@
           <span class="deadline-row__date">{{ d.date | date: 'd MMM y' }}</span>
         </div>
 
-        <a
-          *ngIf="d.url; else plainTitle"
-          class="deadline-row__title"
-          [href]="d.url"
-          (click)="onDeadlineClick(d, $event)"
-        >{{ d.title }}</a>
-        <ng-template #plainTitle>
-          <div class="deadline-row__title deadline-row__title--plain">{{ d.title }}</div>
-        </ng-template>
+        <div class="deadline-row__body">
+          <a
+            *ngIf="d.url; else plainCircular"
+            class="deadline-row__circular"
+            [href]="d.url"
+            (click)="onDeadlineClick(d, $event)"
+          >{{ d.circular_title || d.title }}</a>
+          <ng-template #plainCircular>
+            <div class="deadline-row__circular deadline-row__circular--plain">
+              {{ d.circular_title || d.title }}
+            </div>
+          </ng-template>
+          <p class="deadline-row__deadline" *ngIf="d.circular_title">
+            {{ d.title }}
+          </p>
+        </div>
       </li>
     </ul>
 

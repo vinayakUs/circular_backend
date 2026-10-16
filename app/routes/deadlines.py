@@ -106,6 +106,7 @@ def register_routes(app) -> None:
                 "priority":           row[4],
                 "url":                f"/circular/{row[5]}",
                 "source_circular_id": str(row[5]),
+                "circular_title":     row[6],
             }
             for row in rows
         ]

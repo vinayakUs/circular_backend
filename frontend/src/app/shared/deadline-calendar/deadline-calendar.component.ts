@@ -33,7 +33,7 @@ export interface DeadlineEvent {
   id: UUID;
   /** Day this event occurs on. ISO string or Date — both accepted. */
   date: Date | string;
-  /** Display text in the item list below. */
+  /** The action-item text describing the deadline obligation. */
   title: string;
   /** Exchange badge (e.g. 'NSE', 'SEBI'). Optional. */
   exchange?: string;
@@ -41,6 +41,8 @@ export interface DeadlineEvent {
   priority?: DeadlinePriority | null;
   /** If present, the title renders as <a href> instead of plain text. */
   url?: string;
+  /** Title of the source circular this action item was extracted from. */
+  circular_title?: string;
 }
 
 @Component({

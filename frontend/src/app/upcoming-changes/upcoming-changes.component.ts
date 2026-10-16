@@ -13,24 +13,28 @@ import { addDays, format } from 'date-fns';
 import { CurrentPersonaService } from '../services/current-persona.service';
 import { LoginService } from '../services/login.service';
 import { DeadlineEvent, PersonasApiService } from '../services/personas-api.service';
+import {
+  UpcomingChangesFiltersService,
+  UpcomingPeriod,
+} from './upcoming-changes-filters.service';
 
 interface SourceOption {
-  value: string; // 'ALL' or a source token used to filter events
-  label: string; // chip text
+  value: string;
+  label: string;
 }
 
 interface SeverityOption {
-  value: string; // 'ALL' or a deadline-priority token
+  value: string;
   label: string;
 }
 
 interface PeriodOption {
-  value: '1W' | '2W' | '1M' | '2M' | '3M' | 'OTHER';
+  value: UpcomingPeriod;
   label: string;
 }
 
 /** Period chip → day-window-size for the API. */
-const PERIOD_DAYS: Record<Exclude<PeriodOption['value'], 'OTHER'>, number> = {
+const PERIOD_DAYS: Record<Exclude<UpcomingPeriod, 'OTHER'>, number> = {
   '1W': 7,
   '2W': 14,
   '1M': 30,
@@ -39,7 +43,7 @@ const PERIOD_DAYS: Record<Exclude<PeriodOption['value'], 'OTHER'>, number> = {
 };
 
 /** Period chip → human-readable label for the summary strip. */
-const PERIOD_LABELS: Record<Exclude<PeriodOption['value'], 'OTHER'>, string> = {
+const PERIOD_LABELS: Record<Exclude<UpcomingPeriod, 'OTHER'>, string> = {
   '1W': 'next 1 week',
   '2W': 'next 2 weeks',
   '1M': 'next 1 month',
@@ -56,32 +60,19 @@ const PERIOD_LABELS: Record<Exclude<PeriodOption['value'], 'OTHER'>, string> = {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class UpcomingChangesComponent implements OnInit {
-  /** Currently-active source chip. */
-  readonly sourceFilter = signal<string>('ALL');
+  /** Filter state lives in the singleton service so it survives
+   *  component teardown (router-back-from-circular keeps the user's
+   *  selections). The component is a thin consumer/trigger layer. */
+  private filters = inject(UpcomingChangesFiltersService);
 
-  /** Currently-active severity filter. */
-  readonly severityFilter = signal<string>('ALL');
-
-  /** Currently-active period filter (default 1 month). */
-  readonly periodFilter = signal<PeriodOption['value']>('1M');
-
-  /**
-   * Custom date window used when the user picks the `OTHER` period chip.
-   * Empty string = not yet chosen; the load logic falls back to defaults.
-   * Stored as 'yyyy-MM-dd' to match <input type="date"> values.
-   */
-  readonly customFromDate = signal<string>('');
-  readonly customToDate = signal<string>('');
-
-  /** Whether the "More filters" panel is expanded. */
-  readonly filtersExpanded = signal<boolean>(false);
-
-  /**
-   * Whether the persona chip is currently filtering deadlines to the
-   * signed-in user's persona. True by default if a persona is set, false
-   * when signed out / no persona. Clicking the chip toggles this.
-   */
-  readonly usePersonaFilter = signal<boolean>(false);
+  // ── Filter signals (read straight from the service) ──────────
+  readonly sourceFilter     = this.filters.sourceFilter;
+  readonly severityFilter   = this.filters.severityFilter;
+  readonly periodFilter     = this.filters.periodFilter;
+  readonly customFromDate   = this.filters.customFromDate;
+  readonly customToDate     = this.filters.customToDate;
+  readonly usePersonaFilter = this.filters.usePersonaFilter;
+  readonly filtersExpanded  = this.filters.filtersExpanded;
 
   /** Fetched deadlines (visible after each filter change). */
   readonly deadlines = signal<DeadlineEvent[]>([]);
@@ -111,7 +102,7 @@ export class UpcomingChangesComponent implements OnInit {
     { value: 'low',      label: 'Low' },
   ];
 
-  /** Period chip row (also rendered in the expanded "More filters" panel). */
+  /** Period chip row (rendered in the expanded "More filters" panel). */
   readonly periodOptions: ReadonlyArray<PeriodOption> = [
     { value: '1W', label: '1W' },
     { value: '2W', label: '2W' },
@@ -132,15 +123,21 @@ export class UpcomingChangesComponent implements OnInit {
   /** Current persona object (null when signed out / none selected). */
   readonly currentPersona = this.personaSvc.persona;
 
-  /** True when neither 'ALL' nor any 'NSE/SEBI/...' chip has narrowed. */
+  /** True when the user has a persona and the chip should render. */
   readonly showActivePersonaChip = computed(
     () => this.isAuthenticated() && !!this.currentPersona(),
   );
 
   ngOnInit(): void {
-    // Default to persona-scoped when a persona is set, else all.
-    if (this.isAuthenticated() && this.personaSvc.slug()) {
-      this.usePersonaFilter.set(true);
+    // First-visit default: when the user has a persona, scope deadlines
+    // to that persona unless they explicitly clicked the chip off in a
+    // prior visit (the service still holds that choice in memory).
+    if (
+      this.isAuthenticated() &&
+      this.personaSvc.slug() &&
+      !this.usePersonaFilter()  // don't override an explicit deselect
+    ) {
+      this.filters.setUsePersonaFilter(true);
     }
     this.loadDeadlines();
   }
@@ -148,30 +145,26 @@ export class UpcomingChangesComponent implements OnInit {
   /** Set the active source chip and refetch. */
   setSourceFilter(value: string): void {
     if (this.sourceFilter() === value) return;
-    this.sourceFilter.set(value);
+    this.filters.setSource(value);
     this.loadDeadlines();
   }
 
   /** Update the active severity filter and refetch. */
   onSeverityChange(value: string): void {
-    this.severityFilter.set(value);
+    this.filters.setSeverity(value);
     this.loadDeadlines();
   }
 
   /** Set the active period chip and refetch. */
-  setPeriodFilter(value: PeriodOption['value']): void {
+  setPeriodFilter(value: UpcomingPeriod): void {
     if (this.periodFilter() === value) return;
-    this.periodFilter.set(value);
+    this.filters.setPeriod(value);
     this.loadDeadlines();
   }
 
   /** Update one of the custom date inputs and refetch. */
   onCustomDateChange(which: 'from' | 'to', value: string): void {
-    if (which === 'from') {
-      this.customFromDate.set(value);
-    } else {
-      this.customToDate.set(value);
-    }
+    this.filters.setCustomDate(which, value);
     // Refetch only when the user is in the OTHER mode; otherwise the
     // period chip drives the window and ignores these inputs.
     if (this.periodFilter() === 'OTHER') {
@@ -181,7 +174,7 @@ export class UpcomingChangesComponent implements OnInit {
 
   /** Toggle the "More filters" panel. */
   toggleFilters(): void {
-    this.filtersExpanded.update((v) => !v);
+    this.filters.toggleFiltersExpanded();
   }
 
   /**
@@ -191,7 +184,7 @@ export class UpcomingChangesComponent implements OnInit {
    */
   onPersonaChipClick(): void {
     if (!this.showActivePersonaChip()) return;
-    this.usePersonaFilter.update((v) => !v);
+    this.filters.toggleUsePersonaFilter();
     this.loadDeadlines();
   }
 
@@ -226,7 +219,6 @@ export class UpcomingChangesComponent implements OnInit {
 
   /** '2026-10-22' → '22 Oct 2026'. */
   private formatDateLabel(iso: string): string {
-    // Parse manually to avoid TZ drift; date-fns format() expects a Date.
     const [y, m, d] = iso.split('-').map(Number);
     const date = new Date(y, m - 1, d);
     const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
