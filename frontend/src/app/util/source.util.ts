@@ -12,8 +12,6 @@ export enum ExchangeSource {
 
 /**
  * Map a raw `source` token from the API to a human-readable display name.
- * Used by circular badges AND by the regulator/filter tabs in the UI, so any
- * change here shows up in both places.
  *
  * Falls back to the original value (or empty string) when no mapping exists.
  */
@@ -39,4 +37,20 @@ export function normalizeSource(source: string | null | undefined): string {
  */
 export function exchangeLabel(key: keyof typeof ExchangeSource): string {
   return normalizeSource(ExchangeSource[key]);
+}
+
+/**
+ * Append `source` params for the circulars endpoints.
+ *
+ * `ExchangeSource.ALL` is a UI-only sentinel (the "All" regulator tab) — the
+ * API has no ALL member, so omitting the param is how "no source filter" is
+ * expressed. Sending `source=ALL` would be rejected.
+ */
+export function appendSources(
+  queryParams: URLSearchParams,
+  source?: string | string[]
+): void {
+  const values = (Array.isArray(source) ? source : [source])
+    .filter((s): s is string => !!s && s !== ExchangeSource.ALL);
+  values.forEach(s => queryParams.append('source', s));
 }

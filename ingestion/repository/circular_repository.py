@@ -7,6 +7,8 @@ import logging
 from typing import Any
 from uuid import UUID
 
+from utils.exchange_source import ExchangeSource
+
 
 # Classifier is imported lazily inside upsert_circular() to avoid
 # triggering the app package load (and its heavy dependencies) at
@@ -344,12 +346,21 @@ class CircularRepository:
         query: str,
         field: str,
         limit: int = 50,
+        sources: list[ExchangeSource] | None = None,
+        from_date: date | None = None,
+        to_date: date | None = None,
+        applicable_to_nse: bool | None = None,
+        department: str | None = None,
     ) -> list[dict[str, Any]]:
         """ILIKE substring lookup on a single column.
 
         `field` must be one of LOOKUP_FIELDS. Only rows with status='FETCHED'
-        are considered. The returned dict tags the column that matched
-        (always `field`) and the matched value.
+        and is_active are considered. The remaining arguments are optional
+        narrowing filters; omit one to leave that constraint off, in which
+        case the emitted SQL is identical to an unfiltered lookup.
+
+        The returned dict tags the column that matched (always `field`) and
+        the matched value.
         """
         if field not in self.LOOKUP_FIELDS:
             raise ValueError(
@@ -359,19 +370,45 @@ class CircularRepository:
         pattern = f"%{query}%"
         col_idx = self._LOOKUP_COL_IDX[field]
 
+        where: list[str] = []
+        args: list[Any] = []
+
+        if sources:
+            where.append("c.source = ANY(%s)")
+            args.append(sources)
+
+        if from_date:
+            where.append("c.issue_date >= %s")
+            args.append(from_date)
+
+        if to_date:
+            where.append("c.issue_date <= %s")
+            args.append(to_date)
+
+        if applicable_to_nse is not None:
+            where.append("c.applicable_to_nse = %s")
+            args.append(applicable_to_nse)
+
+        if department:
+            where.append("c.department = %s")
+            args.append(department.strip())
+
+        where_extra = f" AND {' AND '.join(where)}" if where else ""
+
         with self.db_pool.acquire() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 f"""
                 SELECT id, circular_id, title, full_reference
-                FROM circulars
+                FROM circulars c
                 WHERE status = 'FETCHED'
-                  AND is_active = TRUE
-                  AND {field} ILIKE %s
+                AND is_active = TRUE
+                AND {field} ILIKE %s
+                {where_extra}
                 ORDER BY issue_date DESC, id DESC
                 LIMIT %s
                 """,
-                (pattern, limit),
+                (pattern, *args, limit),
             )
             rows = cursor.fetchall()
 
@@ -419,7 +456,7 @@ class CircularRepository:
         self,
         limit: int = 20,
         offset: int = 0,
-        source: str | None = None,
+        sources: list[ExchangeSource] | None = None,
         from_date: date | None = None,
         to_date: date | None = None,
         applicable_to_nse: bool | None = None,
@@ -431,15 +468,18 @@ class CircularRepository:
     ) -> tuple[list[CircularRecord], int]:
         """Default behaviour: return every record (active + superseded) so
         callers see the full version chain. Pass `active_only=True` to hide
-        superseded rows (typical for user-facing list views)."""
+        superseded rows (typical for user-facing list views).
+
+        `sources` narrows to any of the given exchanges; omit it (or pass an
+        empty list) for no source constraint."""
         args: list = []
         where: list[str] = []
         idx = 1
         join_sql = ""
 
-        if source:
-            where.append(f"c.source = %s")
-            args.append(source.upper())
+        if sources:
+            where.append("c.source = ANY(%s)")
+            args.append(sources)
             idx += 1
         if from_date:
             where.append(f"c.issue_date >= %s")
@@ -509,31 +549,28 @@ class CircularRepository:
             records = [self._row_to_record(row) for row in rows]
 
         return records, total
+    
+    def list_distinct_departments(self, sources: list[ExchangeSource] | None = None) -> list[str]:
+        """Return sorted, distinct, non-blank department names.
 
-    def list_distinct_departments(self, source: str | None = None) -> list[str]:
-        """Return sorted distinct non-empty department names, optionally scoped to one source.
-
-        Used by the /api/circulars/departments dropdown endpoint so the UI can
-        show only departments that actually exist on circulars (and, when
-        requested, only those within a given exchange).
+        If `sources` is given, only circulars from those sources are considered.
         """
-        args: list = []
-        where = ["department IS NOT NULL", "TRIM(department) <> ''"]
-        if source:
-            where.append("source = %s")
-            args.append(source.upper())
-        where_sql = " AND ".join(where)
+        conditions = ["department IS NOT NULL", "TRIM(department) <> ''"]
+        params: list = []
+        if sources:
+            conditions.append("source = ANY(%s)")
+            params.append(sources)
+
+        query = f"""
+            SELECT DISTINCT TRIM(department) AS name
+            FROM circulars
+            WHERE {" AND ".join(conditions)}
+            ORDER BY name
+        """
+
         with self.db_pool.acquire() as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                f"""
-                SELECT DISTINCT TRIM(department) AS d
-                FROM circulars
-                WHERE {where_sql}
-                ORDER BY d
-                """,
-                args,
-            )
+            cursor.execute(query, params)
             return [row[0] for row in cursor.fetchall()]
 
     def _get_signatories_map(self, conn: Any, circular_ids: list[UUID]) -> dict[UUID, list]:

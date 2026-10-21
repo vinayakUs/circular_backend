@@ -18,10 +18,11 @@ from flask import request
 
 from app.dto.circular_dto import CircularListResponseDTO, CircularSummaryDTO, SignatoryDTO
 from app.dto.search_result_dto import search_hit_to_dict
-from app.routes._helpers import serialize_circular_record
+from app.routes._helpers import serialize_circular_record, _parse_iso_date
 from db.postgres_client import get_postgres_client
 from ingestion.indexer.es_provider import get_es_client
 from ingestion.repository import AssetRepository, CircularRepository
+from utils.exchange_source import ExchangeSource
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +68,7 @@ def register_routes(app, *, rag_generator) -> None:
                     f"Must be one of {list(CircularRepository.LOOKUP_FIELDS)}."
                 )
             }, 400
+
         if raw_field not in CircularRepository.LOOKUP_FIELDS:
             return {
                 "error": (
@@ -75,26 +77,102 @@ def register_routes(app, *, rag_generator) -> None:
                 )
             }, 400
 
+        # ── Optional narrowing ──────────────────────────────────────
+        # Reuses _parse_iso_date from _helpers.
+        # Supports repeated parameters: ?source=NSE&source=SEBI
+
+        raw_sources = [
+            value.strip().upper()
+            for value in request.args.getlist("source")
+            if value.strip()
+        ]
+
+        sources: list[ExchangeSource] | None = None
+
+        if raw_sources:
+            try:
+                sources = [
+                    ExchangeSource(value)
+                    for value in raw_sources
+                ]
+            except ValueError:
+                allowed = ", ".join(
+                    f"'{source.value}'" for source in ExchangeSource
+                )
+                return {"error": f"source must be {allowed}."}, 400
+
+        from_date = _parse_iso_date(
+            request.args.get("from_date", "").strip(),
+            "from_date",
+        )
+        if isinstance(from_date, tuple):
+            return from_date
+
+        to_date = _parse_iso_date(
+            request.args.get("to_date", "").strip(),
+            "to_date",
+        )
+        if isinstance(to_date, tuple):
+            return to_date
+
+        raw_applicable = (
+            request.args.get("applicable_to_nse", "").strip() or None
+        )
+
+        if raw_applicable is None:
+            applicable_to_nse = None
+        elif raw_applicable.lower() in ("true", "false"):
+            applicable_to_nse = raw_applicable.lower() == "true"
+        else:
+            return {
+                "error": "applicable_to_nse must be 'true' or 'false'."
+            }, 400
+
+        # Free text — deliberately unvalidated, matching list_circulars.
+        department = request.args.get("department", "").strip() or None
+
         db_client = get_postgres_client()
         repository = CircularRepository(db_pool=db_client.get_pool())
+
         try:
-            matches = repository.lookup(raw_q, field=raw_field, limit=100)
+            matches = repository.lookup(
+                raw_q,
+                field=raw_field,
+                limit=100,
+                sources=sources,
+                from_date=from_date,
+                to_date=to_date,
+                applicable_to_nse=applicable_to_nse,
+                department=department,
+            )
         except ValueError as exc:
             return {"error": str(exc)}, 400
 
         return {
             "query": raw_q,
             "field": raw_field,
+            "filters": {
+                "sources": (
+                    [source.value for source in sources]
+                    if sources
+                    else None
+                ),
+                "from_date": from_date.isoformat() if from_date else None,
+                "to_date": to_date.isoformat() if to_date else None,
+                "applicable_to_nse": applicable_to_nse,
+                "department": department,
+            },
             "matches": [
                 {
-                    "id": m["id"],
-                    "matchedField": m["matched_field"],
-                    "matchedValue": m["matched_value"],
+                    "id": match["id"],
+                    "matchedField": match["matched_field"],
+                    "matchedValue": match["matched_value"],
                 }
-                for m in matches
+                for match in matches
             ],
             "count": len(matches),
         }
+
 
     # ── PDF content stream ──────────────────────────────────────
     @app.get("/api/circulars/<uuid:record_id>/content")
@@ -409,7 +487,6 @@ def register_routes(app, *, rag_generator) -> None:
     def list_circulars():
         raw_limit = request.args.get("limit", "20").strip()
         raw_offset = request.args.get("offset", "0").strip()
-        raw_source = request.args.get("source", "").strip() or None
 
         try:
             limit = max(1, min(int(raw_limit), 100))
@@ -421,11 +498,20 @@ def register_routes(app, *, rag_generator) -> None:
         except ValueError:
             return {"error": "offset must be a non-negative integer."}, 400
 
-        normalized_source = raw_source.upper() if raw_source else None
-        if normalized_source == "ALL":
-            normalized_source = None
-        elif normalized_source and normalized_source not in {"NSE", "SEBI","SEBI_MASTER"}:
-            return {"error": "source must be 'NSE', 'SEBI', or 'ALL'."}, 400
+        # Repeated ?source=NSE&source=SEBI, matching /api/circulars/lookup.
+        # No ALL sentinel — an absent param already means "no filter".
+        raw_sources = [
+            s.strip().upper()
+            for s in request.args.getlist("source")
+            if s.strip()
+        ]
+        sources: list[ExchangeSource] | None = None
+        if raw_sources:
+            try:
+                sources = [ExchangeSource(value) for value in raw_sources]
+            except ValueError:
+                allowed = ", ".join(f"'{e.value}'" for e in ExchangeSource)
+                return {"error": f"source must be {allowed}."}, 400
 
         raw_status = request.args.get("status", "").strip().upper() or None
         if raw_status and raw_status not in {"FETCHED", "DISCOVERED", "FAILED"}:
@@ -480,7 +566,7 @@ def register_routes(app, *, rag_generator) -> None:
         records, total = repository.list_paginated(
             limit=limit,
             offset=offset,
-            source=normalized_source,
+            sources=sources,
             from_date=from_date,
             to_date=to_date,
             applicable_to_nse=applicable_to_nse,
@@ -527,20 +613,17 @@ def register_routes(app, *, rag_generator) -> None:
     # ── distinct departments for the list-page dropdown ────────
     @app.get("/api/circulars/departments")
     def list_circular_departments():
-        raw_source = request.args.get("source", "").strip().upper()
-        if raw_source == "ALL" or raw_source == "":
-            normalized_source: str | None = None
-        elif raw_source in {"NSE", "SEBI" ,"SEBI_MASTER"}:
-            normalized_source = raw_source
-        else:
-            return {"error": "source must be 'NSE', 'SEBI', 'SEBI_MASTER' or 'ALL'."}, 400
+        try:
+            sources = ExchangeSource.parse_list(request.args.getlist("source"))
+        except ValueError as exc:
+            return {"error": str(exc)}, 400
 
         db_client = get_postgres_client()
         repository = CircularRepository(db_pool=db_client.get_pool())
         return {
-            "source": normalized_source,
+            "sources": [s.value for s in sources] if sources else None,
             "items": [
-                {"name": d} for d in repository.list_distinct_departments(normalized_source)
+                {"name": d} for d in repository.list_distinct_departments(sources)
             ],
         }
 

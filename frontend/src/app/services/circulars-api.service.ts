@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
+import { appendSources } from '../util/source.util';
 
 export interface CountsResponse {
   total: number;
@@ -198,47 +199,38 @@ export class CircularsApiService {
 
   getLatestCirculars(): Observable<PaginatedCircularsResponse> {
     const today: string = new Date().toISOString().split('T')[0];
-    const url = `${this.baseUrl}/api/circulars?source=ALL&offset=0&from_date=${today}&to_date=${today}`;
+    const url = `${this.baseUrl}/api/circulars?offset=0&from_date=${today}&to_date=${today}`;
     return this.http.get<PaginatedCircularsResponse>(url);
   }
 
-  getlookupCirculars(params: { q: string; field?: string }): Observable<CircularDbLookupResponse> {
+  getlookupCirculars(params: {
+    q: string;
+    field?: string;
+    source?: string | string[];
+    from_date?: string;
+    to_date?: string;
+    applicable_to_nse?: boolean | null;
+    department?: string;
+  }): Observable<CircularDbLookupResponse> {
     const queryParams = new URLSearchParams();
     if (params.q) queryParams.set('q', params.q);
     if (params.field) queryParams.set('field', params.field);
+    // Narrow the picker's candidates to the active filters. `circular_nos`
+    // is deliberately absent — the picker must not narrow itself.
+    appendSources(queryParams, params.source);
+    if (params.from_date) queryParams.set('from_date', params.from_date);
+    if (params.to_date) queryParams.set('to_date', params.to_date);
+    if (params.applicable_to_nse !== null && params.applicable_to_nse !== undefined) {
+      queryParams.set('applicable_to_nse', params.applicable_to_nse.toString());
+    }
+    if (params.department) queryParams.set('department', params.department);
 
     const url = `${this.baseUrl}/api/circulars/lookup?${queryParams.toString()}`;
     return this.http.get<CircularDbLookupResponse>(url);
   }
 
-  // getCirculars(params: {
-  //   source?: string;
-  //   limit?: number;
-  //   offset?: number;
-  //   from_date?: string;
-  //   to_date?: string;
-  //   search?: string;
-  //   applicable_to_nse?: boolean | null;
-  //   signatory?: string;
-  // }): Observable<PaginatedCircularsResponse> {
-  //   const queryParams = new URLSearchParams();
-  //   if (params.source) queryParams.set('source', params.source);
-  //   if (params.limit) queryParams.set('limit', params.limit.toString());
-  //   if (params.offset !== undefined) queryParams.set('offset', params.offset.toString());
-  //   if (params.from_date) queryParams.set('from_date', params.from_date);
-  //   if (params.to_date) queryParams.set('to_date', params.to_date);
-  //   if (params.search) queryParams.set('search', params.search);
-  //   if (params.applicable_to_nse !== null && params.applicable_to_nse !== undefined) {
-  //     queryParams.set('applicable_to_nse', params.applicable_to_nse.toString());
-  //   }
-  //   if (params.signatory) queryParams.set('signatory', params.signatory);
-
-  //   const url = `${this.baseUrl}/api/circulars?${queryParams.toString()}`;
-  //   return this.http.get<PaginatedCircularsResponse>(url);
-  // }
-
   getCircularsv2(params: {
-    source?: string;
+    source?: string | string[];
     limit?: number;
     offset?: number;
     from_date?: string;
@@ -246,12 +238,12 @@ export class CircularsApiService {
     search?: string;
     applicable_to_nse?: boolean | null;
     signatory?: string[];
-          circular_nos?: string[];
+    circular_nos?: string[];
     department?: string;
     status?: string;
   }): Observable<PaginatedCircularsResponse> {
     const queryParams = new URLSearchParams();
-    if (params.source) queryParams.set('source', params.source);
+    appendSources(queryParams, params.source);
     if (params.limit) queryParams.set('limit', params.limit.toString());
     if (params.offset !== undefined) queryParams.set('offset', params.offset.toString());
     if (params.from_date) queryParams.set('from_date', params.from_date);
@@ -262,11 +254,10 @@ export class CircularsApiService {
       queryParams.set('applicable_to_nse', params.applicable_to_nse.toString());
     }
     if (params.signatory) {
-      // queryParams.set('signatory', params.signatory)
-      params.signatory?.forEach(signatory => queryParams.append('signatory', signatory));
-    };
-    if(params.circular_nos){
-      params.circular_nos.forEach(n=>queryParams.append('circular_no',n));
+      params.signatory.forEach(signatory => queryParams.append('signatory', signatory));
+    }
+    if (params.circular_nos) {
+      params.circular_nos.forEach(n => queryParams.append('circular_no', n));
     }
     if (params.department) {
       queryParams.set('department', params.department);
@@ -350,16 +341,14 @@ export class CircularsApiService {
     );
   }
 
-  getCircularDepartments(source?: string): Observable<{ source: string | null; items: { name: string }[] }> {
+  getCircularDepartments(source?: string | string[]): Observable<{ sources: string[] | null; items: { name: string }[] }> {
     const queryParams = new URLSearchParams();
-    if (source && source !== 'ALL') {
-      queryParams.set('source', source);
-    }
+    appendSources(queryParams, source);
     const qs = queryParams.toString();
     const url = qs
       ? `${this.baseUrl}/api/circulars/departments?${qs}`
       : `${this.baseUrl}/api/circulars/departments`;
-    return this.http.get<{ source: string | null; items: { name: string }[] }>(url);
+    return this.http.get<{ sources: string[] | null; items: { name: string }[] }>(url);
   }
 
   getSummary(recordId: string): Observable<{ summary: string }> {

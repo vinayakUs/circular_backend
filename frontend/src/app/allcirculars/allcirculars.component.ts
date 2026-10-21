@@ -4,7 +4,7 @@ import { FormControl, FormsModule } from '@angular/forms';
 import { CircularsApiService, Circular, SemanticSearchResponse, SearchResult, SearchResponse, CircularDbLookupItem } from '../services/circulars-api.service';
 import { CircularfilterstateService } from '../services/circularfilterstate.service';
 import { Router, RouterModule } from '@angular/router';
-import { debounceTime, distinctUntilChanged, EMPTY, finalize, switchMap, tap } from 'rxjs';
+import { debounceTime, distinctUntilChanged, EMPTY, finalize, switchMap } from 'rxjs';
 import { ReactiveFormsModule } from '@angular/forms';
 import { ExchangeSource, exchangeLabel, normalizeSource } from '../util/source.util';
 
@@ -108,7 +108,16 @@ export class AllCircularsComponent implements OnInit {
         }
 
         this.circNoDropdownLoading = true;
-        return this.apiService.getlookupCirculars({ q: searchText, field: 'full_reference' })
+        return this.apiService.getlookupCirculars({
+          q: searchText,
+          field: 'full_reference',
+          // circular_nos is deliberately omitted — the picker must not narrow itself.
+          source: this.state.filters.source,
+          from_date: this.state.filters.from_date || undefined,
+          to_date: this.state.filters.to_date || undefined,
+          applicable_to_nse: this.state.filters.applicable_to_nse,
+          department: this.state.filters.department || undefined
+        })
           .pipe(
             finalize(() => {
               this.circNoDropdownLoading = false;
