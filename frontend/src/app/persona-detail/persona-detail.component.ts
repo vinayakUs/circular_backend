@@ -30,23 +30,19 @@ export class PersonaDetailComponent implements OnInit {
   loading = true;
   error: string | null = null;
 
-  /** Deadlines for the month currently shown in the calendar. */
   readonly calendarEvents = signal<DeadlineEvent[]>([]);
 
-  /** Month-keyed cache — key is 'MM-yyyy', exactly what the calendar emits. */
+  // Key is 'MM-yyyy', exactly what the calendar emits.
   private readonly deadlineCache = new Map<string, DeadlineEvent[]>();
 
-  /** Active source filter for the calendar. */
   sourceFilter = signal<string>('ALL');
 
-  /** Non-null while a month fetch is in flight; disables calendar navigation. */
+  // Non-null while a month fetch is in flight; disables calendar navigation.
   readonly loadingMonth = signal<string | null>(null);
 
-  /** Upcomming deadlines for that particular widget */
   readonly upcomingEvents = signal<DeadlineEvent[]>([]);
   readonly loadingUpcoming = signal<boolean>(false);
 
-  /** Filter chips rendered above the calendar. */
   readonly sourceFilterOptions: ReadonlyArray<{
     value: string;
     label: string;
@@ -56,7 +52,6 @@ export class PersonaDetailComponent implements OnInit {
     { value: 'NSE', label: 'NSE' },
   ];
 
-  /** Events shown in the calendar after source filter is applied. */
   filteredCalendarEvents = computed(() => {
     const events = this.calendarEvents();
     const filter = this.sourceFilter();
@@ -87,8 +82,7 @@ export class PersonaDetailComponent implements OnInit {
         } else {
           this.persona = match;
           this.loadDeadlines(slug, format(new Date(), 'MM-yyyy'));
-          // in ngOnInit success branch, next to loadDeadlines():
-          this.loadUpcomingDeadlines(slug); // from=today, to=today+60, limit=5
+          this.loadUpcomingDeadlines(slug);
         }
         this.loading = false;
       },
@@ -102,7 +96,6 @@ export class PersonaDetailComponent implements OnInit {
     const source = this.sourceFilter();
     const today = new Date();
 
-    console.log(source);
     this.loadingUpcoming.set(true);
     this.personasApi
       .getDeadlinesForPersona(slug, {
@@ -123,14 +116,13 @@ export class PersonaDetailComponent implements OnInit {
       });
   }
 
-  /** Calendar emitted a month change — fetch that month, or serve it from cache. */
+  /** Calendar emitted a month change — serve from cache if available, else fetch. */
   onMonthChange(monthKey: string): void {
     if (this.persona) {
       this.loadDeadlines(this.persona.slug, monthKey);
     }
   }
 
-  /** Load one month of deadlines; cache hit = no HTTP call. */
   private loadDeadlines(slug: string, monthKey: string): void {
     const cached = this.deadlineCache.get(monthKey);
 
@@ -156,7 +148,6 @@ export class PersonaDetailComponent implements OnInit {
     });
   }
 
-  /** Clicked an upcoming-deadline row — open it if it has a URL. */
   onUpcomingEventClicked(event: DeadlineEvent): void {
     if (!event.url) return;
     if (event.url.startsWith('http://') || event.url.startsWith('https://')) {
@@ -167,26 +158,23 @@ export class PersonaDetailComponent implements OnInit {
     this.router.navigateByUrl(event.url);
   }
 
-  /** Calendar emitted `viewAll` — jump to the cross-persona Changes page. */
   onViewAll(): void {
     this.router.navigate(['/upcoming-changes']);
   }
 
-  /** Set the active source filter. */
   setSourceFilter(value: string): void {
     if (this.sourceFilter() === value) return;
     this.sourceFilter.set(value);
     if (this.persona) this.loadUpcomingDeadlines(this.persona.slug);
   }
 
-  /** Count events per source for chip labels. */
   countBySource(value: string): number {
     const events = this.calendarEvents();
     if (value === 'ALL') return events.length;
     return events.filter((e) => e.exchange === value).length;
   }
 
-  /** 'MM-yyyy' → first/last day of that month as 'yyyy-MM-dd'. */
+  // 'MM-yyyy' → first/last day of that month as 'yyyy-MM-dd'.
   private monthWindow(monthKey: string): { from: string; to: string } {
     const [mm, yyyy] = monthKey.split('-').map(Number);
     const first = new Date(yyyy, mm - 1, 1);

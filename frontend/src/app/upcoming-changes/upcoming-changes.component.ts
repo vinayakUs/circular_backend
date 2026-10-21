@@ -42,7 +42,6 @@ const PERIOD_DAYS: Record<Exclude<UpcomingPeriod, 'OTHER'>, number> = {
   '3M': 90,
 };
 
-/** Period chip → human-readable label for the summary strip. */
 const PERIOD_LABELS: Record<Exclude<UpcomingPeriod, 'OTHER'>, string> = {
   '1W': 'next 1 week',
   '2W': 'next 2 weeks',
@@ -74,26 +73,17 @@ export class UpcomingChangesComponent implements OnInit {
   readonly usePersonaFilter = this.filters.usePersonaFilter;
   readonly filtersExpanded  = this.filters.filtersExpanded;
 
-  /** Fetched deadlines (visible after each filter change). */
   readonly deadlines = signal<DeadlineEvent[]>([]);
-
-  /** True while a fetch is in flight. */
   readonly deadlinesLoading = signal<boolean>(false);
-
-  /** True if the last fetch errored. */
   readonly deadlinesError = signal<boolean>(false);
-
-  /** True when OTHER is selected but the user hasn't picked both dates yet. */
   readonly dateWindowIncomplete = signal<boolean>(false);
 
-  /** Render this list of chips in the "SOURCES" row. */
   readonly sourceOptions: ReadonlyArray<SourceOption> = [
     { value: 'ALL',  label: 'All sources' },
     { value: 'NSE',  label: 'NSE' },
     { value: 'SEBI', label: 'SEBI' },
   ];
 
-  /** Severity choices rendered in the expanded "More filters" panel. */
   readonly severityOptions: ReadonlyArray<SeverityOption> = [
     { value: 'ALL',      label: 'All' },
     { value: 'critical', label: 'Critical' },
@@ -102,7 +92,6 @@ export class UpcomingChangesComponent implements OnInit {
     { value: 'low',      label: 'Low' },
   ];
 
-  /** Period chip row (rendered in the expanded "More filters" panel). */
   readonly periodOptions: ReadonlyArray<PeriodOption> = [
     { value: '1W', label: '1W' },
     { value: '2W', label: '2W' },
@@ -117,13 +106,9 @@ export class UpcomingChangesComponent implements OnInit {
   private personaSvc = inject(CurrentPersonaService);
   private api = inject(PersonasApiService);
 
-  /** Whether the visitor is signed in. */
   readonly isAuthenticated = () => this.auth.isAuthenticated();
-
-  /** Current persona object (null when signed out / none selected). */
   readonly currentPersona = this.personaSvc.persona;
 
-  /** True when the user has a persona and the chip should render. */
   readonly showActivePersonaChip = computed(
     () => this.isAuthenticated() && !!this.currentPersona(),
   );
@@ -142,27 +127,23 @@ export class UpcomingChangesComponent implements OnInit {
     this.loadDeadlines();
   }
 
-  /** Set the active source chip and refetch. */
   setSourceFilter(value: string): void {
     if (this.sourceFilter() === value) return;
     this.filters.setSource(value);
     this.loadDeadlines();
   }
 
-  /** Update the active severity filter and refetch. */
   onSeverityChange(value: string): void {
     this.filters.setSeverity(value);
     this.loadDeadlines();
   }
 
-  /** Set the active period chip and refetch. */
   setPeriodFilter(value: UpcomingPeriod): void {
     if (this.periodFilter() === value) return;
     this.filters.setPeriod(value);
     this.loadDeadlines();
   }
 
-  /** Update one of the custom date inputs and refetch. */
   onCustomDateChange(which: 'from' | 'to', value: string): void {
     this.filters.setCustomDate(which, value);
     // Refetch only when the user is in the OTHER mode; otherwise the
@@ -172,7 +153,6 @@ export class UpcomingChangesComponent implements OnInit {
     }
   }
 
-  /** Toggle the "More filters" panel. */
   toggleFilters(): void {
     this.filters.toggleFiltersExpanded();
   }
@@ -188,7 +168,6 @@ export class UpcomingChangesComponent implements OnInit {
     this.loadDeadlines();
   }
 
-  /** True when the persona filter is currently active. */
   isPersonaFilterActive(): boolean {
     return this.usePersonaFilter() && !!this.personaSvc.slug();
   }
@@ -209,7 +188,6 @@ export class UpcomingChangesComponent implements OnInit {
     return PERIOD_LABELS[period];
   }
 
-  /** Human-readable count line ("1 change" / "2 changes" / "no changes"). */
   countLabel(): string {
     const n = this.deadlines().length;
     if (n === 0) return 'no changes';
@@ -217,7 +195,7 @@ export class UpcomingChangesComponent implements OnInit {
     return `${n} changes`;
   }
 
-  /** '2026-10-22' → '22 Oct 2026'. */
+  // '2026-10-22' → '22 Oct 2026'.
   private formatDateLabel(iso: string): string {
     const [y, m, d] = iso.split('-').map(Number);
     const date = new Date(y, m - 1, d);
@@ -225,7 +203,6 @@ export class UpcomingChangesComponent implements OnInit {
     return `${d} ${months[m - 1]} ${y}`;
   }
 
-  /** Clicked a deadline row — open it. */
   onDeadlineClick(event: DeadlineEvent, ev: MouseEvent): void {
     ev.preventDefault();
     if (!event.url) return;

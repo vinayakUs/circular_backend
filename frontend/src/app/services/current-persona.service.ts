@@ -34,10 +34,6 @@ export class CurrentPersonaService {
     private http: HttpClient,
   ) {}
 
-  /**
-   * Hydrate signals from localStorage. Called at APP_INITIALIZER.
-   * Synchronous, no HTTP.
-   */
   hydrateFromStorage(): void {
     const u = this.loginSvc.getStoredUser();
     if (u) {
@@ -47,20 +43,13 @@ export class CurrentPersonaService {
     this._loaded.set(true);
   }
 
-  /**
-   * Clear all persona state. Call on logout so the next login doesn't
-   * see the previous user's persona.
-   */
+  /** Call on logout so the next login doesn't see the previous user's persona. */
   reset(): void {
     this._slug.set(null);
     this._persona.set(null);
     this._loaded.set(false);
   }
 
-  /**
-   * Populate signals from a freshly-fetched /me response.
-   * Called right after MFA verification succeeds.
-   */
   setFromMe(user: {
     persona_slug?: string | null;
     persona?: Persona | null;
@@ -71,9 +60,6 @@ export class CurrentPersonaService {
   }
 
   /**
-   * PUT to backend, then update both signal AND localStorage.
-   * On success, resolves the persona object via /api/personas (config).
-   *
    * The slug is mirrored to localStorage immediately on PUT success so a
    * later follow-up GET failure (resolving the full persona object) can't
    * leave the durable cache stale. When /api/personas resolves, we
@@ -95,10 +81,6 @@ export class CurrentPersonaService {
       );
   }
 
-  /**
-   * Fetch /api/personas (config endpoint, cached for session),
-   * look up by slug, update _persona signal + mirror to localStorage.
-   */
   private _resolvePersonaFromConfig(slug: string): void {
     this.http
       .get<Persona[]>(`${environment.apiUrl}/api/personas`)
@@ -109,10 +91,7 @@ export class CurrentPersonaService {
       });
   }
 
-  /**
-   * Update localStorage so the next reload sees the same persona.
-   * Skipped if there's no stored user (anonymous session).
-   */
+  /** Skipped if there's no stored user (anonymous session). */
   private _mirrorToLocalStorage(
     slug: string | null,
     persona: Persona | null,

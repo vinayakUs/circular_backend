@@ -1,14 +1,6 @@
 /**
- * Persona icon SVG paths, keyed by the backend-supplied icon name on
- * each `Persona` object (e.g. `'shield-check'`, `'bar-chart-2'`).
- *
- * This map used to live privately inside personas.component.ts. It's
- * lifted here so other surfaces (navbar dropdown, future settings UI)
- * can render the same icon for the active persona without
- * duplicating the path data.
- *
- * Default fallback when the backend sends an unknown icon name:
- * `DEFAULT_PERSONA_ICON_PATH` — a generic shield.
+ * Lift out of personas.component.ts: navbar dropdown (and any future
+ * surfaces) need the same icon for the active persona.
  */
 export const PERSONA_ICON_PATHS: Record<string, string> = {
   'shield-check':
@@ -26,14 +18,10 @@ export const PERSONA_ICON_PATHS: Record<string, string> = {
     'M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6h-6z',
 };
 
-/** Fallback icon — used when a persona's icon name doesn't match the map. */
+// Generic shield — used when a persona's `icon` doesn't match the map.
 export const DEFAULT_PERSONA_ICON_PATH =
   'M12 2L4 5v6c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V5l-8-3z';
 
-/**
- * Resolve a persona's icon name to an SVG path. Falls back to the
- * generic shield when the name is missing or unknown.
- */
 export function personaIconPath(iconName: string | null | undefined): string {
   return (iconName && PERSONA_ICON_PATHS[iconName]) || DEFAULT_PERSONA_ICON_PATH;
 }

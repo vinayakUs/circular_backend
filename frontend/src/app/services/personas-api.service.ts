@@ -26,18 +26,11 @@ export type { DeadlineEvent };
 export class PersonasApiService {
   constructor(private http: HttpClient) {}
 
-  /** List all personas. */
   getPersonas(): Observable<Persona[]> {
     return this.http.get<Persona[]>(`${environment.apiUrl}/api/personas`);
   }
 
-  /**
-   * Fetch deadlines for a persona from
-   * GET /api/personas/<slug>/deadlines?from=&to=&limit=&offset=
-   *
-   * Default window: today-30 to today+335 (set by backend).
-   * Override with `from` / `to` (YYYY-MM-DD).
-   */
+  /** Backend defaults to today-30 → today+335 if no `from`/`to` is passed. */
   getDeadlinesForPersona(
     slug: string,
     options?: { from?: string; to?: string; limit?: number; offset?: number; exchange?: string }
@@ -56,16 +49,8 @@ export class PersonasApiService {
       .pipe(map((r: { items: DeadlineEvent[] }) => r.items ?? []));
   }
 
-  /**
-   * Fetch deadlines across ALL personas from
-   * GET /api/deadlines?from=&to=&limit=&offset=&priority=&exchange=
-   *
-   * Same response shape as `getDeadlinesForPersona`. Used by the
-   * "Upcoming Changes" page; backend defaults to today → today+60d
-   * when no `from`/`to` window is provided.
-   *
-   * `priority` and `exchange` accept either a single value or a CSV.
-   */
+  /** Backend defaults to today → today+60d if no `from`/`to` is passed.
+   * `priority` and `exchange` accept a single value or a CSV. */
   getDeadlines(
     options?: {
       from?: string;

@@ -19,10 +19,7 @@ export class PersonasComponent implements OnInit {
   loading = true;
   error: string | null = null;
 
-  /** Slug currently being persisted to the backend for an in-flight card click. */
   readonly savingSlug = signal<string | null>(null);
-
-  /** Slug of the card whose latest save attempt failed (cleared on next attempt). */
   readonly savingErrorSlug = signal<string | null>(null);
 
   private api = inject(PersonasApiService);
@@ -54,17 +51,14 @@ export class PersonasComponent implements OnInit {
     return this.auth.isAuthenticated() && this.personaSvc.slug() === slug;
   }
 
-  /** True if the user is mid-authenticated (i.e. their selection would persist). */
   get isAuthenticated(): boolean {
     return this.auth.isAuthenticated();
   }
 
-  /** Map backend-provided icon name to an inline SVG path. */
   iconPath(iconName: string): string {
     return personaIconPath(iconName);
   }
 
-  /** Unique source list per persona for the chip row. */
   uniqueSources(persona: Persona): string[] {
     const seen = new Set<string>();
     for (const f of persona.filters) seen.add(f.source);
