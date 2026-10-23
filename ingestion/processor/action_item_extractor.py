@@ -18,6 +18,11 @@ from ingestion.repository.circular_repository import CircularRepository, Circula
 from ingestion.repository.processor_repository import ProcessorRepository
 from utils.llm_providers import get_llm_provider
 
+# Cap extraction at the front matter and operative clauses. Full text overflows
+# the model context window on long circulars.
+MAX_PAGES = 10
+
+
 class ActionItemSingle(BaseModel):
     """Single action item extracted from a circular."""
 
@@ -32,10 +37,6 @@ class ActionItemSingle(BaseModel):
     deadline: Optional[str] = Field(
         None,
         description="Deadline in YYYY-MM-DD format. Copy directly from text without modification. Use null if no specific date is mentioned.",
-    )
-    priority: Optional[str] = Field(
-        None,
-        description="Priority level: critical, high, medium, or low. Assess based on regulatory consequence and urgency.",
     )
 
 
@@ -55,9 +56,10 @@ class ActionItemProcessor(BaseProcessor):
         # Step 1: locate PDF (inherited helper, raises ValueError if missing)
         pdf_path = self._get_pdf_path(record)
 
-        # Step 2: extract text (PDFTextExtractor handles S3, %PDF check, FileNotFound)
+        # Step 2: extract text (PDFTextExtractor handles S3, %PDF check, FileNotFound;
+        # capped at MAX_PAGES, so long circulars are truncated with a warning)
         try:
-            text = self.pdf_extractor.extract(pdf_path)
+            text = self.pdf_extractor.extract(pdf_path, max_pages=MAX_PAGES)
         except Exception as e:
             raise RuntimeError(f"Failed to extract text from PDF at {pdf_path}: {e}") from e
 
@@ -76,17 +78,13 @@ Guidelines:
    (e.g., "Extend...", "Reduce...", "Trading members must..."). Keep it brief — aim for 10-20 words maximum.
 2. The deadline field must be in YYYY-MM-DD format. Extract dates directly from the text
    without modification. If no specific date is mentioned, use null.
-3. Also extract priority: critical, high, medium, or low. Assess based on regulatory
-   consequence and urgency.
-4. Output EXACTLY 1 action item that combines all key changes into a single concise summary.
+3. Output EXACTLY 1 action item that combines all key changes into a single concise summary.
 
 Examples of good action items:
 - action_item: "Trading in HDFC Bank Limited's Non-Convertible Securities will be suspended from April 17, 2026."
   deadline: "2026-04-17"
-  priority: "critical"
 - action_item: "ZCZP minimum subscription reduced to 50% for Social Stock Exchange."
   deadline: null
-  priority: "medium"
 
 Text to extract from:
 {text}

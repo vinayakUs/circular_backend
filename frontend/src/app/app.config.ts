@@ -1,10 +1,32 @@
 import { APP_INITIALIZER, ApplicationConfig } from '@angular/core';
 import { provideRouter, withInMemoryScrolling } from '@angular/router';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
 
 import { routes } from './app.routes';
 import { authInterceptor } from './auth.interceptor';
+import { AuthService } from './services/auth.service';
 import { CurrentPersonaService } from './services/current-persona.service';
+
+/**
+ * Resolve the session before the first render, so the guards get a decided
+ * auth status and components have a csrf token before firing unsafe requests.
+ *
+ * Failures are swallowed so the status stays 'unknown' — a network error
+ * must not look like a logout, and must not block app start.
+ */
+function bootstrap(auth: AuthService, persona: CurrentPersonaService) {
+  return async () => {
+    try {
+      const session = await firstValueFrom(auth.session());
+      if (session) {
+        persona.setFromUser(session.user);
+      }
+    } catch {
+      // Swallowed on purpose: see above.
+    }
+  };
+}
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -21,16 +43,10 @@ export const appConfig: ApplicationConfig = {
     ),
     provideHttpClient(withInterceptors([authInterceptor])),
 
-    // Hydrate CurrentPersonaService from localStorage at app start.
-    // No HTTP — fast, deterministic. Login flow populates fresh /me data
-    // via CurrentPersonaService.setFromMe() in fetchUserAndGoHome().
     {
       provide: APP_INITIALIZER,
-      useFactory: (persona: CurrentPersonaService) => () => {
-        persona.hydrateFromStorage();
-        return Promise.resolve();
-      },
-      deps: [CurrentPersonaService],
+      useFactory: bootstrap,
+      deps: [AuthService, CurrentPersonaService],
       multi: true,
     },
   ],

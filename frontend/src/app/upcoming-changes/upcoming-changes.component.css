@@ -1,6 +1,6 @@
 /* ── Upcoming Changes page ─────────────────────────────────────────
    Page chrome only: header, source filter row, filters section
-   (persona chip / sign-in link + expanded severity select). */
+   (persona chip / sign-in link + expanded period chips and date range). */
 
 .upcoming-changes-page {
   width: 100%;
@@ -583,45 +583,10 @@ a.deadline-row__circular:hover {
   line-height: 1.4;
 }
 
-/* Priority pill — small coloured badge for the date column */
-.priority-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  line-height: 1.5;
-}
-
-.priority-pill--critical {
-  background: rgba(220, 38, 38, 0.12);
-  color: #b91c1c;
-}
-
-.priority-pill--high {
-  background: rgba(245, 158, 11, 0.16);
-  color: #b45309;
-}
-
-.priority-pill--medium {
-  background: var(--primary-soft-medium);
-  color: var(--primary-text);
-}
-
-.priority-pill--low {
-  background: rgba(20, 184, 166, 0.14);
-  color: #0f766e;
-}
-
-/* Exchange tag — compact inline chip paired with the priority pill.
-   Shape is local (smaller than the global `.exchange-badge` so it
-   doesn't visually outgrow the priority pill); color tokens come
-   from src/styles.css via custom properties so palette changes
-   stay in one place. */
+/* Exchange tag — compact inline chip in the deadline row's tag column.
+   Shape is local (smaller than the global `.exchange-badge`); color
+   tokens come from src/styles.css via custom properties so palette
+   changes stay in one place. */
 .exchange-tag {
   display: inline-flex;
   align-items: center;

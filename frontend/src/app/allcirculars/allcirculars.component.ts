@@ -261,6 +261,49 @@ export class AllCircularsComponent implements OnInit {
     this.showDepartmentDropdown = false;
   }
 
+  get hasDateRange(): boolean {
+    return !!this.state.filters.from_date || !!this.state.filters.to_date;
+  }
+
+  get hasCircularNos(): boolean {
+    return this.state.filters.circular_nos.length > 0;
+  }
+
+  get hasSignatories(): boolean {
+    return this.state.filters.signatory.length > 0;
+  }
+
+  get hasDepartment(): boolean {
+    return this.state.filters.department !== '';
+  }
+
+  clearDateRange(): void {
+    this.state.filters.from_date = '';
+    this.state.filters.to_date = '';
+    this.state.filters.selectedyear = null;
+    this.onApply();
+  }
+
+  clearCircularNos(): void {
+    this.state.filters.circular_nos = [];
+    this.circularNoOptions = [];
+    this.circNoSearchControl.reset();
+    this.showCircNoDropdown = false;
+    this.onApply();
+  }
+
+  clearSignatories(): void {
+    this.state.filters.signatory = [];
+    this.showSignatoryDropdown = false;
+    this.onApply();
+  }
+
+  clearDepartment(): void {
+    this.state.filters.department = '';
+    this.showDepartmentDropdown = false;
+    this.onApply();
+  }
+
   closeSignatoryDropdown(): void {
     this.showSignatoryDropdown = false;
   }

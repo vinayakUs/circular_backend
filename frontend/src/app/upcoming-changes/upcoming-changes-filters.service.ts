@@ -21,7 +21,6 @@ export type UpcomingPeriod = '1W' | '2W' | '1M' | '2M' | '3M' | 'OTHER';
 export class UpcomingChangesFiltersService {
   // ── State (private, exposed via readonly signals) ────────────
   private _sourceFilter       = signal<string>('ALL');
-  private _severityFilter     = signal<string>('ALL');
   private _periodFilter       = signal<UpcomingPeriod>('1M');
   private _customFromDate     = signal<string>('');
   private _customToDate       = signal<string>('');
@@ -29,7 +28,6 @@ export class UpcomingChangesFiltersService {
   private _filtersExpanded    = signal<boolean>(false);
 
   readonly sourceFilter     = this._sourceFilter.asReadonly();
-  readonly severityFilter   = this._severityFilter.asReadonly();
   readonly periodFilter     = this._periodFilter.asReadonly();
   readonly customFromDate   = this._customFromDate.asReadonly();
   readonly customToDate     = this._customToDate.asReadonly();
@@ -42,11 +40,6 @@ export class UpcomingChangesFiltersService {
   setSource(value: string): void {
     if (this._sourceFilter() === value) return;
     this._sourceFilter.set(value);
-  }
-
-  setSeverity(value: string): void {
-    if (this._severityFilter() === value) return;
-    this._severityFilter.set(value);
   }
 
   setPeriod(value: UpcomingPeriod): void {

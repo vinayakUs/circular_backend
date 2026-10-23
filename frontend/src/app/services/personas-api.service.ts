@@ -50,14 +50,13 @@ export class PersonasApiService {
   }
 
   /** Backend defaults to today → today+60d if no `from`/`to` is passed.
-   * `priority` and `exchange` accept a single value or a CSV. */
+   * `exchange` accepts a single value or a CSV. */
   getDeadlines(
     options?: {
       from?: string;
       to?: string;
       limit?: number;
       offset?: number;
-      priority?: string;
       exchange?: string;
     }
   ): Observable<DeadlineEvent[]> {
@@ -66,7 +65,6 @@ export class PersonasApiService {
     if (options?.to)       params.set('to',       options.to);
     if (options?.limit  !== undefined) params.set('limit',  options.limit.toString());
     if (options?.offset !== undefined) params.set('offset', options.offset.toString());
-    if (options?.priority) params.set('priority', options.priority);
     if (options?.exchange) params.set('exchange', options.exchange);
     const qs = params.toString();
     return this.http

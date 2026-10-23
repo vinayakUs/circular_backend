@@ -4,7 +4,7 @@ import { Router } from '@angular/router';
 
 import { Persona, PersonasApiService } from '../services/personas-api.service';
 import { CurrentPersonaService } from '../services/current-persona.service';
-import { LoginService } from '../services/login.service';
+import { AuthService } from '../services/auth.service';
 import { personaIconPath } from '../util/persona-icons';
 
 @Component({
@@ -24,7 +24,7 @@ export class PersonasComponent implements OnInit {
 
   private api = inject(PersonasApiService);
   private personaSvc = inject(CurrentPersonaService);
-  private auth = inject(LoginService);
+  private auth = inject(AuthService);
   private router = inject(Router);
 
   ngOnInit() {

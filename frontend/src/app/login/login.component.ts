@@ -3,8 +3,9 @@ import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { LoginService } from '../services/login.service';
+import { LoginResponse, LoginService } from '../services/login.service';
 import { CurrentPersonaService } from '../services/current-persona.service';
+import { AuthService } from '../services/auth.service';
 
 type LoginStep = 'credentials' | 'mfa' | 'submitting';
 
@@ -19,6 +20,7 @@ export class LoginComponent implements OnInit, OnDestroy {
 
   private loginService = inject(LoginService);
   private personaSvc = inject(CurrentPersonaService);
+  private auth = inject(AuthService);
   private router = inject(Router);
 
   step: LoginStep = 'credentials';
@@ -88,23 +90,17 @@ export class LoginComponent implements OnInit, OnDestroy {
       captcha_id: this.challengeId,
       captcha_answer: this.captchaAnswer,
     }).subscribe({
-      next: (resp: any) => {
+      next: (resp: LoginResponse) => {
         this.isLoading = false;
 
-        // MFA path
-        if (resp.mfa_required && resp.mfa_token) {
-          this.mfaToken = resp.mfa_token;
-          this.availableChannels = Array.isArray(resp.channels) ? resp.channels : ['email'];
-          this.selectedChannels = new Set<string>();
-          if (this.availableChannels.includes('email')) {
-            this.selectedChannels.add('email');   // pre-check email by default
-          }
-          this.step = 'mfa';
-          return;
+        // /login always answers with a challenge — there is no no-MFA branch.
+        this.mfaToken = resp.mfa_token;
+        this.availableChannels = Array.isArray(resp.channels) ? resp.channels : ['email'];
+        this.selectedChannels = new Set<string>();
+        if (this.availableChannels.includes('email')) {
+          this.selectedChannels.add('email');   // pre-check email by default
         }
-
-        // Direct JWT path (admin bypass / no-MFA flow)
-        this.fetchUserAndGoHome();
+        this.step = 'mfa';
       },
       error: (err: HttpErrorResponse) => {
         this.isLoading = false;
@@ -172,10 +168,12 @@ export class LoginComponent implements OnInit, OnDestroy {
     this.mfaError = '';
 
     this.loginService.mfaVerify(this.mfaToken, this.otp).subscribe({
-      next: () => {
+      next: (session) => {
         this.isVerifying = false;
         this.stopCountdown();
-        this.fetchUserAndGoHome();
+        this.auth.adopt(session);
+        this.personaSvc.setFromUser(session.user);
+        this.router.navigate(['/']);
       },
       error: (err: HttpErrorResponse) => {
         this.isVerifying = false;
@@ -209,17 +207,6 @@ export class LoginComponent implements OnInit, OnDestroy {
     this.mfaError = '';
     this.ttlSeconds = 0;
     this.refreshCaptcha();
-  }
-
-  private fetchUserAndGoHome(): void {
-    this.loginService.getCurrentUser().subscribe({
-      next: (user) => {
-        localStorage.setItem('user_details', JSON.stringify(user));
-        this.personaSvc.setFromMe(user);   // populate reactive persona store
-        this.router.navigate(['/']);
-      },
-      error: () => this.router.navigate(['/']),
-    });
   }
 
   ttlDisplay(): string {

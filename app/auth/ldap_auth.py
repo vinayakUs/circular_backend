@@ -8,6 +8,8 @@ from typing import Any
 
 from flask import request, g
 
+from app.auth.session.cookie import get_csrf_cookie
+from app.auth.session.csrf import CSRF_HEADER, CsrfTokenService
 from config import Config
 
 logger = logging.getLogger(__name__)
@@ -112,11 +114,16 @@ class LDAPAuth:
         return jwt.encode(payload, Config.JWT_PRIVATE_KEY, algorithm=Config.JWT_ALGORITHM)
 
     @staticmethod
-    def decode_token(token: str) -> dict[str, Any] | None:
+    def decode_token(
+        token: str, *, verify_exp: bool = True
+    ) -> dict[str, Any] | None:
         """Decode and validate JWT token. Returns payload or None if invalid.
 
         If JWT_PUBLIC_KEY is not configured, logs an error and rejects every
         token - we refuse to fall back to a known-bad signing key.
+
+        verify_exp=False still verifies the signature but admits an expired
+        token, so callers can tell "expired" from "forged".
         """
         if not Config.JWT_PUBLIC_KEY:
             logger.error(
@@ -129,6 +136,7 @@ class LDAPAuth:
                 token,
                 Config.JWT_PUBLIC_KEY,
                 algorithms=[Config.JWT_ALGORITHM],
+                options={"verify_exp": verify_exp},
             )
             return payload
         except jwt.ExpiredSignatureError:
@@ -138,56 +146,35 @@ class LDAPAuth:
 
 
 def require_auth(f):
-    """Decorator to require valid JWT token AND active (non-soft-deleted) user.
+    """Require a valid access-token cookie and an active (non-deleted) user.
 
-    After JWT validation, this decorator also checks `users.is_deleted`
-    to enforce M1 (soft-delete defense). A user soft-deleted today can
-    still use their existing JWT for up to JWT_EXPIRATION_MINUTES; this
-    DB check blocks them at the auth layer instead.
-
-    Cost: 1 extra DB query per protected request (~1-2ms). For higher
-    traffic, cache the result in Redis (see C6 - token revocation).
-
-    Failure mode: if the DB is unreachable, fail-open (allow the request
-    through). The user is authenticated by a valid JWT; denying the
-    request during a DB outage would lock everyone out.
+    The token arrives in an HttpOnly cookie, so the SPA can neither read
+    nor forge it; no Authorization header is consulted. Unsafe methods
+    additionally require X-CSRF-Token to match the csrf_token cookie —
+    enforcing it here covers every protected route without an allowlist of
+    public mutating endpoints to keep in sync.
     """
     @wraps(f)
     def decorated(*args, **kwargs):
-        auth_header = request.headers.get("Authorization", "")
-        if not auth_header.startswith("Bearer "):
-            return {"error": "Missing or invalid Authorization header"}, 401
+        # Imported lazily: principal.py imports LDAPAuth at module level,
+        # so importing it here at module scope would be circular.
+        from app.auth.session.principal import resolve_principal
 
-        token = auth_header.replace("Bearer ", "")
-        payload = LDAPAuth.decode_token(token)
+        principal = resolve_principal()
+        if principal is None or principal.expired:
+            return {"error": "Not authenticated"}, 401
 
-        if payload is None:
-            return {"error": "Invalid or expired token"}, 401
+        g.current_user = principal.username
+        g.user_db_id = principal.user_db_id
 
-        g.current_user = payload.get("sub")
-        g.user_db_id = payload.get("user_db_id")
-
-        if not g.user_db_id:
-            return {"error": "User not authorized"}, 403
-
-        # M1: defense against soft-deleted users.
-        # JWT is stateless - a user soft-deleted today can still use
-        # their existing token for up to JWT_EXPIRATION_MINUTES. This
-        # DB check blocks them at the auth layer for EVERY protected
-        # route - comments, experts, mentions, all of them.
-        from db.postgres_client import get_postgres_client
-        from ingestion.repository.users_repository import UsersRepository
-        try:
-            users_repo = UsersRepository(db_pool=get_postgres_client().get_pool())
-            user = users_repo.get_by_uuid(g.user_db_id)
-        except Exception as exc:
-            # Fail-open on DB error: don't lock users out if Postgres is down.
-            logger.warning("M1 soft-delete check failed (fail-open): %s", exc)
-            user = None
-        if user is None:
-            return {
-                "error": "User not authorized (soft-deleted or unknown)"
-            }, 403
+        if CsrfTokenService.requires_csrf(request.method):
+            header_value = request.headers.get(CSRF_HEADER)
+            if not CsrfTokenService().validate(get_csrf_cookie(), header_value):
+                logger.warning(
+                    "CSRF check failed for %s %s (user=%s)",
+                    request.method, request.path, principal.username,
+                )
+                return {"error": "CSRF validation failed"}, 403
 
         return f(*args, **kwargs)
 

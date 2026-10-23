@@ -1,78 +1,73 @@
-import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
+import {
+  HttpErrorResponse,
+  HttpInterceptorFn,
+  HttpRequest,
+} from '@angular/common/http';
 import { inject } from '@angular/core';
-import { catchError, throwError } from 'rxjs';
+import { catchError, switchMap, throwError } from 'rxjs';
 
+import { AuthService } from './services/auth.service';
 import { LogoutService } from './services/logout.service';
 
+/** Methods that require X-CSRF-Token. */
+const UNSAFE = /^(POST|PUT|PATCH|DELETE)$/i;
+
 /**
- * Extract the access_token cookie value, if present.
+ * Paths whose 401s are normal validation rather than a dead session: a
+ * mistyped OTP, an expired captcha, bad credentials. Logging the user out
+ * on those would throw away a good session because of a typo.
  *
- * Note: this only checks the cookie EXISTENCE/format — actual JWT validity
- * is verified server-side. That's fine here because the interceptor uses
- * the cookie's presence as a signal that the user considers themselves
- * authenticated; the SERVER's 401 response is what tells us the cookie is
- * actually rejected.
+ * /api/auth/session must be included or a genuine logout retries forever,
+ * since the refresh call itself 401s when there is no session.
  */
-function readAccessToken(): string | null {
-  const cookies = document.cookie.split(';');
-  for (const cookie of cookies) {
-    const parts = cookie.split('=');
-    if (parts.length >= 2 && parts[0].trim() === 'access_token') {
-      const raw = decodeURIComponent(parts.slice(1).join('='));
-      return raw || null;
-    }
+const AUTH_FLOW_PATH =
+  /\/api\/auth\/(login|captcha|mfa\/(request|verify)|session)\b/;
+
+/**
+ * Same-origin today, but withCredentials keeps this correct if the API is
+ * ever split onto another origin.
+ */
+function withAuth(
+  req: HttpRequest<unknown>,
+  csrf: string | null,
+): HttpRequest<unknown> {
+  let out = req.clone({ withCredentials: true });
+  if (UNSAFE.test(req.method) && csrf) {
+    out = out.clone({ setHeaders: { 'X-CSRF-Token': csrf } });
   }
-  return null;
+  return out;
 }
 
-/**
- * 401s from the login/MFA flow are part of normal validation — the user
- * typed the wrong OTP, captcha expired, etc. — and the login component
- * renders inline error messages for them. Only treat 401s from outside
- * that flow as 'your session is gone.'
- */
-const AUTH_FLOW_PATH = /\/api\/auth\/(login|captcha|mfa\/(request|verify))\b/;
-
-/**
- * Module-scoped single-flight flag: if multiple parallel requests all
- * 401 in the same tick (typical after token expiry), we want exactly one
- * logout + redirect, not N. LogoutService.logout itself is fast and
- * idempotent on persona/cookie, but Router.navigate is not free.
- */
-let autoLogoutInFlight = false;
-
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
-  const token = readAccessToken();
+  const auth = inject(AuthService);
   const logout = inject(LogoutService);
 
-  // Attach Authorization if we have a token. The backend's response —
-  // including any 401 — then tells us whether the token was actually
-  // accepted.
-  const authedReq = token
-    ? req.clone({ setHeaders: { Authorization: `Bearer ${token}` } })
-    : req;
-
-  return next(authedReq).pipe(
+  return next(withAuth(req, auth.csrf())).pipe(
     catchError((err) => {
-      if (
+      // A 401 while holding a session almost always means the access token
+      // just expired, so rotate it and replay rather than logging out.
+      // 'unknown' and 'anonymous' are excluded — nothing to refresh with.
+      const recoverable =
         err instanceof HttpErrorResponse &&
         err.status === 401 &&
-        token &&                    // we had a token that the server rejected
         !AUTH_FLOW_PATH.test(req.url) &&
-        !autoLogoutInFlight
-      ) {
-        autoLogoutInFlight = true;
-        // LogoutService does everything: cookie clear, localStorage clear,
-        // persona reset (signal + storage), navigate. Reusing it keeps the
-        // auto-logout path identical to the manual-logout path in the
-        // navbar — same code, same behaviour, no drift.
-        logout.logout('/login');
-        // Release the single-flight guard after the navigation kicks off.
-        // A later unrelated 401 (e.g., after the user re-logs in and
-        // that token also expires) should still trigger a fresh logout.
-        setTimeout(() => (autoLogoutInFlight = false), 0);
-      }
-      return throwError(() => err);
+        auth.isAuthenticated();
+
+      if (!recoverable) return throwError(() => err);
+
+      return auth.refreshOnce().pipe(
+        switchMap((session) => {
+          if (!session) {
+            logout.logout('/login');
+            return throwError(() => err);
+          }
+
+          // Rebuilt from the ORIGINAL req, not the outgoing one: the refresh
+          // rotated the csrf_token, and replaying the stale one would 403
+          // every unsafe request right after a successful refresh.
+          return next(withAuth(req, auth.csrf()));
+        }),
+      );
     }),
   );
 };

@@ -100,19 +100,6 @@
       [class.is-open]="filtersExpanded()"
     >
       <div class="filter-row">
-        <span class="filter-row__label">SEVERITY</span>
-        <select
-          class="filter-field__select"
-          [value]="severityFilter()"
-          (change)="onSeverityChange($any($event.target).value)"
-        >
-          <option *ngFor="let opt of severityOptions" [value]="opt.value">
-            {{ opt.label }}
-          </option>
-        </select>
-      </div>
-
-      <div class="filter-row">
         <span class="filter-row__label">PERIOD</span>
         <div class="period-chips" role="group" aria-label="Period filter">
           <button
@@ -200,11 +187,6 @@
       >
         <div class="deadline-row__top">
           <div class="deadline-row__tags">
-            <span
-              *ngIf="d.priority"
-              class="priority-pill"
-              [class]="'priority-pill--' + d.priority"
-            >{{ d.priority }}</span>
             <span
               *ngIf="d.exchange"
               [class]="'exchange-tag tag-' + d.exchange.toLowerCase()"

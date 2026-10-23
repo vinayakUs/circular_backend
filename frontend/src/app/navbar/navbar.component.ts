@@ -1,7 +1,7 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { NgIf } from '@angular/common';
-import { LoginService } from '../services/login.service';
+import { AuthService } from '../services/auth.service';
 import { LogoutService } from '../services/logout.service';
 import { DepartmentModalComponent } from '../department-modal/department-modal.component';
 import { UserManagementModalComponent } from '../user-management-modal/user-management-modal.component';
@@ -21,17 +21,16 @@ import { personaIconPath } from '../util/persona-icons';
   templateUrl: './navbar.component.html',
   styleUrl: './navbar.component.css',
 })
-export class NavbarComponent implements OnInit {
-  private loginService = inject(LoginService);
+export class NavbarComponent {
+  private authSvc = inject(AuthService);
   private logoutSvc = inject(LogoutService);
   private personaSvc = inject(CurrentPersonaService);
   private router = inject(Router);
 
   dropdownOpen = false;
-  currentUsername: string = '';
 
-  ngOnInit(): void {
-    this.currentUsername = this.loginService.getUsername();
+  get currentUsername(): string {
+    return this.authSvc.user()?.username ?? '';
   }
 
   showDepartmentModal = false;
@@ -58,7 +57,7 @@ export class NavbarComponent implements OnInit {
   }
 
   get isAuthenticated(): boolean {
-    return this.loginService.isAuthenticated();
+    return this.authSvc.isAuthenticated();
   }
 
   get currentPersonaSlug(): string | null {

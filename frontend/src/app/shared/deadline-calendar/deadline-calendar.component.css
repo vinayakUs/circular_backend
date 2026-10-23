@@ -179,7 +179,7 @@
   line-height: 1;
 }
 
-/* ── Priority dots under day number ─────────────────── */
+/* ── Deadline count dots under day number ─────────────── */
 .dc__dots {
   display: flex;
   gap: 3px;
@@ -193,11 +193,6 @@
   border-radius: 50%;
   background: var(--dc-text-soft);
 }
-
-.dc__dot--critical { background: #ef4444; }
-.dc__dot--high     { background: #f59e0b; }
-.dc__dot--medium   { background: #5e6ad2; }
-.dc__dot--low      { background: #14b8a6; }
 
 /* ── Items list below ────────────────────────────────── */
 .dc__items {
@@ -244,11 +239,6 @@
   flex-shrink: 0;
   line-height: 1.4;
 }
-
-.dc__pill--critical { background: rgba(239, 68, 68, 0.12); color: #b91c1c; }
-.dc__pill--high     { background: rgba(245, 158, 11, 0.12); color: #b45309; }
-.dc__pill--medium   { background: rgba(94, 106, 210, 0.12); color: #4f46e5; }
-.dc__pill--low      { background: rgba(20, 184, 166, 0.12); color: #0f766e; }
 
 /* Exchange pill — defaults to neutral; per-exchange colors come from
    the global palette in src/styles.css so it matches the rest of the

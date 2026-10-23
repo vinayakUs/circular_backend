@@ -21,7 +21,6 @@ class EnrichedActionItemDTO(BaseModel):
     circular_id: UUID
     action_item: str
     deadline: Optional[date] = None
-    priority: Optional[str] = None
     days_until_deadline: Optional[int] = None
     relative_deadline: Optional[str] = None
     created_at: datetime
@@ -39,7 +38,6 @@ class EnrichedActionItemDTO(BaseModel):
             circular_id=item.circular_id,
             action_item=item.action_item,
             deadline=item.deadline,
-            priority=item.priority,
             days_until_deadline=days_until_deadline,
             relative_deadline=relative_deadline,
             created_at=item.created_at,

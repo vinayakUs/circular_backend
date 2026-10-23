@@ -54,7 +54,6 @@ def register_routes(app) -> None:
 
         Query params (all optional):
             circular_id: filter to one circular (UUID)
-            priority:    critical | high | medium | low
             start_date:  ISO date (YYYY-MM-DD) — inclusive lower bound on deadline
             end_date:    ISO date (YYYY-MM-DD) — inclusive upper bound on deadline
             limit:       page size (default 20, max 200)
@@ -83,9 +82,6 @@ def register_routes(app) -> None:
             except ValueError:
                 return {"error": "Invalid circular_id format. Must be a UUID."}, 400
 
-        # ── Parse priority ─────────────────────────────────────
-        raw_priority = request.args.get("priority", "").strip().lower() or None
-
         # ── Parse dates ────────────────────────────────────────
         try:
             start_date = _parse_date_arg("start_date")
@@ -98,14 +94,12 @@ def register_routes(app) -> None:
         try:
             items, total = repo.get_action_items(
                 circular_id=circular_id,
-                priority=raw_priority,
                 start_date=start_date,
                 end_date=end_date,
                 limit=limit,
                 offset=offset,
             )
         except ValueError as e:
-            # Invalid priority caught by repository
             return {"error": str(e)}, 400
 
         # ── Enrich with relative-deadline fields (presentation layer) ──

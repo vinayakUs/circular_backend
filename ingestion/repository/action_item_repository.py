@@ -17,7 +17,6 @@ class ActionItemDTO(BaseModel):
     circular_id: UUID
     action_item: str
     deadline: Optional[date] = None
-    priority: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -42,7 +41,6 @@ class ActionItemListResponseDTO(BaseModel):
     limit: int
     offset: int
 
-_VALID_PRIORITIES = frozenset({"critical", "high", "medium", "low"})
 
 class ActionItemRepository:
     """Repository for managing action items in the database."""
@@ -67,7 +65,7 @@ class ActionItemRepository:
 
         No DELETE here — callers wanting idempotency should call
         `delete_action_items_for_circular` first (delete-then-insert pattern).
-        Items accept any object with `.action_item`, `.deadline`, `.priority`.
+        Items accept any object with `.action_item`, `.deadline`.
         """
         if not items:
             return 0
@@ -76,24 +74,17 @@ class ActionItemRepository:
             with conn.transaction():
                 cursor = conn.cursor()
                 for item in items:
-                    priority = getattr(item, "priority", None)
-                    if priority is not None and priority not in _VALID_PRIORITIES:
-                        raise ValueError(
-                            f"Invalid priority '{priority}'. "
-                            f"Must be one of: {sorted(_VALID_PRIORITIES)}"
-                        )
                     cursor.execute(
                         """
                         INSERT INTO action_items (
-                            circular_id, action_item, deadline, priority
+                            circular_id, action_item, deadline
                         )
-                        VALUES (%s, %s, %s, %s)
+                        VALUES (%s, %s, %s)
                         """,
                         (
                             str(circular_id),
                             item.action_item,
                             item.deadline,
-                            priority,
                         ),
                     )
 
@@ -129,7 +120,6 @@ class ActionItemRepository:
     def get_action_items(
         self,
         circular_id: Optional[UUID] = None,
-        priority: Optional[str] = None,
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
         limit: int = 20,
@@ -139,24 +129,14 @@ class ActionItemRepository:
 
         Filters:
             - circular_id: only items for this circular
-            - priority: exact match (critical/high/medium/low)
             - start_date / end_date: inclusive range on `deadline`
         """
-        if priority is not None and priority not in _VALID_PRIORITIES:
-            raise ValueError(
-                f"Invalid priority '{priority}'. "
-                f"Must be one of: {sorted(_VALID_PRIORITIES)}"
-            )
-
         conditions: list[str] = []
         params: list[Any] = []
 
         if circular_id is not None:
             conditions.append("circular_id = %s")
             params.append(str(circular_id))
-        if priority is not None:
-            conditions.append("priority = %s")
-            params.append(priority)
         if start_date is not None:
             conditions.append("deadline >= %s")
             params.append(start_date)
@@ -168,7 +148,7 @@ class ActionItemRepository:
 
         count_query = f"SELECT COUNT(*) FROM action_items WHERE {where_clause}"
         data_query = f"""
-            SELECT id, circular_id, action_item, deadline, priority, created_at, updated_at
+            SELECT id, circular_id, action_item, deadline, created_at, updated_at
             FROM   action_items
             WHERE  {where_clause}
             ORDER BY created_at DESC
@@ -189,9 +169,8 @@ class ActionItemRepository:
                 circular_id=row[1],
                 action_item=row[2],
                 deadline=row[3],
-                priority=row[4],
-                created_at=row[5],
-                updated_at=row[6],
+                created_at=row[4],
+                updated_at=row[5],
             )
             for row in rows
         ]
@@ -212,11 +191,10 @@ class ActionItemRepository:
         persona_slug: Optional[str] = None,
         from_date: Optional[date] = None,
         to_date: Optional[date] = None,
-        priority_csv: Optional[str] = None,
         exchange_csv: Optional[str] = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> Tuple[List[Tuple[UUID, date, str, str, Optional[str], UUID, str]], int]:
+    ) -> Tuple[List[Tuple[UUID, date, str, str, UUID, str]], int]:
         """Return (rows, total) for deadlines, optionally filtered by persona.
 
         Joins action_items → circulars; when `persona_slug` is given,
@@ -236,7 +214,6 @@ class ActionItemRepository:
                            from + 365d when omitted.
         """
         # ── Defaults ─────────────────────────────────────────
-        priority_csv = priority_csv or None
         exchange_csv = exchange_csv or None
         if from_date is None:
             from_date = date.today() - timedelta(days=30)
@@ -249,8 +226,7 @@ class ActionItemRepository:
             "ai.deadline BETWEEN %s AND %s",
             # ::text casts make the placeholder type explicit — works with both
             # psycopg2 (client-side substitution) and psycopg3 (server-side binding)
-            "(%s::text IS NULL OR ai.priority = ANY(string_to_array(%s::text, ',')))",
-            "(%s::text IS NULL OR c.source    = ANY(string_to_array(%s::text, ',')))",
+            "(%s::text IS NULL OR c.source = ANY(string_to_array(%s::text, ',')))",
         ]
         where = " AND ".join(where_parts)
 
@@ -275,7 +251,6 @@ class ActionItemRepository:
                 ai.deadline,
                 ai.action_item,
                 c.source,
-                ai.priority,
                 c.id,
                 c.title        AS circular_title
             FROM   action_items ai
@@ -288,14 +263,13 @@ class ActionItemRepository:
 
         # Build params in the order placeholders appear in the SQL above:
         #   persona_slug (×1 if present), from_date, to_date,
-        #   priority_csv (×2), exchange_csv (×2), limit, offset
+        #   exchange_csv (×2), limit, offset
         params: list = []
         if persona_slug is not None:
             params.append(persona_slug)
         params += [
             from_date,
             to_date,
-            priority_csv, priority_csv,
             exchange_csv, exchange_csv,
         ]
         base_params = tuple(params)

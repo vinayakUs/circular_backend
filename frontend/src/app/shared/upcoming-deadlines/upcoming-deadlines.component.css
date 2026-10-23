@@ -129,11 +129,6 @@
   flex-shrink: 0;
 }
 
-.ud__pill--critical { background: rgba(239, 68, 68, 0.12); color: #b91c1c; }
-.ud__pill--high     { background: rgba(245, 158, 11, 0.12); color: #b45309; }
-.ud__pill--medium   { background: rgba(94, 106, 210, 0.12); color: #4f46e5; }
-.ud__pill--low      { background: rgba(20, 184, 166, 0.12); color: #0f766e; }
-
 /* Exchange pill — defaults to neutral; per-exchange colors come from
    the global palette in src/styles.css so it matches the rest of the
    app. The HTML also applies `tag-<exchange>` via [ngClass]. */

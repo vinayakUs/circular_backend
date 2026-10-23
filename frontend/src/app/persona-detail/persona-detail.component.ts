@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
-import { LoginService } from '../services/login.service';
+import { AuthService } from '../services/auth.service';
 import {
   DeadlineEvent,
   Persona,
@@ -26,7 +26,6 @@ import { addDays, endOfMonth, format } from 'date-fns';
 })
 export class PersonaDetailComponent implements OnInit {
   persona: Persona | null = null;
-  isAuthenticated = false;
   loading = true;
   error: string | null = null;
 
@@ -61,11 +60,14 @@ export class PersonaDetailComponent implements OnInit {
 
   private route = inject(ActivatedRoute);
   private personasApi = inject(PersonasApiService);
-  private auth = inject(LoginService);
+  private auth = inject(AuthService);
   private router = inject(Router);
 
+  get isAuthenticated(): boolean {
+    return this.auth.isAuthenticated();
+  }
+
   ngOnInit(): void {
-    this.isAuthenticated = this.auth.isAuthenticated();
     const slug = this.route.snapshot.paramMap.get('slug');
 
     if (!slug) {

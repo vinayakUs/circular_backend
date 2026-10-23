@@ -42,9 +42,41 @@ class Config:
     JWT_PRIVATE_KEY = os.getenv("JWT_PRIVATE_KEY")  # PEM-encoded RSA private key
     JWT_PUBLIC_KEY = os.getenv("JWT_PUBLIC_KEY")      # PEM-encoded RSA public key
     JWT_ALGORITHM = "RS256"
-    # Short-lived access tokens. Was 24h, dropped to 15m — limits blast radius of any
-    # leaked token. Without refresh tokens this means users re-login once per session.
-    JWT_EXPIRATION_MINUTES = int(os.getenv("JWT_EXPIRATION_MINUTES", "1440"))  # 1 day
+    # Access-token lifetime. MUST equal the access_token cookie's max_age —
+    # cookie.py derives the cookie from this, so the two cannot drift.
+    JWT_EXPIRATION_MINUTES = int(os.getenv("JWT_EXPIRATION_MINUTES", "15"))
+
+    # ==== SESSION / COOKIES ====
+    # Refresh tokens are opaque 32-byte secrets; only their SHA-256 hash is
+    # persisted. Lifetime is sliding — every rotation pushes expires_at
+    # forward, so an active tab never logs out. Reuse detection (revoking the
+    # whole token family on replay) is the compensating control for the
+    # absence of an absolute cap. 10080 minutes == 7 days.
+    REFRESH_TOKEN_TTL_MINUTES = int(os.getenv("REFRESH_TOKEN_TTL_MINUTES", "10080"))
+    # Grace window after a token is consumed during which re-presenting it is
+    # treated as a benign concurrent rotation rather than theft. Two browser
+    # tabs refreshing at once is normal usage; without this, tab 2's retry
+    # would trip reuse detection and revoke the user's own session.
+    REFRESH_REUSE_GRACE_SECONDS = int(os.getenv("REFRESH_REUSE_GRACE_SECONDS", "30"))
+
+    # Auth cookie attributes. Secure defaults to true and must stay true in
+    # every real deployment; set COOKIE_SECURE=false only for plain-HTTP
+    # testing on a non-localhost host.
+    COOKIE_SECURE = os.getenv("COOKIE_SECURE", "true").lower() == "true"
+    COOKIE_SAMESITE = os.getenv("COOKIE_SAMESITE", "Strict")
+    # Empty means host-only, which is right: the API and app share a host
+    # behind the reverse proxy.
+    COOKIE_DOMAIN = os.getenv("COOKIE_DOMAIN", "")
+
+    # Credentialed CORS cannot use "*" — the spec forbids
+    # Access-Control-Allow-Origin: * alongside Allow-Credentials: true.
+    # Only fires for the Angular dev server; proxy.conf.json already
+    # proxies /api in dev.
+    CORS_ORIGINS = [
+        r.strip()
+        for r in os.getenv("CORS_ORIGINS", "http://localhost:4200").split(",")
+        if r.strip()
+    ]
 
     # ==== CAPTCHA ====
     # Self-hosted text CAPTCHA on /api/auth/login. See

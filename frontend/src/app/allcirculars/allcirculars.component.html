@@ -58,7 +58,17 @@
             </div>
 
             <div class="filter-group">
-              <span class="filter-label">Date Range</span>
+              <div class="filter-label-row">
+                <span class="filter-label">Date Range</span>
+                <button
+                  *ngIf="hasDateRange"
+                  type="button"
+                  class="filter-label-clear"
+                  (click)="clearDateRange()"
+                >
+                  Clear
+                </button>
+              </div>
               <div class="date-input">
                 <label class="date-label">From</label>
                 <input
@@ -78,7 +88,17 @@
             </div>
 
             <div class="filter-group">
-              <span class="filter-label">Circular No</span>
+              <div class="filter-label-row">
+                <span class="filter-label">Circular No</span>
+                <button
+                  *ngIf="hasCircularNos"
+                  type="button"
+                  class="filter-label-clear"
+                  (click)="clearCircularNos()"
+                >
+                  Clear
+                </button>
+              </div>
               <div class="multi-select">
                 <input
                   type="text"
@@ -126,7 +146,17 @@
             </div>
 
             <div class="filter-group">
-              <span class="filter-label">Signatory</span>
+              <div class="filter-label-row">
+                <span class="filter-label">Signatory</span>
+                <button
+                  *ngIf="hasSignatories"
+                  type="button"
+                  class="filter-label-clear"
+                  (click)="clearSignatories()"
+                >
+                  Clear
+                </button>
+              </div>
               <div class="multi-select">
                 <button
                   type="button"
@@ -189,7 +219,17 @@
             </div>
 
             <div class="filter-group">
-              <span class="filter-label">Department</span>
+              <div class="filter-label-row">
+                <span class="filter-label">Department</span>
+                <button
+                  *ngIf="hasDepartment"
+                  type="button"
+                  class="filter-label-clear"
+                  (click)="clearDepartment()"
+                >
+                  Clear
+                </button>
+              </div>
               <div class="multi-select">
                 <button
                   type="button"

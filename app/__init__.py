@@ -11,6 +11,7 @@ import logging
 
 from flask import Flask
 from flask_cors import CORS
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from config import Config
 from services.rag.answer_generator import RAGAnswerGenerator
@@ -84,7 +85,16 @@ def create_app() -> Flask:
 
     app = Flask(__name__)
     app.config.from_object("config.Config")
-    CORS(app, origins="*")
+
+    # Without this, request.is_secure is False behind the TLS-terminating
+    # reverse proxy and the Secure attribute on the auth cookies misbehaves.
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
+    CORS(
+        app,
+        origins=Config.CORS_ORIGINS,
+        supports_credentials=True,
+    )
 
     rag_generator = RAGAnswerGenerator()
 

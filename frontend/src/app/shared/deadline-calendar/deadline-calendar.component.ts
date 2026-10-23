@@ -26,7 +26,9 @@ import {
 declare const __uuid: unique symbol;
 export type UUID = string & { readonly [__uuid]: never };
 
-export type DeadlinePriority = 'critical' | 'high' | 'medium' | 'low';
+/** Most dots rendered under one day cell. Three fits the 40px cell height;
+ *  beyond that the count would stop being readable at a glance. */
+const MAX_DAY_DOTS = 3;
 
 export interface DeadlineEvent {
   /** Backend-generated UUID. */
@@ -37,8 +39,6 @@ export interface DeadlineEvent {
   title: string;
   /** Exchange badge (e.g. 'NSE', 'SEBI'). Optional. */
   exchange?: string;
-  /** Drives the colored dot under the day cell + the priority pill. */
-  priority?: DeadlinePriority | null;
   /** If present, the title renders as <a href> instead of plain text. */
   url?: string;
   /** Title of the source circular this action item was extracted from. */
@@ -106,20 +106,11 @@ export class DeadlineCalendarComponent {
     return this.events.some((e) => isSameDay(new Date(e.date), date));
   }
 
-  /** Up to 3 distinct priority colors for the indicator dots under a day. */
-  priorityDotsForDay(date: Date): DeadlinePriority[] {
-    const items = this.events.filter((e) => isSameDay(new Date(e.date), date));
-    const seen = new Set<DeadlinePriority>();
-    const out: DeadlinePriority[] = [];
-    for (const item of items) {
-      const p = (item.priority ?? 'medium') as DeadlinePriority;
-      if (!seen.has(p)) {
-        seen.add(p);
-        out.push(p);
-        if (out.length >= 3) break;
-      }
-    }
-    return out;
+  /** One indicator dot per deadline on this day, capped so a busy day
+   *  stays the same height as a quiet one instead of stretching the row. */
+  dotsForDay(date: Date): number[] {
+    const count = this.events.filter((e) => isSameDay(new Date(e.date), date)).length;
+    return Array.from({ length: Math.min(count, MAX_DAY_DOTS) });
   }
 
   // ── Actions ──────────────────────────────────────────────

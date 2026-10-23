@@ -11,7 +11,7 @@ import { Router, RouterLink } from '@angular/router';
 import { addDays, format } from 'date-fns';
 
 import { CurrentPersonaService } from '../services/current-persona.service';
-import { LoginService } from '../services/login.service';
+import { AuthService } from '../services/auth.service';
 import { DeadlineEvent, PersonasApiService } from '../services/personas-api.service';
 import {
   UpcomingChangesFiltersService,
@@ -19,11 +19,6 @@ import {
 } from './upcoming-changes-filters.service';
 
 interface SourceOption {
-  value: string;
-  label: string;
-}
-
-interface SeverityOption {
   value: string;
   label: string;
 }
@@ -66,7 +61,6 @@ export class UpcomingChangesComponent implements OnInit {
 
   // ── Filter signals (read straight from the service) ──────────
   readonly sourceFilter     = this.filters.sourceFilter;
-  readonly severityFilter   = this.filters.severityFilter;
   readonly periodFilter     = this.filters.periodFilter;
   readonly customFromDate   = this.filters.customFromDate;
   readonly customToDate     = this.filters.customToDate;
@@ -84,14 +78,6 @@ export class UpcomingChangesComponent implements OnInit {
     { value: 'SEBI', label: 'SEBI' },
   ];
 
-  readonly severityOptions: ReadonlyArray<SeverityOption> = [
-    { value: 'ALL',      label: 'All' },
-    { value: 'critical', label: 'Critical' },
-    { value: 'high',     label: 'High' },
-    { value: 'medium',   label: 'Medium' },
-    { value: 'low',      label: 'Low' },
-  ];
-
   readonly periodOptions: ReadonlyArray<PeriodOption> = [
     { value: '1W', label: '1W' },
     { value: '2W', label: '2W' },
@@ -102,7 +88,7 @@ export class UpcomingChangesComponent implements OnInit {
   ];
 
   private router = inject(Router);
-  private auth = inject(LoginService);
+  private auth = inject(AuthService);
   private personaSvc = inject(CurrentPersonaService);
   private api = inject(PersonasApiService);
 
@@ -130,11 +116,6 @@ export class UpcomingChangesComponent implements OnInit {
   setSourceFilter(value: string): void {
     if (this.sourceFilter() === value) return;
     this.filters.setSource(value);
-    this.loadDeadlines();
-  }
-
-  onSeverityChange(value: string): void {
-    this.filters.setSeverity(value);
     this.loadDeadlines();
   }
 
@@ -264,7 +245,6 @@ export class UpcomingChangesComponent implements OnInit {
       from: format(from, 'yyyy-MM-dd'),
       to: format(to, 'yyyy-MM-dd'),
       exchange: this.sourceFilter() === 'ALL' ? undefined : this.sourceFilter(),
-      priority: this.severityFilter() === 'ALL' ? undefined : this.severityFilter(),
       limit: 100,
     };
 

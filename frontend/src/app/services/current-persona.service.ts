@@ -1,22 +1,17 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, signal } from '@angular/core';
-import { Observable, of } from 'rxjs';
-import { catchError, tap } from 'rxjs/operators';
+import { Observable } from 'rxjs';
+import { tap } from 'rxjs/operators';
 
 import { environment } from '../../environments/environment';
 import { Persona } from './personas-api.service';
-import { LoginService } from './login.service';
+import { User } from './auth.service';
 
 /**
  * Reactive store for the current user's selected persona.
  *
- * Two sources of truth, kept consistent:
- *   - Angular signal (reactive, in-memory, shared with all components)
- *   - localStorage 'user_details' (durable, survives reloads)
- *
- * On PUT, both update in the same handler so they can't drift visibly
- * to the user. Bootstrap prefers localStorage (zero HTTP); only login
- * (post-MFA) fetches /me.
+ * Single source of truth: the Angular signal, populated from a User the
+ * caller hands in. This service knows nothing about authentication.
  */
 @Injectable({ providedIn: 'root' })
 export class CurrentPersonaService {
@@ -29,19 +24,7 @@ export class CurrentPersonaService {
   readonly persona = this._persona.asReadonly();
   readonly loaded = this._loaded.asReadonly();
 
-  constructor(
-    private loginSvc: LoginService,
-    private http: HttpClient,
-  ) {}
-
-  hydrateFromStorage(): void {
-    const u = this.loginSvc.getStoredUser();
-    if (u) {
-      this._slug.set(u.persona_slug ?? null);
-      this._persona.set(u.persona ?? null);
-    }
-    this._loaded.set(true);
-  }
+  constructor(private http: HttpClient) {}
 
   /** Call on logout so the next login doesn't see the previous user's persona. */
   reset(): void {
@@ -50,20 +33,16 @@ export class CurrentPersonaService {
     this._loaded.set(false);
   }
 
-  setFromMe(user: {
-    persona_slug?: string | null;
-    persona?: Persona | null;
-  }): void {
-    this._slug.set(user.persona_slug ?? null);
-    this._persona.set(user.persona ?? null);
+  /** Adopt the persona carried by a /api/auth/session or /mfa/verify body. */
+  setFromUser(user: User | null): void {
+    this._slug.set(user?.persona_slug ?? null);
+    this._persona.set(user?.persona ?? null);
     this._loaded.set(true);
   }
 
   /**
-   * The slug is mirrored to localStorage immediately on PUT success so a
-   * later follow-up GET failure (resolving the full persona object) can't
-   * leave the durable cache stale. When /api/personas resolves, we
-   * overwrite the entry with the full object.
+   * Persist a persona choice. The slug updates optimistically so the UI
+   * reacts immediately; the full object is resolved from /api/personas.
    */
   set(slug: string | null): Observable<void> {
     return this.http
@@ -71,7 +50,6 @@ export class CurrentPersonaService {
       .pipe(
         tap(() => {
           this._slug.set(slug);
-          this._mirrorToLocalStorage(slug, null);
           if (slug) {
             this._resolvePersonaFromConfig(slug);
           } else {
@@ -85,21 +63,7 @@ export class CurrentPersonaService {
     this.http
       .get<Persona[]>(`${environment.apiUrl}/api/personas`)
       .subscribe((list) => {
-        const match = list.find((p) => p.slug === slug) ?? null;
-        this._persona.set(match);
-        this._mirrorToLocalStorage(slug, match);
+        this._persona.set(list.find((p) => p.slug === slug) ?? null);
       });
-  }
-
-  /** Skipped if there's no stored user (anonymous session). */
-  private _mirrorToLocalStorage(
-    slug: string | null,
-    persona: Persona | null,
-  ): void {
-    const stored = this.loginSvc.getStoredUser();
-    if (!stored) return;
-    stored.persona_slug = slug;
-    stored.persona = persona;
-    localStorage.setItem('user_details', JSON.stringify(stored));
   }
 }

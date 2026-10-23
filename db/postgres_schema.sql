@@ -351,15 +351,12 @@ CREATE TABLE IF NOT EXISTS action_items (
     circular_id UUID NOT NULL REFERENCES circulars(id) ON DELETE CASCADE,
     action_item TEXT NOT NULL,
     deadline DATE,
-    priority VARCHAR(20),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_action_items_circular_id
     ON action_items(circular_id);
-CREATE INDEX IF NOT EXISTS idx_action_items_priority
-    ON action_items(priority);
 
 -- DDL for per circular_persona_matches Many-to-many join table (added 13-10-2026)
 
@@ -371,3 +368,26 @@ CREATE TABLE IF NOT EXISTS circular_persona_matches (
 );
 CREATE INDEX IF NOT EXISTS idx_cpm_lookup ON circular_persona_matches(persona_slug);
 CREATE INDEX IF NOT EXISTS idx_cpm_circular ON circular_persona_matches(circular_id);
+
+-- DDL for refresh_tokens table (22-10-2026)
+-- Opaque server-side refresh credentials. Only the SHA-256 hash is stored;
+-- the plaintext exists solely in the HttpOnly cookie.
+-- family_id groups a rotation chain so that presenting an already-consumed
+-- token can be detected as theft and revoke the whole family.
+
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+    id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_db_id       UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash       VARCHAR(64) NOT NULL UNIQUE,
+    family_id        UUID        NOT NULL,
+    issued_ip        INET,
+    issued_user_agent TEXT,
+    consumed         BOOLEAN     NOT NULL DEFAULT FALSE,
+    consumed_at      TIMESTAMPTZ,
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at       TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_active
+    ON refresh_tokens (user_db_id, consumed, expires_at);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_family
+    ON refresh_tokens (family_id);

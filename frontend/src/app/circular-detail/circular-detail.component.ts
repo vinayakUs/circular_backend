@@ -6,7 +6,7 @@ import { marked } from 'marked';
 import type cytoscape from 'cytoscape';
 import { CircularsApiService, Circular, Signatory, Expert, ReferenceGraphResponse } from '../services/circulars-api.service';
 import { ExpertModalComponent } from '../expert-modal/expert-modal.component';
-import { LoginService } from '../services/login.service';
+import { AuthService } from '../services/auth.service';
 import { normalizeSource } from '../util/source.util';
 
 interface ActionItem {
@@ -14,7 +14,6 @@ interface ActionItem {
   action_item: string;
   circular_id: string;
   deadline: string | null;
-  priority: string | null;
   days_until_deadline: number | null;
   relative_deadline: string | null;
   created_at: string;
@@ -45,8 +44,6 @@ export class CircularDetailComponent implements OnInit, AfterViewInit, OnDestroy
   signatoriesLoading = false;
   experts: Expert[] = [];
   expertsLoading = false;
-  isLoggedIn = false;
-
   referenceGraph: ReferenceGraphResponse | null = null;
   referenceGraphLoading = false;
   referenceGraphError = false;
@@ -87,12 +84,14 @@ export class CircularDetailComponent implements OnInit, AfterViewInit, OnDestroy
     private sanitizer: DomSanitizer,
     private route: ActivatedRoute,
     private api: CircularsApiService,
-    private auth: LoginService,
+    private auth: AuthService,
     private cdr: ChangeDetectorRef,
     private zone: NgZone,
     private router: Router
-  ) {
-    this.isLoggedIn = this.auth.isAuthenticated();
+  ) {}
+
+  get isLoggedIn(): boolean {
+    return this.auth.isAuthenticated();
   }
 
   ngOnInit() {

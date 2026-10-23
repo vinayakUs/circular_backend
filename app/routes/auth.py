@@ -7,8 +7,15 @@ import base64
 import logging
 from uuid import UUID
 
-from flask import g, request
+from flask import g, jsonify, make_response, request
 import psycopg2
+
+from app.auth.session.cookie import clear_auth_cookies, get_csrf_cookie, get_refresh_token, set_auth_cookies
+from app.auth.session.csrf import CSRF_HEADER, CsrfTokenService
+from app.auth.session.make_services import get_refresh_token_service
+from app.auth.session.principal import resolve_principal
+from app.auth.session.refresh_token_service import RefreshTokenInvalidError, RefreshTokenReuseError
+from config import Config
 
 from app.auth.captcha.captcha_service import get_captcha_service
 from app.auth.ldap_auth import LDAPAuth, require_auth
@@ -17,6 +24,82 @@ from ingestion.repository.properties_repository import PropertiesRepository
 from ingestion.repository.users_repository import UsersRepository
 
 logger = logging.getLogger(__name__)
+
+
+def _access_expires_at_iso() -> str:
+    from datetime import datetime, timedelta, timezone
+    expiry = datetime.now(timezone.utc) + timedelta(minutes=Config.JWT_EXPIRATION_MINUTES)
+    return expiry.isoformat()
+
+
+def _user_payload(username: str) -> dict:
+    """The user object returned by both /session and /mfa/verify."""
+    db_client = get_postgres_client()
+    users_repo = UsersRepository(db_pool=db_client.get_pool())
+    properties_repo = PropertiesRepository(db_pool=db_client.get_pool())
+
+    user = users_repo.get_user(username)
+    if not user:
+        return {
+            "username": username,
+            "department": None,
+            "persona_slug": None,
+            "persona": None,
+        }
+
+    dept = properties_repo.get_by_id(user.department_id)
+
+    persona_obj = None
+    if user.persona_slug:
+        from app.services.personas import get_personas
+        for p in get_personas():
+            if p.slug == user.persona_slug:
+                persona_obj = p.model_dump()
+                break
+
+    return {
+        "username": username,
+        "user_db_id": str(user.id),
+        "department_id": str(user.department_id),
+        "department": dept.name if dept else None,
+        "email": user.email,
+        "name": user.name,
+        "persona_slug": user.persona_slug,
+        "persona": persona_obj,
+    }
+
+
+def _anonymous_response():
+    """401 + wipe the auth cookies."""
+    resp = make_response(jsonify({"error": "Not authenticated"}), 401)
+    resp.headers["Cache-Control"] = "no-store"
+    return clear_auth_cookies(resp)
+
+
+def _session_body(username: str, *, refreshed: bool, csrf_token: str) -> dict:
+    return {
+        "authenticated": True,
+        "refreshed": refreshed,
+        "access_expires_at": _access_expires_at_iso(),
+        "csrf_token": csrf_token,
+        "user": _user_payload(username),
+    }
+
+
+def _issue_session(user):
+    """Mint the token triple and attach it to a response. Each call starts
+    a new rotation family, so separate logins are independent chains.
+    """
+    access_token = LDAPAuth().create_token(user.user_id, str(user.id))
+    refresh_plaintext, _record = get_refresh_token_service().issue(
+        user_db_id=user.id,
+        issued_ip=request.remote_addr,
+        issued_user_agent=request.headers.get("User-Agent", ""),
+    )
+    csrf_token = CsrfTokenService().issue()
+    resp = make_response(jsonify(_session_body(user.user_id, refreshed=True, csrf_token=csrf_token)), 200)
+    resp.headers["Cache-Control"] = "no-store"
+    return set_auth_cookies(resp, access_token=access_token, refresh_token=refresh_plaintext, csrf_token=csrf_token)
 
 
 def register_routes(app) -> None:
@@ -141,26 +224,7 @@ def register_routes(app) -> None:
         if user is None or user.is_deleted:
             return {"error": "User not authorized"}, 403
 
-        token = LDAPAuth().create_token(user.user_id, str(user.id))
-        from flask import make_response
-        resp = make_response(
-            {"access_token": token, "token_type": "bearer"}, 200
-        )
-        # Set a non-HttpOnly cookie so the Angular auth interceptor
-        # (JS-side) can read it from document.cookie and attach the
-        # Authorization header on subsequent requests. SameSite=Strict
-        # + Secure-when-HTTPS provides reasonable CSRF/XSS mitigation
-        # for our internal app. (True HttpOnly would be more secure
-        # but would force the interceptor to use a different source
-        # like localStorage or an in-memory service.)
-        resp.set_cookie(
-            "access_token", token,
-            httponly=False,
-            secure=request.is_secure,
-            samesite="Strict",
-            path="/", max_age=900,
-        )
-        return resp
+        return _issue_session(user)
 
     @app.post("/api/auth/mfa/request")
     def mfa_request():
@@ -239,43 +303,73 @@ def register_routes(app) -> None:
             "image_data": image_data,
         }, 200
 
-    @app.get("/api/auth/me")
-    @require_auth
-    def me():
-        db_client = get_postgres_client()
-        users_repo = UsersRepository(db_pool=db_client.get_pool())
-        properties_repo = PropertiesRepository(db_pool=db_client.get_pool())
+    @app.get("/api/auth/session")
+    def auth_session():
+        """The single "am I authenticated?" endpoint.
 
-        user = users_repo.get_user(g.current_user)
-        if not user:
-            return {
-                "username": g.current_user,
-                "department": None,
-                "persona_slug": None,
-                "persona": None,
-            }
+        Deliberately not wrapped in @require_auth: it has to run precisely
+        when the access token is dead, so it branches on principal.expired
+        itself and attempts a refresh.
+        """
+        principal = resolve_principal()
 
-        dept = properties_repo.get_by_id(user.department_id)
+        if principal is not None and not principal.expired:
+            csrf_token = get_csrf_cookie() or CsrfTokenService().issue()
+            resp = make_response(jsonify(_session_body(principal.username, refreshed=False, csrf_token=csrf_token)), 200)
+            resp.headers["Cache-Control"] = "no-store"
+            return resp
 
-        # Resolve the persona object (if any) from config/personas.json
-        persona_obj = None
-        if user.persona_slug:
-            from app.services.personas import get_personas
-            for p in get_personas():
-                if p.slug == user.persona_slug:
-                    persona_obj = p.model_dump()
-                    break
+        refresh_plaintext = get_refresh_token()
+        if not refresh_plaintext:
+            return _anonymous_response()
 
-        return {
-            "username": g.current_user,
-            "user_db_id": str(user.id),
-            "department_id": str(user.department_id),
-            "department": dept.name if dept else None,
-            "email": user.email,
-            "name": user.name,
-            "persona_slug": user.persona_slug,
-            "persona": persona_obj,
-        }
+        try:
+            new_refresh, record = get_refresh_token_service().rotate(
+                plaintext_token=refresh_plaintext,
+                issued_ip=request.remote_addr,
+                issued_user_agent=request.headers.get("User-Agent", ""),
+            )
+        except RefreshTokenReuseError as exc:
+            logger.warning("Session refresh blocked, token reuse: %s", exc)
+            return _anonymous_response()
+        except RefreshTokenInvalidError as exc:
+            logger.info("Session refresh failed, not recoverable: %s", exc)
+            return _anonymous_response()
+
+        # get_by_uuid filters is_deleted=FALSE, so a soft-deleted user
+        # cannot resurrect a session through the refresh path.
+        users_repo = UsersRepository(db_pool=get_postgres_client().get_pool())
+        user = users_repo.get_by_uuid(record.user_db_id)
+        if user is None:
+            return _anonymous_response()
+
+        access_token = LDAPAuth().create_token(user.user_id, str(user.id))
+        csrf_token = CsrfTokenService().issue()
+        resp = make_response(jsonify(_session_body(user.user_id, refreshed=True, csrf_token=csrf_token)), 200)
+        resp.headers["Cache-Control"] = "no-store"
+        return set_auth_cookies(resp, access_token=access_token, refresh_token=new_refresh, csrf_token=csrf_token)
+
+    @app.post("/api/auth/logout")
+    def logout():
+        """End the session server-side — the SPA cannot delete an HttpOnly
+        cookie. Deliberately not wrapped in @require_auth, since logout is
+        needed most often exactly when the access token has expired.
+        """
+        refresh_plaintext = get_refresh_token()
+
+        if refresh_plaintext:
+            header_value = request.headers.get(CSRF_HEADER)
+            if not CsrfTokenService().validate(get_csrf_cookie(), header_value):
+                return {"error": "CSRF validation failed"}, 403
+            try:
+                get_refresh_token_service().revoke(refresh_plaintext)
+            except Exception:
+                # The cookies are cleared either way, so a revoke failure
+                # must not strand the caller on a 500.
+                logger.exception("Refresh token revoke failed during logout")
+
+        resp = make_response("", 204)
+        return clear_auth_cookies(resp)
 
     @app.put("/api/auth/me/persona")
     @require_auth

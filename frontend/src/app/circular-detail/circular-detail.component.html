@@ -121,7 +121,6 @@
             <div class="action-items-list">
               <article class="action-item-card" *ngFor="let item of actionItems">
                 <div class="action-item-header">
-                  <span class="priority-pill" [ngClass]="item.priority || 'medium'">{{ item.priority || 'medium' }}</span>
                   <span class="action-item-deadline" *ngIf="item.deadline">
                     <span class="deadline-date">{{ formatDate(item.deadline) }}</span>
                     <span class="deadline-sep">·</span>

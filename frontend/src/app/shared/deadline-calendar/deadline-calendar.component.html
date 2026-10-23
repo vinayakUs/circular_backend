@@ -51,11 +51,7 @@
     >
       <span class="dc__day-num">{{ format(day, 'd') }}</span>
       <div class="dc__dots" *ngIf="hasEventsOn(day)">
-        <span
-          *ngFor="let p of priorityDotsForDay(day)"
-          class="dc__dot"
-          [class]="'dc__dot--' + p"
-        ></span>
+        <span *ngFor="let _ of dotsForDay(day)" class="dc__dot"></span>
       </div>
     </button>
   </div>
@@ -75,12 +71,6 @@
         *ngFor="let event of visibleSelectedDayEvents()"
         class="dc__item"
       >
-        <span
-          *ngIf="event.priority"
-          class="dc__pill dc__pill--{{ event.priority }}"
-        >
-          {{ event.priority }}
-        </span>
         <span
           *ngIf="event.exchange"
           class="dc__pill dc__pill--exchange"

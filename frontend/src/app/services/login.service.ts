@@ -3,9 +3,13 @@ import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from 'src/environments/environment';
 
-@Injectable({
-  providedIn: 'root',
-})
+import { SessionResponse } from './auth.service';
+
+/**
+ * Drives the login/MFA handshake. Owns no auth state — the access token is
+ * HttpOnly, so AuthService holds the state and this only establishes it.
+ */
+@Injectable({ providedIn: 'root' })
 export class LoginService {
   private baseUrl = environment.apiUrl;
 
@@ -24,11 +28,8 @@ export class LoginService {
   }
 
   /**
-   * Login. Returns one of two response shapes:
-   *   - { mfa_required: true, mfa_token, channels, otp_length, ttl_seconds } — MFA flow
-   *   - { access_token, token_type }                                      — direct JWT (admin bypass)
-   *
-   * Caller checks for `mfa_required` and routes accordingly.
+   * Login. The server always answers with the MFA challenge shape; there
+   * is no direct-JWT branch.
    */
   login(loginData: {
     username: string;
@@ -55,131 +56,14 @@ export class LoginService {
   }
 
   /**
-   * Verify the OTP code. On success, server sets the access_token
-   * HttpOnly cookie AND returns the token in the body for the SPA.
+   * Verify the OTP code. On success the server sets all three auth cookies
+   * and returns the session envelope; the token itself is never in the body.
    */
-  mfaVerify(mfaToken: string, otp: string): Observable<{ access_token: string; token_type: string }> {
-    return this.http.post<{ access_token: string; token_type: string }>(
+  mfaVerify(mfaToken: string, otp: string): Observable<SessionResponse> {
+    return this.http.post<SessionResponse>(
       `${this.baseUrl}/api/auth/mfa/verify`,
       { mfa_token: mfaToken, otp },
     );
-  }
-
-  isAuthenticated(): boolean {
-    const cookies = document.cookie.split(';');
-    for (const cookie of cookies) {
-      const [name, value] = cookie.trim().split('=');
-      if (name === 'access_token' && value) return true;
-    }
-    return false;
-  }
-
-  getCurrentUser(): Observable<{
-    username: string;
-    user_db_id?: string;
-    department_id?: string;
-    department?: string;
-    persona_slug?: string | null;
-    persona?: {
-      slug: string;
-      name: string;
-      description: string;
-      icon: string;
-      filters: { source: string; departments: string[]; categories: string[] }[];
-      keywords: string[];
-    } | null;
-  }> {
-    return this.http.get<{
-      username: string;
-      user_db_id?: string;
-      department_id?: string;
-      department?: string;
-      persona_slug?: string | null;
-      persona?: {
-        slug: string;
-        name: string;
-        description: string;
-        icon: string;
-        filters: { source: string; departments: string[]; categories: string[] }[];
-        keywords: string[];
-      } | null;
-    }>(`${this.baseUrl}/api/auth/me`);
-  }
-
-  getUsername(): string {
-    const cookies = document.cookie.split(';');
-    for (const cookie of cookies) {
-      const [name, value] = cookie.trim().split('=');
-      if (name === 'access_token') {
-        try {
-          const payload = JSON.parse(atob(value.split('.')[1]));
-          return payload.sub || '';
-        } catch {
-          return '';
-        }
-      }
-    }
-    return '';
-  }
-
-  getStoredUser(): {
-    username: string;
-    user_db_id?: string;
-    department_id?: string;
-    department?: string;
-    persona_slug?: string | null;
-    persona?: {
-      slug: string;
-      name: string;
-      description: string;
-      icon: string;
-      filters: { source: string; departments: string[]; categories: string[] }[];
-      keywords: string[];
-    } | null;
-  } | null {
-    const stored = localStorage.getItem('user_details');
-    if (stored) {
-      return JSON.parse(stored);
-    }
-    return null;
-  }
-
-  refreshUserDetails(): void {
-    if (!this.isAuthenticated()) return;
-    this.getCurrentUser().subscribe({
-      next: (user) => {
-        localStorage.setItem('user_details', JSON.stringify(user));
-      },
-      error: (err) => {
-        console.error('Failed to refresh user details:', err);
-      },
-    });
-  }
-
-  getUserDetails(): {
-    username: string;
-    user_db_id?: string;
-    department_id?: string;
-    department?: string;
-  } | null {
-    const cookies = document.cookie.split(';');
-    for (const cookie of cookies) {
-      const [name, value] = cookie.trim().split('=');
-      if (name === 'access_token') {
-        try {
-          const payload = JSON.parse(atob(value.split('.')[1]));
-          return {
-            username: payload.sub || '',
-            user_db_id: payload.user_db_id || '',
-            department_id: payload.department_id || '',
-            department: payload.department || '',
-          };
-        } catch {
-          return null;
-        }
-      }
-    }
-    return null;
   }
 
   createProperty(
@@ -204,22 +88,14 @@ export class LoginService {
   }
 }
 
-
-/**
- * Login response is one of two shapes (discriminated by `mfa_required`).
- */
-export type LoginResponse =
-  | {
-      mfa_required: true;
-      mfa_token: string;
-      channels: string[];
-      otp_length: number;
-      ttl_seconds: number;
-    }
-  | {
-      access_token: string;
-      token_type: string;
-    };
+/** /login response — always the MFA challenge shape. */
+export interface LoginResponse {
+  mfa_required: true;
+  mfa_token: string;
+  channels: string[];
+  otp_length: number;
+  ttl_seconds: number;
+}
 
 /**
  * /mfa/request response. `channels` is the list of channels that

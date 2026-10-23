@@ -31,7 +31,6 @@ def register_routes(app) -> None:
         Query params (all optional):
             from:      ISO date YYYY-MM-DD (default: today)
             to:        ISO date YYYY-MM-DD (default: from + 60 days)
-            priority:  CSV (critical,high,medium,low)
             exchange:  CSV (NSE,SEBI,...)
             limit:     int (default 100, min 1)
             offset:    int (default 0, min 0)
@@ -67,13 +66,7 @@ def register_routes(app) -> None:
 
         # ── 3. Parse filters + pagination ──────────────────
         # Normalize CSVs: strip whitespace, normalize case
-        # (priority is lowercase, exchange is uppercase)
-        priority_csv = (
-            request.args.get("priority", "")
-            .replace(" ", "")
-            .lower()
-            or None
-        )
+        # (exchange is uppercase)
         exchange_csv = (
             request.args.get("exchange", "")
             .replace(" ", "")
@@ -97,7 +90,6 @@ def register_routes(app) -> None:
                 persona_slug=slug,
                 from_date=d_from,
                 to_date=d_to,
-                priority_csv=priority_csv,
                 exchange_csv=exchange_csv,
                 limit=limit,
                 offset=offset,
@@ -112,10 +104,9 @@ def register_routes(app) -> None:
                 "date":               row[1].isoformat(),
                 "title":              row[2],
                 "exchange":           row[3],
-                "priority":           row[4],
-                "url":                f"/circular/{row[5]}",
-                "source_circular_id": str(row[5]),
-                "circular_title":     row[6],
+                "url":                f"/circular/{row[4]}",
+                "source_circular_id": str(row[4]),
+                "circular_title":     row[5],
             }
             for row in rows
         ]

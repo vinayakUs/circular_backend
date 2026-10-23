@@ -27,12 +27,6 @@
       <div class="ud__item-main">
         <div class="ud__pills">
           <span
-            *ngIf="item.priority"
-            class="ud__pill ud__pill--priority ud__pill--{{ item.priority }}"
-          >
-            {{ item.priority }}
-          </span>
-          <span
             *ngIf="item.exchange"
             class="ud__pill ud__pill--exchange"
             [ngClass]="'tag-' + item.exchange.toLowerCase()"

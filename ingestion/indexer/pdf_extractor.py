@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import NamedTuple
@@ -7,12 +8,18 @@ from typing import NamedTuple
 from config import Config
 from storage.s3_client import get_s3_client
 
+logger = logging.getLogger(__name__)
+
 
 class PDFTextExtractor:
     """Extracts text from PDF files using pymupdf."""
 
-    def extract(self, path: str | Path) -> str:
-        """Extracts text from PDF files using PyMuPDF."""
+    def extract(self, path: str | Path, max_pages: int | None = None) -> str:
+        """Extracts text from PDF files using PyMuPDF.
+
+        `max_pages` caps extraction at the first N pages. None (the default)
+        reads the whole document.
+        """
         target = Path(path)
 
         if not target.exists() and not (
@@ -45,6 +52,12 @@ class PDFTextExtractor:
 
         text_parts: list[str] = []
         for page in doc:
+            if max_pages is not None and len(text_parts) >= max_pages:
+                logger.warning(
+                    "Truncating PDF text to first %d of %d pages: %s",
+                    max_pages, doc.page_count, path,
+                )
+                break
             text_parts.append(page.get_text() or "")
         doc.close()
         return "\n".join(text_parts).strip()
