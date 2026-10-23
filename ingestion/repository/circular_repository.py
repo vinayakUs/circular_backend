@@ -550,6 +550,98 @@ class CircularRepository:
 
         return records, total
     
+    def list_for_persona(
+        self,
+        persona_slug: str,
+        sources: list[ExchangeSource] | None = None,
+        from_date: date | None = None,
+        to_date: date | None = None,
+        limit: int = 10,
+        offset: int = 0,
+    ) -> tuple[list[CircularRecord], int]:
+        """Return (rows, total) for the circulars matched to one persona.
+
+        Scoped through `circular_persona_matches`, which the classifier
+        populates from `config/personas.json`. The join is
+        multiplication-safe: that table's PK is (circular_id, persona_slug),
+        so a circular contributes at most one row.
+
+        Deliberately a separate method rather than another kwarg on
+        `list_paginated`. That method folds a signatory-driven
+        `INNER JOIN circular_signatories cs` into the same FROM that already
+        left-joins that table under the same alias, so it cannot be extended
+        here without dragging that collision along. This method takes no
+        signatory filter and needs no second join.
+
+        `sources` narrows to any of the given exchanges; omit it (or pass
+        an empty list) for no source constraint.
+
+        Always restricted to `is_active = TRUE AND status = 'FETCHED'` so
+        superseded and failed rows stay out of user-facing list views.
+        That restriction is not caller-configurable.
+        """
+        where_parts = [
+            "c.is_active = TRUE",
+            "c.status = 'FETCHED'",
+        ]
+        args: list = []
+
+        if from_date is not None:
+            where_parts.append("c.issue_date >= %s")
+            args.append(from_date)
+        if to_date is not None:
+            where_parts.append("c.issue_date <= %s")
+            args.append(to_date)
+        if sources:
+            where_parts.append("c.source = ANY(%s)")
+            args.append(sources)
+
+        persona_join = (
+            "JOIN circular_persona_matches m "
+            "ON m.circular_id = c.id AND m.persona_slug = %s"
+        )
+        where_sql = " AND ".join(where_parts)
+        params: list = [persona_slug, *args]
+
+        with self.db_pool.acquire() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                f"""
+                SELECT COUNT(DISTINCT c.id)
+                FROM   circulars c
+                {persona_join}
+                WHERE  {where_sql}
+                """,
+                params,
+            )
+            count_row = cursor.fetchone()
+            total = count_row[0] if count_row else 0
+
+            cursor.execute(
+                f"""
+                SELECT c.id, c.source, c.circular_id, c.source_item_key, c.full_reference,
+                       c.department, c.title, c.issue_date, c.effective_date, c.url, c.pdf_url,
+                       c.content_hash, c.status, c.error_message, c.detected_at,
+                       c.created_at, c.updated_at, c.es_indexed_at, c.es_chunk_count,
+                       c.es_index_name, c.applicable_to_nse, c.is_active,
+                       COALESCE(json_agg(
+                           json_build_object('name', cs.signatory_name, 'designation', cs.signatory_designation)
+                       ) FILTER (WHERE cs.id IS NOT NULL), '[]') AS signatories
+                FROM   circulars c
+                {persona_join}
+                LEFT JOIN circular_signatories cs ON cs.circular_id = c.id
+                WHERE  {where_sql}
+                GROUP BY c.id
+                ORDER BY c.issue_date DESC, c.created_at DESC, c.id DESC
+                LIMIT %s OFFSET %s
+                """,
+                [*params, limit, offset],
+            )
+            rows = cursor.fetchall()
+
+        records = [self._row_to_record(row) for row in rows]
+        return records, total
+
     def list_distinct_departments(self, sources: list[ExchangeSource] | None = None) -> list[str]:
         """Return sorted, distinct, non-blank department names.
 

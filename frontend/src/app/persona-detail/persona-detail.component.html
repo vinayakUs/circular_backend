@@ -55,5 +55,155 @@
         ></app-upcoming-deadlines>
       </div>
     </section>
+    <!-- Circulars applicable to this persona. Shares the source chip row
+         above; the period chips here drive only this list. -->
+    <section class="circulars-section" aria-label="Circulars for this role">
+      <h3>Circulars for your role</h3>
+
+      <div class="filter-row">
+        <span class="filter-row__label">PERIOD</span>
+        <div class="period-chips" role="group" aria-label="Period filter">
+          <button
+            *ngFor="let p of periodOptions"
+            type="button"
+            class="period-chip"
+            [class.is-active]="periodFilter() === p.value"
+            [attr.aria-pressed]="periodFilter() === p.value"
+            (click)="setPeriodFilter(p.value)"
+          >
+            {{ p.label }}
+          </button>
+        </div>
+      </div>
+
+      <div
+        *ngIf="periodFilter() === 'OTHER'"
+        class="filter-row filter-row--custom-dates"
+        role="group"
+        aria-label="Custom date range"
+      >
+        <label class="date-field">
+          <span class="date-field__label">FROM</span>
+          <input
+            type="date"
+            class="date-field__input"
+            [value]="customFromDate()"
+            (change)="onCustomDateChange('from', $any($event.target).value)"
+          />
+        </label>
+        <label class="date-field">
+          <span class="date-field__label">TO</span>
+          <input
+            type="date"
+            class="date-field__input"
+            [value]="customToDate()"
+            (change)="onCustomDateChange('to', $any($event.target).value)"
+          />
+        </label>
+      </div>
+
+      <div
+        *ngIf="
+          listVisible() &&
+          windowLabel() as label
+        "
+        class="circulars-summary"
+        aria-live="polite"
+      >
+        Showing circulars issued in the {{ label }} — {{ countLabel() }}
+      </div>
+
+      <div *ngIf="circularsLoading() && !listVisible()" class="circulars-state">
+        Loading circulars…
+      </div>
+
+      <div
+        *ngIf="!circularsLoading() && dateWindowIncomplete()"
+        class="circulars-state"
+      >
+        Pick a start and end date to see circulars from that range.
+      </div>
+
+      <div
+        *ngIf="!circularsLoading() && !dateWindowIncomplete() && circularsError()"
+        class="circulars-state circulars-state--error"
+        role="alert"
+      >
+        Couldn't load circulars. Please try again.
+      </div>
+
+      <ul
+        *ngIf="
+          listVisible()
+        "
+        class="circulars-list"
+        [class.is-loading]="circularsLoading()"
+        [attr.aria-busy]="circularsLoading()"
+      >
+        <li *ngFor="let c of circulars(); trackBy: trackCircularById">
+          <a class="circular-item" [routerLink]="['/circular', c.id]">
+            <div class="exchange-badge" [class]="c.source.toLowerCase()">
+              {{ c.normalizedSource }}
+            </div>
+            <div class="circular-content">
+              <div class="circular-header">
+                <span class="circular-id">{{ c.full_reference }}</span>
+                <div class="circular-meta">
+                  <span class="circular-time">{{
+                    c.issue_date | date: "dd-MMM-yyyy"
+                  }}</span>
+                </div>
+              </div>
+              <span class="circular-title">{{ c.title }}</span>
+              <div class="circular-tags">
+                <span class="tag tag-dept" *ngIf="c.department">{{
+                  c.department
+                }}</span>
+                <span class="tag tag-signatory" *ngFor="let sig of c.signatories">{{
+                  sig.name
+                }}</span>
+              </div>
+            </div>
+          </a>
+        </li>
+      </ul>
+
+      <div
+        *ngIf="
+          !circularsLoading() &&
+          !listVisible() &&
+          !dateWindowIncomplete() &&
+          !circularsError()
+        "
+        class="circulars-state"
+      >
+        No circulars match these filters.
+      </div>
+
+      <nav
+        *ngIf="pageLabel() as page"
+        class="circulars-pager"
+        [class.is-loading]="circularsLoading()"
+        aria-label="Circulars pagination"
+      >
+        <button
+          type="button"
+          class="pager-btn"
+          [disabled]="!canGoPrev"
+          (click)="onPrevPage()"
+        >
+          Previous
+        </button>
+        <span class="pager-label">{{ page }}</span>
+        <button
+          type="button"
+          class="pager-btn"
+          [disabled]="!canGoNext"
+          (click)="onNextPage()"
+        >
+          Next
+        </button>
+      </nav>
+    </section>
   </ng-container>
 </main>

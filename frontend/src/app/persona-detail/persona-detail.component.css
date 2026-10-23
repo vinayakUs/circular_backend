@@ -168,3 +168,312 @@
     flex: 1 1 100%;
   }
 }
+
+/* Applicable circulars list
+   Chip and card values mirror allcirculars.component.css and
+   upcoming-changes.component.css. Those are component-scoped, so they do not
+   travel across components on their own, and there is no shared-SCSS pipeline
+   in this app to extract them into.
+
+   Two deliberate omissions vs those files: the repeated font-family
+   declarations (the page root already sets the same Inter stack, so these
+   inherit it), and the active/inactive header badges plus the tag-nse /
+   tag-sebi-only variants (this list renders neither).
+
+   The list is built as ul/li on purpose: the broad descendant rules above
+   (.persona-detail-page section > div strong) target the "How are these
+   selected?" explainer, and li is not a div, so the cards are unaffected. */
+
+.circulars-section {
+  margin-top: 4px;
+}
+
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.filter-row__label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  min-width: 70px;
+}
+
+.period-chips {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.period-chip {
+  appearance: none;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  color: #0f172a;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  min-width: 44px;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.period-chip:hover:not(.is-active) {
+  background: rgba(15, 23, 42, 0.04);
+  border-color: rgba(15, 23, 42, 0.2);
+}
+
+.period-chip.is-active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-fg);
+  font-weight: 600;
+}
+
+.period-chip:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Custom date inputs (PERIOD = "Other") */
+.filter-row--custom-dates {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(15, 23, 42, 0.08);
+}
+
+.date-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 14px;
+}
+
+.date-field:last-child {
+  margin-right: 0;
+}
+
+.date-field__label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.date-field__input {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: #0f172a;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 8px;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.date-field__input:hover {
+  border-color: rgba(15, 23, 42, 0.24);
+}
+
+.date-field__input:focus-visible {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-soft);
+}
+
+.circulars-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  transition: opacity 0.18s ease;
+}
+
+.circulars-list.is-loading {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.circular-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px 20px;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  text-decoration: none;
+  transition: background 0.15s ease;
+  cursor: pointer;
+}
+
+.circular-item:hover {
+  background: #fafafa;
+}
+
+.circular-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.circular-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.circular-meta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.circular-id {
+  font-size: 13px;
+  font-weight: 500;
+  color: #0a0a0a;
+}
+
+.circular-time {
+  font-size: 12px;
+  color: #9e9e9e;
+}
+
+.circular-title {
+  font-size: 14px;
+  font-weight: 400;
+  color: #0a0a0a;
+  line-height: 1.4;
+}
+
+.circular-tags {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.circular-tags .tag:last-child {
+  margin-right: 0;
+}
+
+.tag {
+  font-size: 11px;
+  font-weight: 500;
+  color: #5e5e5e;
+  background: #f5f5f5;
+  padding: 3px 8px;
+  border-radius: 4px;
+  margin-right: 6px;
+}
+
+.tag.tag-signatory {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+}
+
+.tag.tag-dept {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+
+.circulars-summary {
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: #64748b;
+  margin-bottom: 12px;
+}
+
+.circulars-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #64748b;
+  padding: 14px 16px;
+  background: #f8fafc;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 8px;
+  text-align: center;
+}
+
+.circulars-state--error {
+  color: #b91c1c;
+  background: rgba(220, 38, 38, 0.06);
+  border-color: rgba(220, 38, 38, 0.18);
+}
+
+.circulars-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 18px;
+  transition: opacity 0.18s ease;
+}
+
+.circulars-pager.is-loading {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.pager-label {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #64748b;
+  min-width: 92px;
+  text-align: center;
+}
+
+.pager-btn {
+  appearance: none;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  color: #334155;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.pager-btn:hover:not(:disabled) {
+  background: var(--primary-soft);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.pager-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.pager-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
