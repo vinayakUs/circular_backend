@@ -16,6 +16,7 @@ from ingestion.processor.base import BaseProcessor
 from ingestion.repository.action_item_repository import ActionItemRepository
 from ingestion.repository.circular_repository import CircularRepository, CircularRecord
 from ingestion.repository.processor_repository import ProcessorRepository
+from utils.exchange_source import ExchangeSource
 from utils.llm_providers import get_llm_provider
 
 # Cap extraction at the front matter and operative clauses. Full text overflows
@@ -45,11 +46,25 @@ class ActionItemProcessor(BaseProcessor):
 
     name = "action_item_extractor"  # class attribute (matches siblings)
 
+    SKIP_SOURCES = frozenset({ExchangeSource.SEBI_MASTER})
+
     def __init__(self, db_pool: Any):
         super().__init__(db_pool)
         self.action_repo = ActionItemRepository(db_pool)
         self.pdf_extractor = PDFTextExtractor()
 
+    def run(self, record: CircularRecord) -> bool:
+        if record.source in self.SKIP_SOURCES:
+            self.logger.info(
+                "Skipping action item extraction source=%s circular_id=%s",
+                record.source, record.circular_id,
+            )
+            # Marked COMPLETED, not left untouched: the pending query selects
+            # circulars with no processing_tasks row, so skipping without
+            # recording one re-selects this circular on every run.
+            self.processor_repo.mark_task_completed(record.id, self.name)
+            return True
+        return super().run(record)
 
     def process(self, record: CircularRecord) -> None:
 

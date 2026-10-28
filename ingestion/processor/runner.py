@@ -26,6 +26,7 @@ from ingestion.processor.nse_applicability_processor import NSEApplicabilityProc
 from ingestion.processor.designation_extractor_processor import DesignationExtractorProcessor
 from ingestion.processor.document_summarizer import DocumentSummarizerProcessor
 from ingestion.processor.reference_extractor import ReferenceExtractor
+from ingestion.processor.action_item_extractor import ActionItemProcessor
 
 
 def main():
@@ -88,6 +89,7 @@ def main():
         pipeline.register_processor(DesignationExtractorProcessor(pool))
         pipeline.register_processor(DocumentSummarizerProcessor(pool))
         pipeline.register_processor(ReferenceExtractor(pool))
+        pipeline.register_processor(ActionItemProcessor(pool))
 
         logger.info(f"Running pipeline with limit {args.limit}...")
         pipeline.run(limit_per_processor=args.limit)

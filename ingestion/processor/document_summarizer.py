@@ -26,6 +26,7 @@ from ingestion.processor.base import BaseProcessor
 from ingestion.repository.asset_repository import AssetRepository
 from ingestion.repository.circular_repository import CircularRecord, CircularRepository
 from ingestion.repository.summary_repository import SummaryRepository
+from utils.exchange_source import ExchangeSource
 from utils.llm_providers.langchain_adapter import LangChainLLMAdapter
 
 # Max chars per chunk before splitting (leave room for prompt overhead)
@@ -99,6 +100,21 @@ class DocumentSummarizerProcessor(BaseProcessor):
     @property
     def name(self) -> str:
         return "document_summarizer"
+
+    SKIP_SOURCES = frozenset({ExchangeSource.SEBI_MASTER})
+
+    def run(self, record: CircularRecord) -> bool:
+        if record.source in self.SKIP_SOURCES:
+            self.logger.info(
+                "Skipping summarization source=%s circular_id=%s",
+                record.source, record.circular_id,
+            )
+            # Marked COMPLETED, not left untouched: the pending query selects
+            # circulars with no processing_tasks row, so skipping without
+            # recording one re-selects this circular on every run.
+            self.processor_repo.mark_task_completed(record.id, self.name)
+            return True
+        return super().run(record)
 
     # def run(self, record: CircularRecord) -> bool:
     #     """Override to restrict to last-24h circulars only."""
