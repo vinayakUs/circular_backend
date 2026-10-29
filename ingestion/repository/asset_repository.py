@@ -38,16 +38,25 @@ class AssetRepository:
         self.logger = __import__("logging").getLogger(__name__)
         self.db_pool = db_pool
 
-    def replace_assets(self, circular_id: UUID, assets: list[CircularAsset]) -> list[CircularAssetRecord]:
+    def replace_assets(
+        self, circular_id: UUID, assets: list[CircularAsset]
+    ) -> tuple[list[CircularAssetRecord], int]:
         """Replace all assets for a circular.
 
-        DELETE + INSERT loop runs inside an explicit conn.transaction() block 
+        DELETE + INSERT loop runs inside an explicit conn.transaction() block
         if any INSERT fails, the entire operation (including the DELETE)
         rolls back (M9 defense-in-depth fix).
+
+        Returns (stored_records, previous_asset_count).
         """
         with self.db_pool.acquire() as conn:
             with conn.transaction():
                 cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT COUNT(*) FROM circular_assets WHERE circular_id = %s",
+                    (str(circular_id),),
+                )
+                previous_count = cursor.fetchone()[0]
                 cursor.execute(
                     "DELETE FROM circular_assets WHERE circular_id = %s",
                     (str(circular_id),),
@@ -67,8 +76,11 @@ class AssetRepository:
                             asset.archive_member_path, asset.file_size_bytes,
                         ),
                     )
-        self.logger.info("Replaced circular assets circular_id=%s asset_count=%s", circular_id, len(assets))
-        return self.list_assets(circular_id)
+        self.logger.debug(
+            "Replaced circular assets circular_id=%s previous=%s stored=%s",
+            circular_id, previous_count, len(assets),
+        )
+        return self.list_assets(circular_id), previous_count
 
     def list_assets(self, circular_id: UUID) -> list[CircularAssetRecord]:
         with self.db_pool.acquire() as conn:

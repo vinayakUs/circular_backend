@@ -50,13 +50,20 @@ class CircularRepository:
         self.logger = __import__("logging").getLogger(__name__)
         self.db_pool = db_pool
 
-    def upsert_circular(self, circular: Any) -> tuple[UUID, bool]:
+    def upsert_circular(self, circular: Any) -> tuple[UUID, bool, list[str]]:
         """Insert or update a circular, then populate circular_persona_matches.
 
         All three steps (insert/update circular, wipe matches, re-insert matches)
         happen in a single transaction. Either all succeed or all roll back.
+
+        Returns (record_id, created, matched_persona_slugs).
         """
-        self.logger.info("upsert_circular %s", circular)
+        self.logger.debug(
+            "upsert_circular source=%s circular_id=%s title=%r",
+            getattr(circular, "source", None),
+            getattr(circular, "circular_id", None),
+            getattr(circular, "title", None),
+        )
         source = circular.source
         circular_id = circular.circular_id
         source_item_key = circular.source_item_key
@@ -119,7 +126,7 @@ class CircularRepository:
                         ),
                     )
                     record_id = existing[0]
-                    self.logger.info(
+                    self.logger.debug(
                         "Circular upserted (update) source=%s circular_id=%s",
                         source_upper, circular_id_upper,
                     )
@@ -163,7 +170,7 @@ class CircularRepository:
                         ),
                     )
                     record_id = cursor.fetchone()[0]
-                    self.logger.info(
+                    self.logger.debug(
                         "Circular upserted (insert) source=%s circular_id=%s",
                         source_upper, circular_id_upper,
                     )
@@ -193,12 +200,12 @@ class CircularRepository:
                         (str(record_id), slug),
                     )
 
-                self.logger.info(
+                self.logger.debug(
                     "Persona matches for circular_id=%s: %s",
                     str(record_id), matched_slugs,
                 )
 
-                return record_id, existing is None
+                return record_id, existing is None, matched_slugs
 
     def get_record(self, source: str, source_item_key: str) -> CircularRecord | None:
         with self.db_pool.acquire() as conn:
@@ -699,7 +706,7 @@ class CircularRepository:
                 (status, error_message, str(record_id)),
             )
             conn.commit()
-        self.logger.info("Circular status updated record_id=%s status=%s", record_id, status)
+        self.logger.debug("Circular status updated record_id=%s status=%s", record_id, status)
 
     def update_applicable_to_nse(self, record_id: UUID, applicable: bool) -> None:
         with self.db_pool.acquire() as conn:

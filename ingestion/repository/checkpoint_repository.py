@@ -37,7 +37,7 @@ class CheckpointRepository:
                 (source_name, run_date),
             )
             conn.commit()
-        self.logger.info("Checkpoint updated source=%s last_run_date=%s", source_name, run_date)
+        self.logger.debug("Checkpoint updated source=%s last_run_date=%s", source_name, run_date)
 
     def reset_bloom_state(self) -> None:
         with self.db_pool.acquire() as conn:

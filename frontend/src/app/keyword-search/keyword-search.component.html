@@ -191,9 +191,9 @@
                     <p class="results-empty-hint">Please try again in a moment.</p>
                 </div>
 
-                <!-- Semantic mode: AI disclaimer (covers both exec + grouped outputs) -->
+                <!-- Semantic mode: AI disclaimer -->
                 <div class="semantic-disclaimer" role="note" aria-label="AI-generated content notice"
-                    *ngIf="showSemanticAnswer || showGroupedCards">
+                    *ngIf="showSemanticAnswer">
                     <svg class="semantic-disclaimer-icon" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75"
@@ -205,64 +205,55 @@
                     </span>
                 </div>
 
-                <!-- Semantic mode: answer + references -->
+                <!-- Semantic mode: answer + inline citations -->
                 <div class="semantic-result" *ngIf="showSemanticAnswer">
-                    <div class="semantic-answer" [innerHTML]="safeMarkdown(semanticResult?.answer)"></div>
+                    <div class="semantic-body">
+                        <div class="semantic-answer" [innerHTML]="answerHtml"
+                            (pointerover)="onAnswerPointerOver($event)" (pointerout)="onAnswerPointerOut($event)"
+                            (click)="onAnswerClick($event)"></div>
+
+                        <div class="semantic-actions">
+                            <button type="button" class="answer-copy-btn" (click)="copyAnswer()"
+                                [attr.aria-label]="answerCopied ? 'Answer copied' : 'Copy answer'">
+                                <svg *ngIf="!answerCopied" class="answer-copy-icon" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                                </svg>
+                                <svg *ngIf="answerCopied" class="answer-copy-icon" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                    <polyline stroke-linecap="round" stroke-linejoin="round" points="20 6 9 17 4 12" />
+                                </svg>
+                                {{ answerCopied ? 'Copied' : 'Copy' }}
+                            </button>
+                        </div>
+                    </div>
 
                     <div class="semantic-meta" *ngIf="semanticResult?.rag_error">
                         <span class="semantic-meta-warning">RAG fallback used: {{ semanticResult?.rag_error }}</span>
                     </div>
                 </div>
 
-                <!-- Semantic mode: per-circular summary cards -->
-                <section class="semantic-cards" *ngIf="isSemanticMode">
-                    <header class="semantic-cards-header">
-                        <span class="semantic-cards-title">Summary per Circular</span>
-                        <span class="semantic-cards-count"
-                            *ngIf="showGroupedCards && groupedResult?.results?.length">
-                            {{ groupedResult?.results?.length }} matched
-                        </span>
-                    </header>
-
-                    <div class="summary-card-list" *ngIf="showGroupedCards">
-                        <article class="summary-card" *ngFor="let card of groupedResult?.results"
-                            (click)="onSummaryCardClick(card, $event)" role="button" tabindex="0"
-                            [attr.aria-label]="'Open circular ' + card.full_reference">
-                            <div class="exchange-badge" [class]="badgeClass(card.source)">{{ card.source }}</div>
-                            <div class="summary-card-body">
-                                <div class="summary-card-head">
-                                    <span class="circular-id">{{ card.full_reference }}</span>
-                                    <span class="circular-time">{{ card.issue_date | date:'dd-MMM-yyyy' }}</span>
-                                </div>
-                                <span class="circular-title">{{ card.title }}</span>
-                                <div class="summary-card-summary">
-                                    <span class="summary-card-eyebrow">Summary</span>
-                                    <p>{{ card.summary }}</p>
-                                </div>
-                            </div>
-                        </article>
+                <!-- Citation popup: anchored to the hovered reference chip -->
+                <div class="cite-popup" *ngIf="activeCitation" [ngStyle]="popupStyle" role="tooltip"
+                    (pointerenter)="onPopupPointerEnter()" (pointerleave)="onPopupPointerLeave()">
+                    <div class="cite-popup-head">
+                        <span class="cite-popup-ref">{{ activeCitation.full_reference || activeCitation.circular_id
+                            }}</span>
+                        <a class="cite-popup-link" *ngIf="activeCitation.circular_db_id"
+                            [routerLink]="['/circular', activeCitation.circular_db_id]">
+                            Details
+                            <svg class="cite-popup-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-4.5 0V6m0 0h4.5m0 0L13.5 10.5" />
+                            </svg>
+                        </a>
                     </div>
-
-                    <div class="results-empty" *ngIf="showGroupedLoading && !showGroupedCards">
-                        <div class="semantic-spinner"></div>
-                        <p class="results-empty-title">Generating per-circular summaries...</p>
-                        <p class="results-empty-hint">This runs in parallel with the executive answer.</p>
-                    </div>
-
-                    <div class="results-empty" *ngIf="showGroupedEmpty">
-                        <p class="results-empty-title">No per-circular summaries available</p>
-                        <p class="results-empty-hint">Try rephrasing your question or adding an exchange filter.</p>
-                    </div>
-
-                    <div class="results-empty" *ngIf="showGroupedError">
-                        <p class="results-empty-title">Per-circular summaries unavailable</p>
-                        <p class="results-empty-hint">The executive answer above is still usable.</p>
-                    </div>
-
-                    <div class="semantic-meta" *ngIf="groupedResult?.rag_error && showGroupedCards">
-                        <span class="semantic-meta-warning">RAG fallback used: {{ groupedResult?.rag_error }}</span>
-                    </div>
-                </section>
+                    <p class="cite-popup-title">{{ activeCitation.title }}</p>
+                    <p class="cite-popup-text" *ngIf="activeCitation.text">{{ activeCitation.text }}</p>
+                </div>
             </div>
         </section>
     </main>

@@ -50,18 +50,19 @@ def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
     configure_logging(Config.LOG_LEVEL)
-    logger = logging.getLogger(__name__)
+    # Hardcoded module path: under `python -m ingestion.scrapper.runner`,
+    # __name__ is "__main__", which makes logs unreadable to grep.
+    logger = logging.getLogger("ingestion.scrapper.runner")
     selected_sources = _parse_sources(args.sources)
     from_date = _parse_date(args.from_date)
     to_date = _parse_date(args.to_date)
 
     logger.info(
-        "Starting runner sources_override=%s env_enabled_sources=%s log_level=%s from_date=%s to_date=%s",
-        selected_sources,
-        Config.SCRAPER_ENABLED_SOURCES,
+        "run.start sources=%s from=%s to=%s log_level=%s",
+        selected_sources or Config.SCRAPER_ENABLED_SOURCES,
+        from_date or "checkpoint",
+        to_date or "today",
         Config.LOG_LEVEL,
-        from_date,
-        to_date,
     )
     db_client = get_postgres_client()
     db_pool = db_client.get_pool()
@@ -85,11 +86,11 @@ def main() -> int:
     try:
         orchestrator.run()
     except Exception:
-        logger.exception("Ingestion run failed")
+        logger.exception("run.failed")
         db_client.close()
         return 1
 
-    logger.info("Ingestion completed successfully")
+    logger.info("run.done status=ok")
     db_client.close()
     return 0
 

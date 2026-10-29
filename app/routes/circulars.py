@@ -378,17 +378,17 @@ def register_routes(app, *, rag_generator) -> None:
             rag_elapsed_ms = (time.perf_counter() - rag_start) * 1000
 
             logger.info(
-                "RAG answer generated: query=%r, strategy=%s, answer_length=%d, refs=%d, duration_ms=%.2f",
+                "RAG answer generated: query=%r, strategy=%s, answer_length=%d, citations=%d, duration_ms=%.2f",
                 query, strategy,
                 len(rag_answer.answer) if rag_answer.answer else 0,
-                len(rag_answer.references),
+                len(rag_answer.citations),
                 rag_elapsed_ms,
             )
             return {
                 "query": query,
                 "strategy": strategy,
                 "answer": rag_answer.answer,
-                "references": rag_answer.references,
+                "citations": [c.model_dump(mode="json") for c in rag_answer.citations],
             }
         except Exception as e:
             logger.warning("RAG failed, returning raw chunks: query=%r, error=%s", query, e)
@@ -401,86 +401,6 @@ def register_routes(app, *, rag_generator) -> None:
 
 
 
-
-    # ──────────────────────────────Hybrid Search Grouped──────────────────────────────────────────────────────
-
-    @app.post("/api/circulars/search/hybrid/grouped")
-    def search_circulars_hybrid_grouped():
-        """Same hybrid retrieval as /api/circulars/search/hybrid, but each matched
-        circular gets its own LLM-generated per-card summary. Summaries are produced
-        in parallel. Output is a list of cards ordered newest first (issue_date desc).
-        """
-        body = request.get_json() or {}
-        query = body.get("q", "").strip()
-        strategy = "hybrid"
-
-        raw_source = body.get("source", "").strip().upper()
-        if raw_source == "ALL":
-            raw_source = ""
-        from_date = body.get("from_date") or None
-        to_date = body.get("to_date") or None
-
-        if not query:
-            return {"error": "Query parameter 'q' is required."}, 400
-
-        search_metadata: dict[str, Any] = {}
-        if raw_source:
-            search_metadata["source"] = [raw_source]
-        if from_date:
-            search_metadata["from_date"] = from_date
-        if to_date:
-            search_metadata["to_date"] = to_date
-        applicable_to_nse = body.get("applicable_to_nse")
-        if applicable_to_nse is not None:
-            search_metadata["applicable_to_nse"] = applicable_to_nse
-
-        logger.info(
-            "Hybrid grouped search request: query=%r, source=%s, from_date=%s, to_date=%s, applicable_to_nse=%s",
-            query, raw_source or "ALL", from_date, to_date, applicable_to_nse,
-        )
-
-        try:
-            import time
-            search_start = time.perf_counter()
-            results = get_es_client().search(query, search_metadata, strategy=strategy)
-            search_elapsed_ms = (time.perf_counter() - search_start) * 1000
-            logger.info(
-                "Hybrid grouped search completed: query=%r results=%d duration_ms=%.2f",
-                query, len(results), search_elapsed_ms,
-            )
-        except ConnectionTimeout:
-            logger.warning("Search timeout (grouped): query=%r", query)
-            return {"error": "Search service is temporarily unavailable.",
-                    "query": query, "results": []}, 503
-        except Exception as e:
-            logger.error("Search failed (grouped): query=%r, error=%s", query, e)
-            return {"error": "Search service encountered an error.",
-                    "query": query, "results": []}, 500
-
-        try:
-            import time
-            rag_start = time.perf_counter()
-            rag_answer = rag_generator.generate_grouped_answer(query, results)
-            rag_elapsed_ms = (time.perf_counter() - rag_start) * 1000
-            logger.info(
-                "RAG grouped answer generated: query=%r cards=%d duration_ms=%.2f",
-                query, len(rag_answer.results), rag_elapsed_ms,
-            )
-            return {
-                "query": query,
-                "strategy": strategy,
-                "results": [r.model_dump(mode="json") for r in rag_answer.results],
-            }
-        except Exception as e:
-            logger.warning(
-                "RAG grouped failed, returning raw chunks: query=%r, error=%s", query, e
-            )
-            return {
-                "query": query,
-                "strategy": strategy,
-                "results": [search_hit_to_dict(result, query) for result in results],
-                "rag_error": str(e),
-            }
 
     # ── paginated list ──────────────────────────────────────────
     @app.get("/api/circulars")

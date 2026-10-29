@@ -26,6 +26,17 @@ class MinmaxLLMClient(BaseLLMClient):
                     cls._instance._client = None
         return cls._instance
 
+    @property
+    def api_base(self) -> str:
+        return Config.MINMAX_BASE_URL
+
+    @property
+    def api_key(self) -> str:
+        api_key = Config.MINMAX_API_KEY
+        if not api_key:
+            raise ValueError("MINMAX_API_KEY is not set in the configuration.")
+        return api_key
+
     def get_client(self) -> instructor.Instructor:
         # NOTE: reuses cls._instance_lock (the same lock that guards __new__).
         # Adding a second lock here would create a deadlock vector with __new__.
@@ -34,13 +45,9 @@ class MinmaxLLMClient(BaseLLMClient):
             return cached
         with self._instance_lock:
             if self._client is None:
-                api_key = Config.MINMAX_API_KEY
-                if not api_key:
-                    raise ValueError("MINMAX_API_KEY is not set in the configuration.")
-
                 openai_client = OpenAI(
-                    base_url=Config.MINMAX_BASE_URL,
-                    api_key=api_key,
+                    base_url=self.api_base,
+                    api_key=self.api_key,
                 )
                 # Use JSON mode to bypass tool calls — MiniMax can emit multiple
                 # tool call blocks which instructor's default mode rejects.

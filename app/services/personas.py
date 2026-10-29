@@ -70,7 +70,7 @@ def get_personas() -> List[Persona]:
 
     if _cached is None or _cached_mtime != mtime:
         new_list = _read_file()
-        logger.info("Loaded %d personas from %s", len(new_list), _PERSONAS_FILE)
+        logger.debug("Loaded %d personas from %s", len(new_list), _PERSONAS_FILE)
         _cached = new_list
         _cached_mtime = mtime
     return _cached

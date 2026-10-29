@@ -34,19 +34,8 @@ class NSEScraper(IScraper):
         self.timeout_seconds = float(os.getenv("NSE_TIMEOUT_SECONDS", "30"))
 
     def detect_new(self, from_date: date, to_date: date) -> ScrapeDetectionResult:
-        self.logger.info(
-            "Fetching NSE circulars via crawler API from_date=%s to_date=%s",
-            from_date,
-            to_date,
-        )
         payload = self._fetch_circulars(from_date, to_date)
         circulars = self.parse_response(payload)
-        self.logger.info(
-            "Parsed NSE circulars from_date=%s to_date=%s count=%s",
-            from_date,
-            to_date,
-            len(circulars),
-        )
         return ScrapeDetectionResult(circulars=circulars)
 
     def get_pdf_download_url(self, circular_id: str) -> str:
@@ -107,7 +96,7 @@ class NSEScraper(IScraper):
             )
 
         self.logger.info(
-            "NSE payload processed total_records=%s supported_circulars=%s skipped_unsupported=%s skipped_missing_circular_id=%s",
+            "api.result total=%s supported=%s skipped_unsupported=%s skipped_missing_id=%s",
             len(records),
             len(circulars),
             skipped_unsupported_count,

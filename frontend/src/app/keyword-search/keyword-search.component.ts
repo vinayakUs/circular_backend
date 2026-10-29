@@ -1,12 +1,11 @@
 import { Component, OnInit, HostListener, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { marked } from 'marked';
-import { forkJoin } from 'rxjs';
 
-import { CircularsApiService, SearchResult, SemanticSearchResponse, GroupedSearchResponse, CircularGroupSummary } from '../services/circulars-api.service';
+import { CircularsApiService, SearchResult, SemanticSearchResponse, Citation } from '../services/circulars-api.service';
 import { RecentSearchesService, RecentSearch, SearchMode } from '../services/recent-searches.service';
 import { ExchangeSource, exchangeLabel } from '../util/source.util';
 
@@ -25,7 +24,7 @@ interface ModeTab {
 
 @Component({
   selector: 'app-keyword-search',
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterLink],
   templateUrl: './keyword-search.component.html',
   styleUrl: './keyword-search.component.css',
   standalone: true
@@ -50,11 +49,6 @@ export class KeywordSearchComponent implements OnInit {
   semanticResult: SemanticSearchResponse | null = null;
   semanticLoading = false;
   semanticError = false;
-
-  // Per-circular grouped summary state (semantic mode only)
-  groupedResult: GroupedSearchResponse | null = null;
-  groupedLoading = false;
-  groupedError = false;
 
   readonly exchanges = Object.keys(ExchangeSource) as (keyof typeof ExchangeSource)[];
   readonly sortOptions: SortTab[] = [
@@ -114,6 +108,9 @@ export class KeywordSearchComponent implements OnInit {
     if (this.showModeMenu && !target.closest('.mode-select-wrapper')) {
       this.showModeMenu = false;
     }
+    if (this.activeCitation && !target.closest('.cite-popup') && !target.closest('.cite-chip')) {
+      this.closeCitation();
+    }
   }
 
   /** Escape closes whichever menu is open. */
@@ -124,6 +121,7 @@ export class KeywordSearchComponent implements OnInit {
       this.showRecentSearches = false;
       this.clearBlurTimeout();
     }
+    this.closeCitation();
   }
 
   toggleModeMenu(): void {
@@ -231,7 +229,6 @@ export class KeywordSearchComponent implements OnInit {
     this.mode = value;
     // Only flip UI state; the user has to hit Search to run with the new mode.
     this.semanticError = false;
-    this.groupedError = false;
     this.error = false;
   }
 
@@ -274,10 +271,202 @@ export class KeywordSearchComponent implements OnInit {
     return this.sanitizer.bypassSecurityTrustHtml(title ?? '');
   }
 
-  safeMarkdown(text: string | null | undefined): SafeHtml {
-    if (!text) return '';
-    const html = marked.parse(text, { async: false }) as string;
-    return this.sanitizer.bypassSecurityTrustHtml(html);
+  /**
+   * Memoised: a fresh SafeHtml each change-detection cycle would rebuild the
+   * citation chips, re-firing `pointerover` and reopening the popup on close.
+   */
+  get answerHtml(): SafeHtml {
+    const source = this.semanticResult;
+    if (this.answerHtmlCache && this.answerHtmlCache.source === source) {
+      return this.answerHtmlCache.value;
+    }
+    const value = this.buildAnswerHtml(source);
+    this.answerHtmlCache = { source, value };
+    return value;
+  }
+
+  private answerHtmlCache: { source: SemanticSearchResponse | null; value: SafeHtml } | null = null;
+
+  /**
+   * DOMParser is inert and chips use `textContent`, so reference strings from
+   * the API can never be interpreted as markup.
+   */
+  private buildAnswerHtml(result: SemanticSearchResponse | null | undefined): SafeHtml {
+    if (!result?.answer) return '';
+    const raw = marked.parse(result.answer, { async: false }) as string;
+    const citations = result.citations ?? [];
+    if (!citations.length) return this.sanitizer.bypassSecurityTrustHtml(raw);
+
+    const byId = new Map(citations.map(c => [c.id, c]));
+    const doc = new DOMParser().parseFromString(raw, 'text/html');
+
+    const walker = document.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
+    const textNodes: Text[] = [];
+    while (walker.nextNode()) {
+      textNodes.push(walker.currentNode as Text);
+    }
+
+    for (const node of textNodes) {
+      const value = node.nodeValue ?? '';
+      if (!value.includes('[')) continue;
+
+      const parts = value.split(/(\[\d+\])/g);
+      if (parts.length === 1) continue;
+
+      const fragment = doc.createDocumentFragment();
+      for (const part of parts) {
+        const match = /^\[(\d+)\]$/.exec(part);
+        const citation = match ? byId.get(Number(match[1])) : undefined;
+        if (!citation) {
+          fragment.appendChild(doc.createTextNode(part));
+          continue;
+        }
+        const chip = doc.createElement('button');
+        chip.type = 'button';
+        chip.className = 'cite-chip';
+        chip.dataset['citeId'] = String(citation.id);
+        chip.textContent = `[${citation.full_reference || citation.circular_id || citation.id}]`;
+        fragment.appendChild(chip);
+      }
+      node.parentNode?.replaceChild(fragment, node);
+    }
+
+    return this.sanitizer.bypassSecurityTrustHtml(doc.body.innerHTML);
+  }
+
+  // ── Copy answer ─────────────────────────────────────────────
+  answerCopied = false;
+  private copiedResetTimer: ReturnType<typeof setTimeout> | null = null;
+
+  async copyAnswer(): Promise<void> {
+    const text = this.semanticResult?.answer ?? '';
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      this.markAnswerCopied();
+    } catch {
+      // navigator.clipboard is undefined outside a secure context (plain
+      // http), so fall back to a detached textarea.
+      const scratch = document.createElement('textarea');
+      scratch.value = text;
+      scratch.style.position = 'fixed';
+      scratch.style.opacity = '0';
+      document.body.appendChild(scratch);
+      scratch.select();
+      try {
+        document.execCommand('copy');
+        this.markAnswerCopied();
+      } finally {
+        scratch.remove();
+      }
+    }
+  }
+
+  private markAnswerCopied(): void {
+    this.answerCopied = true;
+    if (this.copiedResetTimer) clearTimeout(this.copiedResetTimer);
+    this.copiedResetTimer = setTimeout(() => {
+      this.copiedResetTimer = null;
+      this.answerCopied = false;
+    }, 2000);
+  }
+
+  // ── Citation popup ───────────────────────────────────────────
+  activeCitation: Citation | null = null;
+  popupStyle: { top: string; left: string } | null = null;
+  private citationHideTimer: ReturnType<typeof setTimeout> | null = null;
+  // Click-opened popups persist until a click elsewhere; hover popups follow
+  // the pointer.
+  private citationPinned = false;
+
+  /** Delegated from the answer container — chips inside `[innerHTML]` cannot carry bindings. */
+  onAnswerPointerOver(event: PointerEvent): void {
+    if (this.citationPinned) return;
+    const chip = this.citeChipFrom(event);
+    if (!chip) return;
+    this.cancelCitationHide();
+    this.showCitation(chip);
+  }
+
+  onAnswerPointerOut(event: PointerEvent): void {
+    if (this.citationPinned) return;
+    // Only chip exits dismiss; crossing the surrounding prose must not.
+    if (!this.citeChipFrom(event)) return;
+    this.scheduleCitationHide();
+  }
+
+  onAnswerClick(event: MouseEvent): void {
+    const chip = this.citeChipFrom(event);
+    if (!chip) return;
+    this.citationPinned = true;
+    this.cancelCitationHide();
+    this.showCitation(chip);
+  }
+
+  onPopupPointerEnter(): void {
+    if (this.citationPinned) return;
+    this.cancelCitationHide();
+  }
+
+  onPopupPointerLeave(): void {
+    if (this.citationPinned) return;
+    this.scheduleCitationHide();
+  }
+
+  private citeChipFrom(event: Event): HTMLElement | null {
+    return (event.target as HTMLElement | null)?.closest?.('.cite-chip') ?? null;
+  }
+
+  private showCitation(chip: HTMLElement): void {
+    const id = Number(chip.dataset['citeId']);
+    const citation = (this.semanticResult?.citations ?? []).find(c => c.id === id);
+    if (!citation) return;
+    this.activeCitation = citation;
+    this.popupStyle = this.positionPopup(chip);
+  }
+
+  // Deferred so the pointer can cross the chip↔popup gap without the popup
+  // dropping out from under it.
+  private scheduleCitationHide(): void {
+    this.cancelCitationHide();
+    this.citationHideTimer = setTimeout(() => {
+      this.citationHideTimer = null;
+      this.closeCitation();
+    }, 150);
+  }
+
+  private cancelCitationHide(): void {
+    if (this.citationHideTimer) {
+      clearTimeout(this.citationHideTimer);
+      this.citationHideTimer = null;
+    }
+  }
+
+  closeCitation(): void {
+    this.cancelCitationHide();
+    this.citationPinned = false;
+    this.activeCitation = null;
+    this.popupStyle = null;
+  }
+
+  /** Anchors the popup under the chip, flipping above and clamping to the viewport. */
+  private positionPopup(chip: HTMLElement): { top: string; left: string } {
+    const rect = chip.getBoundingClientRect();
+    const gap = 8;
+    const width = 340;
+    const estimatedHeight = 220;
+
+    let left = rect.left;
+    if (left + width > window.innerWidth - 12) {
+      left = Math.max(12, window.innerWidth - width - 12);
+    }
+
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const top = spaceBelow >= estimatedHeight + gap
+      ? rect.bottom + gap
+      : Math.max(12, rect.top - gap - estimatedHeight);
+
+    return { top: `${top}px`, left: `${left}px` };
   }
 
   get isKeywordMode(): boolean {
@@ -341,14 +530,12 @@ export class KeywordSearchComponent implements OnInit {
     if (!q) {
       this.results = [];
       this.semanticResult = null;
-      this.groupedResult = null;
       this.hasSearched = false;
       this.loading = false;
       this.error = false;
       this.semanticLoading = false;
       this.semanticError = false;
-      this.groupedLoading = false;
-      this.groupedError = false;
+      this.closeCitation();
       return;
     }
 
@@ -365,7 +552,7 @@ export class KeywordSearchComponent implements OnInit {
     this.error = false;
     this.hasSearched = true;
     this.semanticResult = null;
-    this.groupedResult = null;
+    this.closeCitation();
 
     this.apiService.keywordSearchV2({
       query: this.query.trim(),
@@ -396,82 +583,27 @@ export class KeywordSearchComponent implements OnInit {
     const token = ++this.searchToken;
     this.semanticLoading = true;
     this.semanticError = false;
-    this.groupedLoading = true;
-    this.groupedError = false;
     this.hasSearched = true;
     this.results = [];
+    this.closeCitation();
 
-    // Fire both the executive-summary call and the per-circular summary call
-    // in parallel. They share the same query/source filters, are independent
-    // server-side, and have independent success/failure states so one can
-    // succeed while the other errors without breaking the other.
-    forkJoin({
-      exec: this.apiService.semanticSearch({
-        query: this.query.trim(),
-        strategy: 'hybrid',
-        source: this.source === 'ALL' ? undefined : this.source,
-      }),
-      grouped: this.apiService.semanticSearchGrouped({
-        query: this.query.trim(),
-        source: this.source === 'ALL' ? undefined : this.source,
-      }),
+    this.apiService.semanticSearch({
+      query: this.query.trim(),
+      strategy: 'hybrid',
+      source: this.source === 'ALL' ? undefined : this.source,
     }).subscribe({
-      next: ({ exec, grouped }) => {
+      next: (response) => {
         if (token !== this.searchToken) return;
-        this.semanticResult = exec;
-        this.groupedResult = grouped;
+        this.semanticResult = response;
         this.semanticLoading = false;
-        this.groupedLoading = false;
       },
-      // forkJoin only errors when the upstream observable errors; treat the
-      // whole bundle as failed but still keep the executive summary usable
-      // where possible. (Practical effect: both fall back to error UI; the
-      // per-call guards below run if we ever switch to per-stream handling.)
       error: () => {
         if (token !== this.searchToken) return;
         this.semanticResult = null;
-        this.groupedResult = null;
         this.semanticLoading = false;
         this.semanticError = true;
-        this.groupedLoading = false;
-        this.groupedError = true;
       }
     });
   }
 
-  /** Open the circular detail in a new tab from a per-circular summary card. */
-  onSummaryCardClick(card: CircularGroupSummary, event: MouseEvent): void {
-    // Build the SPA route through the router so base href / hash strategy /
-    // future route changes stay correct, then open in a new tab with
-    // noopener+noreferrer for security.
-    const url = this.router.serializeUrl(
-      this.router.createUrlTree(['/circular', card.circular_db_id])
-    );
-    window.open(window.location.origin + url, '_blank', 'noopener,noreferrer');
-  }
-
-  get showGroupedCards(): boolean {
-    return this.isSemanticMode
-      && !this.groupedLoading
-      && !!this.groupedResult
-      && !this.groupedError
-      && (this.groupedResult.results?.length ?? 0) > 0;
-  }
-
-  get showGroupedLoading(): boolean {
-    return this.isSemanticMode && this.groupedLoading;
-  }
-
-  get showGroupedEmpty(): boolean {
-    return this.isSemanticMode
-      && !this.groupedLoading
-      && this.hasSearched
-      && !!this.groupedResult
-      && !this.groupedError
-      && (this.groupedResult.results?.length ?? 0) === 0;
-  }
-
-  get showGroupedError(): boolean {
-    return this.isSemanticMode && this.groupedError;
-  }
 }

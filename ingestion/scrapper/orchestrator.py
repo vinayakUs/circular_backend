@@ -3,22 +3,23 @@ from __future__ import annotations
 import dataclasses
 from datetime import date, timedelta
 import hashlib
+import importlib
 import logging
 from pathlib import Path
 import re
 import time
 from typing import Any
 from urllib.parse import urlparse
+import zipfile
 
 import requests
 
-from ingestion.scrapper._proxy import get_requests_proxies
-import zipfile
-
 from config import Config
+from ingestion.logging_utils import emit_block, format_bytes, truncate
 from ingestion.repository import CircularAsset, CircularRepository
 from ingestion.repository.asset_repository import AssetRepository
 from ingestion.repository.checkpoint_repository import CheckpointRepository
+from ingestion.scrapper._proxy import get_requests_proxies
 from ingestion.scrapper.base import DEFAULT_USER_AGENT, IScraper, ScrapeDetectionResult
 from ingestion.scrapper.dto import Circular
 from ingestion.scrapper.pdf_reference_extractor import extract_master_circular_reference
@@ -27,7 +28,8 @@ from ingestion.indexer.es_client import ElasticsearchClient
 from ingestion.indexer.es_provider import get_es_client
 from storage.s3_client import S3StorageClient
 from utils.s3_utils import build_safe_filename
-import importlib
+
+# Force-import the source modules so their @ScraperRegistry.register runs.
 importlib.import_module("ingestion.scrapper.sources.nse")
 importlib.import_module("ingestion.scrapper.sources.sebi")
 importlib.import_module("ingestion.scrapper.sources.sebi_master")
@@ -81,10 +83,9 @@ class ScraperOrchestrator:
         today = date.today()
         enabled_scrapers = self._get_enabled_scrapers()
         self.logger.info(
-            "Starting ingestion run enabled_sources=%s lookback_days=%s from_date=%s to_date=%s",
+            "run.start sources=%s from=%s to=%s",
             [source.source_name for source in enabled_scrapers],
-            self.default_lookback_days,
-            self.from_date,
+            self.from_date or "checkpoint",
             self.to_date,
         )
         started_at = time.perf_counter()
@@ -108,15 +109,14 @@ class ScraperOrchestrator:
 
         if failed_sources:
             self.logger.warning(
-                "Ingestion run completed with source failures failed_sources=%s successful_sources=%s",
+                "run completed with source failures failed=%s ok=%s",
                 failed_sources,
                 successful_sources,
             )
         self.logger.info(
-            "Completed ingestion run enabled_sources=%s successful_sources=%s failed_sources=%s duration_seconds=%.2f",
-            [source.source_name for source in enabled_scrapers],
+            "run.done ok=%s failed=%s · %.1fs",
             successful_sources,
-            failed_sources,
+            [name for name, _ in failed_sources],
             time.perf_counter() - started_at,
         )
         # Raise only when ALL sources failed, so the runner can still exit 0
@@ -134,62 +134,57 @@ class ScraperOrchestrator:
             if last_run_date is None:
                 last_run_date = today - timedelta(days=self.default_lookback_days)
 
-        self.logger.info(
-            "Starting source scrape source=%s from_date=%s to_date=%s",
-            source.source_name,
-            last_run_date,
-            self.to_date,
-        )
         started_at = time.perf_counter()
         detection_result = self._detect_new_circulars(source, last_run_date, self.to_date)
         circulars = detection_result.circulars
         self.logger.info(
-            "Detected circulars source=%s count=%s failed_placeholders=%s",
+            "%s: processing %d circulars (%d detect failures) window=%s..%s",
             source.source_name,
             len(circulars),
             len(detection_result.failed_circulars),
+            last_run_date,
+            self.to_date,
         )
 
-        fetched_count = 0
+        inserted_count = 0
+        updated_count = 0
         skipped_count = 0
         failed_count = 0
-
-
+        failure_summaries: list[str] = []
         earliest_failed_issue_date: date | None = None
-        for circular in circulars:
-            self.logger.info("detected circular source=%s circular_id=%s issue_date=%s url=%s pdf_url=%s", source.source_name, circular.circular_id, circular.issue_date, circular.url, circular.pdf_url)
+        progress_width = len(str(len(circulars)))
+
+        for index, circular in enumerate(circulars, start=1):
+            record_started = time.perf_counter()
+            progress = f"[{index:>{progress_width}}/{len(circulars)}]"
+            base_header = f"── {progress} {circular.source} {circular.circular_id}"
 
             record = self.circular_repository.get_record(circular.source, circular.source_item_key)
 
-            # self.logger.info("existing record=%s", record)  
+            if record is not None and record.status == "FETCHED":
+                skipped_count += 1
+                emit_block(
+                    self.logger,
+                    logging.INFO,
+                    f"{base_header} · SKIPPED · already FETCHED",
+                    [
+                        ("title", truncate(circular.title or "(no title)")),
+                        ("db", f"existing row id={record.id} · status=FETCHED"),
+                    ],
+                )
+                continue
 
-            if record is not None:
-                reasons = []
-                if record.status != "FETCHED":
-                    reasons.append(f"status={record.status} (expected FETCHED)")
-                # if record.pdf_url != circular.pdf_url:
-                #     reasons.append(f"pdf_url mismatch (db={record.pdf_url}, incoming={circular.pdf_url})")
-                if reasons:
-                    self.logger.info(
-                        "Record already exists but will be updated source=%s circular_id=%s record_id=%s reasons=%s",
-                        circular.source,
-                        circular.circular_id,
-                        record.id,
-                        "; ".join(reasons),
-                    )
-                else:
-                    skipped_count += 1
-                    self.logger.info(
-                        "Skipping already fetched circular source=%s circular_id=%s record_id=%s",
-                        circular.source,
-                        circular.circular_id,
-                        record.id,
-                    )
-                    continue
+            db_note = (
+                f"existing row id={record.id} · was status={record.status} "
+                f"(not FETCHED) → reprocessing"
+                if record is not None
+                else None
+            )
 
             is_fresh = True
+            stale_note: str | None = None
 
-            if getattr(source,"supersede_on_same_title", False) and circular.title:
+            if getattr(source, "supersede_on_same_title", False) and circular.title:
                 existing = self.circular_repository.list_active_same_title(
                     source=circular.source, title=circular.title
                 )
@@ -199,86 +194,179 @@ class ScraperOrchestrator:
                     and r.issue_date >= circular.issue_date
                     for r in existing
                 ):
-                    self.logger.info(
-                        "Stale same-title master circular ingested as inactive "
-                        "source=%s circular_id=%s issue_date=%s", 
-                        source.source_name, circular.circular_id, circular.issue_date,
-                    )
                     circular.is_active = False
                     is_fresh = False
+                    stale_note = "stale same-title vs newer record → stored inactive"
 
-
+            superseded_count = 0
             if is_fresh:
-                self._supersede_older_same_title(source,circular)
+                superseded_count = self._supersede_older_same_title(source, circular)
 
+            record_id, created, personas = self.circular_repository.upsert_circular(circular)
+            if created:
+                inserted_count += 1
+            else:
+                updated_count += 1
 
-            record_id, _created = self.circular_repository.upsert_circular(circular)
-
+            phase = "fetch"
             try:
                 self.circular_repository.update_status(record_id, "DISCOVERED")
                 file_path, content_hash, assets = self._download_assets(
                     circular.pdf_url, circular, source
                 )
-                self.asset_repository.replace_assets(record_id, assets)
+                phase = "assets"
+                stored_assets, previous_assets = self.asset_repository.replace_assets(
+                    record_id, assets
+                )
 
                 # Optional PDF reference enrichment (e.g. SEBI_MASTER extracts the
                 # real circular reference from page 1 and overwrites the API ID).
                 if getattr(source, "enrich_reference_from_pdf", False):
+                    phase = "enrich"
                     circular = self._enrich_from_pdf(
                         source, circular, record_id, pdf_url_for_retry=circular.pdf_url
                     )
 
                 self.circular_repository.update_status(record_id, "FETCHED")
-                fetched_count += 1
-                self.logger.info(
-                    "Fetched circular source=%s circular_id=%s record_id=%s asset_count=%s",
-                    circular.source,
-                    circular.circular_id,
-                    record_id,
-                    len(assets),
+                duration = time.perf_counter() - record_started
+                emit_block(
+                    self.logger,
+                    logging.INFO,
+                    f"{base_header} · {'INSERTED' if created else 'UPDATED'} · {duration:.2f}s",
+                    self._record_success_fields(
+                        circular=circular,
+                        record_id=record_id,
+                        created=created,
+                        db_note=db_note,
+                        personas=personas,
+                        assets=assets,
+                        previous_assets=previous_assets,
+                        superseded_count=superseded_count,
+                        stale_note=stale_note,
+                    ),
                 )
             except Exception as exc:
                 failed_count += 1
+                duration = time.perf_counter() - record_started
                 earliest_failed_issue_date = self._min_issue_date(
                     earliest_failed_issue_date, circular.issue_date
                 )
                 self.circular_repository.update_status(record_id, "FAILED", str(exc))
-                self.logger.exception(
+                self.logger.debug(
                     "Failed circular fetch source=%s circular_id=%s record_id=%s",
                     circular.source,
                     circular.circular_id,
                     record_id,
+                    exc_info=True,
+                )
+                failure_summaries.append(f"{circular.circular_id}: {exc}")
+                emit_block(
+                    self.logger,
+                    logging.ERROR,
+                    f"{base_header} · FAILED · {duration:.2f}s",
+                    [
+                        ("title", truncate(circular.title or "(no title)")),
+                        ("department", circular.department or ""),
+                        ("issue_date", str(circular.issue_date or "")),
+                        ("personas", ", ".join(personas) if personas else "none"),
+                        ("db", db_note or f"new row id={record_id}"),
+                        (phase, "failed"),
+                        ("error", truncate(str(exc), 200)),
+                        ("status", "FAILED"),
+                    ],
                 )
 
         for failed_circular in detection_result.failed_circulars:
-            record_id, _created = self.circular_repository.upsert_circular(failed_circular)
+            record_id, _created, _personas = self.circular_repository.upsert_circular(failed_circular)
             failed_count += 1
             earliest_failed_issue_date = self._min_issue_date(
                 earliest_failed_issue_date, failed_circular.issue_date
             )
-            self.circular_repository.update_status(
-                record_id,
-                "FAILED",
-                failed_circular.error_message or "Source detail parsing failed",
+            error_message = failed_circular.error_message or "Source detail parsing failed"
+            self.circular_repository.update_status(record_id, "FAILED", error_message)
+            failure_summaries.append(f"{failed_circular.circular_id}: {error_message}")
+            emit_block(
+                self.logger,
+                logging.ERROR,
+                f"── {failed_circular.source} {failed_circular.circular_id} · FAILED (detect)",
+                [
+                    ("title", truncate(failed_circular.title or "(no title)")),
+                    ("error", truncate(error_message, 200)),
+                    ("status", "FAILED"),
+                ],
             )
 
-        self._update_checkpoint(
+        effective_checkpoint = self._update_checkpoint(
             source.source_name,
             last_run_date,
             self.to_date,
             detection_result.has_incomplete_items or earliest_failed_issue_date is not None,
             earliest_failed_issue_date,
         )
-        self.logger.info(
-            "Completed source scrape source=%s detected=%s failed_placeholders=%s fetched=%s skipped=%s failed=%s duration_seconds=%.2f",
-            source.source_name,
-            len(circulars),
-            len(detection_result.failed_circulars),
-            fetched_count,
-            skipped_count,
-            failed_count,
-            time.perf_counter() - started_at,
+        duration = time.perf_counter() - started_at
+        lines = [
+            f"{source.source_name} done: detected={len(circulars)} inserted={inserted_count} "
+            f"updated={updated_count} skipped={skipped_count} failed={failed_count} "
+            f"· {duration:.1f}s · checkpoint={effective_checkpoint}"
+        ]
+        if failure_summaries:
+            lines.append("  failures:")
+            lines.extend(f"    - {item}" for item in failure_summaries)
+        self.logger.info("\n".join(lines))
+
+    def _record_success_fields(
+        self,
+        circular: Circular,
+        record_id: Any,
+        created: bool,
+        db_note: str | None,
+        personas: list[str],
+        assets: list[CircularAsset],
+        previous_assets: int,
+        superseded_count: int,
+        stale_note: str | None,
+    ) -> list[tuple[str, str]]:
+        if created:
+            db_desc = f"new row id={record_id}"
+        else:
+            db_desc = db_note or f"existing row id={record_id}"
+
+        original = next(
+            (a for a in assets if a.asset_role in ("original_pdf", "original_zip")),
+            assets[0] if assets else None,
         )
+        extracted_count = sum(1 for a in assets if a.asset_role == "extracted_pdf")
+        if original is not None and original.asset_role == "original_zip":
+            fetch_desc = f"zip + {extracted_count} pdfs"
+        else:
+            fetch_desc = "pdf"
+        size = format_bytes(original.file_size_bytes if original else None)
+
+        object_word = "object" if len(assets) == 1 else "objects"
+        if previous_assets:
+            prev_word = "asset" if previous_assets == 1 else "assets"
+            s3_desc = (
+                f"uploaded {len(assets)} {object_word} · "
+                f"replaced {previous_assets} previous {prev_word}"
+            )
+        else:
+            s3_desc = f"uploaded {len(assets)} {object_word} · new"
+
+        fields: list[tuple[str, str]] = [
+            ("title", truncate(circular.title or "(no title)")),
+            ("department", circular.department or ""),
+            ("issue_date", str(circular.issue_date or "")),
+            ("personas", ", ".join(personas) if personas else "none"),
+            ("db", db_desc),
+            ("fetch", f"ok · {fetch_desc} · {size}"),
+            ("s3", s3_desc),
+        ]
+        if superseded_count:
+            fields.append(("superseded", f"{superseded_count} older same-title record(s)"))
+        if stale_note:
+            fields.append(("note", stale_note))
+        fields.append(("status", "FETCHED"))
+        return fields
 
     def _detect_new_circulars(
         self, source: IScraper, from_date: date, to_date: date
@@ -292,10 +380,11 @@ class ScraperOrchestrator:
         today: date,
         has_failures: bool,
         earliest_failed_issue_date: date | None,
-    ) -> None:
+    ) -> date:
+        """Advance (or hold) the source checkpoint; returns the effective date."""
         if not has_failures:
             self.checkpoint_repository.set_checkpoint(source_name, today)
-            return
+            return today
 
         if earliest_failed_issue_date is None:
             self.logger.warning(
@@ -303,7 +392,7 @@ class ScraperOrchestrator:
                 source_name,
                 last_run_date,
             )
-            return
+            return last_run_date
 
         safe_checkpoint = earliest_failed_issue_date - timedelta(days=1)
         if safe_checkpoint > last_run_date:
@@ -315,7 +404,7 @@ class ScraperOrchestrator:
                 safe_checkpoint,
                 earliest_failed_issue_date,
             )
-            return
+            return safe_checkpoint
 
         self.logger.warning(
             "Checkpoint left unchanged after failures source=%s last_run_date=%s earliest_failed_issue_date=%s",
@@ -323,6 +412,7 @@ class ScraperOrchestrator:
             last_run_date,
             earliest_failed_issue_date,
         )
+        return last_run_date
 
     def _min_issue_date(
         self, current: date | None, candidate: date
@@ -381,7 +471,7 @@ class ScraperOrchestrator:
 
         count = self.circular_repository.mark_inactive(older_ids)
 
-        self.logger.info(
+        self.logger.debug(
             "Superseded older same-title circulars source=%s new_circular_id=%s "
             "new_issue_date=%s superseded_count=%s",
             source.source_name,
@@ -418,7 +508,7 @@ class ScraperOrchestrator:
             )
 
         if extracted == circular.circular_id:
-            self.logger.info(
+            self.logger.debug(
                 "Extracted reference matches existing circular_id source=%s record_id=%s circular_id=%s",
                 source.source_name,
                 record_id,
@@ -592,7 +682,7 @@ class ScraperOrchestrator:
         ]
 
         if matching_members:
-            self.logger.info(
+            self.logger.debug(
                 "Selected NSE ZIP members by circular_id source=%s circular_id=%s matched=%s total_pdf_members=%s",
                 circular.source,
                 circular.circular_id,

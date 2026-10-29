@@ -26,6 +26,14 @@ class OllamaLLMClient(BaseLLMClient):
                     cls._instance._client = None
         return cls._instance
 
+    @property
+    def api_base(self) -> str:
+        return Config.OLLAMA_BASE_URL
+
+    @property
+    def api_key(self) -> str:
+        return Config.OLLAMA_API_KEY or "ollama"
+
     def get_client(self) -> instructor.Instructor:
         # NOTE: reuses cls._instance_lock (the same lock that guards __new__).
         cached = self._client
@@ -34,8 +42,8 @@ class OllamaLLMClient(BaseLLMClient):
         with self._instance_lock:
             if self._client is None:
                 openai_client = OpenAI(
-                    base_url=Config.OLLAMA_BASE_URL,
-                    api_key=Config.OLLAMA_API_KEY or "ollama",
+                    base_url=self.api_base,
+                    api_key=self.api_key,
                 )
                 self._client = instructor.from_openai(openai_client, mode=instructor.Mode.JSON)
 

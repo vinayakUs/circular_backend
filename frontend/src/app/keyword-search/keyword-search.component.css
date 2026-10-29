@@ -635,42 +635,149 @@
   text-underline-offset: 2px;
 }
 
-.semantic-references {
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
-  padding-top: 16px;
+/* Answer + its action row share a tight gap; .semantic-result's 20px gap
+   separates them from the rag_error footer below. */
+.semantic-body {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
-.semantic-references-label {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: 11px;
-  font-weight: 500;
-  color: #9e9e9e;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+.semantic-actions {
+  display: flex;
+  align-items: center;
 }
 
-.semantic-references-list {
-  list-style: none;
+/* Mirrors .recent-searches-clear — a quiet text button that darkens on hover. */
+.answer-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  border: none;
+  padding: 3px 6px;
+  margin-left: -6px;
+  border-radius: 4px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: #5e5e5e;
+  cursor: pointer;
+  transition: color 0.12s ease, background 0.12s ease;
+}
+
+.answer-copy-btn:hover {
+  color: #0a0a0a;
+  background: #f5f5f5;
+}
+
+.answer-copy-btn:focus-visible {
+  color: #0a0a0a;
+  outline: none;
+  box-shadow: 0 0 0 1px #5e6ad2;
+}
+
+.answer-copy-icon {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+}
+
+/* Inline citation chips, injected into the answer's markdown HTML */
+.semantic-answer ::ng-deep .cite-chip {
+  display: inline;
   margin: 0;
-  padding: 0;
+  padding: 1px 5px;
+  border: none;
+  border-radius: 4px;
+  background: rgba(94, 106, 210, 0.1);
+  color: #5e6ad2;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 0.85em;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.semantic-answer ::ng-deep .cite-chip:hover,
+.semantic-answer ::ng-deep .cite-chip:focus-visible {
+  background: rgba(94, 106, 210, 0.2);
+  outline: none;
+}
+
+/* Citation popup — fixed to the viewport, positioned from the chip's rect */
+.cite-popup {
+  position: fixed;
+  z-index: 60;
+  width: 340px;
+  max-width: calc(100vw - 24px);
+  max-height: 260px;
+  overflow-y: auto;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1), 0 2px 6px rgba(0, 0, 0, 0.05);
+  padding: 14px 16px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
-.semantic-reference-item {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+.cite-popup-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cite-popup-ref {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b6963;
+  font-variant-numeric: tabular-nums;
+  word-break: break-all;
+}
+
+.cite-popup-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  font-size: 11px;
+  font-weight: 500;
+  color: #5e6ad2;
+  text-decoration: none;
+}
+
+.cite-popup-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.cite-popup-link-icon {
+  width: 11px;
+  height: 11px;
+}
+
+.cite-popup-title {
+  margin: 0;
   font-size: 13px;
   font-weight: 500;
   color: #0a0a0a;
-  background: #fafafa;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: 6px;
-  padding: 8px 12px;
-  font-variant-numeric: tabular-nums;
+  line-height: 1.5;
+}
+
+.cite-popup-text {
+  margin: 0;
+  padding-top: 8px;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  font-size: 12.5px;
+  font-weight: 400;
+  color: #57534e;
+  line-height: 1.6;
 }
 
 .semantic-meta {
@@ -853,125 +960,3 @@
   border-color: rgba(94, 106, 210, 0.18);
 }
 
-/* ── Semantic per-circular summary cards ───────────────────────
-   Distinct from the keyword-results list: more whitespace, a labeled
-   'Summary' eyebrow on the LLM blurb, soft off-white background so the
-   per-circular write-ups read as a complementary layer under the
-   executive summary rather than competing with it. */
-.semantic-cards {
-  margin-top: 28px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.semantic-cards-header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 0 4px;
-}
-
-.semantic-cards-title {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: 11px;
-  font-weight: 600;
-  color: #6b6963;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.semantic-cards-count {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: 12px;
-  color: #9e9e9e;
-  font-variant-numeric: tabular-nums;
-}
-
-.summary-card-list {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.summary-card {
-  background: #fafaf9;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: 12px;
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  padding: 22px 24px;
-  cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.18s ease;
-}
-
-.summary-card:hover {
-  background: #ffffff;
-  border-color: rgba(94, 106, 210, 0.28);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-}
-
-.summary-card:focus-visible {
-  outline: none;
-  border-color: rgba(94, 106, 210, 0.5);
-  box-shadow: 0 0 0 3px rgba(94, 106, 210, 0.16);
-}
-
-.summary-card-body {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 10px;
-  flex: 1;
-  min-width: 0;
-}
-
-.summary-card-head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  width: 100%;
-}
-
-.summary-card-summary {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-  width: 100%;
-  margin-top: 4px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(0, 0, 0, 0.05);
-}
-
-.summary-card-eyebrow {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: 10px;
-  font-weight: 600;
-  color: #78716c;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-}
-
-.summary-card-summary p {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: 13.5px;
-  font-weight: 400;
-  color: #44403c;
-  line-height: 1.6;
-  margin: 0;
-}
-
-@media (max-width: 640px) {
-  .summary-card {
-    padding: 18px 16px;
-  }
-
-  .summary-card-summary p {
-    font-size: 13px;
-  }
-}

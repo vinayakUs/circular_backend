@@ -42,9 +42,9 @@ class IScraper(ABC):
     ) -> str:
         last_error: Exception | None = None
         for attempt in range(1, max_retries + 1):
-            log_msg = f"Fetching {method} {url} attempt={attempt}/{max_retries} timeout={timeout:.1f}s"
+            log_msg = f"fetch attempt={attempt}/{max_retries} {method} {url} timeout={timeout:.1f}s"
             if extra_log:
-                log_msg += f" {extra_log}"
+                log_msg += " " + " ".join(f"{key}={value}" for key, value in extra_log.items())
             self.logger.info(log_msg)
             try:
                 response = requests.request(

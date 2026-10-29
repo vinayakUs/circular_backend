@@ -26,6 +26,17 @@ class NvidiaLLMClient(BaseLLMClient):
                     cls._instance._client = None
         return cls._instance
 
+    @property
+    def api_base(self) -> str:
+        return "https://nim.api.nvidia.com/v1"
+
+    @property
+    def api_key(self) -> str:
+        api_key = Config.NVIDIA_API_KEY
+        if not api_key:
+            raise ValueError("NVIDIA_API_KEY is not set in the configuration.")
+        return api_key
+
     def get_client(self) -> instructor.Instructor:
         # NOTE: reuses cls._instance_lock (the same lock that guards __new__).
         cached = self._client
@@ -33,13 +44,9 @@ class NvidiaLLMClient(BaseLLMClient):
             return cached
         with self._instance_lock:
             if self._client is None:
-                api_key = Config.NVIDIA_API_KEY
-                if not api_key:
-                    raise ValueError("NVIDIA_API_KEY is not set in the configuration.")
-
                 openai_client = OpenAI(
-                    base_url="https://integrate.api.nvidia.com/v1",
-                    api_key=api_key,
+                    base_url=self.api_base,
+                    api_key=self.api_key,
                 )
                 self._client = instructor.from_openai(openai_client)
 

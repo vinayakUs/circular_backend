@@ -166,7 +166,7 @@ export class AuthService {
   private scheduleRenewal(): void {
     const remaining = this.accessExpiresAt - Date.now();
     const lead = Math.max(0, Math.min(RENEWAL_LEAD_MS, remaining * 0.1));
-    const delay = Math.max(RENEWAL_MIN_DELAY_MS, lead);
+    const delay = Math.max(RENEWAL_MIN_DELAY_MS, remaining - lead);
 
     this.zone.runOutsideAngular(() => {
       this.renewalTimer = setTimeout(() => this.renew(), delay);

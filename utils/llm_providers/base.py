@@ -1,10 +1,63 @@
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 
+if TYPE_CHECKING:
+    from llama_index.core.llms.llm import LLM
+
+
+def build_openai_like_llm(
+    api_base: str,
+    api_key: str,
+    model: str,
+    max_tokens: int | None = None,
+    temperature: float = 0.0,
+) -> "LLM":
+    # Lazy: utils.llm_providers is imported by ingestion paths that never touch LlamaIndex.
+    from llama_index.llms.openai_like import OpenAILike
+
+    return OpenAILike(
+        model=model,
+        api_base=api_base,
+        api_key=api_key,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        is_chat_model=True,
+        max_retries=0,  # callers own retries
+    )
+
 
 class BaseLLMClient(ABC):
+    _llama_llms: dict[tuple[str, int | None, float], "LLM"] = {}
+
+    @property
+    @abstractmethod
+    def api_base(self) -> str: ...
+
+    @property
+    @abstractmethod
+    def api_key(self) -> str: ...
+
+    def get_llama_llm(
+        self,
+        model: str,
+        max_tokens: int | None = None,
+        temperature: float = 0.0,
+    ) -> "LLM":
+        key = (model, max_tokens, temperature)
+        cached = self._llama_llms.get(key)
+        if cached is not None:
+            return cached
+        self._llama_llms[key] = build_openai_like_llm(
+            api_base=self.api_base,
+            api_key=self.api_key,
+            model=model,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
+        return self._llama_llms[key]
+
     @abstractmethod
     def create_completions_parallel(
         self,

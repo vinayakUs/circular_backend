@@ -20,7 +20,7 @@ class Config:
     FLASK_ENV = os.getenv("FLASK_ENV", "development")
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 
-    NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY", "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")
+    NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY", "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")
     MINMAX_API_KEY = os.getenv("MINMAX_API_KEY", "")
     MINMAX_BASE_URL = os.getenv("MINMAX_BASE_URL", "https://api.minimax.chat/v1")
     ACTION_ITEM_MODEL = os.getenv(
