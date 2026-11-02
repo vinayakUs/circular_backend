@@ -42,7 +42,7 @@
           [maxItemsVisible]="3"
           [disabled]="loadingMonth() !== null"
           (monthChange)="onMonthChange($event)"
-          (viewAll)="onViewAll()"
+          (viewAll)="onCalendarViewAll($event)"
         ></app-deadline-calendar>
       </div>
 
@@ -207,3 +207,4 @@
     </section>
   </ng-container>
 </main>
+ 

@@ -150,7 +150,7 @@ def require_auth(f):
 
     The token arrives in an HttpOnly cookie, so the SPA can neither read
     nor forge it; no Authorization header is consulted. Unsafe methods
-    additionally require X-CSRF-Token to match the csrf_token cookie —
+    additionally require X-CSRF-Token to match the csrf_token cookie -
     enforcing it here covers every protected route without an allowlist of
     public mutating endpoints to keep in sync.
     """

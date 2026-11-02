@@ -1,6 +1,6 @@
 .circular-detail-page {
   min-height: calc(100vh - 56px);
-  background: #fafafa;
+  background: #ffffff;
   color: #0a0a0a;
 }
 
@@ -72,18 +72,11 @@
   gap: 12px;
 }
 
-.loading-state.small p {
-  font-size: 13px;
-}
-
 .empty-state {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
-  background: #fafafa;
-  border: 1px dashed rgba(0, 0, 0, 0.1);
-  border-radius: 10px;
+  padding: 12px 0;
 }
 
 .empty-state p {
@@ -91,14 +84,6 @@
   font-size: 14px;
   color: #9e9e9e;
   margin: 0;
-}
-
-.empty-state.small {
-  padding: 12px;
-}
-
-.empty-state.small p {
-  font-size: 13px;
 }
 
 .detail-container {
@@ -164,15 +149,13 @@
 .detail-content {
   display: grid;
   grid-template-columns: 1fr 320px;
-  gap: 24px;
+  gap: 0;
   align-items: start;
 }
 
 .content-main {
-  background: #ffffff;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 12px;
-  padding: 32px;
+  padding: 0 24px 0 0;
+  border-right: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 .circular-title {
@@ -276,29 +259,27 @@
   color: #5e6ad2;
 }
 
-/* Action items section — same background as the AI summary card */
+/* Action items — compact unboxed list, hairline dividers between rows */
 .action-items-list {
   display: flex;
   flex-direction: column;
 }
 
-.action-item-card {
-  background: #fafafa;
-  border: 1px solid rgba(15, 23, 42, 0.06);
-  border-radius: 8px;
-  padding: 12px 14px;
-  margin-bottom: 6px;
+.action-item-row {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 10px 0;
 }
 
-.action-item-card:last-child { margin-bottom: 0; }
+.action-item-row + .action-item-row {
+  border-top: 1px solid rgba(15, 23, 42, 0.06);
+}
 
-/* Top row: deadline right-aligned */
-.action-item-header {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-bottom: 6px;
+.action-item-row .action-item-text {
+  flex: 1;
+  min-width: 0;
 }
 
 /* Deadline — right-aligned, date + relative on one line */
@@ -308,6 +289,8 @@
   color: #64748b;
   text-align: right;
   white-space: nowrap;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 .action-item-deadline .deadline-date {
@@ -357,10 +340,51 @@
 }
 
 .ai-summary-card {
-  background: linear-gradient(135deg, rgba(94, 106, 210, 0.05) 0%, rgba(168, 85, 247, 0.05) 100%);
-  border: 1px solid rgba(94, 106, 210, 0.15);
-  border-radius: 12px;
-  padding: 20px;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  padding: 20px 24px;
+}
+
+.summary-actions {
+  display: flex;
+  align-items: center;
+  margin-top: 4px;
+}
+
+/* Mirrors keyword-search's .answer-copy-btn — quiet text button. */
+.summary-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  border: none;
+  padding: 3px 6px;
+  margin-left: -6px;
+  border-radius: 4px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: #5e5e5e;
+  cursor: pointer;
+  transition: color 0.12s ease, background 0.12s ease;
+}
+
+.summary-copy-btn:hover {
+  color: #0a0a0a;
+  background: #f5f5f5;
+}
+
+.summary-copy-btn:focus-visible {
+  color: #0a0a0a;
+  outline: none;
+  box-shadow: 0 0 0 1px #5e6ad2;
+}
+
+.summary-copy-icon {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
 }
 
 .ai-summary-content {
@@ -465,47 +489,46 @@
   display: flex;
   flex-direction: column;
   gap: 20px;
+  padding-left: 24px;
 }
 
 .sidebar-section {
-  background: #ffffff;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 12px;
-  padding: 20px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  padding: 20px 0 0;
 }
 
 .sidebar-section h3 {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
-  color: #9e9e9e;
+  color: #6b7280;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin: 0 0 16px 0;
+  letter-spacing: 0.06em;
+  margin: 0 0 10px 0;
 }
 
+/* Label–value rows: fixed label column, left-aligned values */
 .detail-row {
   display: flex;
-  justify-content: space-between;
-  padding: 10px 0;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
-}
-
-.detail-row:last-child {
-  border-bottom: none;
+  align-items: baseline;
+  gap: 12px;
+  padding: 7px 0;
 }
 
 .detail-label {
+  flex: 0 0 116px;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: 13px;
-  color: #9e9e9e;
+  font-size: 12px;
+  color: #6b7280;
 }
 
 .detail-value {
+  flex: 1;
+  min-width: 0;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 13px;
   font-weight: 500;
-  text-align: right;
+  text-align: left;
   color: #0a0a0a;
 }
 
@@ -622,6 +645,15 @@
     grid-template-columns: 1fr;
   }
 
+  .content-main {
+    padding: 0 0 24px;
+    border-right: none;
+  }
+
+  .content-sidebar {
+    padding-left: 0;
+  }
+
   .detail-header {
     flex-direction: column;
     align-items: flex-start;
@@ -642,10 +674,6 @@
     padding: 24px 16px;
   }
 
-  .content-main {
-    padding: 20px;
-  }
-
   .circular-title {
     font-size: 20px;
   }
@@ -664,10 +692,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 12px;
-  background: #f8f9ff;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: 8px;
+  padding: 10px 0;
 }
 
 .signatory-name {
@@ -684,21 +709,18 @@
 }
 
 .signatory-card + .signatory-card {
-  margin-top: 8px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .expert-card {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 12px;
-  background: #f8f9ff;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: 8px;
+  padding: 12px 0;
 }
 
 .expert-card + .expert-card {
-  margin-top: 8px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .expert-header {
@@ -746,11 +768,8 @@
 
 /* Sign-in prompt shown to anonymous viewers in place of the task list */
 .login-prompt .login-prompt-body {
-  border: 1px dashed rgba(0, 0, 0, 0.15);
-  border-radius: 12px;
-  padding: 32px 24px;
-  text-align: center;
-  background: #fafafa;
+  padding: 16px 0;
+  text-align: left;
 }
 .login-prompt-body p {
   font-family: 'Inter', sans-serif;
@@ -787,3 +806,4 @@
   color: #5e6ad2;
   font-weight: 500;
 }
+ 

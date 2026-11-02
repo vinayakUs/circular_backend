@@ -1,34 +1,35 @@
 import logging
-
+ 
 import openai
-
+ 
 from config import Config
 from ingestion.indexer.dto import SearchHit
 from services.rag.citation_engine import (
     build_citation_query_engine,
     citation_nodes_to_citations,
     hits_to_nodes,
+    normalize_citation_markers,
 )
 from services.rag.dto import RAGAnswer
-
+ 
 # Network/infra failures worth another attempt. Auth, bad-request and
-# validation errors are not — retrying them just delays the same verdict.
+# validation errors are not - retrying them just delays the same verdict.
 _TRANSIENT_LLM_ERRORS = (
     openai.APITimeoutError,
     openai.APIConnectionError,
     openai.RateLimitError,
     openai.InternalServerError,
 )
-
-
+ 
+ 
 class RAGAnswerGenerator:
     """Generates answers using LLM based on retrieved chunks."""
-
+ 
     def __init__(self) -> None:
         self.logger = logging.getLogger(__name__)
         self.max_chunks = Config.RAG_MAX_CHUNKS
         self.max_tokens = Config.RAG_MAX_TOKENS
-
+ 
     def generate_answer(
         self,
         query: str,
@@ -40,15 +41,15 @@ class RAGAnswerGenerator:
                 answer="No relevant information found in the circulars.",
                 citations=[],
             )
-
+ 
         # Limit chunks to avoid token overflow
         limited_hits = hits[: self.max_chunks]
-
+ 
         engine = build_citation_query_engine(hits_to_nodes(limited_hits))
-
+ 
         max_retries = 3
         last_error: Exception | None = None
-
+ 
         for attempt in range(max_retries + 1):
             try:
                 self.logger.info(
@@ -66,14 +67,15 @@ class RAGAnswerGenerator:
                     response.response or "",
                 )
                 citations = citation_nodes_to_citations(response.source_nodes)
+                answer = normalize_citation_markers(response.response or "")
                 self.logger.info(
                     "RAG: attempt=%d/%d success answer_chars=%d citations=%d",
                     attempt + 1,
                     max_retries + 1,
-                    len(response.response or ""),
+                    len(answer),
                     len(citations),
                 )
-                return RAGAnswer(answer=response.response or "", citations=citations)
+                return RAGAnswer(answer=answer, citations=citations)
             except _TRANSIENT_LLM_ERRORS as e:
                 last_error = e
                 if attempt < max_retries:
@@ -102,7 +104,9 @@ class RAGAnswerGenerator:
                     str(e)[:300],
                 )
                 raise
-
+ 
         # Should not reach here, but raise last error if we do
         if last_error:
             raise last_error
+ 
+ 

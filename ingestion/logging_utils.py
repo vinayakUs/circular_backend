@@ -32,7 +32,7 @@ def configure_logging(level: str = "INFO") -> None:
 def truncate(text: str, max_length: int = 80) -> str:
     if len(text) <= max_length:
         return text
-    return text[: max_length - 1].rstrip() + "…"
+    return text[: max_length - 1].rstrip() + "..."
 
 
 def format_bytes(size: int | None) -> str:

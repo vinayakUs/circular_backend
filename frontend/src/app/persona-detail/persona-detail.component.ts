@@ -14,7 +14,7 @@ import { addDays, endOfMonth, format, subDays } from 'date-fns';
 
 import { Circular } from '../services/circulars-api.service';
 import { PersonaDetailFiltersService } from './persona-detail-filters.service';
-import { UpcomingPeriod } from '../upcoming-changes/upcoming-changes-filters.service';
+import { UpcomingChangesFiltersService, UpcomingPeriod } from '../upcoming-changes/upcoming-changes-filters.service';
 import { normalizeSource } from '../util/source.util';
 
 /** Period chip -> how many days back from today (over `issue_date`). */
@@ -137,6 +137,7 @@ export class PersonaDetailComponent implements OnInit {
   private personasApi = inject(PersonasApiService);
   private auth = inject(AuthService);
   private router = inject(Router);
+  private upcomingFilters = inject(UpcomingChangesFiltersService);
 
   get isAuthenticated(): boolean {
     return this.auth.isAuthenticated();
@@ -245,6 +246,16 @@ export class PersonaDetailComponent implements OnInit {
   }
 
   onViewAll(): void {
+    this.router.navigate(['/upcoming-changes']);
+  }
+
+  // The calendar's "+N more" carries the selected day so the upcoming
+  // changes page opens scoped to that exact date.
+  onCalendarViewAll(date: Date): void {
+    const iso = format(date, 'yyyy-MM-dd');
+    this.upcomingFilters.setPeriod('OTHER');
+    this.upcomingFilters.setCustomDate('from', iso);
+    this.upcomingFilters.setCustomDate('to', iso);
     this.router.navigate(['/upcoming-changes']);
   }
 
@@ -439,3 +450,4 @@ export class PersonaDetailComponent implements OnInit {
     };
   }
 }
+ 

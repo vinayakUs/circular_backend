@@ -351,7 +351,7 @@ def register_routes(app) -> None:
 
     @app.post("/api/auth/logout")
     def logout():
-        """End the session server-side — the SPA cannot delete an HttpOnly
+        """End the session server-side - the SPA cannot delete an HttpOnly
         cookie. Deliberately not wrapped in @require_auth, since logout is
         needed most often exactly when the access token has expired.
         """

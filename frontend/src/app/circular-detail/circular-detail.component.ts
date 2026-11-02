@@ -616,6 +616,42 @@ export class CircularDetailComponent implements OnInit, AfterViewInit, OnDestroy
     return this.sanitizer.bypassSecurityTrustHtml(marked.parse(text) as string);
   }
 
+  summaryCopied = false;
+  private summaryCopiedResetTimer: ReturnType<typeof setTimeout> | null = null;
+
+  async copySummary(): Promise<void> {
+    const text = this.summary ?? '';
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      this.markSummaryCopied();
+    } catch {
+      // navigator.clipboard is undefined outside a secure context (plain
+      // http), so fall back to a detached textarea.
+      const scratch = document.createElement('textarea');
+      scratch.value = text;
+      scratch.style.position = 'fixed';
+      scratch.style.opacity = '0';
+      document.body.appendChild(scratch);
+      scratch.select();
+      try {
+        document.execCommand('copy');
+        this.markSummaryCopied();
+      } finally {
+        scratch.remove();
+      }
+    }
+  }
+
+  private markSummaryCopied(): void {
+    this.summaryCopied = true;
+    if (this.summaryCopiedResetTimer) clearTimeout(this.summaryCopiedResetTimer);
+    this.summaryCopiedResetTimer = setTimeout(() => {
+      this.summaryCopiedResetTimer = null;
+      this.summaryCopied = false;
+    }, 2000);
+  }
+
   private fetchActionItems(circularId: string) {
     this.actionItemsLoading = true;
     this.actionItemsError = null;
@@ -680,3 +716,4 @@ export class CircularDetailComponent implements OnInit, AfterViewInit, OnDestroy
     return 'future';
   }
 }
+ 

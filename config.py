@@ -1,8 +1,8 @@
 import os
-
+from pathlib import Path 
 from dotenv import load_dotenv
-load_dotenv(override=True)
-
+# load_dotenv(override=True)
+load_dotenv(Path(__file__).parent / ".env", override=True)
 
 def _parse_scraper_sources(raw_value: str | None) -> tuple[str, ...]:
     if raw_value is None:
@@ -13,7 +13,7 @@ def _parse_scraper_sources(raw_value: str | None) -> tuple[str, ...]:
 
 
 class Config:
-    # Flask session secret. No default — fail-at-use-site if missing.
+    # Flask session secret. No default - fail-at-use-site if missing.
     # Previously defaulted to "dev-secret-key", which meant any misconfigured
     # deploy silently ran with a publicly-known session signing key.
     SECRET_KEY = os.getenv("SECRET_KEY")
@@ -36,19 +36,19 @@ class Config:
     LDAP_BASE_DN = os.getenv("LDAP_BASE_DN", "dc=company,dc=com")  # only for simple bind
     LDAP_USER_DN_TEMPLATE = os.getenv("LDAP_USER_DN_TEMPLATE", "uid={username},ou=users,dc=company,dc=com")  # only for simple bind
     # ==== End LDAP ====
-    # RS256 (asymmetric) — server signs with the PRIVATE key, verifies with the PUBLIC key.
+    # RS256 (asymmetric) - server signs with the PRIVATE key, verifies with the PUBLIC key.
     # Neither value has a committed fallback. If the env vars are missing, the auth code
     # raises RuntimeError at use-site (login route catches and returns 503).
     JWT_PRIVATE_KEY = os.getenv("JWT_PRIVATE_KEY")  # PEM-encoded RSA private key
     JWT_PUBLIC_KEY = os.getenv("JWT_PUBLIC_KEY")      # PEM-encoded RSA public key
     JWT_ALGORITHM = "RS256"
-    # Access-token lifetime. MUST equal the access_token cookie's max_age —
+    # Access-token lifetime. MUST equal the access_token cookie's max_age -
     # cookie.py derives the cookie from this, so the two cannot drift.
     JWT_EXPIRATION_MINUTES = int(os.getenv("JWT_EXPIRATION_MINUTES", "15"))
 
     # ==== SESSION / COOKIES ====
     # Refresh tokens are opaque 32-byte secrets; only their SHA-256 hash is
-    # persisted. Lifetime is sliding — every rotation pushes expires_at
+    # persisted. Lifetime is sliding - every rotation pushes expires_at
     # forward, so an active tab never logs out. Reuse detection (revoking the
     # whole token family on replay) is the compensating control for the
     # absence of an absolute cap. 10080 minutes == 7 days.
@@ -68,7 +68,7 @@ class Config:
     # behind the reverse proxy.
     COOKIE_DOMAIN = os.getenv("COOKIE_DOMAIN", "")
 
-    # Credentialed CORS cannot use "*" — the spec forbids
+    # Credentialed CORS cannot use "*" - the spec forbids
     # Access-Control-Allow-Origin: * alongside Allow-Credentials: true.
     # Only fires for the Angular dev server; proxy.conf.json already
     # proxies /api in dev.
@@ -108,7 +108,7 @@ class Config:
         os.getenv("SUMMARIZER_COLLAPSE_MAX_RETRIES", "3")
     )
     SUMMARIZER_MAX_OUTPUT_TOKENS = int(
-        os.getenv("SUMMARIZER_MAX_OUTPUT_TOKENS", "1500")
+        os.getenv("SUMMARIZER_MAX_OUTPUT_TOKENS", "1200")
     )
     SCRAPER_DEFAULT_LOOKBACK_DAYS = int(
         os.getenv("SCRAPER_DEFAULT_LOOKBACK_DAYS", "4") # default to 1 day if no data in db fetching historical data
@@ -126,7 +126,7 @@ class Config:
         "ELASTICSEARCH_URL", "http://localhost:9200"
     )
     FRONTEND_BASE_URL = os.getenv(
-        "FRONTEND_BASE_URL", "http://localhost:4200"
+        "FRONTEND_BASE_URL", "https://circular-hub.go.akamai-access.com"
     )
     ELASTICSEARCH_USERNAME = os.getenv("ELASTICSEARCH_USERNAME", "elastic")
     ELASTICSEARCH_PASSWORD = os.getenv(
@@ -178,8 +178,8 @@ class Config:
     ES_KNN_NUM_CANDIDATES = int(os.getenv("ES_KNN_NUM_CANDIDATES", "1000"))
     ES_RRF_RANK_CONSTANT = int(os.getenv("ES_RRF_RANK_CONSTANT", "60"))
     RAG_MODEL = os.getenv("RAG_MODEL", "minimaxai/minimax-m2.7")
-    RAG_MAX_CHUNKS = int(os.getenv("RAG_MAX_CHUNKS", "10"))
-    RAG_MAX_TOKENS = int(os.getenv("RAG_MAX_TOKENS", "4000"))
+    RAG_MAX_CHUNKS = int(os.getenv("RAG_MAX_CHUNKS", "20"))
+    RAG_MAX_TOKENS = int(os.getenv("RAG_MAX_TOKENS", "20000"))
     LLM_PROVIDER = os.getenv("LLM_PROVIDER", "nvidia").strip().lower()
     OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY", "")
     OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")
@@ -199,8 +199,8 @@ class Config:
     SMTP_FROM_NAME = os.getenv("SMTP_FROM_NAME", "CircularHub")
 
     # ==== Email backend selection ====
-    # "smtp"     — direct Gmail/any SMTP server (dev/CI)
-    # "splitter" — org notification splitter v3 (prod)
+    # "smtp"     - direct Gmail/any SMTP server (dev/CI)
+    # "splitter" - org notification splitter v3 (prod)
     EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "smtp").strip().lower()
 
     # ==== Internal Notification Splitter (org email/SMS gateway) ====

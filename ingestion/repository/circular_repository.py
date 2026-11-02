@@ -175,7 +175,7 @@ class CircularRepository:
                         source_upper, circular_id_upper,
                     )
 
-                # Populate persona matches — wipe + re-insert based on current
+                # Populate persona matches - wipe + re-insert based on current
                 # classifier output. Idempotent: re-running with the same circular
                 # produces the same matches.
                 from app.services.circular_classifier import CircularRef, classify

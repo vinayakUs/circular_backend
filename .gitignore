@@ -32,3 +32,4 @@ venv/
 node_modules/
 .idea/localstack-persist/
 ingestion/graph/
+/logs

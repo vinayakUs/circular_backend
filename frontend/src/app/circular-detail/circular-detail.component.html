@@ -37,7 +37,7 @@
             >{{ circular.normalizedSource }}</div>
           <span class="circular-id">{{ circular?.full_reference || circular?.circular_id }}</span>
         </div>
-        
+
       </div>
 
       <div class="detail-content">
@@ -93,7 +93,7 @@
           </button>
         </div>
           </div>
-          
+
 
           <!-- Action Items section -->
           <div class="action-items-section">
@@ -118,20 +118,18 @@
               <p>No action items extracted yet.</p>
             </div>
 
-            <div class="action-items-list">
-              <article class="action-item-card" *ngFor="let item of actionItems">
-                <div class="action-item-header">
-                  <span class="action-item-deadline" *ngIf="item.deadline">
-                    <span class="deadline-date">{{ formatDate(item.deadline) }}</span>
-                    <span class="deadline-sep">·</span>
-                    <span class="deadline-relative"
-                          [ngClass]="getRelativeClass(item.days_until_deadline)">
-                      {{ item.relative_deadline }}
-                    </span>
+            <div class="action-items-list" *ngIf="actionItems.length">
+              <div class="action-item-row" *ngFor="let item of actionItems">
+                <p class="action-item-text">{{ item.action_item }}</p>
+                <div class="action-item-deadline" *ngIf="item.deadline">
+                  <span class="deadline-date">{{ formatDate(item.deadline) }}</span>
+                  <span class="deadline-sep">·</span>
+                  <span class="deadline-relative"
+                        [ngClass]="getRelativeClass(item.days_until_deadline)">
+                    {{ item.relative_deadline }}
                   </span>
                 </div>
-                <p class="action-item-text">{{ item.action_item }}</p>
-              </article>
+              </div>
             </div>
           </div>
 
@@ -181,7 +179,7 @@
           <!-- AI Summary section -->
           <div class="ai-summary-section">
             <div class="section-header">
-              <h2>AI Summary</h2>
+              <h2>Summary</h2>
               <!-- <button class="regenerate-btn">Regenerate</button> -->
             </div>
             <div class="loading-state small" *ngIf="summaryLoading">
@@ -190,6 +188,22 @@
             </div>
             <div class="ai-summary-card" *ngIf="!summaryLoading && summary">
               <div class="ai-summary-content" [innerHTML]="parseMarkdown(summary)"></div>
+              <div class="summary-actions">
+                <button type="button" class="summary-copy-btn" (click)="copySummary()"
+                  [attr.aria-label]="summaryCopied ? 'Summary copied' : 'Copy summary'">
+                  <svg *ngIf="!summaryCopied" class="summary-copy-icon" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                      d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                  </svg>
+                  <svg *ngIf="summaryCopied" class="summary-copy-icon" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <polyline stroke-linecap="round" stroke-linejoin="round" points="20 6 9 17 4 12" />
+                  </svg>
+                  {{ summaryCopied ? 'Copied' : 'Copy' }}
+                </button>
+              </div>
             </div>
             <div class="empty-state small" *ngIf="!summaryLoading && !summary">
               <p>No summary available at the Moment.</p>
@@ -279,3 +293,5 @@
     <app-expert-modal [circularId]="circular?.id ?? ''" (close)="closeExpertModal()"></app-expert-modal>
   }
 </div>
+
+ 

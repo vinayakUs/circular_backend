@@ -27,18 +27,14 @@
           "Legal Affairs Department",
           "Recovery and Refund Department",
           "Enforcement Department",
-          "International Financial Services Centres Authority"
+          "Corporation Finance Department",
+          "Department of Economic & Policy Analysis",
+          "Department of Debt and Hybrid Securities"
         ],
         "categories": []
       }
     ],
     "keywords": [
-      "compliance",
-      "KYC",
-      "AML",
-      "SEBI",
-      "regulation",
-      "penalty"
     ]
   },
   {
@@ -69,12 +65,6 @@
       }
     ],
     "keywords": [
-      "trading",
-      "halt",
-      "circuit",
-      "margin",
-      "expiry",
-      "contract"
     ]
   },
   {
@@ -102,12 +92,6 @@
       }
     ],
     "keywords": [
-      "margin",
-      "risk",
-      "VaR",
-      "settlement",
-      "collateral",
-      "exposure"
     ]
   },
   {
@@ -137,14 +121,6 @@
       }
     ],
     "keywords": [
-      "API",
-      "CTCL",
-      "connectivity",
-      "colocation",
-      "DR",
-      "testing",
-      "FIX",
-      "protocol"
     ]
   },
   {
@@ -161,7 +137,7 @@
           "Finance & Accounts",
           "Listing",
           "Electronic Gold Receipt"
-        ],
+         ],
         "categories": []
       },
       {
@@ -174,11 +150,6 @@
       }
     ],
     "keywords": [
-      "settlement",
-      "clearing",
-      "payout",
-      "corporate action",
-      "dividend"
     ]
   },
   {
@@ -195,7 +166,8 @@
           "Legal, ISC & Arbitration",
           "Currency Derivatives",
           "Futures & Options",
-          "Capital Market (Equities) Trade"
+          "Capital Market (Equities) Trade",
+          "Debt Segment"
         ],
         "categories": []
       },
@@ -203,23 +175,13 @@
         "source": "SEBI",
         "departments": [
           "Alternative Investment Fund and Foreign Portfolio Investors Department",
-          "Investment Management Department"
+          "Investment Management Department",
+          "Market Intermediaries Regulation and Supervision Department"
         ],
         "categories": []
       }
     ],
     "keywords": [
-      "FPI",
-      "foreign portfolio",
-      "foreign institutional",
-      "custodian",
-      "ODI",
-      "P-Notes",
-      "participatory note",
-      "position limit",
-      "investment limit",
-      "FEMA",
-      "repatriation"
     ]
   },
   {
@@ -231,7 +193,6 @@
       {
         "source": "NSE",
         "departments": [
-          "NSE Clearing - Capital Market",
           "Corporate Communications",
           "Listing",
           "Mutual Fund",
@@ -251,17 +212,6 @@
       }
     ],
     "keywords": [
-      "listing",
-      "IPO",
-      "NFO",
-      "OFS",
-      "mutual fund",
-      "ETF",
-      "delisting",
-      "LODR",
-      "governance",
-      "NAV",
-      "SIP"
     ]
   }
 ]

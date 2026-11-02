@@ -242,7 +242,9 @@
                         <span class="cite-popup-ref">{{ activeCitation.full_reference || activeCitation.circular_id
                             }}</span>
                         <a class="cite-popup-link" *ngIf="activeCitation.circular_db_id"
-                            [routerLink]="['/circular', activeCitation.circular_db_id]">
+                            [routerLink]="['/circular', activeCitation.circular_db_id]"
+                            target="_blank" rel="noopener noreferrer"
+                            >
                             Details
                             <svg class="cite-popup-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                 aria-hidden="true">

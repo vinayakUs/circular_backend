@@ -262,3 +262,4 @@ class UsersRepository:
             is_deleted=row[11],
             deleted_at=row[12],
         )
+ 

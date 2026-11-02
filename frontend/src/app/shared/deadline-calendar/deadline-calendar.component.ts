@@ -64,7 +64,7 @@ export class DeadlineCalendarComponent {
 
   // ── Outputs ───────────────────────────────────────────────
   @Output() daySelected = new EventEmitter<Date>();
-  @Output() viewAll = new EventEmitter<void>();
+  @Output() viewAll = new EventEmitter<Date>();
   @Output() eventClicked = new EventEmitter<DeadlineEvent>();
   @Output() monthChange = new EventEmitter<string>();
 
@@ -142,7 +142,8 @@ export class DeadlineCalendarComponent {
       return;
     }
     event.preventDefault();
-    this.viewAll.emit();
+    const day = this.selectedDay();
+    if(day) this.viewAll.emit(day);
   }
 
   onEventClick(event: DeadlineEvent, ev: MouseEvent): void {

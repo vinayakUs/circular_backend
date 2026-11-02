@@ -108,6 +108,41 @@ def citation_nodes_to_citations(nodes: list[NodeWithScore]) -> list[Citation]:
     return citations
 
 
+# The 7B RAG model drifts from the prompt's "[n]" citation format and emits
+# styles like "(source 1, source 2)", "Source 1", "[1, 2]". The frontend chip
+# regex only renders "[n]", so rewrite those styles post-hoc. Bare "(1)" is
+# deliberately not converted — it is usually a numbered list, and a missing
+# chip is safer than a wrong one. Idempotent: canonical "[1][2]" never matches.
+_REF_NOUN = (
+    r"(?:clause|sub-paragraph|paragraph|para|sub-section|section|"
+    r"sub-regulation|regulation|item|point|article|rule|schedule|part|chapter)"
+)
+_NUM = r"\d{1,2}"
+_NUM_LIST = rf"{_NUM}(?:\s*(?:,|;|and|&)\s*(?:sources?\s+)?{_NUM})*"
+_SRC_KEYWORD = r"sources?(?:\s+nos?\.?)?\s*:?\s*"
+
+_CITATION_REF_RE = re.compile(
+    rf"""
+      (?P<protect>{_REF_NOUN}\s*\(\s*{_NUM}\s*\))
+    | \[\s*{_NUM}(?:\s*,\s*{_NUM})+\s*\]
+    | \(\s*{_SRC_KEYWORD}{_NUM_LIST}\s*\)
+    | (?<![\w(]){_SRC_KEYWORD}{_NUM_LIST}(?!\s*[-–—]\s*\d)
+    """,
+    re.VERBOSE | re.IGNORECASE,
+)
+
+
+def _expand_ref(m: re.Match) -> str:
+    if m.group("protect"):
+        return m.group(0)
+    nums = list(dict.fromkeys(int(n) for n in re.findall(r"\d+", m.group(0))))
+    return "".join(f"[{n}]" for n in nums)
+
+
+def normalize_citation_markers(text: str) -> str:
+    return _CITATION_REF_RE.sub(_expand_ref, text)
+
+
 _CITATION_RULES = """Please provide an answer based solely on the provided sources. When referencing information from a source, cite the appropriate source(s) using their corresponding numbers in square brackets, like [1] or [2][3]. Every answer should include at least one source citation. Only cite a source when you are explicitly referencing it. If none of the sources are helpful, you should indicate that. For example:
 
 Source 1:
@@ -191,3 +226,4 @@ def build_citation_query_engine(nodes: list[NodeWithScore]) -> CitationQueryEngi
         text_splitter=PassthroughTextSplitter(),
         metadata_mode=MetadataMode.NONE,
     )
+ 

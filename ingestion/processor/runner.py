@@ -1,6 +1,6 @@
 """
 Processor pipeline runner with rotating log output.
-Usage: python -m ingestion.processor.runner --limit 50 --log-file /var/log/processor.log
+Usage: python -m ingestion.processor.runner --limit 50 --log-file /mnt/uat/circular/backend/logs/processor.log
 """
 import argparse
 import logging
