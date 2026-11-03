@@ -77,10 +77,8 @@ def _warmup_ranx_rrf() -> None:
 
 
 def create_app() -> Flask:
-    logging.basicConfig(
-        level=Config.LOG_LEVEL,
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-    )
+    # Logging output/rotation is configured by the entrypoint (run.py) or the
+    # WSGI server, not the app factory. Just keep noisy third-party loggers quiet:
     logging.getLogger("numba.core").setLevel(logging.WARNING)
 
     app = Flask(__name__)

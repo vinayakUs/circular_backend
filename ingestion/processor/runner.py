@@ -20,6 +20,7 @@ try:
 except Exception:
     pass
 
+from config import Config
 from db.postgres_client import get_postgres_client
 from ingestion.processor.pipeline import ProcessorPipeline
 from ingestion.processor.nse_applicability_processor import NSEApplicabilityProcessor
@@ -50,7 +51,7 @@ def main():
     )
 
     root = logging.getLogger()
-    root.setLevel(logging.INFO)
+    root.setLevel(getattr(logging, Config.LOG_LEVEL, logging.INFO))
 
     # Remove any pre-existing handlers (e.g. from logging.basicConfig calls at import time)
     # to avoid duplicate/duplicate log lines.

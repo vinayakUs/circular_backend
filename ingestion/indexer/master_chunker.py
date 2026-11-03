@@ -199,7 +199,11 @@ class MasterCircularChunkingStrategy:
             
             # Create a unique chunk_id
             payload_hash = hashlib.sha1(expanded_payload.encode("utf-8")).hexdigest()
-            chunk_id = f"{circular_key}_{item['node_id']}_{item['sub_idx']}_{payload_hash[:12]}"
+            node_id = item["node_id"]
+            # ES _id is limited to 512 bytes; node ids parsed from heading
+            # fallbacks can be whole paragraphs, so hash long ones.
+            node_token = node_id if len(node_id.encode("utf-8")) <= 32 else hashlib.sha1(node_id.encode("utf-8")).hexdigest()[:12]
+            chunk_id = f"{circular_key}_{node_token}_{item['sub_idx']}_{payload_hash[:12]}"
             chunks.append(
                 TextChunk(
                     chunk_id=chunk_id,

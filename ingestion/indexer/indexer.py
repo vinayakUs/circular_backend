@@ -61,7 +61,7 @@ class ElasticsearchIndexer:
             self.es_client.index_name,
         )
         for record in pending_records:
-            if self._process_record(record):
+            if self._process_record(record, cleanup_stale_chunks=True):
                 processed += 1
             else:
                 failed += 1

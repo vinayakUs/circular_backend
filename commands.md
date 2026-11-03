@@ -47,6 +47,8 @@ run-indexer --record-id 123e4567-e89b-12d3-a456-426614174000
   
 nohup python -m ingestion.processor.runner --limit 50 --log-file /root circular_backend/logs/processor.log > /dev/null 2>&1 &
 
+nohup python -m ingestion.indexer.runner --log-file /root/circular_backend/logs/indexer.log > /dev/null 2>&1 &
+
 
   mkdir -p /root/circular_backend/logs
 
@@ -61,9 +63,11 @@ nohup python -m ingestion.processor.runner --limit 50 --log-file /root circular_
 
 LD_LIBRARY_PATH=/root/circular_backend/.venv/lib NUMBA_THREADING_LAYER=tbb python run.py
 
+LD_LIBRARY_PATH=/root/circular_backend/.venv/lib NUMBA_THREADING_LAYER=tbb python run.py --log-file /root/circular_backend/logs/app.log
 
 
-  python -m ingestion.scrapper.runner --sources SEBI --from-date 2025-06-24 --to-date 2026-06-24
+
+  python -m ingestion.scrapper.runner --sources SEBI --from-date 2025-06-24 --to-date 2026-06-24 --log-file /root/circular_backend/logs/scrapper.log
 
   run-indexer --delete-index --reset-db --reset-bloom
 

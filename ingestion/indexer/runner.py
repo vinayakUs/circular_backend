@@ -20,6 +20,7 @@ run-indexer --setup-index
 run-indexer --delete-index
 run-indexer --delete-index --reset-db --reset-bloom
 run-indexer --record-id 123e4567-e89b-12d3-a456-426614174000
+run-indexer --log-file /root/circular_backend/logs/indexer.log
 
 '''
 
@@ -28,6 +29,8 @@ from __future__ import annotations
 
 import argparse
 import logging
+import sys
+from logging.handlers import TimedRotatingFileHandler
 from uuid import UUID
 
 from config import Config
@@ -36,8 +39,39 @@ from ingestion.indexer import ElasticsearchClient, ElasticsearchIndexer, FixedSi
 from ingestion.indexer.chunker import NSEPdfChunkingStrategy
 from ingestion.indexer.master_chunker import MasterCircularChunkingStrategy
 from ingestion.indexer.embedding_provider import build_embedding_provider
-from ingestion.logging_utils import configure_logging
 from ingestion.repository import CheckpointRepository, CircularRepository
+
+
+def _setup_logging(log_file: str | None, level: str = "INFO") -> None:
+    """Mirror ingestion.processor.runner: stdout always, rotating file if --log-file given.
+
+    Rotates at midnight each day, files named indexer.log.2026-11-02, etc.
+    backupCount=9999 effectively keeps all files forever.
+    """
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+
+    root = logging.getLogger()
+    root.setLevel(getattr(logging, level.upper(), logging.INFO))
+
+    # Remove any pre-existing handlers (e.g. from logging.basicConfig calls at import time)
+    # to avoid duplicate log lines.
+    root.handlers.clear()
+
+    stdout_handler = logging.StreamHandler(sys.stdout)
+    stdout_handler.setFormatter(formatter)
+    root.addHandler(stdout_handler)
+
+    if log_file:
+        file_handler = TimedRotatingFileHandler(
+            log_file,
+            when="midnight",
+            interval=1,
+            backupCount=9999,
+        )
+        file_handler.setFormatter(formatter)
+        root.addHandler(file_handler)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -74,13 +108,19 @@ def build_parser() -> argparse.ArgumentParser:
         "--record-id",
         help="Reindex a specific circular record by UUID.",
     )
+    parser.add_argument(
+        "--log-file",
+        type=str,
+        default=None,
+        help="Path to rotating log file (e.g. /root/circular_backend/logs/indexer.log).",
+    )
     return parser
 
 
 def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
-    configure_logging(Config.LOG_LEVEL)
+    _setup_logging(args.log_file, Config.LOG_LEVEL)
     logger = logging.getLogger(__name__)
 
     logger.info(

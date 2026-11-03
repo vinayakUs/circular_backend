@@ -3,13 +3,46 @@ from __future__ import annotations
 import argparse
 from datetime import date
 import logging
+import sys
+from logging.handlers import TimedRotatingFileHandler
 
 from config import Config
 from db.postgres_client import get_postgres_client
-from ingestion.logging_utils import configure_logging
 from ingestion.indexer.es_provider import get_es_client
 from ingestion.scrapper.orchestrator import ScraperOrchestrator
 from storage.s3_client import S3StorageClient
+
+
+def _setup_logging(log_file: str | None, level: str = "INFO") -> None:
+    """Mirror ingestion.processor.runner: stdout always, rotating file if --log-file given.
+
+    Rotates at midnight each day, files named scrapper.log.2026-11-03, etc.
+    backupCount=9999 effectively keeps all files forever.
+    """
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+
+    root = logging.getLogger()
+    root.setLevel(getattr(logging, level.upper(), logging.INFO))
+
+    # Remove any pre-existing handlers (e.g. from logging.basicConfig calls at import time)
+    # to avoid duplicate log lines.
+    root.handlers.clear()
+
+    stdout_handler = logging.StreamHandler(sys.stdout)
+    stdout_handler.setFormatter(formatter)
+    root.addHandler(stdout_handler)
+
+    if log_file:
+        file_handler = TimedRotatingFileHandler(
+            log_file,
+            when="midnight",
+            interval=1,
+            backupCount=9999,
+        )
+        file_handler.setFormatter(formatter)
+        root.addHandler(file_handler)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -27,6 +60,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--to-date",
         help="End date for scraping (YYYY-MM-DD). Defaults to today.",
+    )
+    parser.add_argument(
+        "--log-file",
+        type=str,
+        default=None,
+        help="Path to rotating log file (e.g. /root/circular_backend/logs/scrapper.log).",
     )
     return parser
 
@@ -49,7 +88,7 @@ def _parse_date(raw_date: str | None) -> date | None:
 def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
-    configure_logging(Config.LOG_LEVEL)
+    _setup_logging(args.log_file, Config.LOG_LEVEL)
     # Hardcoded module path: under `python -m ingestion.scrapper.runner`,
     # __name__ is "__main__", which makes logs unreadable to grep.
     logger = logging.getLogger("ingestion.scrapper.runner")

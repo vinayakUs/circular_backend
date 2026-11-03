@@ -49,7 +49,7 @@ def _setup_logging(log_file: str | None) -> None:
     )
 
     root = logging.getLogger()
-    root.setLevel(logging.INFO)
+    root.setLevel(getattr(logging, Config.LOG_LEVEL, logging.INFO))
 
     # Remove any pre-existing handlers (e.g. from logging.basicConfig calls at import time)
     # to avoid duplicate log lines.
