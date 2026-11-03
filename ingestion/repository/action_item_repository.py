@@ -192,7 +192,7 @@ class ActionItemRepository:
         from_date: Optional[date] = None,
         to_date: Optional[date] = None,
         exchange_csv: Optional[str] = None,
-        limit: int = 100,
+        limit: Optional[int] = None,
         offset: int = 0,
     ) -> Tuple[List[Tuple[UUID, date, str, str, UUID, str]], int]:
         """Return (rows, total) for deadlines, optionally filtered by persona.
@@ -202,8 +202,9 @@ class ActionItemRepository:
         persona. Multiplication-safe: circular_persona_matches has UNIQUE
         PK on (circular_id, persona_slug), so the JOIN can't duplicate rows.
 
-        Two queries: COUNT(*) for total + SELECT for the page. Both use the
-        same WHERE clause + ORDER BY with stable tiebreaker.
+        When `limit` is set, two queries run: COUNT(*) for total + SELECT
+        for the page. Both use the same WHERE clause + ORDER BY with a
+        stable tiebreaker.
 
         Args:
             persona_slug:  filter to one persona's deadlines, or None for
@@ -212,6 +213,13 @@ class ActionItemRepository:
                            today-30d when omitted.
             to_date:       inclusive upper bound on `deadline`. Defaults to
                            from + 365d when omitted.
+            limit:         page size. None (the default) means NO pagination
+                           — every matched row in the range comes back and
+                           `total` is simply len(rows). A positive int turns
+                           on LIMIT/OFFSET paging.
+            offset:        rows to skip. Applied with paging; without a
+                           limit a positive offset shifts the unbounded
+                           window (rows after it are all returned).
         """
         # ── Defaults ─────────────────────────────────────────
         exchange_csv = exchange_csv or None
@@ -219,6 +227,8 @@ class ActionItemRepository:
             from_date = date.today() - timedelta(days=30)
         if to_date is None:
             to_date = from_date + timedelta(days=365)
+        if limit is not None and limit < 1:
+            raise ValueError("limit must be an integer of at least 1")
 
         # ── WHERE / JOINs vary by whether persona_slug is present ──
         where_parts = [
@@ -239,6 +249,10 @@ class ActionItemRepository:
             persona_join = ""
 
         # ── Queries ──────────────────────────────────────────
+        # The paging clause is appended, not fixed: no limit means no LIMIT
+        # in the SQL at all, so the result set is bounded only by the WHERE
+        # clause (the date range). The COUNT boat is skipped in that mode —
+        # with no LIMIT, `total` is just len(rows).
         count_query = f"""
             SELECT COUNT(*)
             FROM   action_items ai
@@ -246,6 +260,11 @@ class ActionItemRepository:
             {persona_join}
             WHERE  {where}
         """
+        paging_sql = ""
+        if limit is not None:
+            paging_sql = "LIMIT  %s OFFSET %s"
+        elif offset > 0:
+            paging_sql = "OFFSET %s"
         data_query = f"""
             SELECT ai.id,
                 ai.deadline,
@@ -258,12 +277,13 @@ class ActionItemRepository:
             {persona_join}
             WHERE  {where}
             ORDER BY ai.deadline ASC, ai.id ASC
-            LIMIT  %s OFFSET %s
+            {paging_sql}
         """
 
         # Build params in the order placeholders appear in the SQL above:
-        #   persona_slug (×1 if present), from_date, to_date,
-        #   exchange_csv (×2), limit, offset
+        #   persona_slug (×1 if present), from_date, to_date, exchange_csv
+        #   (×2) — then the paging placeholders, which follow paging_sql:
+        #   limit + offset (paged) or a lone offset (offset-only tail).
         params: list = []
         if persona_slug is not None:
             params.append(persona_slug)
@@ -277,9 +297,17 @@ class ActionItemRepository:
         with self.db_pool.acquire() as conn:
             with conn.transaction():
                 cursor = conn.cursor()
-                cursor.execute(count_query, base_params)
-                total = cursor.fetchone()[0]
-                cursor.execute(data_query, base_params + (limit, offset))
-                rows = cursor.fetchall()
+                if limit is None:
+                    # Unbounded: everything the date range matches. Skip the
+                    # COUNT — it would just agree with len(rows).
+                    tail_params = (offset,) if offset > 0 else ()
+                    cursor.execute(data_query, base_params + tail_params)
+                    rows = cursor.fetchall()
+                    total = len(rows)
+                else:
+                    cursor.execute(count_query, base_params)
+                    total = cursor.fetchone()[0]
+                    cursor.execute(data_query, base_params + (limit, offset))
+                    rows = cursor.fetchall()
 
         return list(rows), total

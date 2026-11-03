@@ -32,7 +32,10 @@ export class PersonasApiService {
     return this.http.get<Persona[]>(`${environment.apiUrl}/api/personas`);
   }
 
-  /** Backend defaults to today-30 → today+335 if no `from`/`to` is passed. */
+  /** Backend defaults to today-30 → today+335 if no `from`/`to` is passed.
+   *  `limit` is optional: omit it for every deadline in the range (the
+   *  calendar relies on that); a calendar month or a widget list may still
+   *  pass a small limit to keep its response bounded. */
   getDeadlinesForPersona(
     slug: string,
     options?: { from?: string; to?: string; limit?: number; offset?: number; exchange?: string }
@@ -52,7 +55,9 @@ export class PersonasApiService {
   }
 
   /** Backend defaults to today → today+60d if no `from`/`to` is passed.
-   * `exchange` accepts a single value or a CSV. */
+   *  `exchange` accepts a single value or a CSV. `limit` is optional —
+   *  omitting it returns every deadline in the range, which is how the
+   *  Upcoming Changes page gets a complete, honestly counted list. */
   getDeadlines(
     options?: {
       from?: string;

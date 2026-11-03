@@ -245,7 +245,8 @@ export class UpcomingChangesComponent implements OnInit {
       from: format(from, 'yyyy-MM-dd'),
       to: format(to, 'yyyy-MM-dd'),
       exchange: this.sourceFilter() === 'ALL' ? undefined : this.sourceFilter(),
-      limit: 100,
+      // No `limit` — the API returns every deadline in `from`..`to`, so the
+      // summary strip's count and the list are always complete.
     };
 
     const slug = this.personaSvc.slug();

@@ -24,16 +24,19 @@ def register_routes(app) -> None:
 
     @app.get("/api/deadlines")
     def list_global_deadlines():
-        """Fetch action_item deadlines across all personas. Paginated.
+        """Fetch action_item deadlines across all personas. Unpaginated by default.
 
         Query params (all optional):
             from:      ISO date YYYY-MM-DD (default: today)
             to:        ISO date YYYY-MM-DD (default: from + 60 days)
             exchange:  CSV (NSE,BSE,MCX,SEBI,MSE,NSDL,CDSL,...)
-            limit:     int (default 100, min 1)
+            limit:     int — OMIT (the default) to get every match in the
+                       date range; set it to turn pagination on
             offset:    int (default 0, min 0)
 
         Returns: {items: [...], total, limit, offset}
+            `limit` echoes the requested page size, or null when none was
+            requested; without pagination `total` is simply len(items).
         """
         # ── 1. Parse date range (defaults: today → today+60d) ───
         raw_from = request.args.get("from", "").strip()
@@ -65,14 +68,28 @@ def register_routes(app) -> None:
             or None
         )
 
-        # ── 3. Pagination ─────────────────────────────────────
+        # ── 3. Pagination (optional) ──────────────────────────
+        # Same rule as /api/personas/<slug>/deadlines: omitting `limit`
+        # means no pagination — everything matching the date range comes
+        # back. A positive limit opts into page-by-page results.
+        raw_limit  = request.args.get("limit",  "").strip()
+        raw_offset = request.args.get("offset", "").strip()
+        if raw_limit:
+            try:
+                limit = int(raw_limit)
+            except ValueError:
+                return {"error": "limit and offset must be integers"}, 400
+            if limit < 1:
+                return {"error": "limit must be an integer of at least 1"}, 400
+        else:
+            limit = None
+
         try:
-            limit  = int(request.args.get("limit",  "100"))
-            offset = int(request.args.get("offset", "0"))
+            offset = int(raw_offset) if raw_offset else 0
         except ValueError:
             return {"error": "limit and offset must be integers"}, 400
-        if limit  < 1: limit  = 100
-        if offset < 0: offset = 0
+        if offset < 0:
+            offset = 0
 
         # ── 4. Query (no persona_slug → cross-persona) ──────
         repo = ActionItemRepository(db_pool=get_postgres_client().get_pool())
