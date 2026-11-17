@@ -1,26 +1,3 @@
--- =====================================================================
--- circular_backend PostgreSQL schema
---
--- Apply order (parent tables first):
---   1. properties                 (root)
---   2. scraper_checkpoints        (root)
---   3. circulars                 (root)
---   4. circular_signatories       -> circulars
---   5. circular_assets           -> circulars
---   6. processing_tasks          -> circulars
---   7. notification_logs         (root; referenced later for back-link)
---   8. users                     -> properties                       (note: must precede experts)
---   9. experts                   -> circulars, users, properties
---  10. comments                  -> experts
---  11. summaries                 -> circulars
---  12. circular_references       -> circulars                       (extracted reference chain graph)
---  13. expert_departments_mapping -> experts, properties
---  14. comment_mentions          -> comments, experts                (added for @mention module)
---  15. mention_notifications     -> comment_mentions, notification_logs
---  16. captcha_challenges        -> store captcha req  
---  17. captcha_images            -> store captcha images 
--- =====================================================================
-
 -- properties table
 CREATE TABLE IF NOT EXISTS properties (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -391,3 +368,64 @@ CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_active
     ON refresh_tokens (user_db_id, consumed, expires_at);
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_family
     ON refresh_tokens (family_id);
+
+-- DDL for notification_outbox table (16-11-2026)
+
+CREATE TABLE IF NOT EXISTS notification_outbox (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    -- Recipient (user_id NULL for anonymous users)
+    user_id UUID REFERENCES users(id),
+    recipient_email VARCHAR(255) NOT NULL,
+
+    -- Notification details
+    channel VARCHAR(30) NOT NULL,
+    template VARCHAR(150) NOT NULL,
+    params JSONB,
+
+    -- Scheduling
+    scheduled_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    -- Processing status
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    attempt_count INTEGER NOT NULL DEFAULT 0,
+    max_attempts INTEGER NOT NULL DEFAULT 3,
+
+    -- Worker details
+    locked_by VARCHAR(100),
+    locked_at TIMESTAMPTZ,
+
+    -- Duplicate prevention
+    idempotency_key VARCHAR(255) NOT NULL UNIQUE,
+
+    -- Audit fields
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    sent_at TIMESTAMPTZ,
+    last_error TEXT,
+
+    -- Constraints
+    CONSTRAINT chk_notification_status
+        CHECK (status IN ('PENDING', 'PROCESSING', 'SENT', 'FAILED')),
+
+    -- EMAIL only for now; widen to ('EMAIL','SMS','PUSH') when needed
+    CONSTRAINT chk_notification_channel
+        CHECK (channel IN ('EMAIL')),
+
+    CONSTRAINT chk_attempt_count
+        CHECK (attempt_count >= 0 AND max_attempts > 0)
+);
+
+-- Index for fetching pending notifications
+CREATE INDEX IF NOT EXISTS idx_notification_outbox_pending
+    ON notification_outbox (scheduled_at)
+    WHERE status = 'PENDING';
+
+-- Index for recovering stuck jobs
+CREATE INDEX IF NOT EXISTS idx_notification_outbox_processing
+    ON notification_outbox (locked_at)
+    WHERE status = 'PROCESSING';
+
+-- Index for user notification history
+CREATE INDEX IF NOT EXISTS idx_notification_outbox_user
+    ON notification_outbox (user_id);
