@@ -46,6 +46,11 @@ export class NavbarComponent {
     this.showUserManagementModal = true;
   }
 
+  navigateToAlerts(): void {
+    this.dropdownOpen = false;
+    this.router.navigate(['/alerts']);
+  }
+
   /**
    * Take the user to the persona picker. Lets them switch which persona
    * they're viewing content as; the picker itself handles persisting the

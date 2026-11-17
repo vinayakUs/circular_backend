@@ -429,3 +429,52 @@ CREATE INDEX IF NOT EXISTS idx_notification_outbox_processing
 -- Index for user notification history
 CREATE INDEX IF NOT EXISTS idx_notification_outbox_user
     ON notification_outbox (user_id);
+
+-- DDL for user_topics table (17-11-2026)
+-- User-created notification topics: name + keywords + sources + alert cadence.
+-- Matching engine reads keywords/sources later; alert_level drives delivery.
+
+CREATE TABLE IF NOT EXISTS user_topics (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    topic_name VARCHAR(150) NOT NULL,
+    keywords JSONB NOT NULL DEFAULT '[]',   -- ["circuit limit", "margin"]
+    sources JSONB NOT NULL DEFAULT '[]',    -- ["NSE", "SEBI"]
+    alert_level VARCHAR(20) NOT NULL DEFAULT 'DAILY',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_user_topic_alert_level
+        CHECK (alert_level IN ('IMMEDIATE', 'DAILY', 'WEEKLY', 'OFF')),
+    CONSTRAINT uq_user_topic_name UNIQUE (user_id, topic_name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_topics_user ON user_topics (user_id);
+
+-- DDL for user_notification_prefs table (17-11-2026)
+-- Per-user global digest setting: cadence of the scheduled email digest.
+-- Topic alert levels (user_topics) are separate and unaffected.
+
+CREATE TABLE IF NOT EXISTS user_notification_prefs (
+    user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    digest_frequency VARCHAR(10) NOT NULL DEFAULT 'NONE',
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_user_notification_prefs_digest
+        CHECK (digest_frequency IN ('DAILY', 'WEEKLY', 'NONE'))
+);
+
+-- Every new user gets a default digest setting ('NONE' = opt-in) at
+-- creation time, whatever code path inserts the row.
+CREATE OR REPLACE FUNCTION fn_user_notification_prefs_default()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO user_notification_prefs (user_id, digest_frequency)
+    VALUES (NEW.id, 'NONE')
+    ON CONFLICT (user_id) DO NOTHING;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_users_default_notification_prefs ON users;
+CREATE TRIGGER trg_users_default_notification_prefs
+    AFTER INSERT ON users
+    FOR EACH ROW EXECUTE FUNCTION fn_user_notification_prefs_default();

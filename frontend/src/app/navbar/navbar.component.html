@@ -118,6 +118,24 @@
               <span class="dropdown-item__label">Manage Users</span>
             </button>
 
+            <button class="dropdown-item" (click)="navigateToAlerts()">
+              <svg
+                class="dropdown-item__icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <!-- bell -->
+                <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+              </svg>
+              <span class="dropdown-item__label">Alerts</span>
+            </button>
+
             <div class="dropdown-divider" aria-hidden="true"></div>
 
             <button (click)="logout()" class="dropdown-item">

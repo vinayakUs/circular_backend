@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import time
+from datetime import datetime
 from typing import Any
 from pypdf import filters
 from config import Config
@@ -705,6 +706,59 @@ class ElasticsearchClient:
             }
         }
 
+    """
+    Used for resolving circular for topics keyword.
+    """
+    def search_any_keywords(
+        self,
+        keywords: list[str],
+        *,
+        sources: list[str] | None = None,
+        since: datetime | None = None,
+        size: int = 50,
+    ) -> list[SearchHit]:
+        """Chunks matching ANY keyword, one hit per circular (collapse).
+
+        Per-keyword clauses give multi-word keywords conjunctive semantics
+        ("algo trading" needs both words) while the topic stays a union:
+        any keyword pulls the circular in.
+        """
+        filters: list[dict[str, Any]] = []
+        if sources:
+            filters.append({"terms": {"source": [s.upper() for s in sources]}})
+        if since is not None:
+            # issue_date is day-granular: floor to the cutoff day so circulars
+            # issued that day count as inside the window.
+            filters.append({"range": {"issue_date": {"gte": since.date().isoformat()}}})
+
+        if keywords:
+            es_query: dict[str, Any] = {
+                "bool": {
+                    "should": [
+                        {
+                            "multi_match": {
+                                "query": kw,
+                                "fields": ["title^2", "chunk_text"],
+                                "operator": "and",
+                            }
+                        }
+                        for kw in keywords
+                    ],
+                    "minimum_should_match": 1,
+                    "filter": filters,
+                }
+            }
+        else:
+            es_query = {"bool": {"must": [{"match_all": {}}], "filter": filters}}
+
+        response = self.client.search(
+            index=self.index_name,
+            query=es_query,
+            sort=[{"issue_date": {"order": "desc"}}, {"_score": {"order": "desc"}}],
+            collapse={"field": "circular_db_id"},
+            size=size,
+        )
+        return self._parse_hits(response)
 
     def _build_filters(self, metadata: dict[str, Any]) -> list[dict[str, Any]]:
         filters: list[dict[str, Any]] = []

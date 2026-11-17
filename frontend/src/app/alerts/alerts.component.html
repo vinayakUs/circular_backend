@@ -1,10 +1,178 @@
 <div class="alerts-page">
-  <!-- <app-navbar> moved to app shell (app.component.html) -->
-
   <main class="main-content">
     <section class="header-section">
-      <h1 class="page-title">Alerts</h1>
-      <p class="page-subtitle">Manage notification and alerts</p>
+      <h1 class="page-title">Topics</h1>
+      <p class="page-subtitle">
+        Topics let you track keywords that matter to you. Use them as quick search filters
+        on the Search and Changes pages, or turn on alerts to get notified by email when
+        new matching circulars arrive.
+      </p>
+    </section>
+
+    <section class="form-section" id="topic-form">
+      <h2 class="section-heading">{{ editingId ? 'Edit topic' : 'Create a new topic' }}</h2>
+
+      <form (ngSubmit)="onSubmit()">
+        <div class="form-row">
+          <label class="form-label" for="topic-name">Name</label>
+          <div class="form-control">
+            <input id="topic-name" class="input-field" type="text" name="topic_name"
+                placeholder="Topic name" maxlength="150" [(ngModel)]="form.topic_name" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label class="form-label" for="topic-keywords">Keywords</label>
+          <div class="form-control">
+            <input id="topic-keywords" class="input-field" type="text" name="keywords"
+                placeholder="Keywords (e.g. margin, settlement)" [(ngModel)]="form.keywordsText" />
+            <p class="field-help">
+              Separate terms with commas. Example: margin, settlement, circuit limit
+            </p>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <span class="form-label">Sources</span>
+          <div class="form-control">
+            <div class="checkbox-group">
+              @for (source of sourceOptions; track source) {
+                <label class="checkbox-item">
+                  <input type="checkbox" [checked]="form.sources.includes(source)"
+                      (change)="toggleSource(source)" />
+                  <span>{{ source }}</span>
+                </label>
+              }
+            </div>
+            <p class="field-help">Leave all unticked to follow every source.</p>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label class="form-label" for="alert-level">Alert level</label>
+          <div class="form-control">
+            <select id="alert-level" class="select-field" name="alert_level"
+                [(ngModel)]="form.alert_level">
+              <option value="IMMEDIATE">Immediate</option>
+              <option value="DAILY">Daily</option>
+              <option value="WEEKLY">Weekly</option>
+              <option value="OFF">Off</option>
+            </select>
+            <p class="field-help">
+              Immediate emails you as matching circulars arrive. Daily and Weekly send a digest.
+            </p>
+          </div>
+        </div>
+
+        @if (formError) {
+          <p class="error-text">{{ formError }}</p>
+        }
+
+        <div class="form-actions">
+          @if (editingId) {
+            <button type="button" class="btn-text" (click)="cancelEdit()">Cancel</button>
+          }
+          <button type="submit" class="btn-primary" [disabled]="saving">
+            {{ saving ? 'Saving…' : (editingId ? 'Save changes' : 'Create topic') }}
+          </button>
+        </div>
+      </form>
+    </section>
+
+    @if (listError) {
+      <p class="error-text list-error">{{ listError }}</p>
+    }
+
+    @if (isLoading) {
+      <div class="loading-state">
+        <div class="loading-spinner"></div>
+        <p>Loading topics…</p>
+      </div>
+    } @else if (topics.length === 0) {
+      <div class="empty-state">
+        <p class="empty-title">No topics yet</p>
+        <p class="empty-text">Create one above to start tracking the circulars you care about.</p>
+      </div>
+    } @else {
+      <section class="topic-list" aria-label="Your topics">
+        @for (topic of topics; track topic.id) {
+          <article class="topic-row">
+            <div class="topic-info">
+              <h3 class="topic-name">{{ topic.topic_name }}</h3>
+              <p class="topic-detail">Keywords: {{ topic.keywords.join(', ') }}</p>
+              @if (topic.sources.length > 0) {
+                <p class="topic-detail">Sources: {{ topic.sources.join(', ') }}</p>
+              }
+              <div class="topic-meta">
+                <span class="topic-created">Created {{ topic.created_at | date:'dd MMM yyyy' }}</span>
+                <span [class]="'alert-pill ' + topic.alert_level.toLowerCase()">
+                  {{ alertPill(topic.alert_level) }}
+                </span>
+              </div>
+            </div>
+
+            <div class="topic-actions">
+              <select class="select-field select-compact" name="alert-level-{{ topic.id }}"
+                  [attr.aria-label]="'Alert level for ' + topic.topic_name"
+                  [ngModel]="topic.alert_level" (ngModelChange)="onAlertChange(topic, $event)">
+                <option value="IMMEDIATE">Immediate</option>
+                <option value="DAILY">Daily</option>
+                <option value="WEEKLY">Weekly</option>
+                <option value="OFF">Off</option>
+              </select>
+              <button type="button" class="btn-text" (click)="startEdit(topic)">Edit</button>
+              <button type="button" class="btn-danger-text" (click)="deleteTopic(topic)">Delete</button>
+            </div>
+          </article>
+        }
+      </section>
+    }
+
+    <section class="prefs-section">
+      <h2 class="prefs-title">Notification Preferences</h2>
+      <h3 class="prefs-subtitle">Email Digest</h3>
+      <p class="prefs-text">
+        A short, scannable view of upcoming changes that matter to decision-makers.
+      </p>
+      <p class="prefs-text">
+        The digest follows <strong>your sources</strong>. Change them from the Sources
+        filter on the Circulars or Changes pages. Topic alerts are not affected.
+      </p>
+      <p class="prefs-text">
+        Covers <strong>product &amp; spec changes, membership, system updates, fee changes,
+        and compliance filings</strong> for the next 7 days (daily) or 14 days (weekly).
+        For other categories like surveillance, corporate actions, listings, halts, or
+        margins, <a class="prefs-link" href="#topic-form">set up a topic</a> to get
+        tailored alerts.
+      </p>
+
+      @if (prefsError) {
+        <p class="error-text">{{ prefsError }}</p>
+      }
+
+      <div class="digest-options" role="radiogroup" aria-label="Email digest frequency">
+        <button type="button" class="digest-option" role="radio"
+            [attr.aria-checked]="digestFrequency === 'DAILY'"
+            [class.selected]="digestFrequency === 'DAILY'"
+            (click)="selectDigest('DAILY')">
+          <span class="digest-option__title">Daily</span>
+          <span class="digest-option__desc">Every morning at 8 AM IST</span>
+        </button>
+        <button type="button" class="digest-option" role="radio"
+            [attr.aria-checked]="digestFrequency === 'WEEKLY'"
+            [class.selected]="digestFrequency === 'WEEKLY'"
+            (click)="selectDigest('WEEKLY')">
+          <span class="digest-option__title">Weekly</span>
+          <span class="digest-option__desc">Every Monday morning</span>
+        </button>
+        <button type="button" class="digest-option" role="radio"
+            [attr.aria-checked]="digestFrequency === 'NONE'"
+            [class.selected]="digestFrequency === 'NONE'"
+            (click)="selectDigest('NONE')">
+          <span class="digest-option__title">None</span>
+          <span class="digest-option__desc">No email digests</span>
+        </button>
+      </div>
     </section>
   </main>
 </div>
