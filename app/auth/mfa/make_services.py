@@ -25,7 +25,7 @@ from app.auth.mfa.repository.postgres_mfa_pending_token_repository import (
 )
 from app.auth.mfa.mfa_challenge_service import MfaChallengeService
 from app.auth.mfa.mfa_pending_token_service import MfaPendingTokenService
-from app.services.notifications.make_service import get_notification_service
+from app.notifications.service.make_service import get_notification_service
 
 
 logger = logging.getLogger(__name__)

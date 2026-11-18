@@ -9,9 +9,9 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from unittest.mock import patch
 
-from app.services.notifications.logger.base import NotificationLogger
-from app.services.notifications.make_service import make_notification_service
-from app.services.notifications.models import (
+from app.notifications.service.logger.base import NotificationLogger
+from app.notifications.service.make_service import make_notification_service
+from app.notifications.service.models import (
     DeliveryResult,
     NotificationRequest,
 )
@@ -138,7 +138,7 @@ def send_and_inspect(recipients: tuple[str, ...]) -> DeliveryResult:
     print(f"  correlation_id : {request.correlation_id}")
 
     with patch(
-        "app.services.notifications.channels.smtp_email_channel.smtplib.SMTP",
+        "app.notifications.service.channels.smtp_email_channel.smtplib.SMTP",
         new=make_logging_smtp(__import__("smtplib").SMTP),
     ):
         # Run the full pipeline: validate → render → dispatch → log

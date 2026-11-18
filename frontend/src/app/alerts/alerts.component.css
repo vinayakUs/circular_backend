@@ -99,6 +99,12 @@
   margin: 4px 0 0;
 }
 
+.field-eg {
+  color: #5c5c5c;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  letter-spacing: -0.01em;
+}
+
 .checkbox-group {
   display: flex;
   flex-wrap: wrap;

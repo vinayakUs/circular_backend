@@ -4,7 +4,7 @@ import json
 import logging
 import time
 from datetime import datetime
-from typing import Any
+from typing import Any, Sequence
 from pypdf import filters
 from config import Config
 from ingestion.indexer.dto import IndexDocument, SearchHit
@@ -89,6 +89,73 @@ DEFAULT_INDEX_SETTINGS: dict[str, Any] = {
         },
     }
 }
+
+
+# ── Topic keyword queries (grammar: app.notifications.keyword_syntax) ─────
+# Clause assembly lives here because the shapes encode index-schema
+# knowledge (the fields constant). The grammar import is deferred so
+# standalone ingestion runs that only index never import the Flask app.
+_KEYWORD_FIELDS = ["title^2", "chunk_text"]
+
+
+def _keyword_atom_clause(text: str, phrase: bool) -> dict[str, Any]:
+    mm: dict[str, Any] = {"query": text, "fields": _KEYWORD_FIELDS}
+    if phrase:
+        mm["type"] = "phrase"
+    else:
+        mm["operator"] = "and"
+    return {"multi_match": mm}
+
+
+def _keyword_alternative_clause(atoms: tuple[Any, ...]) -> dict[str, Any]:
+    # Consecutive bare atoms merge into one multi_match: multi_match with
+    # operator=and requires the words in the SAME field, while separate
+    # clauses would let them straddle title and chunk_text.
+    clauses: list[dict[str, Any]] = []
+    bare_run: list[str] = []
+
+    def flush() -> None:
+        if bare_run:
+            clauses.append(_keyword_atom_clause(" ".join(bare_run), False))
+            bare_run.clear()
+
+    for atom in atoms:
+        if atom.phrase:
+            flush()
+            clauses.append(_keyword_atom_clause(atom.text, True))
+        else:
+            bare_run.append(atom.text)
+    flush()
+
+    if len(clauses) == 1:
+        return clauses[0]
+    return {"bool": {"must": clauses}}
+
+
+def build_keywords_query(keywords: Sequence[str], filters: list[dict[str, Any]]) -> dict[str, Any]:
+    from app.notifications.keyword_syntax import parse_keywords
+
+    parsed = parse_keywords(keywords)
+    must: list[dict[str, Any]] = []
+    for alternatives in parsed.groups:
+        if len(alternatives) == 1:
+            must.append(_keyword_alternative_clause(alternatives[0]))
+        else:
+            must.append({
+                "bool": {
+                    "should": [_keyword_alternative_clause(a) for a in alternatives],
+                    "minimum_should_match": 1,
+                }
+            })
+    if not must:
+        must = [{"match_all": {}}]
+    return {
+        "bool": {
+            "must": must,
+            "must_not": [_keyword_atom_clause(a.text, a.phrase) for a in parsed.exclusions],
+            "filter": filters,
+        }
+    }
 
 
 class ElasticsearchClient:
@@ -706,9 +773,6 @@ class ElasticsearchClient:
             }
         }
 
-    """
-    Used for resolving circular for topics keyword.
-    """
     def search_any_keywords(
         self,
         keywords: list[str],
@@ -717,11 +781,11 @@ class ElasticsearchClient:
         since: datetime | None = None,
         size: int = 50,
     ) -> list[SearchHit]:
-        """Chunks matching ANY keyword, one hit per circular (collapse).
+        """Chunks matching the topic's keyword query, one hit per circular.
 
-        Per-keyword clauses give multi-word keywords conjunctive semantics
-        ("algo trading" needs both words) while the topic stays a union:
-        any keyword pulls the circular in.
+        Keywords support the topic query syntax (see keyword_syntax):
+        comma-separated groups AND together, OR/| alternates inside a group,
+        "quotes" make an exact phrase, -term/NOT term exclude globally.
         """
         filters: list[dict[str, Any]] = []
         if sources:
@@ -731,25 +795,7 @@ class ElasticsearchClient:
             # issued that day count as inside the window.
             filters.append({"range": {"issue_date": {"gte": since.date().isoformat()}}})
 
-        if keywords:
-            es_query: dict[str, Any] = {
-                "bool": {
-                    "should": [
-                        {
-                            "multi_match": {
-                                "query": kw,
-                                "fields": ["title^2", "chunk_text"],
-                                "operator": "and",
-                            }
-                        }
-                        for kw in keywords
-                    ],
-                    "minimum_should_match": 1,
-                    "filter": filters,
-                }
-            }
-        else:
-            es_query = {"bool": {"must": [{"match_all": {}}], "filter": filters}}
+        es_query = build_keywords_query(keywords, filters)
 
         response = self.client.search(
             index=self.index_name,

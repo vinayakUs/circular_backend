@@ -10,7 +10,8 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from app.topics.user_topics_repository import UserTopic
+from app.notifications.topics.user_topics_repository import UserTopic
+from config import Config
 
 if TYPE_CHECKING:
     from app.notifications.producer import Ctx
@@ -69,6 +70,7 @@ def run_topic_digest(
                         f"{alert_level.title()} topic digest: {total} circular"
                         f"{'s' if total != 1 else ''} matched your topics"
                     ),
+                    "base_url": Config.FRONTEND_BASE_URL,
                     "cadence": alert_level,
                     "window_days": window_days,
                     "total": total,

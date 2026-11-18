@@ -63,15 +63,6 @@ class MentionResolver:
 
     @staticmethod
     def _resolve_email(user: UserRecord) -> str | None:
-        """Resolve the destination email for a user mention.
-
-        Priority:
-          1. The ``email`` column on the user record (if set) — production truth,
-             comes from LDAP / SSO / profile sync.
-          2. Synthesised ``<user_id>@<MENTION_EMAIL_DOMAIN>`` — dev fallback.
-        """
-        if user.email:
-            return user.email
-        import os
-        domain = os.environ.get("MENTION_EMAIL_DOMAIN", "yourcompany.com")
-        return f"{user.user_id}@{domain}"
+        """The ``email`` column on the user record (LDAP / SSO / profile sync);
+        None when unset — callers drop those recipients."""
+        return user.email

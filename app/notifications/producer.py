@@ -20,13 +20,14 @@ from functools import partial
 from typing import Any, Callable
 from zoneinfo import ZoneInfo
 
+from app.notifications.circular_digest import run_circular_digest
 from app.notifications.matching import TopicMatcher
 from app.notifications.source_circulars import run_source_circulars
 from app.notifications.topic_digest import run_topic_digest
-from app.outbox.notification.notification_outbox_repository import (
+from app.notifications.outbox.notification_outbox_repository import (
     NotificationOutboxRepository,
 )
-from app.topics.user_topics_repository import UserTopicRepository
+from app.notifications.topics.user_topics_repository import UserTopicRepository
 
 IST = ZoneInfo("Asia/Kolkata")
 log = logging.getLogger(__name__)
@@ -79,6 +80,10 @@ class Job:
 
 SCHEDULE: list[Job] = [
     Job("source-circulars", always(), run_source_circulars),
+    Job("daily-digest", daily_ist("08:00"),
+        partial(run_circular_digest, cadence="daily", window_days=7)),
+    Job("weekly-digest", weekly_ist(0, "08:00"),          # Mondays
+        partial(run_circular_digest, cadence="weekly", window_days=14)),
     Job("topic-digest-daily", daily_ist("08:00"),
         partial(run_topic_digest, alert_level="DAILY", window_days=10000)),
     Job("topic-digest-weekly", weekly_ist(0, "08:00"),          # Mondays
@@ -114,13 +119,14 @@ class Ctx:
 def build_ctx() -> Ctx:
     from db.postgres_client import get_postgres_client
     from ingestion.indexer.es_provider import get_es_client
+    from ingestion.repository.circular_repository import CircularRepository
 
     pool = get_postgres_client().get_pool()
     return Ctx(
         pool=pool,
         outbox=NotificationOutboxRepository(pool),
         topics=UserTopicRepository(pool),
-        matcher=TopicMatcher(get_es_client()),
+        matcher=TopicMatcher(get_es_client(), CircularRepository(pool)),
     )
 
 

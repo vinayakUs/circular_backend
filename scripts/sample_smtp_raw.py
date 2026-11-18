@@ -9,10 +9,10 @@ import sys
 from io import StringIO
 from unittest.mock import patch
 
-from app.services.notifications.channels.smtp_email_channel import (
+from app.notifications.service.channels.smtp_email_channel import (
     SmtpEmailChannel,
 )
-from app.services.notifications.models import (
+from app.notifications.service.models import (
     NotificationRequest,
     RenderedPayload,
 )
@@ -101,7 +101,7 @@ def main() -> int:
         return DebugSMTP
 
     with patch(
-        "app.services.notifications.channels.smtp_email_channel.smtplib.SMTP",
+        "app.notifications.service.channels.smtp_email_channel.smtplib.SMTP",
         new=make_debug_smtp(),
     ):
         # Redirect stderr to capture debuglevel stream

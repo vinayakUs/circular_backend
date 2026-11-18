@@ -890,6 +890,21 @@ class CircularRepository:
             )
             return [r for row in cursor.fetchall() if (r := self._row_to_record(row))]
 
+    def filter_indexed_ids(self, record_ids: list[str]) -> set[str]:
+        """Ids whose ES indexing finished (es_indexed_at set). Empty input → empty set."""
+        if not record_ids:
+            return set()
+        with self.db_pool.acquire() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT id FROM circulars
+                WHERE id = ANY(%s::uuid[]) AND es_indexed_at IS NOT NULL
+                """,
+                (record_ids,),
+            )
+            return {str(row[0]) for row in cursor.fetchall()}
+
     def mark_es_indexed(self, record_id: UUID, chunk_count: int, index_name: str) -> None:
         with self.db_pool.acquire() as conn:
             cursor = conn.cursor()

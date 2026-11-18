@@ -4,7 +4,7 @@ import logging
 from uuid import UUID
 
 from app.notifications.mention_notify import on_comment_mentioned
-from app.outbox.notification.notification_outbox_repository import NotificationOutboxRepository
+from app.notifications.outbox.notification_outbox_repository import NotificationOutboxRepository
 from db.postgres_client import get_postgres_client
 from ingestion.repository.comments_repository import CommentsRepository
 from ingestion.repository.comment_mentions_repository import CommentMentionsRepository

@@ -126,8 +126,11 @@ class Config:
         "ELASTICSEARCH_URL", "http://localhost:9200"
     )
     FRONTEND_BASE_URL = os.getenv(
-        "FRONTEND_BASE_URL", "https://circular-hub.go.akamai-access.com"
+        "FRONTEND_BASE_URL", "http://localhost:4200"
     )
+    # FRONTEND_BASE_URL = os.getenv(
+    #     "FRONTEND_BASE_URL", "https://circular-hub.go.akamai-access.com"
+    # )
     ELASTICSEARCH_USERNAME = os.getenv("ELASTICSEARCH_USERNAME", "elastic")
     ELASTICSEARCH_PASSWORD = os.getenv(
         "ELASTICSEARCH_PASSWORD", "H9QWD2laWoDp3yVLWnz3MNcJ"
@@ -219,9 +222,6 @@ class Config:
         os.getenv("INTERNAL_SPLITTER_TIMEOUT_SECONDS", "10")
     )
     SUMMARY_GRACE_PERIOD_HOURS = int(os.getenv("SUMMARY_GRACE_PERIOD_HOURS", "10"))
-    NOTIFICATION_RECIPIENTS = [
-        r.strip() for r in os.getenv("NOTIFICATION_RECIPIENTS", "").split(",") if r.strip()
-    ]
 
     # ==== MFA / OTP ====
     OTP_LENGTH = int(os.getenv("OTP_LENGTH", "6"))

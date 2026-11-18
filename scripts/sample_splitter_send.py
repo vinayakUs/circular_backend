@@ -10,10 +10,10 @@ import sys
 from datetime import datetime, timezone
 from unittest.mock import patch
 
-from app.services.notifications.channels.splitter_email_channel import (
+from app.notifications.service.channels.splitter_email_channel import (
     SplitterEmailChannel,
 )
-from app.services.notifications.models import (
+from app.notifications.service.models import (
     DeliveryResult,
     NotificationRequest,
     RenderedPayload,
@@ -90,7 +90,7 @@ def send_and_inspect(recipients: tuple[str, ...]) -> DeliveryResult:
         return resp
 
     with patch(
-        "app.services.notifications.channels.splitter_email_channel.requests.post",
+        "app.notifications.service.channels.splitter_email_channel.requests.post",
         side_effect=logging_post,
     ):
         result = channel.send(request, rendered)

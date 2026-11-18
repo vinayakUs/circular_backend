@@ -8,11 +8,14 @@ of a Python substring check on titles.
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
 
-from app.topics.user_topics_repository import UserTopic
+from app.notifications.topics.user_topics_repository import UserTopic
+
+log = logging.getLogger(__name__)
 
 
 @dataclass(slots=True, frozen=True)
@@ -38,8 +41,9 @@ class TopicMatcher:
     """One concrete class — a Protocol with one implementation is ceremony.
     The seam is this method: immediate alerts reuse it later unchanged."""
 
-    def __init__(self, es_client: Any):
+    def __init__(self, es_client: Any, circular_repo: Any):
         self._es = es_client
+        self._circular_repo = circular_repo
 
     def match_window(
         self, topic: UserTopic, *, now: datetime, window_days: int
@@ -63,4 +67,16 @@ class TopicMatcher:
                     issue_date=str(doc.issue_date) if doc.issue_date else "",
                 )
             )
-        return out
+        if not out:
+            return out
+
+        # A hit can sit in ES while its circulars row never recorded indexing
+        # (crash between bulk write and mark_es_indexed). Only circulars the
+        # DB confirms — es_indexed_at NOT NULL — reach an alert.
+        indexed = self._circular_repo.filter_indexed_ids([c.id for c in out if c.id])
+        kept = [c for c in out if c.id in indexed]
+        if len(kept) != len(out):
+            log.warning(
+                "topic match dropped %d unindexed circular(s)", len(out) - len(kept)
+            )
+        return kept

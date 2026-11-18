@@ -10,15 +10,15 @@ from flask import g, request
 from psycopg2 import IntegrityError
 
 from app.auth.ldap_auth import require_auth
-from app.topics.user_notification_prefs_repository import (
+from app.notifications.topics.user_notification_prefs_repository import (
     DIGEST_FREQUENCIES,
     UserNotificationPrefsRepository,
 )
-from app.topics.user_source_subscriptions_repository import (
+from app.notifications.topics.user_source_subscriptions_repository import (
     SOURCES,
     UserSourceSubscriptionsRepository,
 )
-from app.topics.user_topics_repository import UserTopicRepository
+from app.notifications.topics.user_topics_repository import UserTopicRepository
 from db.postgres_client import get_postgres_client
 
 ALERT_LEVELS = {"IMMEDIATE", "DAILY", "WEEKLY", "OFF"}
@@ -54,6 +54,9 @@ def _validate(payload: dict, *, partial: bool) -> tuple[dict, str | None]:
             if not isinstance(value, list) or not all(isinstance(x, str) for x in value):
                 return {}, f"{key} must be an array of strings"
             fields[key] = [x.strip() for x in value if x.strip()]
+
+    if "sources" in fields and not fields["sources"]:
+        return {}, "at least one source is required"
 
     if "alert_level" in payload or not partial:
         level = (payload.get("alert_level") or "DAILY").upper()

@@ -6,13 +6,12 @@ this module only snapshots the email into notification_outbox.
 from __future__ import annotations
 
 import logging
-import os
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 import markdown as md
 
-from app.topics.user_source_subscriptions_repository import (
+from app.notifications.topics.user_source_subscriptions_repository import (
     UserSourceSubscriptionsRepository,
 )
 from config import Config
@@ -97,13 +96,12 @@ def run_source_circulars(ctx: "Ctx", now: datetime) -> int:
         with ctx.pool.acquire() as conn:
             cur = conn.cursor()
             for sub in subscribers:
-                email = sub.email or (
-                    f"{sub.user_id}@{os.environ.get('MENTION_EMAIL_DOMAIN', 'yourcompany.com')}"
-                )
+                if not sub.email:
+                    continue
                 job = ctx.outbox.enqueue(
                     cur,
                     user_id=sub.user_db_id,
-                    recipient_email=email,
+                    recipient_email=sub.email,
                     channel="EMAIL",
                     template="circular_notification.html",
                     params=params,

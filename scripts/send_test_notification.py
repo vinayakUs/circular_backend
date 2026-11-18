@@ -2,11 +2,11 @@
 """Send a single notification email for a given circular UUID, including its AI summary.
 
 Usage:
-    python -m scripts.send_test_notification <UUID>
+    python -m scripts.send_test_notification <UUID> <email> [<email> ...]
 
 Looks up the circular in the DB, fetches the summary from S3 (if available),
-renders markdown -> HTML, and sends one notification via the new
-NotificationService (SMTP or splitter backend based on EMAIL_BACKEND).
+renders markdown -> HTML, and sends one notification to the given recipients
+via the NotificationService (SMTP or splitter backend based on EMAIL_BACKEND).
 """
 from __future__ import annotations
 
@@ -16,8 +16,8 @@ from uuid import uuid4
 
 import markdown as md
 
-from app.services.notifications.make_service import get_notification_service
-from app.services.notifications.models import NotificationRequest
+from app.notifications.service.make_service import get_notification_service
+from app.notifications.service.models import NotificationRequest
 from config import Config
 from db.postgres_client import get_postgres_client
 from ingestion.repository.circular_repository import CircularRepository
@@ -27,7 +27,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 log = logging.getLogger(__name__)
 
 
-def main(uuid_str: str) -> int:
+def main(uuid_str: str, recipients: tuple[str, ...]) -> int:
     db_pool = get_postgres_client().get_pool()
     repo = CircularRepository(db_pool)
     record = repo.get_record_by_id(uuid_str)
@@ -66,10 +66,6 @@ def main(uuid_str: str) -> int:
     }
 
     service = get_notification_service()
-    recipients = tuple(Config.NOTIFICATION_RECIPIENTS)
-    if not recipients:
-        log.error("Config.NOTIFICATION_RECIPIENTS is empty — nothing to send")
-        return 1
     channel = service.supported_channels()[0]
     request = NotificationRequest(
         channel=channel,
@@ -91,7 +87,7 @@ def main(uuid_str: str) -> int:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python -m scripts.send_test_notification <UUID>")
+    if len(sys.argv) < 3:
+        print("Usage: python -m scripts.send_test_notification <UUID> <email> [<email> ...]")
         sys.exit(2)
-    sys.exit(main(sys.argv[1]))
+    sys.exit(main(sys.argv[1], tuple(sys.argv[2:])))

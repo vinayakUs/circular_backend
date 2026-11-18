@@ -25,10 +25,13 @@
           <label class="form-label" for="topic-keywords">Keywords</label>
           <div class="form-control">
             <input id="topic-keywords" class="input-field" type="text" name="keywords"
-                placeholder="Keywords (e.g. margin, settlement)" [(ngModel)]="form.keywordsText" />
+                placeholder='margin OR settlement, "circuit breaker", -penalty'
+                [(ngModel)]="form.keywordsText" />
             <p class="field-help">
-              Separate terms with commas. Example: margin, settlement, circuit limit
+              All comma-separated groups must match. OR for either term, quotes for an exact
+              phrase, -word to exclude.
             </p>
+            <p class="field-help field-eg">e.g. margin OR settlement, "circuit breaker", -penalty</p>
           </div>
         </div>
 
@@ -44,7 +47,7 @@
                 </label>
               }
             </div>
-            <p class="field-help">Leave all unticked to follow every source.</p>
+            <p class="field-help">Select at least one source.</p>
           </div>
         </div>
 
@@ -53,13 +56,12 @@
           <div class="form-control">
             <select id="alert-level" class="select-field" name="alert_level"
                 [(ngModel)]="form.alert_level">
-              <option value="IMMEDIATE">Immediate</option>
               <option value="DAILY">Daily</option>
               <option value="WEEKLY">Weekly</option>
               <option value="OFF">Off</option>
             </select>
             <p class="field-help">
-              Immediate emails you as matching circulars arrive. Daily and Weekly send a digest.
+              Daily and Weekly send a digest of newly matched circulars.
             </p>
           </div>
         </div>
@@ -115,7 +117,6 @@
               <select class="select-field select-compact" name="alert-level-{{ topic.id }}"
                   [attr.aria-label]="'Alert level for ' + topic.topic_name"
                   [ngModel]="topic.alert_level" (ngModelChange)="onAlertChange(topic, $event)">
-                <option value="IMMEDIATE">Immediate</option>
                 <option value="DAILY">Daily</option>
                 <option value="WEEKLY">Weekly</option>
                 <option value="OFF">Off</option>
@@ -135,15 +136,8 @@
         A short, scannable view of upcoming changes that matter to decision-makers.
       </p>
       <p class="prefs-text">
-        The digest follows <strong>your sources</strong>. Change them from the Sources
-        filter on the Circulars or Changes pages. Topic alerts are not affected.
-      </p>
-      <p class="prefs-text">
-        Covers <strong>product &amp; spec changes, membership, system updates, fee changes,
-        and compliance filings</strong> for the next 7 days (daily) or 14 days (weekly).
-        For other categories like surveillance, corporate actions, listings, halts, or
-        margins, <a class="prefs-link" href="#topic-form">set up a topic</a> to get
-        tailored alerts.
+        Covers <strong>upcoming deadlines</strong> across upcomming deadlines &amp; for the next 7 days (daily)
+        or 14 days (weekly).
       </p>
 
       @if (prefsError) {

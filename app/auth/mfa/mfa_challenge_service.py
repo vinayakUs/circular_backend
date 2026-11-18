@@ -27,8 +27,8 @@ from app.auth.mfa.repository.mfa_challenge_repository import (
 )
 from app.auth.mfa.generators.base import OtpGenerator
 from app.auth.mfa.hashing.base import OtpHasher
-from app.services.notifications.models import NotificationRequest
-from app.services.notifications.notification_service import NotificationService
+from app.notifications.service.models import NotificationRequest
+from app.notifications.service.notification_service import NotificationService
 from config import Config
 
 

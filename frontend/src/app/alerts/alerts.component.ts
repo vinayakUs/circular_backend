@@ -132,6 +132,10 @@ export class AlertsComponent implements OnInit {
       this.formError = 'Name is required';
       return;
     }
+    if (this.form.sources.length === 0) {
+      this.formError = 'Select at least one source';
+      return;
+    }
 
     const payload = {
       topic_name: topicName,
@@ -213,7 +217,22 @@ export class AlertsComponent implements OnInit {
   }
 
   private parseKeywords(text: string): string[] {
-    return text.split(',').map((k) => k.trim()).filter((k) => k.length > 0);
+    const out: string[] = [];
+    let current = '';
+    let inQuotes = false;
+    for (const ch of text) {
+      if (ch === '"') {
+        inQuotes = !inQuotes;
+        current += ch;
+      } else if (ch === ',' && !inQuotes) {
+        out.push(current);
+        current = '';
+      } else {
+        current += ch;
+      }
+    }
+    out.push(current);
+    return out.map((k) => k.trim()).filter((k) => k.length > 0);
   }
 
   private resetForm(): void {
