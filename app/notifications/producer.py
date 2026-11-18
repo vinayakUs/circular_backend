@@ -21,6 +21,7 @@ from typing import Any, Callable
 from zoneinfo import ZoneInfo
 
 from app.notifications.matching import TopicMatcher
+from app.notifications.source_circulars import run_source_circulars
 from app.notifications.topic_digest import run_topic_digest
 from app.outbox.notification.notification_outbox_repository import (
     NotificationOutboxRepository,
@@ -62,6 +63,11 @@ def weekly_ist(weekday: int, hhmm: str) -> DuePredicate:
     return due
 
 
+def always() -> DuePredicate:
+    """Due every tick — fan-out jobs dedupe by idempotency key, not by time window."""
+    return lambda now: True
+
+
 # ── Job registry ────────────────────────────────────────────────────
 
 @dataclass(slots=True, frozen=True)
@@ -72,6 +78,7 @@ class Job:
 
 
 SCHEDULE: list[Job] = [
+    Job("source-circulars", always(), run_source_circulars),
     Job("topic-digest-daily", daily_ist("08:00"),
         partial(run_topic_digest, alert_level="DAILY", window_days=10000)),
     Job("topic-digest-weekly", weekly_ist(0, "08:00"),          # Mondays

@@ -415,6 +415,14 @@
   outline-offset: 2px;
 }
 
+/* ---------- source subscriptions ---------- */
+
+.subs-section {
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
 /* ---------- focus & responsive ---------- */
 
 .btn-primary:focus-visible,

@@ -29,6 +29,10 @@ export interface NotificationPrefs {
   digest_frequency: DigestFrequency;
 }
 
+export interface SourceSubscriptions {
+  sources: string[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class TopicsApiService {
   constructor(private http: HttpClient) {}
@@ -56,6 +60,16 @@ export class TopicsApiService {
   updateNotificationPrefs(digest_frequency: DigestFrequency): Observable<NotificationPrefs> {
     return this.http.put<NotificationPrefs>(`${environment.apiUrl}/api/notification-prefs`, {
       digest_frequency,
+    });
+  }
+
+  getSourceSubscriptions(): Observable<SourceSubscriptions> {
+    return this.http.get<SourceSubscriptions>(`${environment.apiUrl}/api/source-subscriptions`);
+  }
+
+  updateSourceSubscriptions(sources: string[]): Observable<SourceSubscriptions> {
+    return this.http.put<SourceSubscriptions>(`${environment.apiUrl}/api/source-subscriptions`, {
+      sources,
     });
   }
 }

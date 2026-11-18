@@ -14,6 +14,10 @@ from app.topics.user_notification_prefs_repository import (
     DIGEST_FREQUENCIES,
     UserNotificationPrefsRepository,
 )
+from app.topics.user_source_subscriptions_repository import (
+    SOURCES,
+    UserSourceSubscriptionsRepository,
+)
 from app.topics.user_topics_repository import UserTopicRepository
 from db.postgres_client import get_postgres_client
 
@@ -135,3 +139,26 @@ def register_routes(app) -> None:
         repo = UserNotificationPrefsRepository(get_postgres_client().get_pool())
         prefs = repo.upsert(g.user_db_id, level)
         return {"digest_frequency": prefs.digest_frequency}
+
+    @app.get("/api/source-subscriptions")
+    @require_auth
+    def get_source_subscriptions():
+        if not g.user_db_id:
+            return {"error": "No linked user account"}, 403
+        repo = UserSourceSubscriptionsRepository(get_postgres_client().get_pool())
+        return {"sources": repo.list_for_user(g.user_db_id)}
+
+    @app.put("/api/source-subscriptions")
+    @require_auth
+    def update_source_subscriptions():
+        if not g.user_db_id:
+            return {"error": "No linked user account"}, 403
+        payload = request.get_json(silent=True) or {}
+        sources = payload.get("sources", [])
+        if not isinstance(sources, list) or not all(isinstance(x, str) for x in sources):
+            return {"error": "sources must be an array of strings"}, 400
+        sources = [x.strip().upper() for x in sources if x.strip()]
+        if set(sources) - SOURCES:
+            return {"error": f"sources must be one of {sorted(SOURCES)}"}, 400
+        repo = UserSourceSubscriptionsRepository(get_postgres_client().get_pool())
+        return {"sources": repo.set_sources(g.user_db_id, sources)}

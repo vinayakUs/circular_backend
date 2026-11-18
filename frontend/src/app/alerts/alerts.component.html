@@ -173,6 +173,28 @@
           <span class="digest-option__desc">No email digests</span>
         </button>
       </div>
+
+      <div class="subs-section">
+        <h3 class="prefs-subtitle">All Circulars</h3>
+        <p class="prefs-text">
+          Get every new circular from the sources you tick — one email per circular,
+          with the AI summary and details, sent as soon as it is ready.
+        </p>
+
+        @if (subsError) {
+          <p class="error-text">{{ subsError }}</p>
+        }
+
+        <div class="checkbox-group">
+          @for (opt of subSourceOptions; track opt.value) {
+            <label class="checkbox-item">
+              <input type="checkbox" [checked]="sourceSubs.includes(opt.value)"
+                  (change)="toggleSourceSub(opt.value)" />
+              <span>{{ opt.label }}</span>
+            </label>
+          }
+        </div>
+      </div>
     </section>
   </main>
 </div>

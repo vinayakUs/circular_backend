@@ -18,6 +18,12 @@ interface TopicForm {
 
 const SOURCE_OPTIONS = ['NSE', 'SEBI'];
 
+const SUB_SOURCE_OPTIONS = [
+  { value: 'SEBI', label: 'SEBI' },
+  { value: 'SEBI_MASTER', label: 'Sebi Master' },
+  { value: 'NSE', label: 'NSE' },
+];
+
 @Component({
   selector: 'app-alerts',
   imports: [FormsModule, DatePipe],
@@ -39,11 +45,16 @@ export class AlertsComponent implements OnInit {
   digestFrequency: DigestFrequency = 'NONE';
   prefsError = '';
 
+  sourceSubs: string[] = [];
+  subsError = '';
+
   readonly sourceOptions = SOURCE_OPTIONS;
+  readonly subSourceOptions = SUB_SOURCE_OPTIONS;
 
   ngOnInit(): void {
     this.loadTopics();
     this.loadPrefs();
+    this.loadSubs();
   }
 
   loadTopics(): void {
@@ -88,6 +99,31 @@ export class AlertsComponent implements OnInit {
     const i = this.form.sources.indexOf(source);
     if (i >= 0) this.form.sources.splice(i, 1);
     else this.form.sources.push(source);
+  }
+
+  loadSubs(): void {
+    this.topicsApi.getSourceSubscriptions().subscribe({
+      next: (res) => {
+        this.sourceSubs = res.sources;
+      },
+      error: () => {
+        this.subsError = 'Failed to load source subscriptions.';
+      },
+    });
+  }
+
+  toggleSourceSub(value: string): void {
+    const previous = [...this.sourceSubs];
+    const i = this.sourceSubs.indexOf(value);
+    if (i >= 0) this.sourceSubs.splice(i, 1);
+    else this.sourceSubs.push(value);
+    this.subsError = '';
+    this.topicsApi.updateSourceSubscriptions([...this.sourceSubs]).subscribe({
+      error: (err) => {
+        this.sourceSubs = previous;
+        this.subsError = this.errorText(err, 'Could not save source subscriptions');
+      },
+    });
   }
 
   onSubmit(): void {

@@ -52,9 +52,9 @@ nohup python -m ingestion.indexer.runner --log-file /root/circular_backend/logs/
 
   mkdir -p /root/circular_backend/logs
 
-  nohup python -m services.notification_worker \                                                                                                      
-    --log-file /root/circular_backend/logs/notification.log \
-    > /dev/null 2>&1 &
+  # notifications — one-shot jobs; schedule via cron (*/5 producer, * outbox worker)                                                                                                      
+  python -m app.notifications.producer
+  python -m app.outbox.notification.notification_outbox_worker --log-file /root/circular_backend/logs/notification_outbox.log
 
 
 
@@ -136,6 +136,6 @@ nohup python -m ingestion.processor.runner --limit 50 --log-file /root circular_
 
   mkdir -p /root/circular_backend/logs
 
-  nohup python -m services.notification_worker \                                                                                                      
-    --log-file /root/circular_backend/logs/notification.log \
-    > /dev/null 2>&1 &
+  # notifications — one-shot jobs; schedule via cron (*/5 producer, * outbox worker)                                                                                                      
+  python -m app.notifications.producer
+  python -m app.outbox.notification.notification_outbox_worker --log-file /root/circular_backend/logs/notification_outbox.log

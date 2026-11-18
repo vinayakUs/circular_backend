@@ -1,35 +1,18 @@
 """
-Mention routes: inbox (list / unread-count / mark read), and the search
-endpoint used by the @mention picker in the comment textarea.
+Mention routes: the search endpoint used by the @mention picker in the
+comment textarea.
 """
 from __future__ import annotations
 
-from flask import g, request
+from flask import request
 
 from app.auth.ldap_auth import require_auth
-from app.services.mentions_service import MentionsService
 from db.postgres_client import get_postgres_client
 from ingestion.repository.properties_repository import PropertiesRepository
 from ingestion.repository.users_repository import UsersRepository
 
 
 def register_routes(app) -> None:
-    @app.get("/api/mentions")
-    @require_auth
-    def list_mentions():
-        limit = int(request.args.get("limit", 20))
-        offset = int(request.args.get("offset", 0))
-        status = request.args.get("status") or None
-        unread_only = request.args.get("unread_only", "false").lower() == "true"
-        svc = MentionsService()
-        return svc.list_for_user(g.current_user, limit, offset, status, unread_only)
-
-    @app.get("/api/mentions/unread-count")
-    @require_auth
-    def mentions_unread_count():
-        svc = MentionsService()
-        return {"unread_count": svc.unread_count(g.current_user)}
-
     @app.get("/api/mentions/search")
     @require_auth
     def search_mention_targets():
@@ -78,18 +61,3 @@ def register_routes(app) -> None:
         ][:limit]
 
         return {"users": users, "departments": departments}
-
-    @app.post("/api/mentions/<uuid:notif_id>/read")
-    @require_auth
-    def mark_mention_read(notif_id):
-        svc = MentionsService()
-        row = svc.mark_read(g.current_user, notif_id)
-        if not row:
-            return {"error": "Mention not found"}, 404
-        return row
-
-    @app.post("/api/mentions/read-all")
-    @require_auth
-    def mark_all_mentions_read():
-        svc = MentionsService()
-        return {"updated": svc.mark_all_read(g.current_user)}

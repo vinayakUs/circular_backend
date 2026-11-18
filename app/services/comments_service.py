@@ -3,9 +3,11 @@ from __future__ import annotations
 import logging
 from uuid import UUID
 
+from app.notifications.mention_notify import on_comment_mentioned
+from app.outbox.notification.notification_outbox_repository import NotificationOutboxRepository
 from db.postgres_client import get_postgres_client
 from ingestion.repository.comments_repository import CommentsRepository
-from ingestion.repository.mention_notifications_repository import MentionNotificationsRepository
+from ingestion.repository.comment_mentions_repository import CommentMentionsRepository
 from notifications.mention_parser import parse_mentions
 from notifications.mention_resolver import MentionResolver
 
@@ -19,7 +21,8 @@ class CommentsService:
         db_client = get_postgres_client()
         pool = db_client.get_pool()
         self.repository = CommentsRepository(db_pool=pool)
-        self.mention_repo = MentionNotificationsRepository(db_pool=pool)
+        self.mention_repo = CommentMentionsRepository()
+        self.outbox = NotificationOutboxRepository(pool)
         self.resolver = MentionResolver(db_pool=pool)
 
     def get_comments(self, expert_id: UUID) -> list[dict]:
@@ -63,9 +66,10 @@ class CommentsService:
                 parsed = parse_mentions(text)
                 if parsed:
                     resolved = self.resolver.resolve(parsed)
-                    self.mention_repo.persist(
+                    recipients = self.mention_repo.persist(
                         cur, comment.id, expert_id, comment.user_db_id, resolved
                     )
+                    on_comment_mentioned(cur, comment, recipients, self.outbox)
             except Exception:
                 logger.exception(
                     "mention resolution failed; comment %s saved without notifications",

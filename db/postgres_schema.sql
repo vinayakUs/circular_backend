@@ -107,7 +107,7 @@ CREATE TABLE IF NOT EXISTS processing_tasks (
     UNIQUE(circular_id, processor_name)
 );
 
--- notification_logs (referenced by mention_notifications.notification_log_id)
+-- notification_logs
 CREATE TABLE IF NOT EXISTS notification_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     template_name VARCHAR(100) NOT NULL,
@@ -256,24 +256,6 @@ CREATE TABLE IF NOT EXISTS comment_mentions (
 CREATE INDEX IF NOT EXISTS idx_comment_mentions_comment ON comment_mentions(comment_id);
 CREATE INDEX IF NOT EXISTS idx_comment_mentions_expert  ON comment_mentions(expert_id);
 CREATE INDEX IF NOT EXISTS idx_comment_mentions_target  ON comment_mentions(target_type, target_id);
-
--- mention_notifications: fan-out delivery queue (one row per recipient)
-CREATE TABLE IF NOT EXISTS mention_notifications (
-    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    mention_id          UUID NOT NULL REFERENCES comment_mentions(id) ON DELETE CASCADE,
-    recipient_user_id   VARCHAR(255) NOT NULL,
-    recipient_email     VARCHAR(255) NOT NULL,
-    status              VARCHAR(20)  NOT NULL DEFAULT 'PENDING',
-    notification_log_id UUID REFERENCES notification_logs(id),
-    error_message       TEXT,
-    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    sent_at             TIMESTAMPTZ,
-    read_at             TIMESTAMPTZ,
-    CONSTRAINT chk_mention_notif_status CHECK (status IN ('PENDING','SENT','FAILED','SKIPPED')),
-    UNIQUE (mention_id, recipient_user_id)
-);
-CREATE INDEX IF NOT EXISTS idx_mention_notif_status    ON mention_notifications(status, created_at);
-CREATE INDEX IF NOT EXISTS idx_mention_notif_recipient ON mention_notifications(recipient_user_id, created_at DESC);
 
 -- CAPTCHA tables (added 2026-09)
 CREATE TABLE IF NOT EXISTS captcha_challenges (
@@ -478,3 +460,17 @@ DROP TRIGGER IF EXISTS trg_users_default_notification_prefs ON users;
 CREATE TRIGGER trg_users_default_notification_prefs
     AFTER INSERT ON users
     FOR EACH ROW EXECUTE FUNCTION fn_user_notification_prefs_default();
+
+-- DDL for user_source_subscriptions table (17-11-2026)
+-- Immediate per-source subscriptions: every new circular from a subscribed
+-- source is emailed to the user, one email per circular — never a digest.
+-- Opt-in by row existence (no default trigger, unlike user_notification_prefs).
+
+CREATE TABLE IF NOT EXISTS user_source_subscriptions (
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    source VARCHAR(30) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, source),
+    CONSTRAINT chk_user_source_subscriptions_source
+        CHECK (source IN ('SEBI', 'SEBI_MASTER', 'NSE'))
+);
