@@ -8,8 +8,8 @@ from app.notifications.outbox.notification_outbox_repository import Notification
 from db.postgres_client import get_postgres_client
 from ingestion.repository.comments_repository import CommentsRepository
 from ingestion.repository.comment_mentions_repository import CommentMentionsRepository
-from notifications.mention_parser import parse_mentions
-from notifications.mention_resolver import MentionResolver
+from app.notifications.mention_parser import parse_mentions
+from app.notifications.mention_resolver import MentionResolver
 
 
 logger = logging.getLogger(__name__)

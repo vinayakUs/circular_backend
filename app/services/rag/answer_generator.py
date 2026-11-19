@@ -4,13 +4,13 @@ import openai
  
 from config import Config
 from ingestion.indexer.dto import SearchHit
-from services.rag.citation_engine import (
+from app.services.rag.citation_engine import (
     build_citation_query_engine,
     citation_nodes_to_citations,
     hits_to_nodes,
     normalize_citation_markers,
 )
-from services.rag.dto import RAGAnswer
+from app.services.rag.dto import RAGAnswer
  
 # Network/infra failures worth another attempt. Auth, bad-request and
 # validation errors are not - retrying them just delays the same verdict.

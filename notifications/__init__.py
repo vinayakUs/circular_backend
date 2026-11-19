@@ -1,1 +1,0 @@
-"""Notifications package — mention parsing, resolution, and delivery."""

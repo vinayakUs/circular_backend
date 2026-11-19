@@ -5,20 +5,12 @@ DB-only; uses existing UsersRepository + PropertiesRepository.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
 
-from ingestion.repository.users_repository import UsersRepository, UserRecord
+from ingestion.repository.comment_mentions_repository import ResolvedMention
+from ingestion.repository.users_repository import UserRecord, UsersRepository
 from ingestion.repository.properties_repository import PropertiesRepository
-
-
-@dataclass(slots=True)
-class ResolvedMention:
-    target_type: str                                  # 'user' | 'department'
-    target_id: str                                    # users.user_id OR properties.id
-    target_label: str                                 # display string for the email
-    recipients: list[tuple[str, UUID, str]]           # [(user_id, user_db_id, email), ...] — empty = skip
 
 
 class MentionResolver:

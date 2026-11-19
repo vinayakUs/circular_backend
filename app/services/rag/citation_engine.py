@@ -10,7 +10,7 @@ from llama_index.core.schema import MetadataMode, NodeWithScore, QueryBundle, Te
 
 from config import Config
 from ingestion.indexer.dto import SearchHit
-from services.rag.dto import Citation
+from app.services.rag.dto import Citation
 from utils.llm_providers import get_llm_provider
 
 

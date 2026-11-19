@@ -14,7 +14,7 @@ from flask_cors import CORS
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from config import Config
-from services.rag.answer_generator import RAGAnswerGenerator
+from app.services.rag.answer_generator import RAGAnswerGenerator
 
 logger = logging.getLogger(__name__)
 
