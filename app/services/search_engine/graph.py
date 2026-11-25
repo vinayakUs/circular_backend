@@ -9,6 +9,7 @@ from typing import Annotated, Any, Optional, TypedDict
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
+from langfuse.langchain import CallbackHandler
 
 from app.services.search_engine import answer as ans
 from app.services.search_engine.coverage import document_passages
@@ -56,7 +57,11 @@ class SearchEngine:
     # ── public ──────────────────────────────────────────────────
     def run(self, query: str, tags: list[str] | None = None) -> dict[str, Any]:
         return self.graph.invoke({"query": query}, config={
-            "run_name": "circular_search", "tags": tags or ["search"], "metadata": {"query": query}})
+            "run_name": "circular_search", 
+            "tags": tags or ["search"], 
+            "metadata": {"query": query},
+            "callbacks": [CallbackHandler()]
+            })
 
     # ── nodes ───────────────────────────────────────────────────
     def parse_query(self, state: State) -> dict:

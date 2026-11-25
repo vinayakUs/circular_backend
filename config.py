@@ -186,8 +186,8 @@ class Config:
     LLM_PROVIDER = os.getenv("LLM_PROVIDER", "nvidia").strip().lower()
 
     # Natural-language search engine (app/services/search_engine)
-    ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-    ANTHROPIC_BASE_URL = os.getenv("ANTHROPIC_BASE_URL", "https://token-plan-sgp.xiaomimimo.com/anthropic")  # proxy/gateway for ChatAnthropic; empty = api.anthropic.com
+    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "tp-sv5cveiik521op89bpomudt8avglow8fbtipm1hvus9ich8m")
+    OPENAI_BASE_URL = os.getenv("OPENAI_API_KEY", "https://token-plan-sgp.xiaomimimo.com/v1")  # proxy/gateway for ChatAnthropic; empty = api.anthropic.com
     SEARCH_PARSER_MODEL = os.getenv("SEARCH_PARSER_MODEL", "mimo-v2.6-pro")
     SEARCH_AGENT_MODEL = os.getenv("SEARCH_AGENT_MODEL", "mimo-v2.6-pro")
     SEARCH_SUMMARY_MODEL = os.getenv("SEARCH_SUMMARY_MODEL", "mimo-v2.6-pro")
