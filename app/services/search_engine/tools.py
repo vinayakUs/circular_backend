@@ -6,6 +6,7 @@ from typing import Any, Optional
 
 from langchain_core.tools import tool
 
+from app.services.search_engine.coverage import document_passages
 from app.services.search_engine.dates import resolve_dates, today_ist
 from app.services.search_engine.plan import normalize_issuer
 from app.services.search_engine.settings import ALLOWED_ISSUERS
@@ -63,12 +64,15 @@ def build_tools(rt: Any) -> list[Any]:
     def search_chunks(query: str, issuer: Optional[str] = None, date_from: Optional[str] = None,
                       date_to: Optional[str] = None, circular_id: Optional[str] = None) -> str:
         """Search the TEXT of circulars (PDF passages). Use for what a circular says: deadlines, thresholds, who is affected.
-        Optional circular_id limits it to one circular. Returns up to 6 passages with circular_id, source, date and text.
+        Optional circular_id limits it to one circular. Returns ranked passages plus additional sections for a single circular with circular_id, source, date and text.
         Cite a passage by writing its circular_id in square brackets."""
         issuers, err = _issuer(issuer)
         if err:
             return json.dumps({"error": err})
         ps = rt.chunk_search(query, issuers, _dates(date_from, date_to), [circular_id] if circular_id else None, limit=6)
+        ids = {p["circular_id"] for p in ps}
+        if len(ids) == 1 or (circular_id and not ids and not issuers and not date_from and not date_to):
+            ps = document_passages(rt, next(iter(ids), circular_id), ps)
         return json.dumps({"results": [
             {"circular_id": p["circular_id"], "circular_no": p["full_reference"], "source": p["source"],
              "issue_date": p["issue_date"], "title": p["title"], "text": p["text"],
@@ -96,7 +100,12 @@ def build_tools(rt: Any) -> list[Any]:
     def get_circular(circular_id: str) -> str:
         """Fetch one circular by circular_id (e.g. FAOP74180) or circular number (e.g. NSE/FAOP/74180), with its PDF link."""
         rows = rt.lookup(circular_id)
-        return json.dumps({"results": [{**compact(r), "pdf_url": r.get("pdf_url")} for r in rows]}, default=str)
+        results = [{**compact(r), "pdf_url": r.get("pdf_url")} for r in rows]
+        passages = []
+        if len(rows) == 1:
+            passages = [{k: p[k] for k in ("circular_id", "text", "page", "chunk_index") if k in p}
+                        for p in document_passages(rt, rows[0]["circular_id"], [])]
+        return json.dumps({"results": results, "passages": passages}, default=str)
 
     @tool("resolve_dates")
     def resolve_dates_tool(text: str) -> str:

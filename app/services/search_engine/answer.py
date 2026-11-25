@@ -16,9 +16,9 @@ You receive the user's query, a parsed plan, and optionally low-confidence prefe
 Rules:
 - Use ONLY information returned by tools. You see titles, numbers, dates, departments and status, and through search_chunks
   the passage text of circulars. If something is not in tool results, say so instead of guessing.
-- For what a circular says (deadlines, thresholds, who is affected) call search_chunks.
+- For what a circular says (deadlines, thresholds, who is affected) call search_chunks. When a specific circular is identified, pass its circular_id.
 - If the user quoted exact text, call find_phrase with the phrase exactly as written. Never loosen a quoted phrase.
-- Write one factual claim per line. Use passage evidence for substantive claims.
+- For measures or requirements, give one self-contained cited bullet per measure. Explain what is required; a section title alone is insufficient. Include supported conditions, timing, exceptions and effective dates. Separate details with different evidence onto their own cited lines.
 - Cite inline: put the circular_id in square brackets right after each claim, e.g. [ISC77375]. One id per bracket.
   Only cite ids that tools returned, and also list them in final_answer.circular_ids.
 - Dates: call resolve_dates for any period. Never compute dates yourself.
@@ -26,7 +26,7 @@ Rules:
 - If searches return nothing relevant (weak=true or off-topic), say that nothing matching was found. Do not pad results.
 - If the request is too vague to search (no topic, issuer or period), call final_answer with a clarification question.
 - Be efficient: at most 4 tool calls, then call final_answer. You MUST end by calling final_answer.
-- The answer is 2-6 short sentences or bullets, plain text."""
+- Answer broad requests thoroughly and narrow questions directly. Use plain text."""
 
 SUMMARY_PROMPT = """You write a short factual summary for a search over Indian market regulatory circulars.
 You get the user's query and passages, each tagged with a circular_id in square brackets.
@@ -35,7 +35,7 @@ Rules:
 - Cite every claim with the circular_id in square brackets, e.g. [ISC77375]. One id per bracket.
 - Put the most recent circular first. Copy dates, deadlines and thresholds exactly as written.
 - If the passages do not answer the query, say so in one sentence and cite nothing.
-- Under 150 words. Short bullets are fine. Plain text, no headings."""
+- For a request about measures in a circular, cover each relevant measure supported by the passages. Explain the obligation, conditions and effective date where stated. For narrow questions answer directly. Plain text."""
 
 PHRASE_SUMMARY_PROMPT = """You explain how an exact phrase is used in Indian market regulatory circulars.
 You get the phrase and snippets, each tagged with a circular_id in square brackets, with the phrase marked «like this».

@@ -11,6 +11,7 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 
 from app.services.search_engine import answer as ans
+from app.services.search_engine.coverage import document_passages
 from app.services.search_engine.grounding import collect_evidence, grounded_lines
 from app.services.search_engine.plan import QueryPlan, parse_query_text
 from app.services.search_engine.settings import MAX_STEPS
@@ -114,7 +115,9 @@ class SearchEngine:
         ids = list(dict.fromkeys(h["circular_id"] for h in hits))[:5]
         passages = self.rt.chunk_search(plan.get("clean_query", ""), plan.get("issuers", []), plan.get("dates"),
                                         circular_ids=ids, limit=6)
-        if not passages:
+        if len(ids) == 1:
+            passages = document_passages(self.rt, ids[0], passages)
+        elif not passages:
             passages = self.rt.chunks_for(ids[:3], per=2)
         if not passages:
             return {"answer": None, "sources": [], "warnings": ["no indexed text for these circulars, so no summary"]}
@@ -192,7 +195,10 @@ class SearchEngine:
             except Exception as e:  # noqa: BLE001
                 res = json.dumps({"error": f"{type(e).__name__}: {e}"})
             out.append(ToolMessage(content=res, tool_call_id=tc["id"], name=tc["name"]))
-            collect_evidence(evidence, tc["name"], json.loads(res))
+            payload = json.loads(res)
+            collect_evidence(evidence, tc["name"], payload)
+            if tc["name"] == "get_circular" and payload.get("passages"):
+                collect_evidence(evidence, "search_chunks", {"results": payload["passages"]})
         return {"messages": out, "evidence": evidence}
 
     @staticmethod
