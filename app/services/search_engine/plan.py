@@ -182,9 +182,13 @@ def validate_plan(raw: dict[str, Any], source: str, date_model: Any = None, quer
             warnings.append(f"dropped unknown issuer: {i}")
     plan["issuers"] = list(dict.fromkeys(issuers))
 
-    plan["dates"] = resolve_dates(raw.get("date_phrase"), model=date_model, query=query)
-    if raw.get("date_phrase") and not plan["dates"]:
-        warnings.append(f"could not resolve date phrase: {raw['date_phrase']}")
+    date_phrase = (raw.get("date_phrase") or "").strip()
+    if date_phrase.casefold() == "null":
+        date_phrase = ""
+    plan["date_phrase"] = date_phrase or None
+    plan["dates"] = resolve_dates(date_phrase, model=date_model, query=query) if date_phrase else None
+    if date_phrase and not plan["dates"]:
+        warnings.append(f"could not resolve date phrase: {date_phrase}")
 
     intent = plan["intent"]
     if intent == "LOOKUP" and not plan.get("circular_no"):
@@ -196,7 +200,7 @@ def validate_plan(raw: dict[str, Any], source: str, date_model: Any = None, quer
     plan["needs_clarification"] = intent == "VAGUE"
     if plan["dates"]:
         plan["understood_as"] = default_understood(plan)
-    if raw.get("date_phrase") and not plan["dates"]:
+    if date_phrase and not plan["dates"]:
         plan["needs_clarification"] = True
     if not plan.get("understood_as"):
         plan["understood_as"] = default_understood(plan)
