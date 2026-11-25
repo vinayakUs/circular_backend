@@ -69,7 +69,7 @@ def build_tools(rt: Any) -> list[Any]:
         issuers, err = _issuer(issuer)
         if err:
             return json.dumps({"error": err})
-        ps = rt.chunk_search(query, issuers, _dates(date_from, date_to), [circular_id] if circular_id else None, limit=6)
+        ps = rt.chunk_search(query, issuers, _dates(date_from, date_to), [circular_id] if circular_id else None, limit=7)
         ids = {p["circular_id"] for p in ps}
         if len(ids) == 1 or (circular_id and not ids and not issuers and not date_from and not date_to):
             ps = document_passages(rt, next(iter(ids), circular_id), ps)
