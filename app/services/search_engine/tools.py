@@ -71,7 +71,8 @@ def build_tools(rt: Any) -> list[Any]:
         ps = rt.chunk_search(query, issuers, _dates(date_from, date_to), [circular_id] if circular_id else None, limit=6)
         return json.dumps({"results": [
             {"circular_id": p["circular_id"], "circular_no": p["full_reference"], "source": p["source"],
-             "issue_date": p["issue_date"], "title": p["title"], "text": p["text"]} for p in ps]}, default=str)
+             "issue_date": p["issue_date"], "title": p["title"], "text": p["text"],
+             **{key: p[key] for key in ("page", "chunk_index") if key in p}} for p in ps]}, default=str)
 
     @tool
     def find_phrase(phrase: str, issuer: Optional[str] = None, date_from: Optional[str] = None,

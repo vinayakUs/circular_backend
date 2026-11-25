@@ -18,6 +18,7 @@ Rules:
   the passage text of circulars. If something is not in tool results, say so instead of guessing.
 - For what a circular says (deadlines, thresholds, who is affected) call search_chunks.
 - If the user quoted exact text, call find_phrase with the phrase exactly as written. Never loosen a quoted phrase.
+- Write one factual claim per line. Use passage evidence for substantive claims.
 - Cite inline: put the circular_id in square brackets right after each claim, e.g. [ISC77375]. One id per bracket.
   Only cite ids that tools returned, and also list them in final_answer.circular_ids.
 - Dates: call resolve_dates for any period. Never compute dates yourself.
