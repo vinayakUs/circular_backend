@@ -33,6 +33,17 @@ class PreRetrievedNodesRetriever(BaseRetriever):
 
 _SOURCE_PREFIX_RE = re.compile(r"^Source (\d+):\n")
 
+# Clause lineage headers written by the chunker ("[11.1.1] Scope | Content: ...")
+# use the same square-bracket syntax the prompt reserves for [n] citations, so
+# strip the brackets before the text reaches the LLM. On output only dotted ids
+# are rewritten: a bare [11] echo is indistinguishable from real citation 11.
+_CLAUSE_ID_BRACKET_RE = re.compile(r"\[(\d+(?:\.\d+)*)\]")
+_DOTTED_CLAUSE_ID_BRACKET_RE = re.compile(r"\[(\d+(?:\.\d+)+)\]")
+
+
+def debracket_clause_ids(text: str) -> str:
+    return _CLAUSE_ID_BRACKET_RE.sub(r"\1", text)
+
 # Full metadata rides along for the API response, but the synthesizer renders
 # node metadata into the prompt (MetadataMode.LLM). URLs and chunk ids are
 # noise there, so drop them before they burn tokens.
@@ -56,7 +67,7 @@ def hits_to_nodes(hits: list[SearchHit]) -> list[NodeWithScore]:
         nodes.append(
             NodeWithScore(
                 node=TextNode(
-                    text=doc.chunk_text,
+                    text=debracket_clause_ids(doc.chunk_text),
                     metadata={
                         "circular_id": doc.circular_id,
                         "circular_db_id": doc.circular_db_id,
@@ -140,6 +151,7 @@ def _expand_ref(m: re.Match) -> str:
 
 
 def normalize_citation_markers(text: str) -> str:
+    text = _DOTTED_CLAUSE_ID_BRACKET_RE.sub(r"\1", text)
     return _CITATION_REF_RE.sub(_expand_ref, text)
 
 
@@ -171,7 +183,10 @@ STRICT RULES:
 IMPORTANT:
 The numbered sources below are the ONLY source of truth.
 Anything not explicitly supported by them must be treated as unknown.
-Use each source number at most once per sentence."""
+Use each source number at most once per sentence.
+Square brackets are reserved EXCLUSIVELY for source citations like [1].
+Never write clause, paragraph, or section numbers in square brackets:
+write 11.1.1 or "clause 11.1.1", never [11.1.1]."""
 
 CITATION_QA_TEMPLATE = PromptTemplate(
     _CITATION_RULES

@@ -17,6 +17,7 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta, timezone
 from functools import partial
+from logging.handlers import TimedRotatingFileHandler
 from typing import Any, Callable
 from zoneinfo import ZoneInfo
 
@@ -28,6 +29,7 @@ from app.notifications.outbox.notification_outbox_repository import (
     NotificationOutboxRepository,
 )
 from app.notifications.topics.user_topics_repository import UserTopicRepository
+from config import Config
 
 IST = ZoneInfo("Asia/Kolkata")
 log = logging.getLogger(__name__)
@@ -130,6 +132,31 @@ def build_ctx() -> Ctx:
     )
 
 
+def _setup_logging(log_file: str | None) -> None:
+    """Configure console and optional file logging."""
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+
+    root = logging.getLogger()
+    root.setLevel(getattr(logging, Config.LOG_LEVEL, logging.INFO))
+    root.handlers.clear()
+
+    stdout_handler = logging.StreamHandler(sys.stdout)
+    stdout_handler.setFormatter(formatter)
+    root.addHandler(stdout_handler)
+
+    if log_file:
+        file_handler = TimedRotatingFileHandler(
+            log_file,
+            when="midnight",
+            interval=1,
+            backupCount=9999,
+        )
+        file_handler.setFormatter(formatter)
+        root.addHandler(file_handler)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run due notification jobs.")
     parser.add_argument(
@@ -137,12 +164,15 @@ def main() -> int:
         action="store_true",
         help="run every SCHEDULE job regardless of the due window (testing)",
     )
+    parser.add_argument(
+        "--log-file",
+        type=str,
+        default=None,
+        help="Path to rotating log file (e.g. /root/circular_backend/logs/producer.log).",
+    )
     args = parser.parse_args()
 
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(name)s %(message)s",
-    )
+    _setup_logging(args.log_file)
     results = tick(datetime.now(timezone.utc), build_ctx(), force=args.force)
     log.info("tick done: %s", results)
     return 1 if any(v == -1 for v in results.values()) else 0
