@@ -46,7 +46,8 @@ class SearchEngine:
         self.rt = retrieval
         self.include_summaries = include_summaries
         self.parser_llm = models.parser.bind_tools([QueryPlan], tool_choice="QueryPlan")
-        self.tools = build_tools(retrieval)
+        self.date_model = models.parser
+        self.tools = build_tools(retrieval, self.date_model)
         self.tool_map = {t.name: t for t in self.tools}
         self.agent_llm = models.agent.bind_tools(self.tools, tool_choice="any")
         self.summary_llm = models.summary
@@ -59,10 +60,16 @@ class SearchEngine:
 
     # ── nodes ───────────────────────────────────────────────────
     def parse_query(self, state: State) -> dict:
-        return {"plan": parse_query_text(state["query"], self.parser_llm)}
+        plan = parse_query_text(state["query"], self.parser_llm, self.date_model)
+        if plan.get("date_phrase") and not plan["dates"]:
+            return {"plan": plan, "clarification": f'Which start and end dates do you mean by "{plan["date_phrase"]}"?',
+                    "warnings": plan["warnings"]}
+        return {"plan": plan}
 
     @staticmethod
     def route_by_intent(state: State) -> str:
+        if state.get("clarification"):
+            return "compose"
         return "run_query" if state["plan"]["intent"] in ("LOOKUP", "FILTER", "SEARCH", "PHRASE") else "agent"
 
     def run_query(self, state: State) -> dict:
@@ -262,7 +269,7 @@ class SearchEngine:
         for name in ("parse_query", "run_query", "summarize", "phrase_summarize", "agent", "tools_node", "verify", "compose"):
             g.add_node("tools" if name == "tools_node" else name, getattr(self, name))
         g.add_edge(START, "parse_query")
-        g.add_conditional_edges("parse_query", self.route_by_intent, {"run_query": "run_query", "agent": "agent"})
+        g.add_conditional_edges("parse_query", self.route_by_intent, {"run_query": "run_query", "agent": "agent", "compose": "compose"})
         g.add_conditional_edges("run_query", self.after_run_query, {
             "summarize": "summarize", "phrase_summarize": "phrase_summarize", "compose": "compose", "agent": "agent"})
         g.add_edge("summarize", "compose")

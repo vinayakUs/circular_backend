@@ -31,7 +31,7 @@ def _dates(date_from: Optional[str], date_to: Optional[str]) -> Optional[dict[st
     return {"from": date_from, "to": date_to} if date_from and date_to else None
 
 
-def build_tools(rt: Any) -> list[Any]:
+def build_tools(rt: Any, date_model: Any = None) -> list[Any]:
     """``rt`` is a Retrieval (or anything with the same methods)."""
 
     @tool
@@ -111,7 +111,7 @@ def build_tools(rt: Any) -> list[Any]:
     def resolve_dates_tool(text: str) -> str:
         """Convert a natural-language period ('last week', 'October', '12 May 2026') into ISO dates in IST.
         Always use this instead of computing dates yourself."""
-        return json.dumps({"dates": resolve_dates(text), "today": today_ist().isoformat()})
+        return json.dumps({"dates": resolve_dates(text, model=date_model), "today": today_ist().isoformat()})
 
     @tool
     def final_answer(answer: Optional[str] = None, circular_ids: Optional[list[str]] = None,

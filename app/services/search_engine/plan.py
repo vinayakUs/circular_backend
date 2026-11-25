@@ -168,7 +168,7 @@ def normalize_issuer(name: str | None) -> str | None:
 
 
 @traceable(name="validate_plan", run_type="parser")
-def validate_plan(raw: dict[str, Any], source: str) -> dict[str, Any]:
+def validate_plan(raw: dict[str, Any], source: str, date_model: Any = None, query: str = "") -> dict[str, Any]:
     """Code owns validation: issuer list, dates, intent sanity checks."""
     plan = dict(raw)
     warnings: list[str] = []
@@ -182,7 +182,7 @@ def validate_plan(raw: dict[str, Any], source: str) -> dict[str, Any]:
             warnings.append(f"dropped unknown issuer: {i}")
     plan["issuers"] = list(dict.fromkeys(issuers))
 
-    plan["dates"] = resolve_dates(raw.get("date_phrase"))
+    plan["dates"] = resolve_dates(raw.get("date_phrase"), model=date_model, query=query)
     if raw.get("date_phrase") and not plan["dates"]:
         warnings.append(f"could not resolve date phrase: {raw['date_phrase']}")
 
@@ -194,6 +194,10 @@ def validate_plan(raw: dict[str, Any], source: str) -> dict[str, Any]:
         intent = "FILTER"
     plan["intent"] = intent
     plan["needs_clarification"] = intent == "VAGUE"
+    if plan["dates"]:
+        plan["understood_as"] = default_understood(plan)
+    if raw.get("date_phrase") and not plan["dates"]:
+        plan["needs_clarification"] = True
     if not plan.get("understood_as"):
         plan["understood_as"] = default_understood(plan)
     plan["source"] = source
@@ -213,7 +217,7 @@ def extract_phrases(q: str) -> tuple[list[str], str]:
     return [p for p in phrases if re.search(r"\w", p)], rest
 
 
-def parse_query_text(q: str, llm: Any) -> dict[str, Any]:
+def parse_query_text(q: str, llm: Any, date_model: Any = None) -> dict[str, Any]:
     """Full parse: phrases -> regex -> LLM -> fallback -> validate."""
     q = q.strip()
     phrases, rest = extract_phrases(q)
@@ -229,4 +233,4 @@ def parse_query_text(q: str, llm: Any) -> dict[str, Any]:
                 raw, source = rule_based_parse(rest), "fallback"
     if phrases:
         raw = {**raw, "phrases": phrases, "intent": "PHRASE", "understood_as": ""}  # circular_no (if any) restricts the search
-    return validate_plan(raw, source)
+    return validate_plan(raw, source, date_model, q)
