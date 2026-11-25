@@ -23,7 +23,7 @@ def build_models() -> Models:
 
     def make(model: str, max_tokens: int, timeout: int) -> Any:
         return ChatAnthropic(model=model, temperature=0, max_tokens=max_tokens, timeout=timeout,
-                             max_retries=1, api_key=Config.ANTHROPIC_API_KEY)
+                             max_retries=1, api_key=Config.ANTHROPIC_API_KEY, base_url=Config.ANTHROPIC_BASE_URL or None)
 
     return Models(parser=make(settings.PARSER_MODEL, 500, 15),
                   agent=make(settings.AGENT_MODEL, 1200, 30),

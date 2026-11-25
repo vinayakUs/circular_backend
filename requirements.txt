@@ -331,3 +331,4 @@ yarl==1.24.2
 zipp==4.1.0
 zstandard==0.25.0
 captcha==0.7.1
+Successfully installed certifi-2026.11.20 httpcore2-2.16.2 httpx2-2.16.2 langchain-anthropic-1.7.12 langchain-core-1.8.4 langchain-protocol-0.0.22 langsmith-0.16.2 truststore-0.10.5

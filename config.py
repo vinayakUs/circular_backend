@@ -187,9 +187,10 @@ class Config:
 
     # Natural-language search engine (app/services/search_engine)
     ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-    SEARCH_PARSER_MODEL = os.getenv("SEARCH_PARSER_MODEL", "claude-haiku-5-5")
-    SEARCH_AGENT_MODEL = os.getenv("SEARCH_AGENT_MODEL", "claude-sonnet-5-5")
-    SEARCH_SUMMARY_MODEL = os.getenv("SEARCH_SUMMARY_MODEL", "claude-sonnet-5-5")
+    ANTHROPIC_BASE_URL = os.getenv("ANTHROPIC_BASE_URL", "https://token-plan-sgp.xiaomimimo.com/anthropic")  # proxy/gateway for ChatAnthropic; empty = api.anthropic.com
+    SEARCH_PARSER_MODEL = os.getenv("SEARCH_PARSER_MODEL", "mimo-v2.6-pro")
+    SEARCH_AGENT_MODEL = os.getenv("SEARCH_AGENT_MODEL", "mimo-v2.6-pro")
+    SEARCH_SUMMARY_MODEL = os.getenv("SEARCH_SUMMARY_MODEL", "mimo-v2.6-pro")
     SEARCH_AGENT_MAX_STEPS = int(os.getenv("SEARCH_AGENT_MAX_STEPS", "5"))
     # Share of query words a chunk must contain to count as a text match.
     SEARCH_CHUNK_MIN_OVERLAP = float(os.getenv("SEARCH_CHUNK_MIN_OVERLAP", "0.4"))
