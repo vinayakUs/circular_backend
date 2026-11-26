@@ -38,6 +38,7 @@ class State(TypedDict, total=False):
     sources: list
     matches: dict
     exact: str
+    phrase_results: list
 
 
 class SearchEngine:
@@ -75,6 +76,8 @@ class SearchEngine:
     def route_by_intent(state: State) -> str:
         if state.get("clarification"):
             return "compose"
+        if state["plan"].get("phrases") and state["plan"]["intent"] in ("QUESTION", "COMPARE"):
+            return "prefetch_phrases"
         return "run_query" if state["plan"]["intent"] in ("LOOKUP", "FILTER", "SEARCH", "PHRASE") else "agent"
 
     def run_query(self, state: State) -> dict:
@@ -178,6 +181,29 @@ class SearchEngine:
             text = None
         return {"answer": text, "sources": sources or state.get("sources", []), "warnings": warnings}
 
+    def prefetch_phrases(self, state: State) -> dict:
+        plan = state["plan"]
+        hits, evidence, groups, warnings = [], {}, [], []
+        for issuer in plan["issuers"] or [None]:
+            rows, matches = self.rt.phrase_search(
+                plan["phrases"], [issuer] if issuer else [], plan["dates"],
+                plan.get("circular_no"), plan.get("clean_query", ""), limit=8,
+            )
+            results = []
+            for row in rows:
+                match = matches[row["circular_id"]]
+                snippets = [
+                    {"text": f"{s['before']} {s['match']} {s['after']}"}
+                    for s in match["snippets"]
+                ]
+                results.append({**compact(row), "snippets": snippets})
+            collect_evidence(evidence, "find_phrase", {"results": results})
+            groups.append({"issuer": issuer, "results": results})
+            hits.extend(rows)
+            if issuer and not rows:
+                warnings.append(f"No exact phrase match found for {issuer} within the requested filters.")
+        return {"hits": hits, "evidence": evidence, "phrase_results": groups, "warnings": warnings}
+
     # agent loop
     def agent(self, state: State) -> dict:
         history, new, upd = list(state.get("messages") or []), [], {}
@@ -187,6 +213,8 @@ class SearchEngine:
             ctx = {"query": state["query"],
                    "plan": {k: plan.get(k) for k in ("intent", "issuers", "categories", "dates", "clean_query", "circular_no", "phrases")},
                    "prefetched_results": pre, "prefetch_quality": state.get("quality")}
+            if "phrase_results" in state:
+                ctx["exact_phrase_results"] = state["phrase_results"]
             first = HumanMessage(content=json.dumps(ctx, default=str))
             history, new = [first], [first]
             upd["route"] = "agent (escalated)" if state.get("quality") else "agent"
@@ -206,8 +234,13 @@ class SearchEngine:
                 res = self.tool_map[tc["name"]].invoke(tc["args"])
             except Exception as e:  # noqa: BLE001
                 res = json.dumps({"error": f"{type(e).__name__}: {e}"})
-            out.append(ToolMessage(content=res, tool_call_id=tc["id"], name=tc["name"]))
             payload = json.loads(res)
+            if "phrase_results" in state:
+                for key in ("results", "passages"):
+                    if key in payload:
+                        payload[key] = [row for row in payload[key] if row.get("circular_id") in evidence]
+                res = json.dumps(payload)
+            out.append(ToolMessage(content=res, tool_call_id=tc["id"], name=tc["name"]))
             collect_evidence(evidence, tc["name"], payload)
             if tc["name"] == "get_circular" and payload.get("passages"):
                 collect_evidence(evidence, "search_chunks", {"results": payload["passages"]})
@@ -235,7 +268,7 @@ class SearchEngine:
 
     def verify(self, state: State) -> dict:
         """Grounding check: only circulars a tool actually returned may be cited; inline [id] tags become [1], [2]."""
-        final, evidence, warnings = state.get("final") or {}, state.get("evidence") or {}, []
+        final, evidence, warnings = state.get("final") or {}, state.get("evidence") or {}, list(state.get("warnings", []))
         hits: list[dict] = []
         for cid in dict.fromkeys(final.get("circular_ids") or []):
             if cid not in evidence:
@@ -260,6 +293,8 @@ class SearchEngine:
         if not final:
             warnings.append("agent hit the step cap without a final answer")
             hits = state.get("hits", [])
+        if "phrase_results" in state and not hits:
+            hits = state["hits"]
         return {"hits": hits, "answer": answer, "sources": sources,
                 "clarification": final.get("clarification"), "warnings": warnings}
 
@@ -271,10 +306,12 @@ class SearchEngine:
     # ── assembly ────────────────────────────────────────────────
     def _build(self) -> Any:
         g = StateGraph(State)
-        for name in ("parse_query", "run_query", "summarize", "phrase_summarize", "agent", "tools_node", "verify", "compose"):
+        for name in ("parse_query", "prefetch_phrases", "run_query", "summarize", "phrase_summarize", "agent", "tools_node", "verify", "compose"):
             g.add_node("tools" if name == "tools_node" else name, getattr(self, name))
         g.add_edge(START, "parse_query")
-        g.add_conditional_edges("parse_query", self.route_by_intent, {"run_query": "run_query", "agent": "agent", "compose": "compose"})
+        g.add_conditional_edges("parse_query", self.route_by_intent, {"run_query": "run_query", "agent": "agent", "compose": "compose",
+            "prefetch_phrases": "prefetch_phrases"})
+        g.add_edge("prefetch_phrases", "agent")
         g.add_conditional_edges("run_query", self.after_run_query, {
             "summarize": "summarize", "phrase_summarize": "phrase_summarize", "compose": "compose", "agent": "agent"})
         g.add_edge("summarize", "compose")
