@@ -236,5 +236,9 @@ def parse_query_text(q: str, llm: Any, date_model: Any = None) -> dict[str, Any]
                 logger.warning("LLM parser failed, using fallback: %r", e)
                 raw, source = rule_based_parse(rest), "fallback"
     if phrases:
-        raw = {**raw, "phrases": phrases, "intent": "PHRASE", "understood_as": ""}  # circular_no (if any) restricts the search
+        raw["phrases"] = phrases
+        if raw["intent"] in ("QUESTION", "COMPARE"):
+            raw["understood_as"] = q
+        else:
+            raw.update(intent="PHRASE", understood_as="")
     return validate_plan(raw, source, date_model, q)
