@@ -14,7 +14,7 @@ from langfuse.langchain import CallbackHandler
 from app.services.search_engine import answer as ans
 from app.services.search_engine.coverage import document_passages
 from app.services.search_engine.grounding import collect_evidence, grounded_lines
-from app.services.search_engine.plan import QueryPlan, parse_query_text
+from app.services.search_engine.plan import QueryPlan, extract_phrases, parse_query_text
 from app.services.search_engine.settings import MAX_STEPS
 from app.services.search_engine.tools import build_tools, compact
 
@@ -52,6 +52,9 @@ class SearchEngine:
         self.tools = build_tools(retrieval, self.date_model)
         self.tool_map = {t.name: t for t in self.tools}
         self.agent_llm = models.agent.bind_tools(self.tools, tool_choice="any")
+        self.final_agent_llm = models.agent.bind_tools(
+            [self.tool_map["final_answer"]], tool_choice="final_answer",
+        )
         self.summary_llm = models.summary
         self.graph = self._build()
 
@@ -204,6 +207,22 @@ class SearchEngine:
                 warnings.append(f"No exact phrase match found for {issuer} within the requested filters.")
         return {"hits": hits, "evidence": evidence, "phrase_results": groups, "warnings": warnings}
 
+    @staticmethod
+    def after_prefetch_phrases(state: State) -> str:
+        if not state["hits"]:
+            return "compose"
+        plan = state["plan"]
+        if plan["intent"] == "COMPARE" and any(not group["results"] for group in state["phrase_results"]):
+            _, query = extract_phrases(state["query"])
+            for phrase in plan["phrases"]:
+                query = re.sub(r"(?<!\w)" + re.escape(phrase) + r"(?!\w)", " ", query, flags=re.I)
+            issuers = {word.casefold() for issuer in plan["issuers"] for word in issuer.split()}
+            lookup_words = {"compare", "and", "vs", "versus", "circular", "circulars", "containing",
+                            "with", "on", "for", "from", "the", "phrase", "exact"}
+            if set(re.findall(r"\w+", query.casefold())) <= issuers | lookup_words:
+                return "compose"
+        return "agent"
+
     # agent loop
     def agent(self, state: State) -> dict:
         history, new, upd = list(state.get("messages") or []), [], {}
@@ -218,7 +237,10 @@ class SearchEngine:
             first = HumanMessage(content=json.dumps(ctx, default=str))
             history, new = [first], [first]
             upd["route"] = "agent (escalated)" if state.get("quality") else "agent"
-        resp = self.agent_llm.invoke([SystemMessage(content=ans.AGENT_PROMPT)] + history)
+        model = self.agent_llm
+        if "phrase_results" in state and state.get("steps", 0) + 1 >= MAX_STEPS:
+            model = self.final_agent_llm
+        resp = model.invoke([SystemMessage(content=ans.AGENT_PROMPT)] + history)
         new.append(resp)
         upd["messages"] = new
         upd["steps"] = state.get("steps", 0) + 1
@@ -301,7 +323,22 @@ class SearchEngine:
     def compose(self, state: State) -> dict:
         if self.include_summaries:
             self.rt.attach_summaries(state.get("hits", []))
-        return {"response": ans.compose_response(state)}
+        response = ans.compose_response(state)
+        if "phrase_results" in state and not state.get("answer") and not state.get("clarification"):
+            groups = state["phrase_results"]
+            if not state["hits"]:
+                scope = " or ".join(group["issuer"] for group in groups if group["issuer"])
+                scope = f"indexed {scope} circulars" if scope else "indexed circulars"
+                response["message"] = f"No exact phrase matches were found in the {scope} for the requested filters."
+            else:
+                parts = [
+                    f"{group['issuer']}: {'exact matches found' if group['results'] else 'no exact matches found'}."
+                    for group in groups if group["issuer"]
+                ]
+                if state.get("steps"):
+                    parts.append("A supported answer could not be generated. See the matching circulars below.")
+                response["message"] = " ".join(parts)
+        return {"response": response}
 
     # ── assembly ────────────────────────────────────────────────
     def _build(self) -> Any:
@@ -311,7 +348,7 @@ class SearchEngine:
         g.add_edge(START, "parse_query")
         g.add_conditional_edges("parse_query", self.route_by_intent, {"run_query": "run_query", "agent": "agent", "compose": "compose",
             "prefetch_phrases": "prefetch_phrases"})
-        g.add_edge("prefetch_phrases", "agent")
+        g.add_conditional_edges("prefetch_phrases", self.after_prefetch_phrases, {"agent": "agent", "compose": "compose"})
         g.add_conditional_edges("run_query", self.after_run_query, {
             "summarize": "summarize", "phrase_summarize": "phrase_summarize", "compose": "compose", "agent": "agent"})
         g.add_edge("summarize", "compose")
