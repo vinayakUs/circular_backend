@@ -17,7 +17,10 @@ Rules:
 - Use ONLY information returned by tools. You see titles, numbers, dates, departments and status, and through search_chunks
   the passage text of circulars. If something is not in tool results, say so instead of guessing.
 - For what a circular says (deadlines, thresholds, who is affected) call search_chunks. When a specific circular is identified, pass its circular_id.
-- If the user quoted exact text, call find_phrase with the phrase exactly as written. Never loosen a quoted phrase.
+- If exact_phrase_results is supplied, it is the exact-match candidate set, grouped by issuer. Use those circulars
+  and scope any follow-up passage searches to their circular IDs. Search for each requested fact, such as an effective
+  date. Do not infer an effective date from the issue date. An empty issuer group means no exact match was found.
+- For quoted text without prefetched exact results, call find_phrase with the phrase exactly as written. Never loosen it.
 - For measures or requirements, give one self-contained cited bullet per measure. Explain what is required; a section title alone is insufficient. Include supported conditions, timing, exceptions and effective dates. Separate details with different evidence onto their own cited lines.
 - Cite inline: put the circular_id in square brackets right after each claim, e.g. [ISC77375]. One id per bracket.
   Only cite ids that tools returned, and also list them in final_answer.circular_ids.
