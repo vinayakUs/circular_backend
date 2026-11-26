@@ -6,6 +6,7 @@ import { LoginComponent } from './login/login.component';
 import { ExpertsByDepartmentComponent } from './experts-by-department/experts-by-department.component';
 import { AlertsComponent } from './alerts/alerts.component';
 import { KeywordSearchComponent } from './keyword-search/keyword-search.component';
+import { AiSearchComponent } from './ai-search/ai-search.component';
 import { authGuard, guestOnlyGuard } from './auth.guard';
 import { TaskviewComponent } from './taskview/taskview.component';
 import { PersonasComponent } from './personas/personas.component';
@@ -20,6 +21,7 @@ export const routes: Routes = [
   { path: 'experts-by-department', component: ExpertsByDepartmentComponent, canActivate: [authGuard] },
   { path: 'alerts', component: AlertsComponent },
   { path: 'keyword-search', component: KeywordSearchComponent },
+  { path: 'ai-search', component: AiSearchComponent },
   { path: 'allcirculars', component: AllCircularsComponent },
   { path: 'personas', component: PersonasComponent },
   { path: 'personas/:slug', component: PersonaDetailComponent },

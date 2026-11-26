@@ -1,0 +1,122 @@
+<div class="ai-search-page">
+  <main class="main-content">
+    <section class="header-section">
+      <h1 class="page-title">AI Search</h1>
+      <p class="page-subtitle">Ask about circulars in plain language</p>
+
+      <form class="search-form" (ngSubmit)="submit()">
+        <input
+          type="text"
+          class="search-field"
+          name="q"
+          [(ngModel)]="query"
+          placeholder="e.g. cross margin eligible ETFs"
+          autocomplete="off"
+        />
+        <button type="submit" class="search-submit" [disabled]="loading" aria-label="Search">
+          <svg class="search-submit-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+          </svg>
+        </button>
+      </form>
+    </section>
+
+    <!-- Loading -->
+    <section class="state-block" *ngIf="loading">
+      <div class="spinner"></div>
+      <p class="state-title">Searching...</p>
+      <p class="state-hint">This can take up to a minute for complex queries.</p>
+    </section>
+
+    <!-- Error -->
+    <section class="state-block" *ngIf="error && !loading">
+      <p class="state-title">Something went wrong</p>
+      <p class="state-hint">{{ error }}</p>
+    </section>
+
+    <!-- Initial -->
+    <section class="state-block" *ngIf="!payload && !loading && !error">
+      <p class="state-title">Ask about circulars</p>
+      <p class="state-hint">Try &ldquo;cross margin eligible ETFs&rdquo; or &ldquo;SEBI margin framework circulars from last month&rdquo;.</p>
+    </section>
+
+    <ng-container *ngIf="payload && !loading">
+      <p class="understood-as">
+        <span class="understood-label">Understood as:</span> {{ understoodAs }}
+      </p>
+
+      <div class="notice" *ngIf="message">{{ message }}</div>
+
+      <section class="summary-card" *ngIf="summaryText">
+        <span class="summary-label">{{ summaryLabel }}</span>
+        <div class="summary-body" [innerHTML]="summaryHtml" (click)="onSummaryClick($event)"></div>
+        <div class="sources-block" *ngIf="sources.length">
+          <h2 class="section-label">SOURCES</h2>
+          <ul class="sources-list">
+            <li *ngFor="let s of sources" class="source-row" [id]="'src-' + s.n">
+              <span class="source-n">[{{ s.n }}]</span>
+              <a class="source-link" [href]="s.url" target="_blank" rel="noopener noreferrer">
+                <span class="source-ref">{{ s.source }} {{ s.circular_no }}</span>
+                <span class="source-meta"> &middot; {{ formatDate(s.date) }} &middot; </span>
+                <span class="source-title">{{ s.title }}</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <div class="summary-actions">
+          <button type="button" class="copy-btn" (click)="copySummary()"
+            [attr.aria-label]="copied ? 'Summary copied' : 'Copy summary'">
+            <svg *ngIf="!copied" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+            </svg>
+            <svg *ngIf="copied" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <polyline stroke-linecap="round" stroke-linejoin="round" points="20 6 9 17 4 12" />
+            </svg>
+            {{ copied ? 'Copied' : 'Copy' }}
+          </button>
+        </div>
+      </section>
+
+      <section class="circulars-section">
+        <div class="circulars-header">
+          <h2 class="section-label">CIRCULARS</h2>
+          <div class="chips">
+            <button type="button" class="chip" [class.active]="activeSource === ''"
+              (click)="activeSource = ''">All sources</button>
+            <button type="button" class="chip" *ngFor="let s of sourceChips"
+              [class.active]="activeSource === s" (click)="activeSource = s">{{ s }}</button>
+          </div>
+          <select class="year-select" name="year" [(ngModel)]="activeYear" aria-label="Filter by year">
+            <option value="">All years</option>
+            <option *ngFor="let y of years" [value]="y">{{ y }}</option>
+          </select>
+        </div>
+
+        <div class="results-list" *ngIf="filteredResults.length; else noCards">
+          <div class="circular-card" *ngFor="let item of filteredResults" (click)="onCardClick(item)"
+            (keydown.enter)="onCardClick(item)" role="button" tabindex="0">
+            <div class="card-top">
+              <span class="exchange-badge" [ngClass]="badgeClass(item.source)">{{ item.source }}</span>
+              <span class="circular-no">{{ item.circular_no }}</span>
+              <span class="circular-date">{{ formatDate(item.issue_date) }}</span>
+            </div>
+            <p class="circular-title">{{ item.title }}</p>
+            <p class="circular-summary" *ngIf="item.short_summary">{{ item.short_summary }}</p>
+            <p class="circular-dept" *ngIf="item.department">{{ item.department }}</p>
+          </div>
+        </div>
+        <ng-template #noCards>
+          <div class="state-block">
+            <p class="state-title">No circulars found</p>
+            <p class="state-hint" *ngIf="results.length">No results match this filter.</p>
+            <p class="state-hint" *ngIf="!results.length">Try a different query.</p>
+          </div>
+        </ng-template>
+      </section>
+    </ng-container>
+  </main>
+</div>

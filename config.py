@@ -184,6 +184,16 @@ class Config:
     RAG_MAX_CHUNKS = int(os.getenv("RAG_MAX_CHUNKS", "20"))
     RAG_MAX_TOKENS = int(os.getenv("RAG_MAX_TOKENS", "20000"))
     LLM_PROVIDER = os.getenv("LLM_PROVIDER", "nvidia").strip().lower()
+
+    # Natural-language search engine (app/services/search_engine)
+    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "tp-sv5cveiik521op89bpomudt8avglow8fbtipm1hvus9ich8m")
+    OPENAI_BASE_URL = os.getenv("OPENAI_API_KEY", "https://token-plan-sgp.xiaomimimo.com/v1")  # proxy/gateway for ChatAnthropic; empty = api.anthropic.com
+    SEARCH_PARSER_MODEL = os.getenv("SEARCH_PARSER_MODEL", "mimo-v2.6-pro")
+    SEARCH_AGENT_MODEL = os.getenv("SEARCH_AGENT_MODEL", "mimo-v2.6-pro")
+    SEARCH_SUMMARY_MODEL = os.getenv("SEARCH_SUMMARY_MODEL", "mimo-v2.6-pro")
+    SEARCH_AGENT_MAX_STEPS = int(os.getenv("SEARCH_AGENT_MAX_STEPS", "5"))
+    # Share of query words a chunk must contain to count as a text match.
+    SEARCH_CHUNK_MIN_OVERLAP = float(os.getenv("SEARCH_CHUNK_MIN_OVERLAP", "0.4"))
     OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY", "")
     OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")
     AWS_S3_BUCKET = os.getenv("AWS_S3_BUCKET", "my-app-dev-bucket")
