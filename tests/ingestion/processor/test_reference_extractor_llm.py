@@ -281,3 +281,148 @@ def test_reference_free_chunk_retries_then_returns_empty():
     llm = FakeLLM(extraction=[[]], classifications=[])
     assert run("There are no circular identifiers in this text.", llm) == []
     assert llm.calls == [(1, "MentionExtraction")] * 3
+
+
+def _stub_reference_processor(monkeypatch, *, dry_run: bool, extracted):
+    """Exercise processor mode and status behavior without a real DB or LLM."""
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+    from uuid import uuid4
+
+    import ingestion.processor.reference_extractor as extractor_module
+
+    processor = extractor_module.ReferenceExtractor(object(), dry_run=dry_run)
+    processor.reference_repo = Mock()
+    processor.processor_repo = Mock()
+    processor._get_pdf_path = Mock(return_value="/not/a/real/pdf")
+    processor._extract_text = Mock(return_value="source circular text")
+    processor._resolve_target = Mock(return_value=None)
+    monkeypatch.setattr(extractor_module, "get_llm_provider", lambda provider: object())
+    monkeypatch.setattr(
+        extractor_module, "extract_reference_edges",
+        lambda *args, **kwargs: list(extracted),
+    )
+    record = SimpleNamespace(
+        id=uuid4(),
+        source="SEBI",
+        circular_id="SEBI/HO/MRD2/DCAP/CIR/P/2019/145",
+        full_reference="SEBI/HO/MRD2/DCAP/CIR/P/2019/145",
+    )
+    return processor, record
+
+
+def test_default_mode_replaces_references_and_marks_completed(monkeypatch, capsys):
+    from uuid import uuid4
+
+    from ingestion.processor.reference_extractor import EvidenceReference
+
+    processor, record = _stub_reference_processor(
+        monkeypatch, dry_run=False,
+        extracted=[
+            EvidenceReference(
+                "SEBI/HO/MRD/DRMNP/CIR/P/2016/54", "modifies", "PDF evidence"
+            )
+        ],
+    )
+    target_id = uuid4()
+    processor._resolve_target.return_value = target_id
+    processor.reference_repo.replace_references.return_value = 1
+
+    assert processor.run(record) is True
+
+    processor.reference_repo.replace_references.assert_called_once()
+    source_id, references = processor.reference_repo.replace_references.call_args.args
+    assert source_id == record.id
+    assert len(references) == 1
+    assert references[0].relationship_type == "modifies"
+    assert references[0].target_circular_number == "SEBI/HO/MRD/DRMNP/CIR/P/2016/54"
+    assert references[0].target_circular_id == target_id
+    processor.processor_repo.mark_task_completed.assert_called_once_with(
+        record.id, processor.name
+    )
+    processor.processor_repo.mark_task_failed.assert_not_called()
+    assert '"mode": "WRITE_DB_REPLACE_REFERENCES"' in capsys.readouterr().out
+
+
+def test_dry_run_only_previews_no_reference_or_status_writes(monkeypatch, capsys):
+    from ingestion.processor.reference_extractor import EvidenceReference
+
+    processor, record = _stub_reference_processor(
+        monkeypatch, dry_run=True,
+        extracted=[
+            EvidenceReference(
+                "SEBI/HO/MRD/DRMNP/CIR/P/2016/54", "modifies", "PDF evidence"
+            )
+        ],
+    )
+    assert processor.run(record) is True
+    processor.reference_repo.replace_references.assert_not_called()
+    processor.processor_repo.mark_task_completed.assert_not_called()
+    processor.processor_repo.mark_task_failed.assert_not_called()
+    assert '"mode": "DRY_RUN_NO_DB_WRITES"' in capsys.readouterr().out
+
+
+def test_zero_extracted_references_fail_without_replacing_existing_edges(
+    monkeypatch, capsys,
+):
+    processor, record = _stub_reference_processor(
+        monkeypatch, dry_run=False, extracted=[],
+    )
+
+    assert processor.run(record) is False
+    processor.reference_repo.replace_references.assert_not_called()
+    processor.processor_repo.mark_task_completed.assert_not_called()
+    processor.processor_repo.mark_task_failed.assert_called_once()
+    error = processor.processor_repo.mark_task_failed.call_args.args[2]
+    assert "skipping replace_references()" in error
+    assert '"row_count": 0' in capsys.readouterr().out
+
+
+def test_zero_references_dry_run_succeeds_without_any_writes(monkeypatch):
+    processor, record = _stub_reference_processor(
+        monkeypatch, dry_run=True, extracted=[],
+    )
+
+    assert processor.run(record) is True
+    processor.reference_repo.replace_references.assert_not_called()
+    processor.processor_repo.mark_task_completed.assert_not_called()
+    processor.processor_repo.mark_task_failed.assert_not_called()
+
+
+def test_unresolved_target_is_written_as_null_uuid(monkeypatch):
+    from ingestion.processor.reference_extractor import EvidenceReference
+
+    processor, record = _stub_reference_processor(
+        monkeypatch, dry_run=False,
+        extracted=[
+            EvidenceReference(
+                "SEBI/HO/MRD/DRMNP/CIR/P/2016/54", "references", "PDF evidence"
+            )
+        ],
+    )
+    processor.reference_repo.replace_references.return_value = 1
+
+    assert processor.run(record) is True
+    _, references = processor.reference_repo.replace_references.call_args.args
+    assert references[0].target_circular_id is None
+
+
+def test_failed_reference_replace_marks_processing_failed(monkeypatch):
+    from ingestion.processor.reference_extractor import EvidenceReference
+
+    processor, record = _stub_reference_processor(
+        monkeypatch, dry_run=False,
+        extracted=[
+            EvidenceReference(
+                "SEBI/HO/MRD/DRMNP/CIR/P/2016/54", "modifies", "PDF evidence"
+            )
+        ],
+    )
+    processor.reference_repo.replace_references.side_effect = RuntimeError(
+        "database transaction rolled back"
+    )
+
+    assert processor.run(record) is False
+    processor.reference_repo.replace_references.assert_called_once()
+    processor.processor_repo.mark_task_completed.assert_not_called()
+    processor.processor_repo.mark_task_failed.assert_called_once()
