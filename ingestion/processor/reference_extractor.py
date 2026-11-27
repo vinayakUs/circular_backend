@@ -9,7 +9,8 @@ Two independent language-model passes:
 No regular expressions are used for extraction or classification. Every
 identifier must be present in the supplied PDF text. Empty extraction chunks
 are retried, and incomplete LLM batches fail instead of generating partial
-results. This processor only prints proposed edges; it never writes to DB.
+results. Default execution replaces outgoing reference edges transactionally;
+--dry-run previews the result without writing to the database.
 """
 
 from __future__ import annotations
@@ -31,6 +32,10 @@ from config import Config
 from db.postgres_client import get_postgres_client
 from ingestion.processor.base import BaseProcessor
 from ingestion.repository.circular_repository import CircularRecord, CircularRepository
+from ingestion.repository.circular_reference_repository import (
+    CircularReference,
+    CircularReferenceRepository,
+)
 from storage.s3_client import get_s3_client
 from utils.llm_providers import get_llm_provider
 
@@ -518,22 +523,27 @@ def extract_reference_edges(
 
 
 class ReferenceExtractor(BaseProcessor):
-    """Read-only preview extractor; never writes references or task status."""
+    """Replace reference edges by default; offer an entirely read-only preview."""
 
     name = "reference_extractor"
 
-    def __init__(self, db_pool: Any):
+    def __init__(self, db_pool: Any, dry_run: bool = False):
         super().__init__(db_pool)
+        self.dry_run = dry_run
         self.circular_repo = CircularRepository(db_pool)
+        self.reference_repo = CircularReferenceRepository(db_pool)
 
     def run(self, record: CircularRecord) -> bool:
-        """Bypass BaseProcessor.run(), which writes to processing_tasks."""
+        """Only normal runs update processing_tasks; dry-run is read-only."""
+        if not self.dry_run:
+            return super().run(record)
+
         try:
             self.process(record)
             return True
         except Exception:
             self.logger.exception(
-                "Read-only reference preview failed for circular_id=%s",
+                "Dry-run reference preview failed for circular_id=%s",
                 record.circular_id,
             )
             return False
@@ -552,6 +562,7 @@ class ReferenceExtractor(BaseProcessor):
         )
 
         resolved_ids: dict[str, UUID | None] = {}
+        references: list[CircularReference] = []
         preview_rows: list[dict[str, str | None]] = []
         for item in extracted:
             key = _identifier_key(item.circular_number)
@@ -560,6 +571,11 @@ class ReferenceExtractor(BaseProcessor):
             target_id = resolved_ids[key]
             if target_id == record.id:
                 continue
+            references.append(CircularReference(
+                relationship_type=item.relationship_type,
+                target_circular_number=item.circular_number,
+                target_circular_id=target_id,
+            ))
             preview_rows.append({
                 "source_circular_id": str(record.id),
                 "target_circular_id": str(target_id) if target_id else None,
@@ -574,18 +590,36 @@ class ReferenceExtractor(BaseProcessor):
             )
 
         preview = {
-            "mode": "DRY_RUN_NO_DB_WRITES",
+            "mode": "DRY_RUN_NO_DB_WRITES" if self.dry_run else "WRITE_DB_REPLACE_REFERENCES",
             "target_table": "circular_references",
             "source_circular_number": record.circular_id,
             "source_circular_id": str(record.id),
             "row_count": len(preview_rows),
             "would_insert": preview_rows,
         }
-        print("\n=== CIRCULAR REFERENCE DB PREVIEW: NO INSERT / UPDATE / DELETE ===")
+        if self.dry_run:
+            print("\n=== CIRCULAR REFERENCE DB PREVIEW: NO INSERT / UPDATE / DELETE ===")
+        else:
+            print("\n=== CIRCULAR REFERENCE DB REPLACEMENT PLAN ===")
         print(json.dumps(preview, indent=2, ensure_ascii=False))
+
+        if self.dry_run:
+            self.logger.info(
+                "Dry-run: previewed %d reference edges for %s (no DB writes)",
+                len(preview_rows), record.circular_id,
+            )
+            return
+
+        if not references:
+            raise RuntimeError(
+                f"No references extracted for {record.circular_id}; "
+                "skipping replace_references() to preserve existing edges"
+            )
+
+        count = self.reference_repo.replace_references(record.id, references)
         self.logger.info(
-            "Dry-run: previewed %d reference edges for %s (no DB writes)",
-            len(preview_rows), record.circular_id,
+            "Replaced %d reference edges for %s",
+            count, record.circular_id,
         )
 
     def _resolve_target(self, circular_number: str, source: str) -> UUID | None:
@@ -645,10 +679,15 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="LLM-first circular reference extractor")
     parser.add_argument("--circular_id", type=str)
     parser.add_argument("--limit", type=int, default=100)
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print reference preview; do not change references or processing status.",
+    )
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO)
     pool = get_postgres_client().get_pool()
-    processor = ReferenceExtractor(pool)
+    processor = ReferenceExtractor(pool, dry_run=args.dry_run)
     if args.circular_id:
         record = processor.circular_repo.get_record_by_circular_id(args.circular_id)
         if record is None:
