@@ -11,6 +11,7 @@ from ingestion.processor.reference_extractor import (
     MentionClassification,
     MentionExtraction,
     _evidence_span,
+    _find_identifier_span,
     chunk_text,
     extract_reference_edges,
     get_relationship_context,
@@ -78,7 +79,7 @@ def test_hallucinated_identifier_is_rejected_before_classification():
         classifications=[],
     )
     assert run(text, llm) == []
-    assert llm.calls == [(1, "MentionExtraction")]
+    assert llm.calls == [(1, "MentionExtraction")] * 3
 
 
 def test_current_circular_is_not_a_reference():
@@ -199,3 +200,84 @@ def test_long_document_relationship_context_includes_next_paragraph():
     assert quote in context
     assert modification in context
     assert len(context) < len(text)
+
+
+def test_unreliable_first_llm_response_retries_then_classifies():
+    source_text = "This circular modifies NSE/FAOP/73791."
+    class FirstAttemptEmpty(FakeLLM):
+        def __init__(self):
+            super().__init__(
+                extraction=[[mention("NSE/FAOP/73791", "paraphrased quote")]],
+                classifications=[[decision(0, "modifies")]],
+            )
+            self.extraction_count = 0
+
+        def create_completions_parallel(self, *, prompts, model, response_model, **kwargs):
+            if response_model is MentionExtraction:
+                self.extraction_count += 1
+                if self.extraction_count == 1:
+                    self.calls.append((len(prompts), "MentionExtraction"))
+                    return [MentionExtraction(mentions=[])]
+            return super().create_completions_parallel(
+                prompts=prompts, model=model, response_model=response_model, **kwargs
+            )
+
+    llm = FirstAttemptEmpty()
+    edges = run(source_text, llm)
+    assert len(edges) == 1
+    assert edges[0].circular_number == "NSE/FAOP/73791"
+    assert edges[0].relationship_type == "modifies"
+    assert llm.calls == [
+        (1, "MentionExtraction"),
+        (1, "MentionExtraction"),
+        (1, "MentionClassification"),
+    ]
+
+
+def test_inaccurate_llm_evidence_does_not_discard_correct_identifier():
+    text = (
+        "SEBI vide circular SEBI/HO/MRD/DRMNP/CIR/P/2016/54 dated "
+        "May 04, 2016 permitted certain investments."
+    )
+    llm = FakeLLM(
+        extraction=[[
+            mention("SEBI/HO/MRD/DRMNP/CIR/P/2016/54",
+                    "Incorrect quote: dated May 4, 2016")
+        ]],
+        classifications=[[decision(0, "modifies")]],
+    )
+    edges = run(text, llm)
+    assert len(edges) == 1
+    assert edges[0].circular_number == "SEBI/HO/MRD/DRMNP/CIR/P/2016/54"
+    assert "May 04, 2016" in edges[0].evidence
+    assert "Incorrect quote" not in edges[0].evidence
+
+
+def test_line_wrapped_identifier_matches_original_source_without_regex():
+    text = "Referenced: SEBI/HO/MRD/DRMNP/CIR/P/2016/\n54 dated May 04, 2016."
+    target = "SEBI/HO/MRD/DRMNP/CIR/P/2016/54"
+    span = _find_identifier_span(text, target)
+    assert span is not None
+    assert text[span[0]:span[1]] == "SEBI/HO/MRD/DRMNP/CIR/P/2016/\n54"
+
+    llm = FakeLLM(
+        extraction=[[{"circular_number": target}]],
+        classifications=[[decision(0, "references", False)]],
+    )
+    edges = run(text, llm)
+    assert len(edges) == 1
+    assert edges[0].circular_number == target
+    assert "\n54" in edges[0].evidence
+
+
+def test_identifier_is_not_accepted_as_prefix_of_another_id():
+    assert _find_identifier_span(
+        "See NSE/FAOP/737910 for details.",
+        "NSE/FAOP/73791",
+    ) is None
+
+
+def test_reference_free_chunk_retries_then_returns_empty():
+    llm = FakeLLM(extraction=[[]], classifications=[])
+    assert run("There are no circular identifiers in this text.", llm) == []
+    assert llm.calls == [(1, "MentionExtraction")] * 3
