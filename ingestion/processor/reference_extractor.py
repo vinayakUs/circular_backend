@@ -2,13 +2,14 @@
 LLM-first SEBI/NSE circular reference extractor.
 
 Two independent language-model passes:
-  1. Find explicitly printed circular identifiers and quote their evidence.
-  2. Classify what *this* circular does to each referenced circular.
+  1. Find explicitly printed circular identifiers with optional LLM quotes.
+  2. Verify IDs in source text and derive evidence directly from the PDF.
+  3. Classify what *this* circular does to each referenced circular.
 
 No regular expressions are used for extraction or classification. Every
-identifier and its supporting quote must be found in the supplied PDF text
-before any graph edge can be persisted. An incomplete LLM batch fails the
-processor without deleting existing edges.
+identifier must be present in the supplied PDF text. Empty extraction chunks
+are retried, and incomplete LLM batches fail instead of generating partial
+results. This processor only prints proposed edges; it never writes to DB.
 """
 
 from __future__ import annotations
@@ -44,6 +45,7 @@ Relationship = Literal[
 CHUNK_CHARS = 4200
 CHUNK_OVERLAP = 700
 CLASSIFICATION_BATCH_SIZE = 10
+MAX_EXTRACTION_ATTEMPTS = 3
 FULL_DOCUMENT_CONTEXT_LIMIT = 12000
 
 
@@ -52,7 +54,8 @@ class ReferenceMention(BaseModel):
         description="The circular identifier EXACTLY as printed in the document."
     )
     evidence: str = Field(
-        description="A VERBATIM substring containing the identifier and local clause."
+        default="",
+        description="Optional supporting quote; Python verifies the identifier in the PDF."
     )
 
 
@@ -100,8 +103,9 @@ These are examples, not a restrictive list of identifier patterns.
 For each mention return:
 - circular_number: copy the identifier as it actually appears. Preserve its
   slashes, dashes, digits, and any line break. Do not repair or invent digits.
-- evidence: copy an EXACT continuous substring of the input (preferably a
-  sentence or clause, ideally under 350 characters) containing that identifier.
+- evidence (optional): a short supporting quote if convenient. Focus on finding
+  ALL circular identifiers. Do not omit an ID because a quote is hard to copy.
+  Python will locate each ID in the original PDF text and derive exact evidence.
 
 Include only references to identifiable circulars, not regulations, sections,
 dates, URLs, page numbers, notices, or the source circular's own header.
@@ -110,6 +114,14 @@ do not guess its number. Multiple numbers in one clause require one entry
 for each number. Return an empty list if there are none.
 
 Return structured data matching the response schema.
+"""
+
+EXTRACTION_RETRY_INSTRUCTIONS = """
+Verification found no cited circular identifiers in this chunk on a prior
+attempt. Re-examine every paragraph, table and footnote for exact identifiers
+of OTHER SEBI/NSE circulars, including older numbering formats and IDs split
+across lines. Return all genuine identifiers; do not invent any. Return an
+empty list only if the chunk truly contains no other circular numbers.
 """
 
 CLASSIFICATION_INSTRUCTIONS = """
@@ -239,35 +251,93 @@ def _display_identifier(value: str) -> str:
     return cleaned.upper()
 
 
-def _valid_mention(
+def _find_identifier_span(text: str, identifier: str) -> tuple[int, int] | None:
+    """Find the model's ID in PDF text without regex; preserve original offsets.
+
+    Ignore whitespace inserted inside identifiers by line-wrapped PDFs, but
+    reject a partial match embedded in a longer identifier.
+    """
+    needle = _identifier_key(identifier)
+    if not needle:
+        return None
+
+    compact_chars: list[str] = []
+    positions: list[int] = []
+    for index, char in enumerate(text):
+        if not char.isspace():
+            compact_chars.append(char.upper())
+            positions.append(index)
+    compact_text = "".join(compact_chars)
+
+    offset = 0
+    while True:
+        found = compact_text.find(needle, offset)
+        if found < 0:
+            return None
+
+        start = positions[found]
+        end = positions[found + len(needle) - 1] + 1
+        before = text[start - 1] if start else ""
+        after = text[end] if end < len(text) else ""
+        # Surrounding punctuation is allowed; a neighboring ID character
+        # without an intervening space means this is a partial identifier.
+        before_continues = bool(before and (before.isalnum() or before in "/_-"))
+        after_continues = bool(after and (after.isalnum() or after in "/_-"))
+        if not before_continues and not after_continues:
+            return start, end
+        offset = found + 1
+
+
+def _verify_mention(
     mention: ReferenceMention, chunk: str, self_numbers: set[str],
-) -> _VerifiedMention | None:
+) -> tuple[_VerifiedMention | None, str | None]:
     raw = mention.circular_number.strip()
     key = _identifier_key(raw)
     if not (6 <= len(key) <= 140):
-        return None
+        return None, "identifier length outside 6-140 characters"
     if key in self_numbers:
-        return None
-    # Exclude dates, section numbers and unqualified purely numeric values.
+        return None, "source circular self-reference"
     if not any(c.isalpha() for c in key) or not any(c.isdigit() for c in key):
-        return None
-    if not mention.evidence or len(mention.evidence) > 600:
-        return None
+        return None, "identifier lacks letters or digits"
 
-    match = _evidence_span(chunk, mention.evidence)
+    # Use a model-supplied quote only to disambiguate duplicate occurrences;
+    # never reject a real ID because the model paraphrased its quote.
+    match = None
+    if mention.evidence:
+        evidence_span = _evidence_span(chunk, mention.evidence)
+        if evidence_span is not None:
+            quote_start, quote_end = evidence_span
+            local_match = _find_identifier_span(
+                chunk[quote_start:quote_end], raw
+            )
+            if local_match is not None:
+                match = (
+                    quote_start + local_match[0],
+                    quote_start + local_match[1],
+                )
+
     if match is None:
-        return None
+        match = _find_identifier_span(chunk, raw)
+    if match is None:
+        return None, "identifier not found in original PDF chunk"
+
     start, end = match
-    grounded = chunk[start:end]
-    # The identifier must be present in the verified quote, not merely elsewhere.
-    if key not in _identifier_key(grounded):
-        return None
+    # Evidence is always copied from the original source, not from the LLM.
+    evidence = chunk[max(0, start - 200):min(len(chunk), end + 300)]
     context = chunk[max(0, start - 250):min(len(chunk), end + 250)]
     return _VerifiedMention(
         circular_number=_display_identifier(raw),
-        evidence=grounded,
+        evidence=evidence,
         context=context,
-    )
+    ), None
+
+
+def _valid_mention(
+    mention: ReferenceMention, chunk: str, self_numbers: set[str],
+) -> _VerifiedMention | None:
+    """Compatibility helper for callers that only need accept/reject."""
+    verified, _reason = _verify_mention(mention, chunk, self_numbers)
+    return verified
 
 
 def _require_complete_responses(responses: list[Any], expected: int, pass_name: str) -> None:
@@ -296,40 +366,91 @@ def extract_reference_edges(
         _identifier_key(source_circular_number),
         _identifier_key(source_full_reference),
     }
-    extraction_prompts = [
-        f"{EXTRACTION_INSTRUCTIONS}\n"
-        f"CURRENT CIRCULAR (do not extract its own ID): "
-        f"{source_circular_number} | {source_full_reference}\n"
-        f"CHUNK {index + 1}/{len(chunks)}:\n"
-        f"<DOCUMENT_TEXT>\n{chunk}\n</DOCUMENT_TEXT>"
-        for index, chunk in enumerate(chunks)
-    ]
-    extraction = llm_client.create_completions_parallel(
-        prompts=extraction_prompts,
-        model=model,
-        response_model=MentionExtraction,
-        max_workers=4,
+    logger = logging.getLogger(__name__)
+    logger.info(
+        "Reference extraction model=%s chunks=%d max_attempts=%d",
+        model, len(chunks), MAX_EXTRACTION_ATTEMPTS,
     )
-    _require_complete_responses(extraction, len(chunks), "extraction")
 
     verified: list[_VerifiedMention] = []
     seen_mentions: set[tuple[str, str]] = set()
-    for chunk, response in zip(chunks, extraction):
-        for mention in response.mentions:
-            checked = _valid_mention(mention, chunk, self_numbers)
-            if checked is None:
-                logging.getLogger(__name__).debug(
-                    "Discarded ungrounded reference candidate %r", mention.circular_number
-                )
-                continue
-            unique_key = (
-                _identifier_key(checked.circular_number),
-                _fold_with_positions(checked.evidence)[0],
-            )
-            if unique_key not in seen_mentions:
-                seen_mentions.add(unique_key)
-                verified.append(checked)
+    pending_indices = list(range(len(chunks)))
 
+    for attempt in range(1, MAX_EXTRACTION_ATTEMPTS + 1):
+        if not pending_indices:
+            break
+        prompts = [
+            f"{EXTRACTION_INSTRUCTIONS}\n"
+            f"{EXTRACTION_RETRY_INSTRUCTIONS if attempt > 1 else ''}\n"
+            f"CURRENT CIRCULAR (do not extract its own ID): "
+            f"{source_circular_number} | {source_full_reference}\n"
+            f"CHUNK {index + 1}/{len(chunks)}:\n"
+            f"<DOCUMENT_TEXT>\n{chunks[index]}\n</DOCUMENT_TEXT>"
+            for index in pending_indices
+        ]
+        logger.info(
+            "Extraction attempt %d/%d: processing %d chunks",
+            attempt, MAX_EXTRACTION_ATTEMPTS, len(pending_indices),
+        )
+        extraction = llm_client.create_completions_parallel(
+            prompts=prompts,
+            model=model,
+            response_model=MentionExtraction,
+            max_workers=min(4, len(prompts)),
+        )
+        _require_complete_responses(extraction, len(prompts), "extraction")
+
+        retry_indices: list[int] = []
+        for index, response in zip(pending_indices, extraction):
+            chunk = chunks[index]
+            accepted_in_chunk = 0
+            logger.info(
+                "Extraction attempt %d/%d, chunk %d: raw_mentions=%d",
+                attempt, MAX_EXTRACTION_ATTEMPTS, index + 1,
+                len(response.mentions),
+            )
+            for mention in response.mentions:
+                checked, reason = _verify_mention(mention, chunk, self_numbers)
+                if checked is None:
+                    logger.warning(
+                        "Rejected candidate chunk=%d circular=%r reason=%s",
+                        index + 1, mention.circular_number, reason,
+                    )
+                    continue
+
+                accepted_in_chunk += 1
+                unique_key = (
+                    _identifier_key(checked.circular_number),
+                    _fold_with_positions(checked.evidence)[0],
+                )
+                if unique_key not in seen_mentions:
+                    seen_mentions.add(unique_key)
+                    verified.append(checked)
+                    logger.info(
+                        "Verified circular reference chunk=%d circular=%s",
+                        index + 1, checked.circular_number,
+                    )
+
+            logger.info(
+                "Extraction attempt %d/%d, chunk %d: verified_mentions=%d",
+                attempt, MAX_EXTRACTION_ATTEMPTS, index + 1,
+                accepted_in_chunk,
+            )
+            if accepted_in_chunk == 0:
+                retry_indices.append(index)
+
+        pending_indices = retry_indices
+        if pending_indices and attempt < MAX_EXTRACTION_ATTEMPTS:
+            logger.warning(
+                "%d chunks had no verified references; retrying extraction",
+                len(pending_indices),
+            )
+
+    logger.info(
+        "Reference extraction complete: verified_mentions=%d, "
+        "chunks_without_verified_references=%d",
+        len(verified), len(pending_indices),
+    )
     if not verified:
         return []
 
