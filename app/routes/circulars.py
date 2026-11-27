@@ -9,12 +9,14 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from datetime import date
+from io import BytesIO
 from typing import Any
 from uuid import UUID
 
 from elastic_transport import ConnectionTimeout
-from flask import request
+from flask import request, send_file
 
 from app.dto.circular_dto import CircularListResponseDTO, CircularSummaryDTO, SignatoryDTO
 from app.dto.search_result_dto import search_hit_to_dict
@@ -178,8 +180,13 @@ def register_routes(app, *, rag_generator) -> None:
     @app.get("/api/circulars/<uuid:record_id>/content")
     def get_circular_content(record_id):
         db_client = get_postgres_client()
-        asset_repository = AssetRepository(db_pool=db_client.get_pool())
+        pool = db_client.get_pool()
+        circular_repository = CircularRepository(db_pool=pool)
+        record = circular_repository.get_record_by_id(record_id)
+        if record is None:
+            return {"error": "Circular not found.", "record_id": str(record_id)}, 404
 
+        asset_repository = AssetRepository(db_pool=pool)
         asset = asset_repository.get_primary_asset(record_id)
         if asset is None:
             return {
@@ -187,6 +194,10 @@ def register_routes(app, *, rag_generator) -> None:
                 "record_id": str(record_id),
             }, 404
 
+        # Use the circular number rather than the storage object's basename.
+        circular_number = (record.full_reference or record.circular_id or str(record_id)).strip()
+        safe_name = re.sub(r"[^A-Za-z0-9._-]+", "_", circular_number).strip("._-")
+        filename = f"{safe_name[:180].rstrip('._-') or record_id}.pdf"
         file_path = asset.file_path
 
         if file_path.startswith("s3://"):
@@ -200,16 +211,20 @@ def register_routes(app, *, rag_generator) -> None:
                     "record_id": str(record_id),
                 }, 500
 
-            parts = file_path.replace("s3://", "").split("/", 1)
-            key = parts[1] if len(parts) > 1 else ""
-            response = app.make_response((file_content, 200))
-            response.content_type = asset.mime_type or "application/pdf"
-            response.headers["Content-Disposition"] = f'inline; filename="{key.split("/")[-1]}"'
-            return response
+            return send_file(
+                BytesIO(file_content),
+                mimetype=asset.mime_type or "application/pdf",
+                as_attachment=False,
+                download_name=filename,
+            )
 
-        # Local file path
-        from flask import send_file
-        return send_file(file_path, mimetype=asset.mime_type or "application/pdf")
+        # Local PDFs use the same visible filename as S3 PDFs.
+        return send_file(
+            file_path,
+            mimetype=asset.mime_type or "application/pdf",
+            as_attachment=False,
+            download_name=filename,
+        )
 
     # ── search endpoints ────────────────────────────────────────
     @app.post("/api/circulars/search/bm25")
