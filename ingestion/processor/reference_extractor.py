@@ -29,10 +29,6 @@ from pydantic import BaseModel, Field
 from config import Config
 from db.postgres_client import get_postgres_client
 from ingestion.processor.base import BaseProcessor
-from ingestion.repository.circular_reference_repository import (
-    CircularReference,
-    CircularReferenceRepository,
-)
 from ingestion.repository.circular_repository import CircularRecord, CircularRepository
 from storage.s3_client import get_s3_client
 from utils.llm_providers import get_llm_provider
@@ -378,14 +374,25 @@ def extract_reference_edges(
 
 
 class ReferenceExtractor(BaseProcessor):
-    """Idempotent production processor; compatible with the current runner."""
+    """Read-only preview extractor; never writes references or task status."""
 
     name = "reference_extractor"
 
     def __init__(self, db_pool: Any):
         super().__init__(db_pool)
         self.circular_repo = CircularRepository(db_pool)
-        self.reference_repo = CircularReferenceRepository(db_pool)
+
+    def run(self, record: CircularRecord) -> bool:
+        """Bypass BaseProcessor.run(), which writes to processing_tasks."""
+        try:
+            self.process(record)
+            return True
+        except Exception:
+            self.logger.exception(
+                "Read-only reference preview failed for circular_id=%s",
+                record.circular_id,
+            )
+            return False
 
     def process(self, record: CircularRecord) -> None:
         path = self._get_pdf_path(record)
@@ -401,7 +408,7 @@ class ReferenceExtractor(BaseProcessor):
         )
 
         resolved_ids: dict[str, UUID | None] = {}
-        references: list[CircularReference] = []
+        preview_rows: list[dict[str, str | None]] = []
         for item in extracted:
             key = _identifier_key(item.circular_number)
             if key not in resolved_ids:
@@ -409,24 +416,32 @@ class ReferenceExtractor(BaseProcessor):
             target_id = resolved_ids[key]
             if target_id == record.id:
                 continue
-            references.append(
-                CircularReference(
-                    relationship_type=item.relationship_type,
-                    target_circular_number=item.circular_number,
-                    target_circular_id=target_id,
-                )
-            )
+            preview_rows.append({
+                "source_circular_id": str(record.id),
+                "target_circular_id": str(target_id) if target_id else None,
+                "target_circular_number": item.circular_number,
+                "relationship_type": item.relationship_type,
+                "evidence_for_review": item.evidence,
+            })
             self.logger.info(
                 "Reference %s -> %s (%s), resolved=%s, evidence=%r",
                 record.circular_id, item.circular_number, item.relationship_type,
                 target_id is not None, item.evidence[:250],
             )
 
-        # Transactionally replace ONLY after both LLM passes fully succeed.
-        count = self.reference_repo.replace_references(record.id, references)
+        preview = {
+            "mode": "DRY_RUN_NO_DB_WRITES",
+            "target_table": "circular_references",
+            "source_circular_number": record.circular_id,
+            "source_circular_id": str(record.id),
+            "row_count": len(preview_rows),
+            "would_insert": preview_rows,
+        }
+        print("\n=== CIRCULAR REFERENCE DB PREVIEW: NO INSERT / UPDATE / DELETE ===")
+        print(json.dumps(preview, indent=2, ensure_ascii=False))
         self.logger.info(
-            "Persisted %d reference edges for source circular %s",
-            count, record.circular_id,
+            "Dry-run: previewed %d reference edges for %s (no DB writes)",
+            len(preview_rows), record.circular_id,
         )
 
     def _resolve_target(self, circular_number: str, source: str) -> UUID | None:
