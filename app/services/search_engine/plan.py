@@ -83,7 +83,11 @@ def regex_precheck(q: str) -> dict[str, Any] | None:
     no = m.group(0)
     issuer = ISSUER_ALIASES.get(no.split("/")[0].lower())
     raw = empty_raw()
+    request = q[:m.start()] + " " + q[m.end():]
+    request = re.sub(FILLER + r"|\b(find|lookup|look up|get|open|number|no)\b", " ", request, flags=re.I)
     raw.update(intent="LOOKUP", circular_no=no, issuers=[issuer] if issuer else [])
+    if re.search(r"\w", request):
+        raw.update(intent="QUESTION", is_question=True, clean_query=" ".join(request.split()), understood_as=q)
     return raw
 
 

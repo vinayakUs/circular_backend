@@ -39,6 +39,8 @@ class State(TypedDict, total=False):
     matches: dict
     exact: str
     phrase_results: list
+    resolved_circular_id: str
+    circular_message: str
 
 
 class SearchEngine:
@@ -73,11 +75,19 @@ class SearchEngine:
         if plan.get("date_phrase") and not plan["dates"]:
             return {"plan": plan, "clarification": f'Which start and end dates do you mean by "{plan["date_phrase"]}"?',
                     "warnings": plan["warnings"]}
+        if plan["intent"] == "QUESTION" and plan.get("circular_no") and not plan.get("phrases"):
+            ref = plan["circular_no"]
+            hits = self.rt.lookup(ref)
+            ids = {row["circular_id"] for row in hits}
+            if len(ids) != 1:
+                message = f"Circular {ref} was not found." if not ids else f"Multiple circulars matched {ref}."
+                return {"plan": plan, "hits": hits, "circular_message": message}
+            return {"plan": plan, "hits": hits, "resolved_circular_id": ids.pop()}
         return {"plan": plan}
 
     @staticmethod
     def route_by_intent(state: State) -> str:
-        if state.get("clarification"):
+        if state.get("clarification") or state.get("circular_message"):
             return "compose"
         if state["plan"].get("phrases") and state["plan"]["intent"] in ("QUESTION", "COMPARE"):
             return "prefetch_phrases"
@@ -234,11 +244,14 @@ class SearchEngine:
                    "prefetched_results": pre, "prefetch_quality": state.get("quality")}
             if "phrase_results" in state:
                 ctx["exact_phrase_results"] = state["phrase_results"]
+            if cid := state.get("resolved_circular_id"):
+                ctx["resolved_circular_id"] = cid
+                ctx["retrieval_instruction"] = "Use get_circular for a summary or search_chunks for a specific question."
             first = HumanMessage(content=json.dumps(ctx, default=str))
             history, new = [first], [first]
             upd["route"] = "agent (escalated)" if state.get("quality") else "agent"
         model = self.agent_llm
-        if "phrase_results" in state and state.get("steps", 0) + 1 >= MAX_STEPS:
+        if ("phrase_results" in state or state.get("resolved_circular_id")) and state.get("steps", 0) + 1 >= MAX_STEPS:
             model = self.final_agent_llm
         resp = model.invoke([SystemMessage(content=ans.AGENT_PROMPT)] + history)
         new.append(resp)
@@ -253,14 +266,24 @@ class SearchEngine:
         out, evidence = [], dict(state.get("evidence") or {})
         for tc in state["messages"][-1].tool_calls:
             try:
-                res = self.tool_map[tc["name"]].invoke(tc["args"])
+                name, args = tc["name"], tc["args"]
+                if cid := state.get("resolved_circular_id"):
+                    if name == "get_circular":
+                        args = {"circular_id": cid}
+                    elif name == "search_chunks":
+                        args = {"query": args["query"], "circular_id": cid}
+                    else:
+                        raise ValueError("Use get_circular or search_chunks for the referenced circular.")
+                res = self.tool_map[name].invoke(args)
             except Exception as e:  # noqa: BLE001
                 res = json.dumps({"error": f"{type(e).__name__}: {e}"})
             payload = json.loads(res)
-            if "phrase_results" in state:
+            cid = state.get("resolved_circular_id")
+            if cid or "phrase_results" in state:
+                allowed = {cid} if cid else set(evidence)
                 for key in ("results", "passages"):
                     if key in payload:
-                        payload[key] = [row for row in payload[key] if row.get("circular_id") in evidence]
+                        payload[key] = [row for row in payload[key] if row.get("circular_id") in allowed]
                 res = json.dumps(payload)
             out.append(ToolMessage(content=res, tool_call_id=tc["id"], name=tc["name"]))
             collect_evidence(evidence, tc["name"], payload)
@@ -315,7 +338,7 @@ class SearchEngine:
         if not final:
             warnings.append("agent hit the step cap without a final answer")
             hits = state.get("hits", [])
-        if "phrase_results" in state and not hits:
+        if ("phrase_results" in state or state.get("resolved_circular_id")) and not hits:
             hits = state["hits"]
         return {"hits": hits, "answer": answer, "sources": sources,
                 "clarification": final.get("clarification"), "warnings": warnings}
@@ -324,6 +347,10 @@ class SearchEngine:
         if self.include_summaries:
             self.rt.attach_summaries(state.get("hits", []))
         response = ans.compose_response(state)
+        if state.get("circular_message"):
+            response["message"] = state["circular_message"]
+        elif state.get("resolved_circular_id") and not state.get("answer") and not state.get("clarification"):
+            response["message"] = "A supported answer could not be generated from the referenced circular."
         if "phrase_results" in state and not state.get("answer") and not state.get("clarification"):
             groups = state["phrase_results"]
             if not state["hits"]:
