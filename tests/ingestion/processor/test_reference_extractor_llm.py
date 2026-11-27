@@ -13,6 +13,7 @@ from ingestion.processor.reference_extractor import (
     _evidence_span,
     chunk_text,
     extract_reference_edges,
+    get_relationship_context,
 )
 
 
@@ -137,3 +138,64 @@ def test_chunk_coverage_and_whitespace_grounding():
     assert "NSE/FAOP/73791" in "".join(chunks)
     assert len(chunks) > 1
     assert _evidence_span("See NSE/FAOP/\n73791", "NSE/FAOP/ 73791") is not None
+
+def test_sebi_2019_investment_policy_implicit_modification_uses_following_paragraph():
+    """The 2019 SEBI circular changes the 2016 investment policy in paragraph 2."""
+    source_id = "SEBI/HO/MRD2/DCAP/CIR/P/2019/145"
+    old_id = "SEBI/HO/MRD/DRMNP/CIR/P/2016/54"
+    reference_sentence = (
+        "1. SEBI vide circular SEBI/HO/MRD/DRMNP/CIR/P/2016/54 dated "
+        "May 04, 2016 permitted Clearing Corporations to invest in "
+        "Fixed Deposits, Government Securities and Liquid Funds."
+    )
+    modification_paragraph = (
+        "2. Upon a review of investment avenues available for Clearing "
+        "Corporations, it has been decided to permit investments in "
+        "Overnight Funds. Combined investments in Liquid Funds and Overnight "
+        "Funds shall not exceed ten percent of total investible resources."
+    )
+    text = (
+        f"CIRCULAR\\n{source_id} November 28, 2019\\n"
+        "Subject: Investment Policy of Clearing Corporations\\n"
+        f"{reference_sentence}\\n{modification_paragraph}"
+    ).replace("\\n", "\n")
+
+    class CapturingLLM(FakeLLM):
+        def __init__(self):
+            super().__init__(
+                extraction=[[mention(old_id, reference_sentence)]],
+                classifications=[[decision(0, "modifies")]],
+            )
+            self.classification_prompt = ""
+
+        def create_completions_parallel(self, *, prompts, model, response_model, **kwargs):
+            if response_model is MentionClassification:
+                self.classification_prompt = prompts[0]
+            return super().create_completions_parallel(
+                prompts=prompts, model=model, response_model=response_model, **kwargs
+            )
+
+    llm = CapturingLLM()
+    result = extract_reference_edges(
+        text, source_circular_number=source_id, source_full_reference=source_id,
+        llm_client=llm, model="fake",
+    )
+    assert len(result) == 1
+    assert result[0].circular_number == old_id
+    assert result[0].relationship_type == "modifies"
+    # The actual purpose of this test: the relationship model sees paragraph 2,
+    # although the referenced ID occurs only in paragraph 1.
+    assert modification_paragraph in llm.classification_prompt
+    assert reference_sentence in llm.classification_prompt
+
+
+def test_long_document_relationship_context_includes_next_paragraph():
+    reference = "SEBI/HO/MRD/DRMNP/CIR/P/2016/54"
+    quote = "Earlier circular " + reference + " permitted only Liquid Funds."
+    modification = "Now Overnight Funds are also permitted under the investment policy."
+    text = "A" * 12500 + quote + "\n" + modification + "Z" * 5000
+
+    context = get_relationship_context(text, quote)
+    assert quote in context
+    assert modification in context
+    assert len(context) < len(text)
