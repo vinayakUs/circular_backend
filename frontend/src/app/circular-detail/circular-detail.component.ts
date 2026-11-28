@@ -390,23 +390,20 @@ export class CircularDetailComponent implements OnInit, OnDestroy {
       const id = neighbor.id ?? 'stub:' + neighbor.label;
       if (cy.getElementById(id).empty()) newNodes.set(id, neighbor);
     }
-    // Pick free slots near the parent, including after nodes have been dragged.
-    const occupied = cy.nodes().map(node => ({ ...node.position() }));
-    let ring = 1;
-    let slot = 0;
+    const columnX = origin.x + 360;
+    const rowSpacing = 160;
+    // Include dragged cards whose current bounds intersect the new column.
+    const occupiedRows = cy.nodes().map(node => node.position())
+      .filter(p => Math.abs(p.x - columnX) < 245)
+      .map(p => p.y);
+    let nextY = origin.y - (newNodes.size - 1) * rowSpacing / 2;
     cy.batch(() => {
       for (const [id, neighbor] of newNodes) {
-        let position: cytoscape.Position;
-        do {
-          const angle = 2 * Math.PI * slot / (8 * ring);
-          position = { x: origin.x + 360 * ring * Math.cos(angle),
-                       y: origin.y + 220 * ring * Math.sin(angle) };
-          if (++slot === 8 * ring) {
-            slot = 0;
-            ring++;
-          }
-        } while (occupied.some(p => Math.abs(p.x - position.x) < 245 && Math.abs(p.y - position.y) < 135));
-        occupied.push(position);
+        while (occupiedRows.some(y => Math.abs(y - nextY) < 135)) {
+          nextY += rowSpacing;
+        }
+        const position = { x: columnX, y: nextY };
+        nextY += rowSpacing;
         cy.add({
           data: { ...neighbor, id },
           classes: neighbor.id ? '' : 'is-unresolved',
