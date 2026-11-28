@@ -590,16 +590,11 @@ def register_routes(app, *, rag_generator) -> None:
             ]
         }
 
-    # ── reference graph (full reachable neighborhood) ──────────
-    @app.get("/api/circulars/<uuid:record_id>/reference-graph")
-    def get_circular_reference_graph(record_id):
-        """Return the full reachable reference graph (nodes + links) for the
-        given circular. Walks both outgoing and incoming edges, no depth cap,
-        cycle-safe (PostgreSQL recursive CTEs)."""
-        from app.services.reference_graph_service import ReferenceGraphService
-        db_client = get_postgres_client()
-        service = ReferenceGraphService(db_client.get_pool())
-        graph = service.get_reference_graph(record_id)
-        if graph is None:
+    @app.get("/api/circulars/<uuid:record_id>/reference-neighbors")
+    def get_reference_neighbors(record_id):
+        from ingestion.repository.circular_reference_repository import CircularReferenceRepository
+        repository = CircularReferenceRepository(get_postgres_client().get_pool())
+        references = repository.get_direct_references(record_id)
+        if references is None:
             return {"error": "Circular not found.", "record_id": str(record_id)}, 404
-        return graph
+        return {"references": references}

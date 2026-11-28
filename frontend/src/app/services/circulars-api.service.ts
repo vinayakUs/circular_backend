@@ -16,48 +16,18 @@ export interface Signatory {
   extracted_at: string;
 }
 
-export interface ReferenceGraphNode {
-  id: string | null;
-  label: string;
-  title: string | null;
-  exchange: string | null;
-  department: string | null;
-  issue_date: string | null;
-  depth: number;
-  is_root: boolean;
-  unresolved: boolean;
-}
-
-export interface ReferenceGraphLink {
+export interface DirectReference {
+  id: string;
   source: string;
   target: string | null;
-  target_label?: string;
-  label: string;
-}
-
-export interface ReferenceGraphStats {
-  total_nodes: number;
-  total_links: number;
-  resolved_nodes: number;
-  unresolved_nodes: number;
-  max_depth: number;
-  cycles_truncated: number;
-}
-
-export interface ReferenceGraphRoot {
-  id: string;
-  circular_id: string;
-  title: string;
-  source: string;
-  department: string;
-  issue_date: string | null;
-}
-
-export interface ReferenceGraphResponse {
-  root: ReferenceGraphRoot;
-  nodes: ReferenceGraphNode[];
-  links: ReferenceGraphLink[];
-  stats: ReferenceGraphStats;
+  relationship: string;
+  neighbor: {
+    id: string | null;
+    label: string;
+    title: string | null;
+    exchange: string | null;
+    date: string | null;
+  };
 }
 
 export interface Circular {
@@ -338,9 +308,9 @@ export class CircularsApiService {
     );
   }
 
-  getReferenceGraph(recordId: string): Observable<ReferenceGraphResponse> {
-    return this.http.get<ReferenceGraphResponse>(
-      `${this.baseUrl}/api/circulars/${recordId}/reference-graph`
+  getReferenceNeighbors(recordId: string) {
+    return this.http.get<{ references: DirectReference[] }>(
+      `${this.baseUrl}/api/circulars/${recordId}/reference-neighbors`
     );
   }
 

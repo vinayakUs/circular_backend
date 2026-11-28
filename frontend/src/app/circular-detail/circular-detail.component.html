@@ -214,34 +214,14 @@
           <div class="reference-graph-section" *ngIf="!loading && circular">
             <div class="section-header">
               <h2>Reference Graph</h2>
-              <span class="graph-stats" *ngIf="referenceGraph?.stats">
-                {{ referenceGraph!.stats.total_nodes }} nodes ·
-                {{ referenceGraph!.stats.total_links }} edges
-                <span *ngIf="referenceGraph!.stats.unresolved_nodes > 0" class="unresolved-count">
-                  · {{ referenceGraph!.stats.unresolved_nodes }} unresolved
-                </span>
-              </span>
+              <a *ngIf="selectedNodeId && selectedNodeId !== circular.id"
+                 [routerLink]="['/circular', selectedNodeId]">View Circular</a>
             </div>
-            <div class="loading-state small" *ngIf="referenceGraphLoading">
-              <div class="loading-spinner small"></div>
-              <p>Loading reference graph...</p>
-            </div>
-
-            <div class="empty-state small" *ngIf="!referenceGraphLoading && referenceGraphError">
-              <p>Reference graph unavailable.</p>
-            </div>
-
-            <div class="empty-state small" *ngIf="!referenceGraphLoading && referenceGraph && graphElements.length === 0">
-              <p>No outgoing or incoming references for this circular.</p>
-            </div>
-
-            <div class="graph-container" *ngIf="!referenceGraphLoading && referenceGraph && graphElements.length > 0"
-                 [style.minHeight.px]="graphContainerMinHeight"
-                 [style.height.px]="graphContainerHeight">
+            <div class="graph-container">
               <div #cyContainer class="cy-chart" role="application" aria-label="Circular reference graph"></div>
             </div>
-
-            <div class="graph-hint" *ngIf="!referenceGraphLoading && referenceGraph && graphElements.length > 0">Drag nodes · Scroll to zoom · Drag background to pan</div>
+            <div class="graph-hint">Click a circular to expand its references · Scroll to zoom · Drag to pan</div>
+            <div aria-live="polite">{{ loadingNeighbors ? 'Loading references…' : graphNotice }}</div>
           </div>
 
         </div>

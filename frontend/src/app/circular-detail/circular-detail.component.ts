@@ -1,10 +1,10 @@
-import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
-import { ActivatedRoute, Router, RouterLink, RouterModule } from '@angular/router';
+import { ActivatedRoute, RouterLink, RouterModule } from '@angular/router';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { marked } from 'marked';
 import type cytoscape from 'cytoscape';
-import { CircularsApiService, Circular, Signatory, Expert, ReferenceGraphResponse } from '../services/circulars-api.service';
+import { CircularsApiService, Circular, Signatory, Expert, DirectReference } from '../services/circulars-api.service';
 import { ExpertModalComponent } from '../expert-modal/expert-modal.component';
 import { AuthService } from '../services/auth.service';
 import { normalizeSource } from '../util/source.util';
@@ -28,7 +28,7 @@ interface ActionItem {
   templateUrl: './circular-detail.component.html',
   styleUrl: './circular-detail.component.css'
 })
-export class CircularDetailComponent implements OnInit, AfterViewInit, OnDestroy {
+export class CircularDetailComponent implements OnInit, OnDestroy {
 
   circular: Circular | null = null;
   loading = true;
@@ -44,35 +44,23 @@ export class CircularDetailComponent implements OnInit, AfterViewInit, OnDestroy
   signatoriesLoading = false;
   experts: Expert[] = [];
   expertsLoading = false;
-  referenceGraph: ReferenceGraphResponse | null = null;
-  referenceGraphLoading = false;
-  referenceGraphError = false;
-
-  graphElements: cytoscape.ElementDefinition[] = [];
-  graphDepthRows = 0;
+  selectedNodeId: string | null = null;
+  graphNotice = '';
+  private readonly pending = new Set<string>();
+  private readonly expanded = new Set<string>();
   private cy: cytoscape.Core | null = null;
-
-  /** Per-row vertical budget: node height (112) + row gap (80) = 192px.
-   *  +40px top/bottom padding keeps the rows visually centred. */
-  private readonly ROW_HEIGHT_PX = 192;
-  private readonly CONTAINER_VERTICAL_PADDING = 80;
-  private readonly BASE_CONTAINER_HEIGHT = 560;
-
-  /** Container height grows with the number of depth rows so a 3-level
-   *  graph isn't crammed into the same vertical space as a 1-level one. */
-  get graphContainerHeight(): number {
-    const rows = Math.max(1, this.graphDepthRows);
-    return Math.max(this.BASE_CONTAINER_HEIGHT, rows * this.ROW_HEIGHT_PX + this.CONTAINER_VERTICAL_PADDING);
-  }
-
-  get graphContainerMinHeight(): number {
-    return this.graphContainerHeight;
-  }
   private graphResizeObserver: ResizeObserver | null = null;
-  private graphInitialization: Promise<void> | null = null;
+  private graphContainer?: HTMLDivElement;
   private graphDestroyed = false;
 
-  @ViewChild('cyContainer') private cyContainer?: ElementRef<HTMLDivElement>;
+  @ViewChild('cyContainer') set cyContainer(ref: ElementRef<HTMLDivElement> | undefined) {
+    this.graphContainer = ref?.nativeElement;
+    if (this.graphContainer) {
+      void this.createGraph(this.graphContainer).catch(() => {
+        this.graphNotice = 'Could not display the reference graph.';
+      });
+    }
+  }
 
   private readonly handleGraphResize = () => {
     if (!this.graphDestroyed) {
@@ -85,9 +73,7 @@ export class CircularDetailComponent implements OnInit, AfterViewInit, OnDestroy
     private route: ActivatedRoute,
     private api: CircularsApiService,
     private auth: AuthService,
-    private cdr: ChangeDetectorRef,
-    private zone: NgZone,
-    private router: Router
+    private zone: NgZone
   ) {}
 
   get isLoggedIn(): boolean {
@@ -104,19 +90,20 @@ export class CircularDetailComponent implements OnInit, AfterViewInit, OnDestroy
       this.circular = null;
       this.loading = true;
       this.circularError = null;
-      this.referenceGraph = null;
-      this.referenceGraphError = false;
-      this.referenceGraphLoading = false;
-      this.graphElements = [];
-      this.graphDepthRows = 0;
+      this.selectedNodeId = null;
+      this.graphNotice = '';
+      this.pending.clear();
+      this.expanded.clear();
       this.summary = null;
       this.experts = [];
       this.signatories = [];
       this.actionItems = [];
       this.destroyGraph();
 
+      const currentVisit = ++this.visit;
       this.api.getCircularRecord(id).subscribe({
         next: (data) => {
+          if (currentVisit !== this.visit || this.graphDestroyed) return;
           this.circular = data;
           this.circular.normalizedSource = normalizeSource(this.circular.source);
           this.loading = false;
@@ -124,9 +111,9 @@ export class CircularDetailComponent implements OnInit, AfterViewInit, OnDestroy
           this.fetchSummary(id);
           this.fetchSignatories(id);
           this.fetchExperts(id);
-          this.fetchReferenceGraph(id);
         },
         error: (err) => {
+          if (currentVisit !== this.visit || this.graphDestroyed) return;
           this.loading = false;
           this.circularError = err?.status === 0 ? 'connection' : 'not_found';
         }
@@ -134,51 +121,26 @@ export class CircularDetailComponent implements OnInit, AfterViewInit, OnDestroy
     });
   }
 
-  ngAfterViewInit(): void {
-    this.initializeGraph();
-  }
+  private visit = 0;
 
   ngOnDestroy(): void {
     this.graphDestroyed = true;
     this.destroyGraph();
   }
 
-  private initializeGraph(): void {
-    const container = this.cyContainer?.nativeElement;
-    if (
-      !container ||
-      this.cy ||
-      this.graphDestroyed ||
-      this.graphElements.length === 0 ||
-      this.graphInitialization
-    ) {
-      return;
-    }
-
-    this.graphInitialization = this.createGraph(container)
-      .catch((error: unknown) => {
-        console.warn('[reference-graph] failed to initialise Cytoscape', error);
-      })
-      .finally(() => {
-        this.graphInitialization = null;
-      });
-  }
-
   private async createGraph(container: HTMLDivElement): Promise<void> {
     const { default: cytoscapeLib } = await import('cytoscape');
 
-    if (
-      this.graphDestroyed ||
-      this.cy ||
-      this.graphElements.length === 0 ||
-      this.cyContainer?.nativeElement !== container
-    ) {
-      return;
-    }
+    const root = this.circular;
+    if (!root || this.graphDestroyed || this.graphContainer !== container || this.cy) return;
 
     this.cy = cytoscapeLib({
       container,
-      elements: [],
+      elements: [{
+        data: { id: root.id, label: root.full_reference || root.circular_id, title: root.title,
+                date: root.issue_date, exchange: root.source, is_root: true },
+        classes: 'is-root',
+      }],
       style: this.graphStyles,
       layout: { name: 'preset' },
       minZoom: 0.1,
@@ -188,21 +150,10 @@ export class CircularDetailComponent implements OnInit, AfterViewInit, OnDestroy
     });
 
     this.cy.on('tap', 'node', (event) => {
-      const node = event.target;
-      const nodeId = node.id();
-      console.log('[reference-graph] node tap', { nodeId, classes: node.classes() });
-      if (typeof nodeId !== 'string' || nodeId.startsWith('stub:')) {
-        console.log('[reference-graph] unresolved stub, ignoring tap');
-        return;
+      const node: cytoscape.NodeSingular = event.target;
+      if (!node.hasClass('is-unresolved')) {
+        this.zone.run(() => this.expandNode(node));
       }
-      const commands = ['/circular', nodeId];
-      console.log('[reference-graph] navigating to', commands.join('/'));
-      this.zone.run(() => {
-        this.router
-          .navigate(commands, { onSameUrlNavigation: 'reload' })
-          .then((success) => console.log('[reference-graph] navigation result', success))
-          .catch((error) => console.warn('[reference-graph] navigation error', error));
-      });
     });
 
     this.graphResizeObserver = typeof ResizeObserver === 'undefined'
@@ -211,7 +162,8 @@ export class CircularDetailComponent implements OnInit, AfterViewInit, OnDestroy
     this.graphResizeObserver?.observe(container);
     window.addEventListener('resize', this.handleGraphResize);
 
-    this.renderGraph();
+    this.cy.zoom(0.8);
+    this.cy.center();
   }
 
   private destroyGraph(): void {
@@ -223,38 +175,6 @@ export class CircularDetailComponent implements OnInit, AfterViewInit, OnDestroy
       this.cy.destroy();
       this.cy = null;
     }
-  }
-
-  private renderGraph(): void {
-    if (!this.cy || this.graphDestroyed) return;
-
-    this.zone.runOutsideAngular(() => {
-      const cy = this.cy;
-      if (!cy) return;
-
-      cy.batch(() => {
-        cy.elements().remove();
-        if (this.graphElements.length > 0) {
-          cy.add(this.graphElements);
-        }
-      });
-
-      if (this.graphElements.length === 0) return;
-
-      // The 'preset' layout honours the per-node `position` we computed in
-      // toGraphModel() — that's how we get strict depth rows instead of a
-      // heuristic tree. We then fit + centre + zoom for the initial view.
-      cy.layout({
-        name: 'preset',
-        fit: true,
-        padding: 80,
-        animate: false,
-      } as cytoscape.LayoutOptions).run();
-      cy.resize();
-      cy.fit(cy.elements(), 80);
-      cy.zoom(0.8);
-      cy.center();
-    });
   }
 
   private readonly graphStyles: cytoscape.StylesheetJson = [
@@ -431,141 +351,78 @@ export class CircularDetailComponent implements OnInit, AfterViewInit, OnDestroy
     });
   }
 
-  private fetchReferenceGraph(circularId: string) {
-    this.referenceGraphLoading = true;
-    this.referenceGraphError = false;
-    this.api.getReferenceGraph(circularId).subscribe({
-      next: (graph) => {
-        if (this.graphDestroyed) return;
-        this.referenceGraph = graph;
-        this.referenceGraphLoading = false;
-        console.log('[reference-graph] loaded', {
-          total_nodes: graph.stats.total_nodes,
-          total_links: graph.stats.total_links,
-          resolved_nodes: graph.stats.resolved_nodes,
-          unresolved_nodes: graph.stats.unresolved_nodes,
-          max_depth: graph.stats.max_depth,
-        });
-        this.toGraphModel();
-        this.cdr.detectChanges();
-        if (this.graphElements.length === 0) {
-          this.destroyGraph();
-          return;
+  private expandNode(node: cytoscape.NodeSingular): void {
+    const id = node.id();
+    const cy = this.cy;
+    this.selectedNodeId = id;
+    this.graphNotice = '';
+    if (!cy || this.expanded.has(id) || this.pending.has(id)) return;
+
+    this.pending.add(id);
+    this.api.getReferenceNeighbors(id).subscribe({
+      next: ({ references }) => {
+        if (this.cy !== cy) return;
+        this.pending.delete(id);
+        this.expanded.add(id);
+        this.addNeighbors(cy, node, references);
+        if (this.selectedNodeId === id && !references.length) {
+          this.graphNotice = 'This circular has no references.';
         }
-        this.initializeGraph();
-        this.renderGraph();
       },
-      error: (err) => {
-        if (this.graphDestroyed) return;
-        this.referenceGraph = null;
-        this.graphElements = [];
-        this.referenceGraphLoading = false;
-        this.referenceGraphError = true;
-        this.destroyGraph();
-        this.cdr.detectChanges();
-        console.warn('[reference-graph] failed to load', err?.status, err?.message);
-      }
+      error: () => {
+        if (this.cy !== cy) return;
+        this.pending.delete(id);
+        if (this.selectedNodeId === id) {
+          this.graphNotice = 'Could not load references. Click the node to retry.';
+        }
+      },
     });
   }
 
-  /** Convert the API response into Cytoscape nodes and edges.
-   *  Nodes are positioned strictly by the API-provided `depth` field —
-   *  all depth-0 nodes share a row, all depth-1 nodes share the next, etc.
-   *  This produces a clean horizontal hierarchy instead of relying on
-   *  a layout engine to infer rank from edge direction. */
-  private toGraphModel(): void {
-    if (!this.referenceGraph) {
-      this.graphElements = [];
-      return;
+  get loadingNeighbors(): boolean {
+    return this.pending.size > 0;
+  }
+
+  private addNeighbors(cy: cytoscape.Core, parent: cytoscape.NodeSingular, references: DirectReference[]): void {
+    const origin = parent.position();
+    const newNodes = new Map<string, DirectReference['neighbor']>();
+    for (const { neighbor } of references) {
+      const id = neighbor.id ?? 'stub:' + neighbor.label;
+      if (cy.getElementById(id).empty()) newNodes.set(id, neighbor);
     }
-
-    const stubId = (label: string) => `stub:${label}`;
-
-    // Group node indices by depth so we can layout each row independently.
-    // Unknown depths get bucketed into the deepest known row so stubs always
-    // sit on a real depth line rather than floating at depth 0.
-    const maxKnownDepth = this.referenceGraph.nodes.reduce(
-      (acc, n) => Math.max(acc, typeof n.depth === 'number' ? n.depth : 0),
-      0,
-    );
-    const rowIndices = new Map<number, number[]>();
-    this.referenceGraph.nodes.forEach((node, index) => {
-      const d = typeof node.depth === 'number' ? node.depth : maxKnownDepth;
-      const bucket = rowIndices.get(d) ?? [];
-      bucket.push(index);
-      rowIndices.set(d, bucket);
+    // Pick free slots near the parent, including after nodes have been dragged.
+    const occupied = cy.nodes().map(node => ({ ...node.position() }));
+    let ring = 1;
+    let slot = 0;
+    cy.batch(() => {
+      for (const [id, neighbor] of newNodes) {
+        let position: cytoscape.Position;
+        do {
+          const angle = 2 * Math.PI * slot / (8 * ring);
+          position = { x: origin.x + 360 * ring * Math.cos(angle),
+                       y: origin.y + 220 * ring * Math.sin(angle) };
+          if (++slot === 8 * ring) {
+            slot = 0;
+            ring++;
+          }
+        } while (occupied.some(p => Math.abs(p.x - position.x) < 245 && Math.abs(p.y - position.y) < 135));
+        occupied.push(position);
+        cy.add({
+          data: { ...neighbor, id },
+          classes: neighbor.id ? '' : 'is-unresolved',
+          position,
+        });
+      }
+      for (const ref of references) {
+        const id = 'edge:' + ref.id;
+        if (cy.getElementById(id).nonempty()) continue;
+        cy.add({
+          data: { id, source: ref.source, target: ref.target ?? 'stub:' + ref.neighbor.label,
+                  label: ref.relationship, rel_type: ref.relationship },
+          classes: ref.target ? '' : 'is-unresolved',
+        });
+      }
     });
-
-    // Geometry constants — kept in sync with the node CSS (width 220, height 112).
-    const NODE_WIDTH = 220;
-    const NODE_HEIGHT = 112;
-    const GAP_X = 60;
-    const GAP_Y = 80;
-    const ROW_PADDING_X = 80;
-
-    // Compute the widest row in nodes so every row can share a common width
-    // and stay centered on the same vertical axis.
-    const widestRowSize = Math.max(1, ...Array.from(rowIndices.values()).map((row) => row.length));
-    const rowPixelWidth = widestRowSize * NODE_WIDTH + (widestRowSize - 1) * GAP_X;
-    const rowLeftEdge = -rowPixelWidth / 2 + NODE_WIDTH / 2;
-
-    const positions = new Map<number, { x: number; y: number }>();
-    const sortedDepths = Array.from(rowIndices.keys()).sort((a, b) => a - b);
-    sortedDepths.forEach((depth) => {
-      const row = rowIndices.get(depth) ?? [];
-      const rowWidth = row.length * NODE_WIDTH + (row.length - 1) * GAP_X;
-      const rowStart = -rowWidth / 2 + NODE_WIDTH / 2;
-      row.forEach((nodeIndex, slotInRow) => {
-        const x = row.length === widestRowSize
-          ? rowLeftEdge + slotInRow * (NODE_WIDTH + GAP_X)
-          : rowStart + slotInRow * (NODE_WIDTH + GAP_X);
-        const y = depth * (NODE_HEIGHT + GAP_Y);
-        positions.set(nodeIndex, { x, y });
-      });
-    });
-
-    const elements: cytoscape.ElementDefinition[] = this.referenceGraph.nodes.map((node, index) => {
-      const id = node.id ?? stubId(node.label);
-      const classes = [
-        node.is_root ? 'is-root' : '',
-        node.unresolved ? 'is-unresolved' : '',
-      ].filter(Boolean);
-
-      return {
-        group: 'nodes',
-        data: {
-          id,
-          label: node.label,
-          title: node.title ?? '',
-          date: node.issue_date ?? '',
-          exchange: node.exchange ?? null,
-          is_root: node.is_root,
-          unresolved: node.unresolved,
-        },
-        position: positions.get(index) ?? { x: 0, y: 0 },
-        classes,
-      };
-    });
-
-    this.referenceGraph.links.forEach((link, index) => {
-      const target = link.target ?? stubId(link.target_label ?? 'unknown');
-      elements.push({
-        group: 'edges',
-        data: {
-          id: `e:${index}`,
-          source: link.source,
-          target,
-          label: link.label,
-          rel_type: link.label,
-          unresolved: link.target === null,
-        },
-        classes: link.target === null ? ['is-unresolved'] : [],
-      });
-    });
-
-    // Stash the row count so the container can grow vertically for deep graphs.
-    this.graphDepthRows = sortedDepths.length;
-    this.graphElements = elements;
   }
 
   // Format an ISO date string ("2020-03-15") as "15 Mar 2020".
